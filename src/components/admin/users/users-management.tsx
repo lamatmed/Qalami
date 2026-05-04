@@ -1,0 +1,515 @@
+'use client'
+
+import { useState, useEffect } from 'react'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import { toast } from 'sonner'
+import {
+    UserPlus,
+    Trash2,
+    Shield,
+    Clock,
+    KeyRound,
+    User,
+    CheckSquare2,
+    Square,
+    Activity,
+    Users,
+    ChevronDown,
+    ChevronUp,
+    ShieldCheck,
+    RefreshCw,
+    Eye,
+    EyeOff
+} from 'lucide-react'
+
+const COUNTRY_CODES = [
+    { code: '+222', flag: '🇲🇷', name: 'Mauritanie' },
+    { code: '+221', flag: '🇸🇳', name: 'Sénégal' },
+    { code: '+223', flag: '🇲🇱', name: 'Mali' },
+    { code: '+212', flag: '🇲🇦', name: 'Maroc' },
+    { code: '+213', flag: '🇩🇿', name: 'Algérie' },
+    { code: '+216', flag: '🇹🇳', name: 'Tunisie' },
+    { code: '+33', flag: '🇫🇷', name: 'France' },
+    { code: '+1', flag: '🇺🇸', name: 'USA' },
+]
+import {
+    getStaffUsers, createStaffUser, updateStaffPermissions,
+    deleteStaffUser, getActivityLogs, type Permission
+} from '@/app/admin/users/actions'
+
+const ALL_PERMISSIONS: { key: Permission; label: string; icon: string }[] = [
+    { key: 'students', label: 'Élèves', icon: '👨‍🎓' },
+    { key: 'teachers', label: 'Enseignants', icon: '👩‍🏫' },
+    { key: 'parents', label: 'Parents', icon: '👪' },
+    { key: 'classes', label: 'Classes', icon: '🏫' },
+    { key: 'schedule', label: 'Emploi du temps', icon: '🗓️' },
+    { key: 'attendance', label: 'Présences', icon: '✅' },
+    { key: 'reports', label: 'Bulletins', icon: '📋' },
+    { key: 'finance', label: 'Comptabilité', icon: '💰' },
+    { key: 'settings', label: 'Paramètres', icon: '⚙️' },
+    { key: 'users', label: 'Utilisateurs', icon: '👤' },
+]
+
+interface StaffUser {
+    id: string
+    full_name: string
+    phone: string
+    status: string
+    first_login: boolean
+    created_at: string
+    permissions: Permission[]
+}
+
+interface ActivityLog {
+    id: string
+    actor_id: string
+    action: string
+    entity_type: string
+    details: string
+    created_at: string
+    profiles: { full_name: string } | null
+}
+
+type TabType = 'users' | 'logs'
+
+export function UsersManagement() {
+    const [tab, setTab] = useState<TabType>('users')
+    const [users, setUsers] = useState<StaffUser[]>([])
+    const [logs, setLogs] = useState<ActivityLog[]>([])
+    const [loading, setLoading] = useState(true)
+    const [logsLoading, setLogsLoading] = useState(false)
+    const [showCreate, setShowCreate] = useState(false)
+    const [expandedUser, setExpandedUser] = useState<string | null>(null)
+    const [savingPerms, setSavingPerms] = useState<string | null>(null)
+    const [deletingId, setDeletingId] = useState<string | null>(null)
+    const [editPerms, setEditPerms] = useState<Record<string, Permission[]>>({})
+
+    const [form, setForm] = useState({ fullName: '', phone: '', password: '' })
+    const [countryCode, setCountryCode] = useState(COUNTRY_CODES[0])
+    const [showCountryDropdown, setShowCountryDropdown] = useState(false)
+    const [showPassword, setShowPassword] = useState(false)
+    const [newPerms, setNewPerms] = useState<Permission[]>([])
+    const [creating, setCreating] = useState(false)
+
+    useEffect(() => {
+        loadUsers()
+    }, [])
+
+    useEffect(() => {
+        if (tab === 'logs' && logs.length === 0) loadLogs()
+    }, [tab])
+
+    async function loadUsers() {
+        setLoading(true)
+        const result = await getStaffUsers()
+        if (result.error) toast.error(result.error)
+        else {
+            setUsers(result.data || [])
+            const initialPerms: Record<string, Permission[]> = {}
+            for (const u of result.data || []) {
+                initialPerms[u.id] = [...u.permissions]
+            }
+            setEditPerms(initialPerms)
+        }
+        setLoading(false)
+    }
+
+    async function loadLogs() {
+        setLogsLoading(true)
+        const result = await getActivityLogs(100)
+        if (result.error) toast.error(result.error)
+        else setLogs(result.data as ActivityLog[])
+        setLogsLoading(false)
+    }
+
+    async function handleCreate() {
+        setCreating(true)
+        const fullPhone = countryCode.code + form.phone.replace(/^0+/, '')
+        const result = await createStaffUser({ ...form, phone: fullPhone, permissions: newPerms })
+        if (result.error) {
+            toast.error(result.error)
+        } else {
+            toast.success('Utilisateur créé avec succès')
+            setShowCreate(false)
+            setForm({ fullName: '', phone: '', password: '' })
+            setCountryCode(COUNTRY_CODES[0])
+            setNewPerms([])
+            loadUsers()
+        }
+        setCreating(false)
+    }
+
+    async function handleSavePerms(userId: string) {
+        setSavingPerms(userId)
+        const result = await updateStaffPermissions(userId, editPerms[userId] || [])
+        if (result.error) toast.error(result.error)
+        else toast.success('Permissions mises à jour')
+        setSavingPerms(null)
+    }
+
+    async function handleDelete(userId: string) {
+        if (!confirm('Supprimer cet utilisateur ? Cette action est irréversible.')) return
+        setDeletingId(userId)
+        const result = await deleteStaffUser(userId)
+        if (result.error) toast.error(result.error)
+        else {
+            toast.success('Utilisateur supprimé')
+            loadUsers()
+        }
+        setDeletingId(null)
+    }
+
+    const togglePerm = (perms: Permission[], perm: Permission): Permission[] =>
+        perms.includes(perm) ? perms.filter(p => p !== perm) : [...perms, perm]
+
+    return (
+        <div className="space-y-6">
+            <div className="flex justify-end">
+                <Button
+                    onClick={() => setShowCreate(true)}
+                    className="bg-emerald-500 hover:bg-emerald-600 text-black font-bold rounded-xl"
+                >
+                    <UserPlus className="w-4 h-4 mr-2" /> Ajouter un utilisateur
+                </Button>
+            </div>
+
+            {/* Tabs */}
+            <div className="flex gap-1 bg-gray-100 dark:bg-[#1A2530] p-1 rounded-xl w-fit">
+                <button
+                    onClick={() => setTab('users')}
+                    className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all ${tab === 'users' ? 'bg-white dark:bg-[#0F1720] text-gray-900 dark:text-white shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
+                >
+                    <Users className="w-4 h-4" /> Utilisateurs
+                </button>
+                <button
+                    onClick={() => setTab('logs')}
+                    className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all ${tab === 'logs' ? 'bg-white dark:bg-[#0F1720] text-gray-900 dark:text-white shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
+                >
+                    <Activity className="w-4 h-4" /> Journal d'activité
+                </button>
+            </div>
+
+            {/* Create Modal */}
+            {showCreate && (
+                <div className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center p-4" onClick={() => setShowCreate(false)}>
+                    <div className="bg-white dark:bg-[#0F1720] border border-gray-200 dark:border-white/10 rounded-3xl p-6 w-full max-w-md shadow-2xl" onClick={e => e.stopPropagation()}>
+                        <div className="flex items-center gap-3 mb-6">
+                            <div className="w-10 h-10 bg-emerald-500/10 rounded-xl flex items-center justify-center">
+                                <UserPlus className="w-5 h-5 text-emerald-500" />
+                            </div>
+                            <div>
+                                <h2 className="text-lg font-bold text-gray-900 dark:text-white">Nouvel utilisateur</h2>
+                                <p className="text-xs text-gray-400">Compte sous-admin avec permissions limitées</p>
+                            </div>
+                        </div>
+
+                        <div className="space-y-4">
+                            <div className="space-y-2">
+                                <Label>Nom complet *</Label>
+                                <div className="relative">
+                                    <User className="absolute left-3 top-3 w-4 h-4 text-gray-400" />
+                                    <Input value={form.fullName} onChange={e => setForm(f => ({ ...f, fullName: e.target.value }))}
+                                        placeholder="ex. Ahmed Ould Mohamed"
+                                        className="pl-9 bg-gray-50 dark:bg-[#1A2530] border-gray-200 dark:border-white/5" />
+                                </div>
+                            </div>
+                            <div className="space-y-2">
+                                <Label>Numéro de téléphone *</Label>
+                                <div className="relative flex">
+                                    {/* Country code selector */}
+                                    <div className="relative">
+                                        <button
+                                            type="button"
+                                            onClick={() => setShowCountryDropdown(v => !v)}
+                                            className="h-10 flex items-center gap-1.5 px-3 bg-gray-50 dark:bg-[#1A2530] border border-gray-200 dark:border-white/5 rounded-l-lg border-r-0 text-sm font-medium hover:bg-gray-100 dark:hover:bg-[#23303d] transition-colors"
+                                        >
+                                            <span className="text-base leading-none">{countryCode.flag}</span>
+                                            <span className="text-xs text-gray-500">{countryCode.code}</span>
+                                            <ChevronDown className="w-3 h-3 text-gray-400" />
+                                        </button>
+                                        {showCountryDropdown && (
+                                            <>
+                                                <div className="fixed inset-0 z-20" onClick={() => setShowCountryDropdown(false)} />
+                                                <div className="absolute top-full left-0 mt-1 bg-white dark:bg-[#1A2530] border border-gray-200 dark:border-white/10 rounded-xl shadow-xl z-30 py-1 min-w-[190px] max-h-48 overflow-y-auto">
+                                                    {COUNTRY_CODES.map(cc => (
+                                                        <button
+                                                            key={cc.code}
+                                                            type="button"
+                                                            onClick={() => { setCountryCode(cc); setShowCountryDropdown(false) }}
+                                                            className={`w-full flex items-center gap-3 px-3 py-2 text-sm hover:bg-gray-50 dark:hover:bg-white/5 transition-colors ${cc.code === countryCode.code ? 'bg-gray-50 dark:bg-white/5 font-medium' : ''}`}
+                                                        >
+                                                            <span className="text-base">{cc.flag}</span>
+                                                            <span className="text-gray-800 dark:text-gray-200">{cc.name}</span>
+                                                            <span className="text-gray-400 ml-auto text-xs">{cc.code}</span>
+                                                        </button>
+                                                    ))}
+                                                </div>
+                                            </>
+                                        )}
+                                    </div>
+                                    <Input
+                                        type="tel"
+                                        value={form.phone}
+                                        onChange={e => setForm(f => ({ ...f, phone: e.target.value }))}
+                                        placeholder="36 12 34 56"
+                                        dir="ltr"
+                                        className="rounded-l-none bg-gray-50 dark:bg-[#1A2530] border-gray-200 dark:border-white/5 flex-1"
+                                    />
+                                </div>
+                            </div>
+                            <div className="space-y-2">
+                                <Label>Mot de passe instantané *</Label>
+                                <div className="relative">
+                                    <KeyRound className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                                    <Input
+                                        type={showPassword ? 'text' : 'password'}
+                                        value={form.password}
+                                        onChange={e => setForm(f => ({ ...f, password: e.target.value }))}
+                                        placeholder="ex. Staff2024"
+                                        className="pl-9 pr-10 bg-gray-50 dark:bg-[#1A2530] border-gray-200 dark:border-white/5"
+                                    />
+                                    <button
+                                        type="button"
+                                        onClick={() => setShowPassword(v => !v)}
+                                        className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors"
+                                        tabIndex={-1}
+                                    >
+                                        {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                                    </button>
+                                </div>
+                                <p className="text-[11px] text-gray-400 italic">L'utilisateur devra le changer à la première connexion.</p>
+                            </div>
+
+                            {/* Permissions */}
+                            <div className="space-y-2">
+                                <div className="flex items-center justify-between">
+                                    <Label>Permissions</Label>
+                                    <button
+                                        type="button"
+                                        onClick={() => setNewPerms(newPerms.length === ALL_PERMISSIONS.length ? [] : ALL_PERMISSIONS.map(p => p.key))}
+                                        className="text-xs text-emerald-500 hover:text-emerald-600 font-medium"
+                                    >
+                                        {newPerms.length === ALL_PERMISSIONS.length ? 'Désélectionner tout' : 'Sélectionner tout'}
+                                    </button>
+                                </div>
+                                <div className="grid grid-cols-2 gap-2">
+                                    {ALL_PERMISSIONS.map(p => (
+                                        <button
+                                            key={p.key}
+                                            type="button"
+                                            onClick={() => setNewPerms(prev => togglePerm(prev, p.key))}
+                                            className={`flex items-center gap-2 px-3 py-2 rounded-lg border text-sm transition-all ${newPerms.includes(p.key)
+                                                ? 'bg-emerald-500/10 border-emerald-500 text-emerald-700 dark:text-emerald-400'
+                                                : 'bg-gray-50 dark:bg-[#1A2530] border-gray-200 dark:border-white/5 text-gray-500'}`}
+                                        >
+                                            {newPerms.includes(p.key)
+                                                ? <CheckSquare2 className="w-3.5 h-3.5 shrink-0" />
+                                                : <Square className="w-3.5 h-3.5 shrink-0" />}
+                                            <span className="truncate">{p.label}</span>
+                                        </button>
+                                    ))}
+                                </div>
+                            </div>
+                        </div>
+
+                        <div className="flex gap-3 mt-6">
+                            <Button variant="outline" className="flex-1 dark:border-white/10" onClick={() => setShowCreate(false)}>
+                                Annuler
+                            </Button>
+                            <Button
+                                className="flex-1 bg-emerald-500 hover:bg-emerald-600 text-black font-bold"
+                                onClick={handleCreate}
+                                disabled={creating || !form.fullName.trim() || !form.phone.trim() || !form.password.trim()}
+                            >
+                                {creating ? 'Création...' : 'Créer'}
+                            </Button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Users Tab */}
+            {tab === 'users' && (
+                <div className="space-y-3">
+                    {loading ? (
+                        <div className="flex items-center justify-center py-16">
+                            <div className="w-8 h-8 border-4 border-emerald-500 border-t-transparent rounded-full animate-spin" />
+                        </div>
+                    ) : users.length === 0 ? (
+                        <div className="text-center py-16">
+                            <div className="w-16 h-16 bg-gray-100 dark:bg-[#1A2530] rounded-full flex items-center justify-center mx-auto mb-4">
+                                <Users className="w-8 h-8 text-gray-400" />
+                            </div>
+                            <p className="text-gray-500 font-medium">Aucun utilisateur staff</p>
+                            <p className="text-gray-400 text-sm mt-1">Créez des sous-admins pour déléguer la gestion de l'école.</p>
+                        </div>
+                    ) : (
+                        users.map(u => (
+                            <div key={u.id} className="bg-white dark:bg-[#0F1720] border border-gray-200 dark:border-white/5 rounded-2xl overflow-hidden">
+                                {/* User row */}
+                                <div className="flex items-center gap-4 p-4">
+                                    <div className="w-10 h-10 bg-emerald-500/10 rounded-xl flex items-center justify-center shrink-0">
+                                        <span className="text-emerald-600 font-bold text-sm">
+                                            {u.full_name.split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2)}
+                                        </span>
+                                    </div>
+                                    <div className="flex-1 min-w-0">
+                                        <div className="flex items-center gap-2">
+                                            <p className="font-semibold text-gray-900 dark:text-white truncate">{u.full_name}</p>
+                                            {u.first_login && (
+                                                <span className="text-[10px] bg-amber-100 text-amber-700 px-2 py-0.5 rounded-full font-medium shrink-0">
+                                                    1ère connexion
+                                                </span>
+                                            )}
+                                        </div>
+                                        <p className="text-sm text-gray-500">{u.phone}</p>
+                                        <div className="flex flex-wrap gap-1 mt-1">
+                                            {u.permissions.slice(0, 4).map(p => {
+                                                const info = ALL_PERMISSIONS.find(x => x.key === p)
+                                                return (
+                                                    <span key={p} className="text-[10px] bg-gray-100 dark:bg-[#1A2530] text-gray-600 dark:text-gray-400 px-1.5 py-0.5 rounded">
+                                                        {info?.label}
+                                                    </span>
+                                                )
+                                            })}
+                                            {u.permissions.length > 4 && (
+                                                <span className="text-[10px] text-gray-400">+{u.permissions.length - 4}</span>
+                                            )}
+                                            {u.permissions.length === 0 && (
+                                                <span className="text-[10px] text-gray-400 italic">Aucune permission</span>
+                                            )}
+                                        </div>
+                                    </div>
+                                    <div className="flex items-center gap-2 shrink-0">
+                                        <button
+                                            onClick={() => setExpandedUser(expandedUser === u.id ? null : u.id)}
+                                            className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-[#1A2530] text-gray-500 transition-colors"
+                                            title="Modifier les permissions"
+                                        >
+                                            <Shield className="w-4 h-4" />
+                                        </button>
+                                        <button
+                                            onClick={() => handleDelete(u.id)}
+                                            disabled={deletingId === u.id}
+                                            className="p-2 rounded-lg hover:bg-red-50 text-gray-400 hover:text-red-500 transition-colors"
+                                            title="Supprimer"
+                                        >
+                                            {deletingId === u.id
+                                                ? <RefreshCw className="w-4 h-4 animate-spin" />
+                                                : <Trash2 className="w-4 h-4" />}
+                                        </button>
+                                        <button
+                                            onClick={() => setExpandedUser(expandedUser === u.id ? null : u.id)}
+                                            className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-[#1A2530] text-gray-400 transition-colors"
+                                        >
+                                            {expandedUser === u.id ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+                                        </button>
+                                    </div>
+                                </div>
+
+                                {/* Expanded permissions editor */}
+                                {expandedUser === u.id && (
+                                    <div className="border-t border-gray-100 dark:border-white/5 p-4 bg-gray-50 dark:bg-[#0A1018]">
+                                        <div className="flex items-center justify-between mb-3">
+                                            <div className="flex items-center gap-2">
+                                                <ShieldCheck className="w-4 h-4 text-emerald-500" />
+                                                <span className="text-sm font-semibold text-gray-700 dark:text-gray-300">Permissions</span>
+                                            </div>
+                                            <button
+                                                type="button"
+                                                onClick={() => {
+                                                    const all = ALL_PERMISSIONS.map(p => p.key)
+                                                    const current = editPerms[u.id] || []
+                                                    setEditPerms(prev => ({
+                                                        ...prev,
+                                                        [u.id]: current.length === ALL_PERMISSIONS.length ? [] : all
+                                                    }))
+                                                }}
+                                                className="text-xs text-emerald-500 hover:text-emerald-600 font-medium"
+                                            >
+                                                {(editPerms[u.id] || []).length === ALL_PERMISSIONS.length ? 'Désélectionner tout' : 'Sélectionner tout'}
+                                            </button>
+                                        </div>
+                                        <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 mb-4">
+                                            {ALL_PERMISSIONS.map(p => {
+                                                const active = (editPerms[u.id] || []).includes(p.key)
+                                                return (
+                                                    <button
+                                                        key={p.key}
+                                                        type="button"
+                                                        onClick={() => setEditPerms(prev => ({
+                                                            ...prev,
+                                                            [u.id]: togglePerm(prev[u.id] || [], p.key)
+                                                        }))}
+                                                        className={`flex items-center gap-2 px-3 py-2 rounded-lg border text-sm transition-all ${active
+                                                            ? 'bg-emerald-500/10 border-emerald-500 text-emerald-700 dark:text-emerald-400'
+                                                            : 'bg-white dark:bg-[#1A2530] border-gray-200 dark:border-white/5 text-gray-500'}`}
+                                                    >
+                                                        {active
+                                                            ? <CheckSquare2 className="w-3.5 h-3.5 shrink-0" />
+                                                            : <Square className="w-3.5 h-3.5 shrink-0" />}
+                                                        <span className="truncate">{p.label}</span>
+                                                    </button>
+                                                )
+                                            })}
+                                        </div>
+                                        <Button
+                                            onClick={() => handleSavePerms(u.id)}
+                                            disabled={savingPerms === u.id}
+                                            className="bg-emerald-500 hover:bg-emerald-600 text-black font-bold rounded-xl h-9 text-sm"
+                                        >
+                                            {savingPerms === u.id ? 'Enregistrement...' : 'Enregistrer les permissions'}
+                                        </Button>
+                                    </div>
+                                )}
+                            </div>
+                        ))
+                    )}
+                </div>
+            )}
+
+            {/* Logs Tab */}
+            {tab === 'logs' && (
+                <div>
+                    {logsLoading ? (
+                        <div className="flex items-center justify-center py-16">
+                            <div className="w-8 h-8 border-4 border-emerald-500 border-t-transparent rounded-full animate-spin" />
+                        </div>
+                    ) : logs.length === 0 ? (
+                        <div className="text-center py-16">
+                            <Activity className="w-12 h-12 text-gray-300 mx-auto mb-3" />
+                            <p className="text-gray-500 font-medium">Aucune activité enregistrée</p>
+                        </div>
+                    ) : (
+                        <div className="space-y-2">
+                            {logs.map(log => (
+                                <div key={log.id} className="flex items-start gap-3 bg-white dark:bg-[#0F1720] border border-gray-200 dark:border-white/5 rounded-xl p-4">
+                                    <div className="w-8 h-8 bg-gray-100 dark:bg-[#1A2530] rounded-lg flex items-center justify-center shrink-0 mt-0.5">
+                                        <Clock className="w-4 h-4 text-gray-400" />
+                                    </div>
+                                    <div className="flex-1 min-w-0">
+                                        <p className="text-sm text-gray-800 dark:text-gray-200">{log.details}</p>
+                                        <div className="flex items-center gap-2 mt-1">
+                                            <span className="text-xs text-gray-400">
+                                                {(log.profiles as any)?.full_name || 'Admin'}
+                                            </span>
+                                            <span className="text-xs text-gray-300 dark:text-gray-600">·</span>
+                                            <span className="text-xs text-gray-400">
+                                                {new Date(log.created_at).toLocaleString('fr-FR')}
+                                            </span>
+                                        </div>
+                                    </div>
+                                    <span className="text-[10px] bg-gray-100 dark:bg-[#1A2530] text-gray-500 px-2 py-0.5 rounded shrink-0">
+                                        {log.action}
+                                    </span>
+                                </div>
+                            ))}
+                        </div>
+                    )}
+                </div>
+            )}
+        </div>
+    )
+}

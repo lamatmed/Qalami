@@ -1,0 +1,82 @@
+'use client'
+
+import { useState } from 'react'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import { KeyRound, ShieldCheck } from 'lucide-react'
+import { changeFirstLoginPassword } from '@/app/staff-first-login/actions'
+import { toast } from 'sonner'
+
+export function FirstLoginForm() {
+    const [password, setPassword] = useState('')
+    const [confirm, setConfirm] = useState('')
+    const [saving, setSaving] = useState(false)
+
+    async function handleSubmit() {
+        if (!password.trim()) { toast.error('Veuillez saisir un mot de passe'); return }
+        if (password !== confirm) { toast.error('Les mots de passe ne correspondent pas'); return }
+
+        setSaving(true)
+        const result = await changeFirstLoginPassword(password)
+        if (result?.error) {
+            toast.error(result.error)
+            setSaving(false)
+        }
+        // redirect happens server-side on success
+    }
+
+    return (
+        <div className="w-full max-w-sm">
+            <div className="bg-white dark:bg-[#0F1720] border border-gray-200 dark:border-white/10 rounded-3xl p-8 shadow-xl">
+                <div className="flex justify-center mb-6">
+                    <div className="w-16 h-16 bg-emerald-500/10 rounded-2xl flex items-center justify-center">
+                        <ShieldCheck className="w-8 h-8 text-emerald-500" />
+                    </div>
+                </div>
+                <h1 className="text-2xl font-bold text-gray-900 dark:text-white text-center mb-1">Première connexion</h1>
+                <p className="text-sm text-gray-400 text-center mb-8">
+                    Veuillez choisir un nouveau mot de passe pour sécuriser votre compte.
+                </p>
+
+                <div className="space-y-4">
+                    <div className="space-y-2">
+                        <Label>Nouveau mot de passe *</Label>
+                        <div className="relative">
+                            <KeyRound className="absolute left-3 top-3 w-4 h-4 text-gray-400" />
+                            <Input
+                                type="password"
+                                value={password}
+                                onChange={e => setPassword(e.target.value)}
+                                placeholder="Minimum 4 caractères"
+                                className="pl-9 bg-gray-50 dark:bg-[#1A2530] border-gray-200 dark:border-white/5"
+                            />
+                        </div>
+                    </div>
+                    <div className="space-y-2">
+                        <Label>Confirmer le mot de passe *</Label>
+                        <div className="relative">
+                            <KeyRound className="absolute left-3 top-3 w-4 h-4 text-gray-400" />
+                            <Input
+                                type="password"
+                                value={confirm}
+                                onChange={e => setConfirm(e.target.value)}
+                                placeholder="Répétez le mot de passe"
+                                className="pl-9 bg-gray-50 dark:bg-[#1A2530] border-gray-200 dark:border-white/5"
+                                onKeyDown={e => e.key === 'Enter' && handleSubmit()}
+                            />
+                        </div>
+                    </div>
+                </div>
+
+                <Button
+                    className="w-full mt-6 bg-emerald-500 hover:bg-emerald-600 text-black font-bold h-12 rounded-xl"
+                    onClick={handleSubmit}
+                    disabled={saving}
+                >
+                    {saving ? 'Enregistrement...' : 'Confirmer et accéder'}
+                </Button>
+            </div>
+        </div>
+    )
+}

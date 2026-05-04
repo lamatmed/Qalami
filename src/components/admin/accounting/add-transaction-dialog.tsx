@@ -1,0 +1,187 @@
+'use client'
+
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { ArrowUpRight, ArrowDownRight, Loader2 } from 'lucide-react'
+import { cn } from '@/lib/utils'
+import { useState, useTransition } from 'react'
+import { createClient } from '@/utils/supabase/client'
+import { toast } from 'sonner'
+import { useLanguage } from '@/i18n'
+
+interface AddTransactionDialogProps {
+    open: boolean
+    onOpenChange: (open: boolean) => void
+    onSuccess?: () => void
+}
+
+export function AddTransactionDialog({ open, onOpenChange, onSuccess }: AddTransactionDialogProps) {
+    const supabase = createClient()
+    const [isPending, startTransition] = useTransition()
+    const [type, setType] = useState<'income' | 'expense'>('income')
+    const [amount, setAmount] = useState('')
+    const [category, setCategory] = useState('')
+    const [date, setDate] = useState(new Date().toISOString().split('T')[0])
+    const [description, setDescription] = useState('')
+    const { t } = useLanguage()
+
+    const handleSubmit = () => {
+        if (!amount || !category) {
+            toast.error(t('admin.accounting.fillRequired'))
+            return
+        }
+
+        startTransition(async () => {
+            try {
+                const { data: { user } } = await supabase.auth.getUser()
+                if (!user) throw new Error('Not authenticated')
+
+                // Get user's school_id
+                const { data: profile } = await supabase
+                    .from('profiles')
+                    .select('school_id')
+                    .eq('id', user.id)
+                    .single()
+
+                if (!profile?.school_id) throw new Error('No school associated')
+
+                const { error } = await supabase.from('transactions').insert({
+                    school_id: profile.school_id,
+                    type: type,
+                    category: category,
+                    amount: parseFloat(amount),
+                    description: description,
+                    transaction_date: date,
+                    created_by: user.id,
+                    status: 'completed'
+                })
+
+                if (error) throw error
+
+                toast.success(t('admin.accounting.transactionSaved'))
+
+                // Reset form
+                setAmount('')
+                setCategory('')
+                setDescription('')
+                setDate(new Date().toISOString().split('T')[0])
+
+                onOpenChange(false)
+                onSuccess?.()
+            } catch (error) {
+                console.error('Error saving transaction:', error)
+                toast.error(t('admin.accounting.saveError'))
+            }
+        })
+    }
+
+    return (
+        <Dialog open={open} onOpenChange={onOpenChange}>
+            <DialogContent className="sm:max-w-md bg-[#161B22] border-white/10 text-white p-0 gap-0">
+                <DialogHeader className="px-6 py-4 border-b border-white/5 bg-[#0D1117]">
+                    <DialogTitle className="text-lg font-bold">{t('admin.finance.newTransaction')}</DialogTitle>
+                </DialogHeader>
+
+                <div className="p-6 space-y-5">
+                    {/* Type Selector */}
+                    <div className="grid grid-cols-2 gap-3 p-1 bg-[#0D1117] rounded-xl border border-white/5">
+                        <button
+                            onClick={() => setType('income')}
+                            className={cn(
+                                "flex items-center justify-center gap-2 py-2.5 rounded-lg text-sm font-bold transition-all",
+                                type === 'income' ? "bg-emerald-500/10 text-emerald-500 shadow-sm" : "text-gray-400 hover:text-white hover:bg-white/5"
+                            )}
+                        >
+                            <ArrowUpRight className="w-4 h-4" /> {t('admin.finance.income')}
+                        </button>
+                        <button
+                            onClick={() => setType('expense')}
+                            className={cn(
+                                "flex items-center justify-center gap-2 py-2.5 rounded-lg text-sm font-bold transition-all",
+                                type === 'expense' ? "bg-red-500/10 text-red-500 shadow-sm" : "text-gray-400 hover:text-white hover:bg-white/5"
+                            )}
+                        >
+                            <ArrowDownRight className="w-4 h-4" /> {t('admin.finance.expenses')}
+                        </button>
+                    </div>
+
+                    {/* Amount */}
+                    <div className="space-y-2">
+                        <Label className="text-xs text-gray-400 uppercase font-bold">{t('common.amount')} (MRU) *</Label>
+                        <Input
+                            type="number"
+                            placeholder="0.00"
+                            value={amount}
+                            onChange={(e) => setAmount(e.target.value)}
+                            className="bg-[#0D1117] border-white/10 h-12 text-lg font-bold text-white placeholder:text-gray-700"
+                        />
+                    </div>
+
+                    {/* Category & Date */}
+                    <div className="grid grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                            <Label className="text-xs text-gray-400 uppercase font-bold">{t('admin.accounting.category')} *</Label>
+                            <Select value={category} onValueChange={setCategory}>
+                                <SelectTrigger className="bg-[#0D1117] border-white/10 h-12 text-white">
+                                    <SelectValue placeholder={t('admin.accounting.choose')} />
+                                </SelectTrigger>
+                                <SelectContent className="bg-[#161B22] border-white/10 text-white">
+                                    <SelectItem value="tuition">{t('admin.finance.tuition')}</SelectItem>
+                                    <SelectItem value="transport">Transport</SelectItem>
+                                    <SelectItem value="salary">{t('admin.finance.salaries')}</SelectItem>
+                                    <SelectItem value="maintenance">{t('admin.finance.maintenance')}</SelectItem>
+                                    <SelectItem value="supplies">{t('admin.accounting.supplies')}</SelectItem>
+                                    <SelectItem value="other">{t('admin.finance.others')}</SelectItem>
+                                </SelectContent>
+                            </Select>
+                        </div>
+                        <div className="space-y-2">
+                            <Label className="text-xs text-gray-400 uppercase font-bold">Date</Label>
+                            <div className="relative">
+                                <Input
+                                    type="date"
+                                    value={date}
+                                    onChange={(e) => setDate(e.target.value)}
+                                    className="bg-[#0D1117] border-white/10 h-12 text-white pl-4 pr-4"
+                                />
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Description */}
+                    <div className="space-y-2">
+                        <Label className="text-xs text-gray-400 uppercase font-bold">{t('common.description')}</Label>
+                        <Input
+                            placeholder={t('admin.accounting.descriptionPlaceholder')}
+                            value={description}
+                            onChange={(e) => setDescription(e.target.value)}
+                            className="bg-[#0D1117] border-white/10 h-12 text-white"
+                        />
+                    </div>
+                </div>
+
+                <div className="p-4 bg-[#0D1117] border-t border-white/5 flex gap-3">
+                    <Button
+                        variant="outline"
+                        onClick={() => onOpenChange(false)}
+                        disabled={isPending}
+                        className="flex-1 bg-transparent border-white/10 text-gray-400 hover:text-white hover:bg-white/5"
+                    >
+                        {t('common.cancel')}
+                    </Button>
+                    <Button
+                        onClick={handleSubmit}
+                        disabled={isPending}
+                        className={cn("flex-1 font-bold text-white gap-2", type === 'income' ? "bg-emerald-600 hover:bg-emerald-500" : "bg-red-600 hover:bg-red-500")}
+                    >
+                        {isPending && <Loader2 className="w-4 h-4 animate-spin" />}
+                        {t('common.save')}
+                    </Button>
+                </div>
+            </DialogContent>
+        </Dialog>
+    )
+}

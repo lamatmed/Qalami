@@ -1,0 +1,88 @@
+'use client'
+
+import { useState } from 'react'
+import { updateSubject } from '@/app/admin/subjects/actions'
+import { Button } from '@/components/ui/button'
+import {
+    Dialog,
+    DialogContent,
+    DialogFooter,
+    DialogHeader,
+    DialogTitle,
+} from '@/components/ui/dialog'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import { Loader2 } from 'lucide-react'
+import { toast } from 'sonner'
+
+interface EditSubjectDialogProps {
+    open: boolean
+    onOpenChange: (open: boolean) => void
+    subject: { id: string; name: string; icon?: string | null }
+    onSuccess?: () => void
+}
+
+export function EditSubjectDialog({ open, onOpenChange, subject, onSuccess }: EditSubjectDialogProps) {
+    const [isLoading, setIsLoading] = useState(false)
+
+    async function onSubmit(event: React.FormEvent<HTMLFormElement>) {
+        event.preventDefault()
+        setIsLoading(true)
+
+        const formData = new FormData(event.currentTarget)
+        const result = await updateSubject(subject.id, formData)
+
+        if (result?.error) {
+            toast.error(result.error)
+        } else {
+            toast.success('Matière mise à jour')
+            onSuccess?.()
+            onOpenChange(false)
+        }
+        setIsLoading(false)
+    }
+
+    return (
+        <Dialog open={open} onOpenChange={onOpenChange}>
+            <DialogContent className="sm:max-w-[425px]">
+                <DialogHeader>
+                    <DialogTitle>Modifier la matière</DialogTitle>
+                </DialogHeader>
+                <form onSubmit={onSubmit}>
+                    <div className="grid gap-4 py-4">
+                        <div className="grid grid-cols-4 items-center gap-4">
+                            <Label htmlFor="edit-name" className="text-right">Nom</Label>
+                            <Input
+                                id="edit-name"
+                                name="name"
+                                defaultValue={subject.name}
+                                className="col-span-3"
+                                required
+                            />
+                        </div>
+                        <div className="grid grid-cols-4 items-center gap-4">
+                            <Label htmlFor="edit-icon" className="text-right">Icône</Label>
+                            <Input
+                                id="edit-icon"
+                                name="icon"
+                                defaultValue={subject.icon ?? ''}
+                                placeholder="Ex: Ma, Fr, Ar, 📚"
+                                className="col-span-3"
+                                maxLength={10}
+                            />
+                        </div>
+                    </div>
+                    <DialogFooter>
+                        <Button variant="outline" type="button" onClick={() => onOpenChange(false)} disabled={isLoading}>
+                            Annuler
+                        </Button>
+                        <Button type="submit" disabled={isLoading}>
+                            {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                            Enregistrer
+                        </Button>
+                    </DialogFooter>
+                </form>
+            </DialogContent>
+        </Dialog>
+    )
+}

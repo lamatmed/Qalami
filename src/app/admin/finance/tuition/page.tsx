@@ -1,0 +1,413 @@
+'use client'
+
+import { useEffect, useState, useCallback } from 'react'
+import { createClient } from '@/utils/supabase/client'
+import { Loader2, Search, Download, AlertCircle, CheckCircle, Clock, TrendingUp, Users, CreditCard } from 'lucide-react'
+import { cn } from '@/lib/utils'
+import { Input } from '@/components/ui/input'
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from '@/components/ui/select'
+import { Button } from '@/components/ui/button'
+import { toast } from 'sonner'
+
+// ─── Types ────────────────────────────────────────────────────────────────────
+
+interface PaymentRow {
+    id: string
+    student_id: string
+    student_name: string
+    class_name: string | null
+    payment_type: string
+    amount: number
+    amount_paid: number
+    status: string
+    due_date: string | null
+    paid_at: string | null
+    academic_year_id: string | null
+}
+
+const PAYMENT_TYPE_LABELS: Record<string, string> = {
+    scolarite: 'Scolarité',
+    bus: 'Transport',
+    cantine: 'Cantine',
+    activites: 'Activités',
+}
+
+const STATUS_CONFIG: Record<string, { label: string; color: string; icon: React.ElementType }> = {
+    paid: { label: 'Payé', color: 'text-emerald-500 bg-emerald-500/10 border-emerald-500/20', icon: CheckCircle },
+    partial: { label: 'Partiel', color: 'text-amber-500 bg-amber-500/10 border-amber-500/20', icon: Clock },
+    pending: { label: 'En attente', color: 'text-blue-400 bg-blue-500/10 border-blue-500/20', icon: Clock },
+    overdue: { label: 'En retard', color: 'text-red-400 bg-red-500/10 border-red-500/20', icon: AlertCircle },
+}
+
+// ─── Page ─────────────────────────────────────────────────────────────────────
+
+export default function TuitionPage() {
+    const [payments, setPayments] = useState<PaymentRow[]>([])
+    const [loading, setLoading] = useState(true)
+    const [search, setSearch] = useState('')
+    const [filterStatus, setFilterStatus] = useState('all')
+    const [filterType, setFilterType] = useState('all')
+    const [filterClass, setFilterClass] = useState('all')
+    const [classes, setClasses] = useState<{ id: string; name: string }[]>([])
+    const [currentAcademicYear, setCurrentAcademicYear] = useState<string | null>(null)
+
+    const fetchData = useCallback(async () => {
+        setLoading(true)
+        const supabase = createClient()
+        const { data: { user } } = await supabase.auth.getUser()
+        if (!user) { setLoading(false); return }
+
+        const { data: profile } = await supabase
+            .from('profiles')
+            .select('school_id')
+            .eq('id', user.id)
+            .single()
+        if (!profile?.school_id) { setLoading(false); return }
+
+        // Fetch current academic year name
+        const { data: yearData } = await supabase
+            .from('academic_years')
+            .select('name')
+            .eq('school_id', profile.school_id)
+            .eq('is_current', true)
+            .single()
+        setCurrentAcademicYear(yearData?.name ?? null)
+
+        // Fetch classes for filter
+        const { data: classData } = await supabase
+            .from('classes')
+            .select('id, name')
+            .eq('school_id', profile.school_id)
+            .order('name')
+        setClasses(classData || [])
+
+        // Fetch payments with student name
+        const { data: paymentsData, error } = await supabase
+            .from('payments')
+            .select(`
+                id, student_id, payment_type, amount, amount_paid,
+                status, due_date, paid_at, academic_year_id,
+                profiles!payments_student_id_fkey(full_name)
+            `)
+            .eq('school_id', profile.school_id)
+            .order('due_date', { ascending: true })
+
+        if (error) { toast.error('Erreur de chargement'); setLoading(false); return }
+
+        // Fetch active enrollments to get class names
+        const { data: enrollments } = await supabase
+            .from('enrollments')
+            .select('student_id, class_id, classes(name)')
+            .eq('school_id', profile.school_id)
+            .eq('status', 'active')
+
+        const enrollmentMap: Record<string, string> = {}
+        ;(enrollments || []).forEach((e: any) => {
+            enrollmentMap[e.student_id] = e.classes?.name ?? null
+        })
+
+        const rows: PaymentRow[] = (paymentsData || []).map((p: any) => ({
+            id: p.id,
+            student_id: p.student_id,
+            student_name: p.profiles?.full_name ?? '—',
+            class_name: enrollmentMap[p.student_id] ?? null,
+            payment_type: p.payment_type ?? 'scolarite',
+            amount: Number(p.amount) || 0,
+            amount_paid: Number(p.amount_paid) || 0,
+            status: p.status ?? 'pending',
+            due_date: p.due_date,
+            paid_at: p.paid_at,
+            academic_year_id: p.academic_year_id,
+        }))
+
+        setPayments(rows)
+        setLoading(false)
+    }, [])
+
+    useEffect(() => { fetchData() }, [fetchData])
+
+    // ── Filters ──────────────────────────────────────────────────────────────
+    const filtered = payments.filter(p => {
+        const matchSearch = search === '' ||
+            p.student_name.toLowerCase().includes(search.toLowerCase()) ||
+            (p.class_name ?? '').toLowerCase().includes(search.toLowerCase())
+        const matchStatus = filterStatus === 'all' || p.status === filterStatus
+        const matchType = filterType === 'all' || p.payment_type === filterType
+        const matchClass = filterClass === 'all' || p.class_name === filterClass
+        return matchSearch && matchStatus && matchType && matchClass
+    })
+
+    // ── Stats ─────────────────────────────────────────────────────────────────
+    const totalExpected = payments.reduce((s, p) => s + p.amount, 0)
+    const totalReceived = payments.reduce((s, p) => s + p.amount_paid, 0)
+    const totalOverdue = payments.filter(p => p.status === 'overdue').reduce((s, p) => s + (p.amount - p.amount_paid), 0)
+    const totalStudents = new Set(payments.map(p => p.student_id)).size
+    const recoveryRate = totalExpected > 0 ? Math.round((totalReceived / totalExpected) * 100) : 0
+
+    // ── CSV Export ────────────────────────────────────────────────────────────
+    const handleExport = () => {
+        let csv = 'Élève,Classe,Type,Montant,Payé,Restant,Statut,Échéance\n'
+        filtered.forEach(p => {
+            csv += `"${p.student_name}","${p.class_name ?? '—'}","${PAYMENT_TYPE_LABELS[p.payment_type] ?? p.payment_type}",${p.amount},${p.amount_paid},${p.amount - p.amount_paid},${STATUS_CONFIG[p.status]?.label ?? p.status},"${p.due_date ?? '—'}"\n`
+        })
+        const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' })
+        const url = URL.createObjectURL(blob)
+        const link = document.createElement('a')
+        link.href = url
+        link.download = `scolarite-${currentAcademicYear ?? 'export'}.csv`
+        document.body.appendChild(link)
+        link.click()
+        document.body.removeChild(link)
+        URL.revokeObjectURL(url)
+        toast.success('Export téléchargé')
+    }
+
+    // ─── Render ───────────────────────────────────────────────────────────────
+
+    if (loading) {
+        return (
+            <div className="flex items-center justify-center h-64">
+                <Loader2 className="w-8 h-8 animate-spin text-emerald-500" />
+            </div>
+        )
+    }
+
+    return (
+        <div className="p-4 sm:p-6 lg:p-8 space-y-6 max-w-[1600px] mx-auto animate-in fade-in duration-500">
+
+            {/* Actions */}
+            <div className="flex justify-end">
+                <Button
+                    variant="outline"
+                    className="border-white/10 bg-[#161B22] text-gray-300 hover:text-white hover:bg-white/5"
+                    onClick={handleExport}
+                >
+                    <Download className="w-4 h-4 mr-2" />
+                    Exporter CSV
+                </Button>
+            </div>
+
+            {/* Stats */}
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+                <StatCard
+                    label="Total attendu"
+                    value={`${totalExpected.toLocaleString('fr-FR')} MRU`}
+                    icon={CreditCard}
+                    color="text-blue-400"
+                    bg="bg-blue-500/10 border-blue-500/20"
+                />
+                <StatCard
+                    label="Total encaissé"
+                    value={`${totalReceived.toLocaleString('fr-FR')} MRU`}
+                    icon={TrendingUp}
+                    color="text-emerald-400"
+                    bg="bg-emerald-500/10 border-emerald-500/20"
+                    sub={`${recoveryRate}% de recouvrement`}
+                />
+                <StatCard
+                    label="En retard"
+                    value={`${totalOverdue.toLocaleString('fr-FR')} MRU`}
+                    icon={AlertCircle}
+                    color="text-red-400"
+                    bg="bg-red-500/10 border-red-500/20"
+                    sub={`${payments.filter(p => p.status === 'overdue').length} dossiers`}
+                />
+                <StatCard
+                    label="Élèves concernés"
+                    value={String(totalStudents)}
+                    icon={Users}
+                    color="text-purple-400"
+                    bg="bg-purple-500/10 border-purple-500/20"
+                    sub={`${payments.length} lignes de paiement`}
+                />
+            </div>
+
+            {/* Recovery bar */}
+            <div className="bg-[#1A2530] rounded-2xl border border-white/5 p-4">
+                <div className="flex items-center justify-between mb-2">
+                    <span className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Taux de recouvrement global</span>
+                    <span className="text-sm font-bold text-white">{recoveryRate}%</span>
+                </div>
+                <div className="h-2 bg-white/5 rounded-full overflow-hidden">
+                    <div
+                        className={cn(
+                            "h-full rounded-full transition-all duration-700",
+                            recoveryRate >= 80 ? "bg-emerald-500" :
+                                recoveryRate >= 50 ? "bg-amber-500" : "bg-red-500"
+                        )}
+                        style={{ width: `${recoveryRate}%` }}
+                    />
+                </div>
+            </div>
+
+            {/* Filters */}
+            <div className="flex flex-col sm:flex-row gap-3">
+                <div className="relative flex-1">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500" />
+                    <Input
+                        placeholder="Rechercher un élève ou une classe…"
+                        value={search}
+                        onChange={e => setSearch(e.target.value)}
+                        className="pl-9 bg-[#1A2530] border-white/10 text-white placeholder:text-gray-500"
+                    />
+                </div>
+                <Select value={filterStatus} onValueChange={setFilterStatus}>
+                    <SelectTrigger className="w-44 bg-[#1A2530] border-white/10 text-white">
+                        <SelectValue placeholder="Statut" />
+                    </SelectTrigger>
+                    <SelectContent>
+                        <SelectItem value="all">Tous les statuts</SelectItem>
+                        <SelectItem value="paid">Payé</SelectItem>
+                        <SelectItem value="partial">Partiel</SelectItem>
+                        <SelectItem value="pending">En attente</SelectItem>
+                        <SelectItem value="overdue">En retard</SelectItem>
+                    </SelectContent>
+                </Select>
+                <Select value={filterType} onValueChange={setFilterType}>
+                    <SelectTrigger className="w-44 bg-[#1A2530] border-white/10 text-white">
+                        <SelectValue placeholder="Type" />
+                    </SelectTrigger>
+                    <SelectContent>
+                        <SelectItem value="all">Tous les types</SelectItem>
+                        <SelectItem value="scolarite">Scolarité</SelectItem>
+                        <SelectItem value="bus">Transport</SelectItem>
+                        <SelectItem value="cantine">Cantine</SelectItem>
+                        <SelectItem value="activites">Activités</SelectItem>
+                    </SelectContent>
+                </Select>
+                <Select value={filterClass} onValueChange={setFilterClass}>
+                    <SelectTrigger className="w-44 bg-[#1A2530] border-white/10 text-white">
+                        <SelectValue placeholder="Classe" />
+                    </SelectTrigger>
+                    <SelectContent>
+                        <SelectItem value="all">Toutes les classes</SelectItem>
+                        {classes.map(c => (
+                            <SelectItem key={c.id} value={c.name}>{c.name}</SelectItem>
+                        ))}
+                    </SelectContent>
+                </Select>
+            </div>
+
+            {/* Table */}
+            <div className="bg-[#1A2530] rounded-3xl border border-white/5 overflow-hidden">
+                <div className="px-6 py-4 border-b border-white/5 flex items-center justify-between">
+                    <h3 className="text-xs font-bold text-gray-500 uppercase tracking-wider">
+                        {filtered.length} enregistrement{filtered.length !== 1 ? 's' : ''}
+                    </h3>
+                </div>
+
+                {filtered.length === 0 ? (
+                    <div className="text-center py-16 text-gray-500 text-sm">
+                        Aucun paiement trouvé pour ces critères.
+                    </div>
+                ) : (
+                    <div className="overflow-x-auto">
+                        <table className="w-full text-sm">
+                            <thead>
+                                <tr className="border-b border-white/5">
+                                    <th className="text-left px-6 py-3 text-[11px] font-semibold text-gray-500 uppercase tracking-wider">Élève</th>
+                                    <th className="text-left px-4 py-3 text-[11px] font-semibold text-gray-500 uppercase tracking-wider">Classe</th>
+                                    <th className="text-left px-4 py-3 text-[11px] font-semibold text-gray-500 uppercase tracking-wider">Type</th>
+                                    <th className="text-right px-4 py-3 text-[11px] font-semibold text-gray-500 uppercase tracking-wider">Montant</th>
+                                    <th className="text-right px-4 py-3 text-[11px] font-semibold text-gray-500 uppercase tracking-wider">Payé</th>
+                                    <th className="text-right px-4 py-3 text-[11px] font-semibold text-gray-500 uppercase tracking-wider">Restant</th>
+                                    <th className="text-center px-4 py-3 text-[11px] font-semibold text-gray-500 uppercase tracking-wider">Statut</th>
+                                    <th className="text-left px-4 py-3 text-[11px] font-semibold text-gray-500 uppercase tracking-wider">Échéance</th>
+                                </tr>
+                            </thead>
+                            <tbody className="divide-y divide-white/5">
+                                {filtered.map(p => {
+                                    const remaining = p.amount - p.amount_paid
+                                    const statusCfg = STATUS_CONFIG[p.status] ?? STATUS_CONFIG.pending
+                                    const StatusIcon = statusCfg.icon
+                                    return (
+                                        <tr key={p.id} className="hover:bg-white/[0.02] transition-colors group">
+                                            <td className="px-6 py-3">
+                                                <div className="flex items-center gap-3">
+                                                    <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-emerald-500/20 to-cyan-500/20 flex items-center justify-center text-emerald-500 font-bold text-xs shrink-0">
+                                                        {p.student_name.split(' ').map(w => w[0]).join('').substring(0, 2).toUpperCase()}
+                                                    </div>
+                                                    <span className="font-medium text-white text-sm">{p.student_name}</span>
+                                                </div>
+                                            </td>
+                                            <td className="px-4 py-3">
+                                                {p.class_name ? (
+                                                    <span className="text-xs bg-white/5 text-gray-300 px-2 py-1 rounded-lg border border-white/5">
+                                                        {p.class_name}
+                                                    </span>
+                                                ) : (
+                                                    <span className="text-xs text-gray-600">—</span>
+                                                )}
+                                            </td>
+                                            <td className="px-4 py-3 text-gray-400 text-xs">
+                                                {PAYMENT_TYPE_LABELS[p.payment_type] ?? p.payment_type}
+                                            </td>
+                                            <td className="px-4 py-3 text-right font-mono text-white text-sm">
+                                                {p.amount.toLocaleString('fr-FR')}
+                                                <span className="text-[10px] text-gray-500 ml-1">MRU</span>
+                                            </td>
+                                            <td className="px-4 py-3 text-right font-mono text-emerald-400 text-sm">
+                                                {p.amount_paid.toLocaleString('fr-FR')}
+                                                <span className="text-[10px] text-gray-500 ml-1">MRU</span>
+                                            </td>
+                                            <td className="px-4 py-3 text-right font-mono text-sm">
+                                                <span className={remaining > 0 ? 'text-red-400' : 'text-gray-600'}>
+                                                    {remaining > 0 ? remaining.toLocaleString('fr-FR') : '—'}
+                                                    {remaining > 0 && <span className="text-[10px] text-gray-500 ml-1">MRU</span>}
+                                                </span>
+                                            </td>
+                                            <td className="px-4 py-3 text-center">
+                                                <span className={cn(
+                                                    "inline-flex items-center gap-1 text-[11px] font-semibold px-2 py-1 rounded-full border",
+                                                    statusCfg.color
+                                                )}>
+                                                    <StatusIcon className="w-3 h-3" />
+                                                    {statusCfg.label}
+                                                </span>
+                                            </td>
+                                            <td className="px-4 py-3 text-xs text-gray-500">
+                                                {p.due_date
+                                                    ? new Date(p.due_date).toLocaleDateString('fr-FR')
+                                                    : '—'}
+                                            </td>
+                                        </tr>
+                                    )
+                                })}
+                            </tbody>
+                        </table>
+                    </div>
+                )}
+            </div>
+        </div>
+    )
+}
+
+// ─── Stat Card ────────────────────────────────────────────────────────────────
+
+function StatCard({ label, value, icon: Icon, color, bg, sub }: {
+    label: string
+    value: string
+    icon: React.ElementType
+    color: string
+    bg: string
+    sub?: string
+}) {
+    return (
+        <div className="bg-[#1A2530] rounded-2xl border border-white/5 p-5 flex flex-col gap-3">
+            <div className="flex items-center justify-between">
+                <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider">{label}</p>
+                <div className={cn("w-8 h-8 rounded-lg flex items-center justify-center border", bg)}>
+                    <Icon className={cn("w-4 h-4", color)} />
+                </div>
+            </div>
+            <p className="text-xl font-black text-white leading-none">{value}</p>
+            {sub && <p className="text-[11px] text-gray-500">{sub}</p>}
+        </div>
+    )
+}
