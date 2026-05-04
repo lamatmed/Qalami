@@ -1031,7 +1031,7 @@
     "noRole": "Accès non configuré",
     "noRoleDesc": "Votre rôle n'est pas défini ou reconnu. Veuillez contacter l'administrateur.",
     "signOut": "Se déconnecter"
-  }
+  },
   "contact": {
     "title": "Contactez l'administration",
     "subtitle": "Nous sommes là pour vous aider",

@@ -221,7 +221,9 @@ export function LoginForm() {
                 <div className="mt-6 text-center">
                     <p className="text-xs text-muted-foreground">
                         {t('auth.needHelp')}{' '}
-                        <span className="font-semibold text-emerald-600">{t('auth.contactAdmin')}</span>
+                        <Link href="/contact-admin" className="font-semibold text-emerald-600 hover:text-emerald-500 transition-colors">
+                            {t('auth.contactAdmin')}
+                        </Link>
                     </p>
                 </div>
             </div>
