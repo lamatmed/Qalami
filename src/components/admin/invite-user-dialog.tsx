@@ -34,12 +34,14 @@ import {
 } from '@/components/ui/select'
 import { Loader2, UserPlus, Link2, Copy, CheckCircle2, Send } from 'lucide-react'
 import { toast } from 'sonner'
+import { useLanguage } from '@/i18n'
 
 interface InviteUserDialogProps {
     children: React.ReactNode
 }
 
 export function InviteUserDialog({ children }: InviteUserDialogProps) {
+    const { t } = useLanguage()
     const [open, setOpen] = useState(false)
     const [isLoading, setIsLoading] = useState(false)
     const [inviteLink, setInviteLink] = useState<string | null>(null)
@@ -68,10 +70,11 @@ export function InviteUserDialog({ children }: InviteUserDialogProps) {
                 setInviteLink(link)
                 setInviteName(data.fullName)
                 setInviteRole(data.role)
-                toast.success('Invitation créée !')
+                setInviteRole(data.role)
+                toast.success(t('auth.invitationCreated'))
             }
         } catch {
-            toast.error('Erreur lors de la création')
+            toast.error(t('auth.creationError'))
         } finally {
             setIsLoading(false)
         }
@@ -81,7 +84,7 @@ export function InviteUserDialog({ children }: InviteUserDialogProps) {
         if (inviteLink) {
             navigator.clipboard.writeText(inviteLink)
             setCopied(true)
-            toast.success('Lien copié !')
+            toast.success(t('auth.linkCopied'))
             setTimeout(() => setCopied(false), 2000)
         }
     }
@@ -89,11 +92,11 @@ export function InviteUserDialog({ children }: InviteUserDialogProps) {
     function handleWhatsApp() {
         if (!inviteLink) return
         const roleLabels: Record<string, string> = {
-            student: 'Élève',
-            parent: 'Parent',
-            teacher: 'Enseignant',
+            student: t('common.student'),
+            parent: t('common.parent'),
+            teacher: t('common.teacher'),
         }
-        const message = `Bonjour ${inviteName},\nVous êtes invité(e) à rejoindre Qalami en tant que ${roleLabels[inviteRole] || inviteRole}.\nCliquez sur ce lien pour créer votre code PIN :\n${inviteLink}`
+        const message = `${t('auth.whatsAppMessage', { name: inviteName, role: roleLabels[inviteRole] || inviteRole })}\n${inviteLink}`
         const url = `https://wa.me/?text=${encodeURIComponent(message)}`
         window.open(url, '_blank')
     }
@@ -118,10 +121,10 @@ export function InviteUserDialog({ children }: InviteUserDialogProps) {
                 <DialogHeader>
                     <DialogTitle className="flex items-center gap-2">
                         <UserPlus className="w-5 h-5 text-primary" />
-                        Inviter un utilisateur
+                        {t('auth.inviteUser')}
                     </DialogTitle>
                     <DialogDescription>
-                        Envoyez un lien d&apos;inscription par WhatsApp
+                        {t('auth.inviteUserDesc')}
                     </DialogDescription>
                 </DialogHeader>
 
@@ -140,9 +143,9 @@ export function InviteUserDialog({ children }: InviteUserDialogProps) {
                                         name="fullName"
                                         render={({ field }) => (
                                             <FormItem>
-                                                <FormLabel>Nom complet</FormLabel>
+                                                <FormLabel>{t('auth.fullName')}</FormLabel>
                                                 <FormControl>
-                                                    <Input placeholder="Ex: Ahmed Mohamed" {...field} />
+                                                    <Input placeholder={t('admin.teachers.fullNamePlaceholder')} {...field} />
                                                 </FormControl>
                                                 <FormMessage />
                                             </FormItem>
@@ -153,7 +156,7 @@ export function InviteUserDialog({ children }: InviteUserDialogProps) {
                                         name="phone"
                                         render={({ field }) => (
                                             <FormItem>
-                                                <FormLabel>Téléphone</FormLabel>
+                                                <FormLabel>{t('common.phone')}</FormLabel>
                                                 <FormControl>
                                                     <Input placeholder="+222 XX XX XX XX" {...field} />
                                                 </FormControl>
@@ -166,7 +169,7 @@ export function InviteUserDialog({ children }: InviteUserDialogProps) {
                                         name="email"
                                         render={({ field }) => (
                                             <FormItem>
-                                                <FormLabel>Email (optionnel)</FormLabel>
+                                                <FormLabel>{t('auth.emailOptional')}</FormLabel>
                                                 <FormControl>
                                                     <Input placeholder="email@exemple.com" type="email" {...field} />
                                                 </FormControl>
@@ -179,17 +182,17 @@ export function InviteUserDialog({ children }: InviteUserDialogProps) {
                                         name="role"
                                         render={({ field }) => (
                                             <FormItem>
-                                                <FormLabel>Rôle</FormLabel>
+                                                <FormLabel>{t('auth.role')}</FormLabel>
                                                 <Select onValueChange={field.onChange} defaultValue={field.value}>
                                                     <FormControl>
                                                         <SelectTrigger>
-                                                            <SelectValue placeholder="Sélectionner un rôle" />
+                                                            <SelectValue placeholder={t('auth.selectRolePlaceholder')} />
                                                         </SelectTrigger>
                                                     </FormControl>
                                                     <SelectContent>
-                                                        <SelectItem value="student">Élève</SelectItem>
-                                                        <SelectItem value="parent">Parent</SelectItem>
-                                                        <SelectItem value="teacher">Enseignant</SelectItem>
+                                                        <SelectItem value="student">{t('common.student')}</SelectItem>
+                                                        <SelectItem value="parent">{t('common.parent')}</SelectItem>
+                                                        <SelectItem value="teacher">{t('common.teacher')}</SelectItem>
                                                     </SelectContent>
                                                 </Select>
                                                 <FormMessage />
@@ -207,7 +210,7 @@ export function InviteUserDialog({ children }: InviteUserDialogProps) {
                                         ) : (
                                             <>
                                                 <Link2 className="h-4 w-4 me-2" />
-                                                Générer le lien d&apos;invitation
+                                                {t('auth.generateLink')}
                                             </>
                                         )}
                                     </Button>
@@ -223,7 +226,7 @@ export function InviteUserDialog({ children }: InviteUserDialogProps) {
                         >
                             <div className="flex items-center gap-2 text-emerald-500 mb-2">
                                 <CheckCircle2 className="w-5 h-5" />
-                                <span className="font-medium">Invitation créée !</span>
+                                <span className="font-medium">{t('auth.invitationCreated')}</span>
                             </div>
 
                             <div className="p-3 bg-muted/50 rounded-lg break-all text-sm text-muted-foreground font-mono">
@@ -248,7 +251,7 @@ export function InviteUserDialog({ children }: InviteUserDialogProps) {
                                     ) : (
                                         <Copy className="h-4 w-4 me-2" />
                                     )}
-                                    {copied ? 'Copié !' : 'Copier'}
+                                    {copied ? t('auth.copied') : t('auth.copy')}
                                 </Button>
                             </div>
 
@@ -258,7 +261,7 @@ export function InviteUserDialog({ children }: InviteUserDialogProps) {
                                 className="w-full"
                             >
                                 <UserPlus className="h-4 w-4 me-2" />
-                                Inviter un autre utilisateur
+                                {t('auth.inviteAnother')}
                             </Button>
                         </motion.div>
                     )}

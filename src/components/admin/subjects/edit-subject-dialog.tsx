@@ -14,6 +14,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Loader2 } from 'lucide-react'
 import { toast } from 'sonner'
+import { useLanguage } from '@/i18n'
 
 interface EditSubjectDialogProps {
     open: boolean
@@ -23,6 +24,7 @@ interface EditSubjectDialogProps {
 }
 
 export function EditSubjectDialog({ open, onOpenChange, subject, onSuccess }: EditSubjectDialogProps) {
+    const { t } = useLanguage()
     const [isLoading, setIsLoading] = useState(false)
 
     async function onSubmit(event: React.FormEvent<HTMLFormElement>) {
@@ -35,7 +37,7 @@ export function EditSubjectDialog({ open, onOpenChange, subject, onSuccess }: Ed
         if (result?.error) {
             toast.error(result.error)
         } else {
-            toast.success('Matière mise à jour')
+            toast.success(t('admin.subjects.subjectUpdated'))
             onSuccess?.()
             onOpenChange(false)
         }
@@ -46,12 +48,12 @@ export function EditSubjectDialog({ open, onOpenChange, subject, onSuccess }: Ed
         <Dialog open={open} onOpenChange={onOpenChange}>
             <DialogContent className="sm:max-w-[425px]">
                 <DialogHeader>
-                    <DialogTitle>Modifier la matière</DialogTitle>
+                    <DialogTitle>{t('admin.subjects.editSubject')}</DialogTitle>
                 </DialogHeader>
                 <form onSubmit={onSubmit}>
                     <div className="grid gap-4 py-4">
                         <div className="grid grid-cols-4 items-center gap-4">
-                            <Label htmlFor="edit-name" className="text-right">Nom</Label>
+                            <Label htmlFor="edit-name" className="text-right">{t('admin.subjects.name')}</Label>
                             <Input
                                 id="edit-name"
                                 name="name"
@@ -61,7 +63,7 @@ export function EditSubjectDialog({ open, onOpenChange, subject, onSuccess }: Ed
                             />
                         </div>
                         <div className="grid grid-cols-4 items-center gap-4">
-                            <Label htmlFor="edit-icon" className="text-right">Icône</Label>
+                            <Label htmlFor="edit-icon" className="text-right">{t('admin.subjects.icon')}</Label>
                             <Input
                                 id="edit-icon"
                                 name="icon"
@@ -74,11 +76,11 @@ export function EditSubjectDialog({ open, onOpenChange, subject, onSuccess }: Ed
                     </div>
                     <DialogFooter>
                         <Button variant="outline" type="button" onClick={() => onOpenChange(false)} disabled={isLoading}>
-                            Annuler
+                            {t('admin.subjects.cancel')}
                         </Button>
                         <Button type="submit" disabled={isLoading}>
                             {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                            Enregistrer
+                            {t('admin.subjects.save')}
                         </Button>
                     </DialogFooter>
                 </form>

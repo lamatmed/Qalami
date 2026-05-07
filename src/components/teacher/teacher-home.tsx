@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button'
 import Link from 'next/link'
 import { useTeacher } from '@/context/teacher-context'
 import { createClient } from '@/utils/supabase/client'
+import { useLanguage } from '@/i18n'
 
 interface NextClass {
     id: string
@@ -25,6 +26,7 @@ interface TeacherStats {
 }
 
 export function TeacherHome() {
+    const { t } = useLanguage()
     const { teacherId, teacherName, loading, classes } = useTeacher()
     const [nextClass, setNextClass] = useState<NextClass | null>(null)
     const [stats, setStats] = useState<TeacherStats>({ remainingClasses: 0, pendingAttendance: 0, remarksCount: 0 })
@@ -128,7 +130,7 @@ export function TeacherHome() {
     }
 
     const formatDate = () => {
-        return currentTime.toLocaleDateString('fr-FR', {
+        return currentTime.toLocaleDateString(t('common.locale') || 'fr-FR', {
             weekday: 'long',
             day: 'numeric',
             month: 'long'
@@ -186,7 +188,7 @@ export function TeacherHome() {
                         </div>
                     </div>
                     <div>
-                        <h1 className="text-xl font-bold">Bonjour, {teacherName.split(' ')[0]}</h1>
+                        <h1 className="text-xl font-bold">{t('teacher.home.welcome').replace('{name}', teacherName.split(' ')[0])}</h1>
                         <p className="text-xs text-muted-foreground capitalize">{formatDate()}</p>
                     </div>
                 </div>
@@ -203,9 +205,9 @@ export function TeacherHome() {
                     </div>
                 ) : (
                     [
-                        { count: stats.remainingClasses, label: "Cours restants", icon: BookOpen, color: "text-white" },
-                        { count: stats.pendingAttendance, label: "Appels à faire", icon: CheckSquare, color: "text-blue-400" },
-                        { count: classes.length, label: "Classes", icon: Users, color: "text-orange-400" }
+                        { count: stats.remainingClasses, label: t('teacher.home.remainingClasses'), icon: BookOpen, color: "text-white" },
+                        { count: stats.pendingAttendance, label: t('teacher.home.attendanceToDo'), icon: CheckSquare, color: "text-blue-400" },
+                        { count: classes.length, label: t('teacher.home.classesCount'), icon: Users, color: "text-orange-400" }
                     ].map((stat, idx) => (
                         <motion.div
                             key={idx}
@@ -223,8 +225,8 @@ export function TeacherHome() {
             {/* Prochain Cours Card */}
             <motion.div variants={item} className="relative w-full">
                 <div className="flex justify-between items-end mb-2 px-1">
-                    <h3 className="font-bold text-lg">Prochain Cours</h3>
-                    <Link href="/teacher/schedule" className="text-xs text-emerald-500 hover:text-emerald-400">Voir tout</Link>
+                    <h3 className="font-bold text-lg">{t('teacher.home.nextClass')}</h3>
+                    <Link href="/teacher/schedule" className="text-xs text-emerald-500 hover:text-emerald-400">{t('teacher.home.viewAll')}</Link>
                 </div>
 
                 {loadingData ? (
@@ -276,25 +278,25 @@ export function TeacherHome() {
                                             <span className="text-lg font-mono font-bold text-white tabular-nums">
                                                 {String(timeUntil.hours).padStart(2, '0')}
                                             </span>
-                                            <span className="text-[9px] text-gray-500 uppercase">Hr</span>
+                                            <span className="text-[9px] text-gray-500 uppercase">{t('teacher.home.hoursAbbr')}</span>
                                         </div>
                                         <div className="flex flex-col">
                                             <span className="text-lg font-mono font-bold text-white tabular-nums">
                                                 {String(timeUntil.minutes).padStart(2, '0')}
                                             </span>
-                                            <span className="text-[9px] text-gray-500 uppercase">Min</span>
+                                            <span className="text-[9px] text-gray-500 uppercase">{t('teacher.home.minsAbbr')}</span>
                                         </div>
                                         <span className="text-[9px] text-emerald-400 self-center ml-2">
-                                            {timeUntil.ongoing ? 'RESTANT' : 'AVANT'}
+                                            {timeUntil.ongoing ? t('teacher.home.remainingTimeLabel') : t('teacher.home.beforeTimeLabel')}
                                         </span>
                                     </div>
                                 ) : (
-                                    <span className="text-sm text-gray-400">Cours terminé</span>
+                                    <span className="text-sm text-gray-400">{t('teacher.home.classEnded')}</span>
                                 )}
 
                                 <Link href={`/teacher/classes/${nextClass.classId}`}>
                                     <Button className="rounded-xl px-4 py-6 bg-emerald-500 hover:bg-emerald-600 text-black font-semibold shadow-[0_0_20px_rgba(16,185,129,0.3)] gap-2">
-                                        Faire l'appel <ArrowRight className="w-4 h-4" />
+                                        {t('teacher.home.takeAttendance')} <ArrowRight className="w-4 h-4" />
                                     </Button>
                                 </Link>
                             </div>
@@ -309,20 +311,20 @@ export function TeacherHome() {
                     </div>
                 ) : (
                     <div className="h-[220px] rounded-3xl bg-card border border-white/10 flex items-center justify-center">
-                        <p className="text-muted-foreground">Aucun cours prévu aujourd'hui</p>
+                        <p className="text-muted-foreground">{t('teacher.home.noClassToday')}</p>
                     </div>
                 )}
             </motion.div>
 
             {/* Actions Rapides */}
             <motion.div variants={item}>
-                <h3 className="font-bold text-lg mb-4 px-1">Actions Rapides</h3>
+                <h3 className="font-bold text-lg mb-4 px-1">{t('teacher.home.quickActions')}</h3>
                 <div className="grid grid-cols-2 gap-4">
                     {[
-                        { label: "Prendre l'appel", icon: User, color: "text-emerald-400", bg: "bg-emerald-400/10", href: "/teacher/classes" },
-                        { label: "Faire une remarque", icon: MessageSquare, color: "text-amber-400", bg: "bg-amber-400/10", href: "/teacher/remarks" },
-                        { label: "Ajouter une note", icon: CheckSquare, color: "text-blue-400", bg: "bg-blue-400/10", href: "/teacher/grades" },
-                        { label: "Cahier de texte", icon: BookOpen, color: "text-purple-400", bg: "bg-purple-400/10", href: "/teacher/resources" }
+                        { label: t('teacher.home.actionTakeAttendance'), icon: User, color: "text-emerald-400", bg: "bg-emerald-400/10", href: "/teacher/classes" },
+                        { label: t('teacher.home.actionAddRemark'), icon: MessageSquare, color: "text-amber-400", bg: "bg-amber-400/10", href: "/teacher/remarks" },
+                        { label: t('teacher.home.actionAddGrade'), icon: CheckSquare, color: "text-blue-400", bg: "bg-blue-400/10", href: "/teacher/grades" },
+                        { label: t('teacher.home.actionCahierTexte'), icon: BookOpen, color: "text-purple-400", bg: "bg-purple-400/10", href: "/teacher/resources" }
                     ].map((action, idx) => (
                         <Link key={idx} href={action.href} className="block">
                             <Button

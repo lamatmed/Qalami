@@ -29,6 +29,7 @@ import {
 import { cn } from '@/lib/utils'
 import { createClient } from '@/utils/supabase/client'
 import { useSchoolContext } from '@/lib/use-school-context'
+import { useLanguage } from '@/i18n'
 
 /* ─────────────── Types ─────────────── */
 
@@ -124,6 +125,7 @@ function typeBgColor(type: string | null) {
 /* ─────────────── Main Component ─────────────── */
 
 export function ArchiveSystem() {
+    const { t } = useLanguage()
     const { context } = useSchoolContext()
     const [docs, setDocs] = useState<ArchiveDoc[]>([])
     const [loading, setLoading] = useState(true)
@@ -270,8 +272,8 @@ export function ArchiveSystem() {
     }, [docs, category, docType, year, search, sort])
 
     const activeFilters = [
-        category !== 'all' && CATEGORIES.find(c => c.id === category)?.label,
-        docType !== 'all' && DOC_TYPES[docType],
+        category !== 'all' && t('admin.documents.categories.' + category),
+        docType !== 'all' && t('admin.documents.docTypes.' + docType),
         year !== 'all' && year,
     ].filter(Boolean)
 
@@ -285,10 +287,10 @@ export function ArchiveSystem() {
                 <div>
                     <h2 className="text-xl font-black text-white flex items-center gap-2">
                         <Archive className="w-5 h-5 text-emerald-400" />
-                        Gestion des Archives
+                        {t('admin.documents.title')}
                     </h2>
                     <p className="text-sm text-gray-500 mt-1">
-                        {loading ? '…' : `${docs.length.toLocaleString('fr')} document${docs.length !== 1 ? 's' : ''} archivé${docs.length !== 1 ? 's' : ''}`}
+                        {loading ? '…' : t(docs.length === 1 ? 'admin.documents.documentsCount' : 'admin.documents.documentsCountPlural').replace('{count}', docs.length.toLocaleString())}
                     </p>
                 </div>
 
@@ -296,7 +298,7 @@ export function ArchiveSystem() {
                 <div className="relative w-full sm:w-80">
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500" />
                     <Input
-                        placeholder="Nom, enseignant, élève, matière, classe…"
+                        placeholder={t('admin.documents.searchPlaceholder')}
                         value={search}
                         onChange={e => setSearch(e.target.value)}
                         className="pl-9 bg-[#0F1720] border-white/10 text-sm text-white placeholder:text-gray-600 h-10 focus-visible:ring-emerald-500/50 rounded-xl"
@@ -316,7 +318,7 @@ export function ArchiveSystem() {
 
                     {/* Categories */}
                     <div className="bg-[#1A2530] rounded-2xl border border-white/5 p-3 space-y-0.5">
-                        <p className="text-[10px] font-bold text-gray-500 uppercase tracking-wider px-2 pb-2">Catégories</p>
+                        <p className="text-[10px] font-bold text-gray-500 uppercase tracking-wider px-2 pb-2">{t('admin.documents.categoriesLabel')}</p>
                         {CATEGORIES.map(cat => {
                             const Icon = cat.icon
                             const count = cat.id === 'all'
@@ -335,7 +337,7 @@ export function ArchiveSystem() {
                                 >
                                     <div className="flex items-center gap-2.5">
                                         <Icon className={cn('w-4 h-4', category === cat.id ? 'text-emerald-400' : cat.color)} />
-                                        {cat.label}
+                                        {t('admin.documents.categories.' + cat.id)}
                                     </div>
                                     <span className={cn('text-[10px] font-bold px-1.5 py-0.5 rounded-md',
                                         category === cat.id ? 'bg-emerald-500/20 text-emerald-400' : 'bg-white/5 text-gray-600'
@@ -347,41 +349,41 @@ export function ArchiveSystem() {
 
                     {/* Document types */}
                     <div className="bg-[#1A2530] rounded-2xl border border-white/5 p-3 space-y-0.5">
-                        <p className="text-[10px] font-bold text-gray-500 uppercase tracking-wider px-2 pb-2">Type de document</p>
+                        <p className="text-[10px] font-bold text-gray-500 uppercase tracking-wider px-2 pb-2">{t('admin.documents.docTypeLabel')}</p>
                         <button
                             onClick={() => setDocType('all')}
                             className={cn('w-full text-left px-3 py-2 rounded-xl text-sm font-medium transition-all',
                                 docType === 'all' ? 'bg-white/10 text-white' : 'text-gray-500 hover:bg-white/5 hover:text-white'
-                            )}
-                        >Tous les types</button>
-                        {Object.entries(DOC_TYPES).map(([key, label]) => (
+                              )}
+                        >{t('admin.documents.allTypes')}</button>
+                        {Object.entries(DOC_TYPES).map(([key]) => (
                             <button
                                 key={key}
                                 onClick={() => setDocType(key)}
                                 className={cn('w-full text-left px-3 py-2 rounded-xl text-sm font-medium transition-all',
                                     docType === key ? 'bg-white/10 text-white' : 'text-gray-500 hover:bg-white/5 hover:text-white'
-                                )}
-                            >{label}</button>
+                                  )}
+                            >{t('admin.documents.docTypes.' + key)}</button>
                         ))}
                     </div>
 
                     {/* Years */}
                     {years.length > 0 && (
                         <div className="bg-[#1A2530] rounded-2xl border border-white/5 p-3 space-y-0.5">
-                            <p className="text-[10px] font-bold text-gray-500 uppercase tracking-wider px-2 pb-2">Année scolaire</p>
+                            <p className="text-[10px] font-bold text-gray-500 uppercase tracking-wider px-2 pb-2">{t('admin.documents.schoolYearLabel')}</p>
                             <button
                                 onClick={() => setYear('all')}
                                 className={cn('w-full text-left px-3 py-2 rounded-xl text-sm font-medium transition-all flex items-center gap-2',
                                     year === 'all' ? 'bg-white/10 text-white' : 'text-gray-500 hover:bg-white/5 hover:text-white'
-                                )}
-                            ><Calendar className="w-3.5 h-3.5" /> Toutes</button>
+                                  )}
+                            ><Calendar className="w-3.5 h-3.5" /> {t('admin.documents.allYears')}</button>
                             {years.map(y => (
                                 <button
                                     key={y}
                                     onClick={() => setYear(y)}
                                     className={cn('w-full text-left px-3 py-2 rounded-xl text-sm font-medium transition-all flex items-center gap-2',
                                         year === y ? 'bg-emerald-500/15 text-emerald-400 border border-emerald-500/20' : 'text-gray-500 hover:bg-white/5 hover:text-white'
-                                    )}
+                                      )}
                                 ><Calendar className="w-3.5 h-3.5" /> {y}</button>
                             ))}
                         </div>
@@ -395,7 +397,7 @@ export function ArchiveSystem() {
                     <div className="bg-[#1A2530] rounded-2xl border border-white/5 px-4 py-3 flex items-center justify-between gap-3 mb-4">
                         <div className="flex items-center gap-2 flex-wrap">
                             <span className="text-sm text-gray-400">
-                                <span className="text-white font-bold">{filtered.length}</span> résultat{filtered.length !== 1 ? 's' : ''}
+                                <span className="text-white font-bold">{filtered.length}</span> {t(filtered.length === 1 ? 'admin.documents.result' : 'admin.documents.results').replace('{count}', '')}
                             </span>
                             {activeFilters.map(f => (
                                 <span key={f as string} className="text-[10px] bg-emerald-500/15 text-emerald-400 border border-emerald-500/20 px-2 py-0.5 rounded-full font-bold flex items-center gap-1">
@@ -410,7 +412,7 @@ export function ArchiveSystem() {
                                 onChange={e => setSort(e.target.value as SortKey)}
                                 className="bg-[#0F1720] border border-white/10 text-xs text-gray-400 rounded-lg px-2 py-1.5 focus:outline-none focus:ring-1 focus:ring-emerald-500/50"
                             >
-                                {SORT_OPTIONS.map(o => <option key={o.id} value={o.id}>{o.label}</option>)}
+                                {SORT_OPTIONS.map(o => <option key={o.id} value={o.id}>{t('admin.documents.sortOptions.' + o.id)}</option>)}
                             </select>
                             {/* View toggle */}
                             <div className="flex rounded-lg border border-white/10 overflow-hidden">
@@ -437,13 +439,13 @@ export function ArchiveSystem() {
                     {!loading && filtered.length === 0 && (
                         <div className="text-center py-24 bg-[#1A2530] rounded-3xl border border-white/5">
                             <FolderOpen className="w-12 h-12 text-gray-600 mx-auto mb-3" />
-                            <p className="text-gray-400 font-bold">Aucun document trouvé</p>
-                            <p className="text-xs text-gray-600 mt-1">Essayez d'autres filtres ou mots-clés.</p>
+                            <p className="text-gray-400 font-bold">{t('admin.documents.noDocFound')}</p>
+                            <p className="text-xs text-gray-600 mt-1">{t('admin.documents.noDocDesc')}</p>
                             {(search || category !== 'all' || docType !== 'all' || year !== 'all') && (
                                 <button
                                     onClick={() => { setSearch(''); setCategory('all'); setDocType('all'); setYear('all') }}
                                     className="mt-4 text-xs text-emerald-400 hover:underline"
-                                >Réinitialiser les filtres</button>
+                                >{t('admin.documents.resetFilters')}</button>
                             )}
                         </div>
                     )}
@@ -472,6 +474,7 @@ export function ArchiveSystem() {
 /* ─────────────── Card (Grid) ─────────────── */
 
 function DocCard({ doc }: { doc: ArchiveDoc }) {
+    const { t } = useLanguage()
     return (
         <div className={cn('group bg-[#1A2530] border rounded-2xl p-4 flex items-start gap-3 hover:border-emerald-500/30 transition-all', typeBgColor(doc.file_type))}>
             <div className={cn('w-10 h-10 rounded-xl flex items-center justify-center shrink-0 border', typeBgColor(doc.file_type))}>
@@ -484,7 +487,7 @@ function DocCard({ doc }: { doc: ArchiveDoc }) {
                 <div className="flex flex-wrap gap-1.5 mt-1.5">
                     {doc.document_type && (
                         <span className="text-[10px] bg-white/5 text-gray-400 px-2 py-0.5 rounded-full border border-white/5 font-medium">
-                            {DOC_TYPES[doc.document_type] ?? doc.document_type}
+                            {t('admin.documents.docTypes.' + doc.document_type)}
                         </span>
                     )}
                     {doc.subject_name && (
@@ -508,7 +511,7 @@ function DocCard({ doc }: { doc: ArchiveDoc }) {
                             doc.doc_status === 'pending' ? 'bg-amber-500/10 text-amber-400 border-amber-500/20' :
                             'bg-red-500/10 text-red-400 border-red-500/20'
                         )}>
-                            {doc.doc_status === 'valid' ? 'Valide' : doc.doc_status === 'pending' ? 'En attente' : 'Manquant'}
+                            {doc.doc_status === 'valid' ? t('admin.documents.valid') : doc.doc_status === 'pending' ? t('admin.documents.pending') : t('admin.documents.missing')}
                         </span>
                     )}
                 </div>
@@ -540,6 +543,7 @@ function DocCard({ doc }: { doc: ArchiveDoc }) {
 /* ─────────────── Row (List) ─────────────── */
 
 function DocRow({ doc }: { doc: ArchiveDoc }) {
+    const { t } = useLanguage()
     return (
         <div className="group flex items-center gap-4 px-5 py-3.5 hover:bg-[#0F1720] transition-colors">
             <div className={cn('w-8 h-8 rounded-lg flex items-center justify-center shrink-0 border', typeBgColor(doc.file_type))}>
@@ -557,7 +561,7 @@ function DocRow({ doc }: { doc: ArchiveDoc }) {
             <div className="flex items-center gap-4 shrink-0">
                 {doc.document_type && (
                     <span className="text-[10px] bg-white/5 text-gray-400 px-2 py-0.5 rounded-full border border-white/5 hidden sm:block">
-                        {DOC_TYPES[doc.document_type] ?? doc.document_type}
+                        {t('admin.documents.docTypes.' + doc.document_type)}
                     </span>
                 )}
                 <span className="text-[10px] text-gray-600 hidden md:block">{formatSize(doc.file_size_bytes)}</span>

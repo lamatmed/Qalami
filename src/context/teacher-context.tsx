@@ -94,20 +94,41 @@ export function TeacherProvider({ children }: { children: ReactNode }) {
             if (assignments) {
                 // Get unique classes and student counts
                 const classMap = new Map<string, ClassInfo>()
+                const classIds: string[] = []
+                
                 for (const a of assignments) {
                     const cls = a.classes as { id?: string, name?: string }
                     if (cls?.id && !classMap.has(cls.id)) {
-                        // Get student count for this class
-                        const { count } = await supabase
-                            .from('enrollments')
-                            .select('*', { count: 'exact', head: true })
-                            .eq('class_id', cls.id)
-
+                        classIds.push(cls.id)
                         classMap.set(cls.id, {
                             id: cls.id,
                             name: cls.name || 'Classe',
-                            studentCount: count || 0
+                            studentCount: 0
                         })
+                    }
+                }
+
+                if (classIds.length > 0) {
+                    // Batch fetch student enrollments for these classes
+                    const { data: enrollments } = await supabase
+                        .from('enrollments')
+                        .select('class_id')
+                        .in('class_id', classIds)
+                        .eq('status', 'active')
+
+                    if (enrollments) {
+                        const counts: Record<string, number> = {}
+                        for (const e of enrollments) {
+                            if (e.class_id) {
+                                counts[e.class_id] = (counts[e.class_id] || 0) + 1
+                            }
+                        }
+                        for (const classId of classIds) {
+                            const cls = classMap.get(classId)
+                            if (cls) {
+                                cls.studentCount = counts[classId] || 0
+                            }
+                        }
                     }
                 }
                 setClasses(Array.from(classMap.values()))

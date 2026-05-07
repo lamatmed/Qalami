@@ -1,3 +1,5 @@
+/* eslint-disable @typescript-eslint/no-unused-expressions */
+/* eslint-disable @typescript-eslint/no-explicit-any */
 'use client'
 
 import { useState, useEffect, useMemo } from 'react'
@@ -43,16 +45,9 @@ interface ClassOption {
 // ─── Helpers ───────────────────────────────────────────────────────────────────
 
 function genderLabel(g: string | null) {
-    if (g === 'male') return 'Garçon'
-    if (g === 'female') return 'Fille'
-    return '—'
-}
-
-const STATUS_LABELS: Record<string, string> = {
-    active: 'Actif',
-    suspended: 'Suspendu',
-    inactive: 'Inactif',
-    archived: 'Archivé',
+    if (g === 'male') return 'common.male'
+    if (g === 'female') return 'common.female'
+    return null
 }
 
 const statusDotClass = (status: string) => cn(
@@ -116,7 +111,15 @@ function DropItem({ label, active, onClick }: { label: string; active: boolean; 
 // ─── Main Component ────────────────────────────────────────────────────────────
 
 export function StudentDirectory() {
-    const { t } = useLanguage()
+    const { t, language } = useLanguage()
+    const isRtl = language === 'ar'
+
+    const STATUS_LABELS: Record<string, string> = {
+        active: t('admin.students.statusActive'),
+        suspended: t('admin.students.statusSuspended'),
+        inactive: t('admin.students.statusInactive'),
+        archived: t('admin.students.statusArchived'),
+    }
 
     // Data
     const [students, setStudents] = useState<Student[]>([])
@@ -199,11 +202,11 @@ export function StudentDirectory() {
 
         const result: Student[] = (studentProfiles as any[]).map(p => {
             const enroll = enrollMap.get(p.id)
-            const parts = (p.full_name || 'Élève').split(' ')
+            const parts = (p.full_name || t('common.student')).split(' ')
             return {
                 id: p.id,
-                name: p.full_name || 'Élève',
-                className: enroll?.classes?.name || 'Non assigné',
+                name: p.full_name || t('common.student'),
+                className: enroll?.classes?.name || '',
                 classId: enroll?.class_id || '',
                 status: p.status || 'active',
                 gender: p.gender ?? null,
@@ -279,7 +282,7 @@ export function StudentDirectory() {
             if (!res?.error) ok++
         }
         const cls = classes.find(c => c.id === bulkClassId)?.name ?? ''
-        toast.success(`${ok} élève${ok > 1 ? 's' : ''} assigné${ok > 1 ? 's' : ''} à ${cls}`)
+        toast.success(t('admin.students.assignedToClass', { count: ok, className: cls }))
         setStudents(prev => prev.map(s => selectedIds.has(s.id) ? { ...s, className: cls, classId: bulkClassId } : s))
         setSelectedIds(new Set())
         setBulkClassId('')
@@ -303,15 +306,19 @@ export function StudentDirectory() {
             <div className="flex gap-2 items-center">
                 {/* Search */}
                 <div className="relative flex-1">
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-500 pointer-events-none" />
+                    <Search className={cn("absolute top-1/2 -translate-y-1/2 h-4 w-4 text-gray-500 pointer-events-none", isRtl ? "right-3" : "left-3")} />
                     <Input
+                        dir={isRtl ? 'rtl' : 'ltr'}
                         placeholder={t('admin.students.searchPlaceholder')}
-                        className="pl-10 bg-[#161B22] border-white/5 text-gray-300 focus:border-emerald-500/50 h-10 rounded-xl placeholder:text-gray-600 text-sm"
+                        className={cn(
+                            "bg-[#161B22] border-white/5 text-gray-300 focus:border-emerald-500/50 h-10 rounded-xl placeholder:text-gray-600 text-sm",
+                            isRtl ? "text-right pr-10 pl-8" : "pl-10 pr-8"
+                        )}
                         value={searchTerm}
                         onChange={(e) => setSearchTerm(e.target.value)}
                     />
                     {searchTerm && (
-                        <button className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-white" onClick={() => setSearchTerm('')}>
+                        <button className={cn("absolute top-1/2 -translate-y-1/2 text-gray-500 hover:text-white", isRtl ? "left-3" : "right-3")} onClick={() => setSearchTerm('')}>
                             <X className="w-3.5 h-3.5" />
                         </button>
                     )}
@@ -322,14 +329,14 @@ export function StudentDirectory() {
                     <button
                         onClick={() => setViewMode('cards')}
                         className={cn("p-1.5 rounded-lg transition-colors", viewMode === 'cards' ? "bg-white/10 text-white" : "text-gray-600 hover:text-gray-300")}
-                        title="Vue cartes"
+                        title={t('admin.students.cardsView')}
                     >
                         <LayoutGrid className="w-3.5 h-3.5" />
                     </button>
                     <button
                         onClick={() => setViewMode('table')}
                         className={cn("p-1.5 rounded-lg transition-colors", viewMode === 'table' ? "bg-white/10 text-white" : "text-gray-600 hover:text-gray-300")}
-                        title="Vue tableau"
+                        title={t('admin.students.tableView')}
                     >
                         <LayoutList className="w-3.5 h-3.5" />
                     </button>
@@ -339,7 +346,7 @@ export function StudentDirectory() {
                 <button
                     onClick={() => setImportOpen(true)}
                     className="p-2 rounded-xl bg-[#161B22] border border-white/5 text-gray-500 hover:text-white transition-colors shrink-0"
-                    title="Importer depuis CSV"
+                    title={t('admin.students.importCsv')}
                 >
                     <Upload className="w-4 h-4" />
                 </button>
@@ -349,7 +356,7 @@ export function StudentDirectory() {
                     <Button className="bg-emerald-500 hover:bg-emerald-600 text-black font-bold h-10 rounded-xl px-4 gap-2 text-sm">
                         <UserPlus className="w-4 h-4" />
                         <span className="hidden sm:inline">{t('admin.students.enrollStudent')}</span>
-                        <span className="sm:hidden">Inscrire</span>
+                        <span className="sm:hidden">{t('admin.students.enrollShort')}</span>
                     </Button>
                 </Link>
             </div>
@@ -359,12 +366,12 @@ export function StudentDirectory() {
 
                 {/* Classe */}
                 <FilterDropdown
-                    label={selectedClass === 'all' ? 'Classe' : classes.find(c => c.id === selectedClass)?.name ?? 'Classe'}
+                    label={selectedClass === 'all' ? t('admin.students.class') : classes.find(c => c.id === selectedClass)?.name ?? t('admin.students.class')}
                     active={selectedClass !== 'all'}
                     open={openDropdown === 'class'}
                     onToggle={() => toggleDropdown('class')}
                 >
-                    <DropItem label="Toutes" active={selectedClass === 'all'} onClick={() => { setSelectedClass('all'); setOpenDropdown(null) }} />
+                    <DropItem label={t('admin.students.allClasses')} active={selectedClass === 'all'} onClick={() => { setSelectedClass('all'); setOpenDropdown(null) }} />
                     {classes.map(cls => (
                         <DropItem key={cls.id} label={cls.name} active={selectedClass === cls.id} onClick={() => { setSelectedClass(cls.id); setOpenDropdown(null) }} />
                     ))}
@@ -372,12 +379,12 @@ export function StudentDirectory() {
 
                 {/* Statut */}
                 <FilterDropdown
-                    label={selectedStatus === 'all' ? 'Statut' : STATUS_LABELS[selectedStatus] ?? selectedStatus}
+                    label={selectedStatus === 'all' ? t('common.status') : STATUS_LABELS[selectedStatus] ?? selectedStatus}
                     active={selectedStatus !== 'all'}
                     open={openDropdown === 'status'}
                     onToggle={() => toggleDropdown('status')}
                 >
-                    <DropItem label="Tous" active={selectedStatus === 'all'} onClick={() => { setSelectedStatus('all'); setOpenDropdown(null) }} />
+                    <DropItem label={t('common.all')} active={selectedStatus === 'all'} onClick={() => { setSelectedStatus('all'); setOpenDropdown(null) }} />
                     {Object.entries(STATUS_LABELS).map(([val, label]) => (
                         <DropItem key={val} label={label} active={selectedStatus === val} onClick={() => { setSelectedStatus(val); setOpenDropdown(null) }} />
                     ))}
@@ -385,26 +392,26 @@ export function StudentDirectory() {
 
                 {/* Genre */}
                 <FilterDropdown
-                    label={selectedGender === 'all' ? 'Genre' : selectedGender === 'male' ? 'Garçons' : 'Filles'}
+                    label={selectedGender === 'all' ? t('admin.students.gender') : selectedGender === 'male' ? t('admin.students.boys') : t('admin.students.girls')}
                     active={selectedGender !== 'all'}
                     open={openDropdown === 'gender'}
                     onToggle={() => toggleDropdown('gender')}
                 >
-                    <DropItem label="Tous" active={selectedGender === 'all'} onClick={() => { setSelectedGender('all'); setOpenDropdown(null) }} />
-                    <DropItem label="Garçons" active={selectedGender === 'male'} onClick={() => { setSelectedGender('male'); setOpenDropdown(null) }} />
-                    <DropItem label="Filles" active={selectedGender === 'female'} onClick={() => { setSelectedGender('female'); setOpenDropdown(null) }} />
+                    <DropItem label={t('common.all')} active={selectedGender === 'all'} onClick={() => { setSelectedGender('all'); setOpenDropdown(null) }} />
+                    <DropItem label={t('admin.students.boys')} active={selectedGender === 'male'} onClick={() => { setSelectedGender('male'); setOpenDropdown(null) }} />
+                    <DropItem label={t('admin.students.girls')} active={selectedGender === 'female'} onClick={() => { setSelectedGender('female'); setOpenDropdown(null) }} />
                 </FilterDropdown>
 
                 {/* Paiement */}
                 <FilterDropdown
-                    label={selectedPayment === 'all' ? 'Paiement' : selectedPayment === 'overdue' ? 'En retard' : 'À jour'}
+                    label={selectedPayment === 'all' ? t('admin.students.payment') : selectedPayment === 'overdue' ? t('common.overdue') : t('admin.students.paidUp')}
                     active={selectedPayment !== 'all'}
                     open={openDropdown === 'payment'}
                     onToggle={() => toggleDropdown('payment')}
                 >
-                    <DropItem label="Tous" active={selectedPayment === 'all'} onClick={() => { setSelectedPayment('all'); setOpenDropdown(null) }} />
-                    <DropItem label="À jour" active={selectedPayment === 'ok'} onClick={() => { setSelectedPayment('ok'); setOpenDropdown(null) }} />
-                    <DropItem label="En retard" active={selectedPayment === 'overdue'} onClick={() => { setSelectedPayment('overdue'); setOpenDropdown(null) }} />
+                    <DropItem label={t('common.all')} active={selectedPayment === 'all'} onClick={() => { setSelectedPayment('all'); setOpenDropdown(null) }} />
+                    <DropItem label={t('admin.students.paidUp')} active={selectedPayment === 'ok'} onClick={() => { setSelectedPayment('ok'); setOpenDropdown(null) }} />
+                    <DropItem label={t('common.overdue')} active={selectedPayment === 'overdue'} onClick={() => { setSelectedPayment('overdue'); setOpenDropdown(null) }} />
                 </FilterDropdown>
 
                 {/* Clear */}
@@ -413,7 +420,7 @@ export function StudentDirectory() {
                         onClick={clearFilters}
                         className="inline-flex items-center gap-1 px-2.5 h-8 rounded-lg text-xs font-medium text-red-400 hover:text-red-300 hover:bg-red-500/10 transition-colors"
                     >
-                        <X className="w-3 h-3" /> Effacer
+                        <X className="w-3 h-3" /> {t('admin.students.clear')}
                     </button>
                 )}
             </div>
@@ -422,15 +429,15 @@ export function StudentDirectory() {
             <div className="flex items-center justify-between">
                 <p className="text-xs text-gray-500">
                     <span className="font-bold text-emerald-500 uppercase tracking-widest">
-                        {loading ? '…' : `${filteredStudents.length} élève${filteredStudents.length !== 1 ? 's' : ''}`}
+                        {loading ? '…' : t('admin.students.resultsCount', { count: filteredStudents.length })}
                     </span>
                     {selectedIds.size > 0 && (
-                        <span className="ml-2">· {selectedIds.size} sélectionné{selectedIds.size > 1 ? 's' : ''}</span>
+                        <span className="ml-2">· {t('admin.students.selectedCount', { count: selectedIds.size })}</span>
                     )}
                 </p>
                 {!loading && filteredStudents.length > 0 && (
                     <button className="text-xs text-gray-600 hover:text-gray-300 transition-colors" onClick={toggleSelectAll}>
-                        {selectedIds.size === filteredStudents.length ? 'Désélectionner tout' : 'Tout sélectionner'}
+                        {selectedIds.size === filteredStudents.length ? t('admin.students.deselectAll') : t('admin.students.selectAll')}
                     </button>
                 )}
             </div>
@@ -445,7 +452,7 @@ export function StudentDirectory() {
                 ) : filteredStudents.length === 0 ? (
                     <div className="text-center py-16 text-gray-500 text-sm">
                         {hasActiveFilter || searchTerm
-                            ? <><p className="font-medium">Aucun résultat</p><button className="text-xs text-emerald-500 mt-2 hover:underline" onClick={clearFilters}>Effacer les filtres</button></>
+                            ? <><p className="font-medium">{t('common.noResults')}</p><button className="text-xs text-emerald-500 mt-2 hover:underline" onClick={clearFilters}>{t('admin.students.clearFilters')}</button></>
                             : t('admin.students.noEnrolled')
                         }
                     </div>
@@ -464,7 +471,7 @@ export function StudentDirectory() {
                                 )}
                             >
                                 {/* Checkbox — only for unassigned students */}
-                                {student.className === 'Non assigné' && (
+                                {!student.classId && (
                                     <button
                                         className="shrink-0 text-gray-700 hover:text-emerald-500 transition-colors"
                                         onClick={() => toggleSelect(student.id)}
@@ -475,7 +482,7 @@ export function StudentDirectory() {
                                         }
                                     </button>
                                 )}
-                                {student.className !== 'Non assigné' && (
+                                {student.classId && (
                                     <div className="w-4 shrink-0" />
                                 )}
 
@@ -491,9 +498,9 @@ export function StudentDirectory() {
                                     <div className="min-w-0 flex-1">
                                         <p className="font-semibold text-sm text-white group-hover:text-emerald-400 transition-colors truncate">{student.name}</p>
                                         <p className="text-xs text-gray-500 truncate">
-                                            {student.className}
-                                            {student.gender && <> · {genderLabel(student.gender)}</>}
-                                            {student.paymentStatus === 'overdue' && <span className="text-red-400 ml-1">· En retard</span>}
+                                            {student.className || t('admin.students.unassigned')}
+                                            {student.gender && genderLabel(student.gender) && <> · {t(genderLabel(student.gender) as string)}</>}
+                                            {student.paymentStatus === 'overdue' && <span className="text-red-400 ml-1">· {t('common.overdue')}</span>}
                                         </p>
                                     </div>
                                     <StatusBadge status={student.status} />
@@ -501,10 +508,10 @@ export function StudentDirectory() {
 
                                 {/* Row actions */}
                                 <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
-                                    {student.className === 'Non assigné' && (
+                                    {!student.classId && (
                                         <button
                                             className="p-1.5 rounded-lg text-amber-500 hover:bg-amber-500/10 transition-colors"
-                                            title="Assigner à une classe"
+                                            title={t('admin.students.assignToClass')}
                                             onClick={(e) => { e.preventDefault(); setAssignDialog({ open: true, student }) }}
                                         >
                                             <GraduationCap className="w-3.5 h-3.5" />
@@ -512,7 +519,7 @@ export function StudentDirectory() {
                                     )}
                                     <button
                                         className="p-1.5 rounded-lg text-gray-600 hover:text-orange-400 hover:bg-orange-500/10 transition-colors"
-                                        title="Changer le statut"
+                                        title={t('admin.students.changeStatus')}
                                         onClick={(e) => { e.preventDefault(); setStatusDialog({ open: true, student }) }}
                                     >
                                         <ShieldAlert className="w-3.5 h-3.5" />
@@ -536,11 +543,11 @@ export function StudentDirectory() {
                                             }
                                         </button>
                                     </th>
-                                    <th className="text-left px-3 py-3 text-[10px] font-bold text-gray-500 uppercase tracking-wider">Élève</th>
-                                    <th className="text-left px-3 py-3 text-[10px] font-bold text-gray-500 uppercase tracking-wider hidden md:table-cell">Classe</th>
-                                    <th className="text-left px-3 py-3 text-[10px] font-bold text-gray-500 uppercase tracking-wider hidden sm:table-cell">Statut</th>
-                                    <th className="text-left px-3 py-3 text-[10px] font-bold text-gray-500 uppercase tracking-wider hidden lg:table-cell">Genre</th>
-                                    <th className="text-left px-3 py-3 text-[10px] font-bold text-gray-500 uppercase tracking-wider hidden lg:table-cell">Paiement</th>
+                                    <th className="text-left px-3 py-3 text-[10px] font-bold text-gray-500 uppercase tracking-wider">{t('common.student')}</th>
+                                    <th className="text-left px-3 py-3 text-[10px] font-bold text-gray-500 uppercase tracking-wider hidden md:table-cell">{t('admin.students.class')}</th>
+                                    <th className="text-left px-3 py-3 text-[10px] font-bold text-gray-500 uppercase tracking-wider hidden sm:table-cell">{t('common.status')}</th>
+                                    <th className="text-left px-3 py-3 text-[10px] font-bold text-gray-500 uppercase tracking-wider hidden lg:table-cell">{t('admin.students.gender')}</th>
+                                    <th className="text-left px-3 py-3 text-[10px] font-bold text-gray-500 uppercase tracking-wider hidden lg:table-cell">{t('admin.students.payment')}</th>
                                     <th className="w-16"></th>
                                 </tr>
                             </thead>
@@ -548,7 +555,7 @@ export function StudentDirectory() {
                                 {filteredStudents.map(student => (
                                     <tr key={student.id} className={cn("group transition-colors", selectedIds.has(student.id) ? "bg-emerald-500/5" : "hover:bg-white/[0.02]")}>
                                         <td className="p-3 text-center">
-                                            {student.className === 'Non assigné' && (
+                                            {!student.classId && (
                                                 <button onClick={() => toggleSelect(student.id)} className="text-gray-600 hover:text-emerald-500 transition-colors">
                                                     {selectedIds.has(student.id)
                                                         ? <CheckSquare2 className="w-4 h-4 text-emerald-500" />
@@ -566,18 +573,18 @@ export function StudentDirectory() {
                                                 <span className="text-sm font-medium text-white group-hover/link:text-emerald-400 transition-colors truncate">{student.name}</span>
                                             </Link>
                                         </td>
-                                        <td className="px-3 py-2.5 hidden md:table-cell text-sm text-gray-400">{student.className}</td>
+                                        <td className="px-3 py-2.5 hidden md:table-cell text-sm text-gray-400">{student.className || t('admin.students.unassigned')}</td>
                                         <td className="px-3 py-2.5 hidden sm:table-cell"><StatusBadge status={student.status} /></td>
-                                        <td className="px-3 py-2.5 hidden lg:table-cell text-xs text-gray-500">{genderLabel(student.gender)}</td>
+                                        <td className="px-3 py-2.5 hidden lg:table-cell text-xs text-gray-500">{genderLabel(student.gender) ? t(genderLabel(student.gender) as string) : '—'}</td>
                                         <td className="px-3 py-2.5 hidden lg:table-cell">
                                             {student.paymentStatus === 'overdue'
-                                                ? <span className="text-xs font-medium text-red-400">En retard</span>
-                                                : <span className="text-xs text-gray-600">À jour</span>
+                                                ? <span className="text-xs font-medium text-red-400">{t('common.overdue')}</span>
+                                                : <span className="text-xs text-gray-600">{t('admin.students.paidUp')}</span>
                                             }
                                         </td>
                                         <td className="px-3 py-2.5">
                                             <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
-                                                {student.className === 'Non assigné' && (
+                                                {!student.classId && (
                                                     <button className="p-1.5 rounded-lg text-amber-500 hover:bg-amber-500/10 transition-colors" onClick={() => setAssignDialog({ open: true, student })}>
                                                         <GraduationCap className="w-3.5 h-3.5" />
                                                     </button>
@@ -599,7 +606,7 @@ export function StudentDirectory() {
             {selectedIds.size > 0 && (
                 <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 flex items-center gap-3 bg-[#1A2530] border border-white/10 rounded-2xl px-4 py-3 shadow-2xl animate-in fade-in slide-in-from-bottom-4 duration-200">
                     <span className="text-sm font-bold text-white whitespace-nowrap">
-                        {selectedIds.size} sélectionné{selectedIds.size > 1 ? 's' : ''}
+                        {t('admin.students.selectedCount', { count: selectedIds.size })}
                     </span>
                     <div className="h-4 w-px bg-white/10 shrink-0" />
                     <select
@@ -607,7 +614,7 @@ export function StudentDirectory() {
                         onChange={(e) => setBulkClassId(e.target.value)}
                         className="bg-[#0F1720] border border-white/10 text-gray-300 text-sm rounded-lg px-3 py-1.5 min-w-[140px] focus:outline-none focus:border-emerald-500/50"
                     >
-                        <option value="">Choisir une classe…</option>
+                        <option value="">{t('admin.students.chooseClass')}</option>
                         {classes.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
                     </select>
                     <button
@@ -616,7 +623,7 @@ export function StudentDirectory() {
                         className="bg-emerald-500 hover:bg-emerald-600 disabled:opacity-40 text-black font-bold text-sm px-4 py-1.5 rounded-lg flex items-center gap-1.5 transition-colors"
                     >
                         {bulkAssigning ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <GraduationCap className="w-3.5 h-3.5" />}
-                        Assigner
+                        {t('admin.students.assign')}
                     </button>
                     <button className="p-1.5 text-gray-500 hover:text-white transition-colors" onClick={() => setSelectedIds(new Set())}>
                         <X className="w-4 h-4" />
@@ -654,7 +661,7 @@ export function StudentDirectory() {
                 onOpenChange={setImportOpen}
                 classes={classes}
                 onSuccess={(count) => {
-                    toast.success(`${count} élève${count > 1 ? 's' : ''} importé${count > 1 ? 's' : ''}`)
+                    toast.success(t('admin.students.importedCount', { count }))
                     setImportOpen(false)
                     fetchStudents()
                 }}

@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button'
 import { Building2, Mail, Phone, MapPin, Upload, Loader2, CheckCircle2 } from 'lucide-react'
 import { createClient } from '@/utils/supabase/client'
 import { toast } from 'sonner'
+import { useLanguage } from '@/i18n'
 
 interface SchoolSettings {
     id?: string
@@ -20,6 +21,7 @@ interface SchoolSettings {
 }
 
 export function SchoolIdentity() {
+    const { t } = useLanguage()
     const supabase = createClient()
     const [isPending, startTransition] = useTransition()
     const [isLoading, setIsLoading] = useState(true)
@@ -98,11 +100,11 @@ export function SchoolIdentity() {
                 if (error) throw error
 
                 setIsSaved(true)
-                toast.success('Paramètres enregistrés avec succès!')
+                toast.success(t('admin.settings.identity.saveSuccess'))
                 setTimeout(() => setIsSaved(false), 2000)
             } catch (error) {
                 console.error('Error saving settings:', error)
-                toast.error('Erreur lors de l\'enregistrement')
+                toast.error(t('admin.settings.identity.saveError'))
             }
         })
     }
@@ -119,8 +121,8 @@ export function SchoolIdentity() {
         <div className="space-y-8 animate-in fade-in duration-500">
             {/* Header */}
             <div>
-                <h3 className="text-xl font-bold text-white">Identité de l'école</h3>
-                <p className="text-gray-400 text-sm">Informations visibles sur les documents officiels.</p>
+                <h3 className="text-xl font-bold text-white">{t('admin.settings.identity.title')}</h3>
+                <p className="text-gray-400 text-sm">{t('admin.settings.identity.subtitle')}</p>
             </div>
 
             {/* Logo Upload */}
@@ -133,10 +135,10 @@ export function SchoolIdentity() {
                     )}
                 </div>
                 <div>
-                    <h4 className="font-bold text-white">Logo de l'école</h4>
-                    <p className="text-xs text-gray-500 mb-3">Format recommandé : PNG ou JPG (Carré, 500x500px)</p>
+                    <h4 className="font-bold text-white">{t('admin.settings.identity.logoTitle')}</h4>
+                    <p className="text-xs text-gray-500 mb-3">{t('admin.settings.identity.logoDesc')}</p>
                     <Button variant="outline" size="sm" className="border-emerald-500/20 text-emerald-500 hover:bg-emerald-500/10">
-                        Modifier le logo
+                        {t('admin.settings.identity.modifyLogo')}
                     </Button>
                 </div>
             </div>
@@ -145,36 +147,36 @@ export function SchoolIdentity() {
             <div className="space-y-5">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
                     <div className="space-y-2">
-                        <Label>Nom de l'établissement</Label>
+                        <Label>{t('admin.settings.identity.schoolNameLabel')}</Label>
                         <div className="relative">
                             <Building2 className="absolute left-3 top-3 h-4 w-4 text-gray-500" />
                             <Input
                                 value={settings.name}
                                 onChange={(e) => setSettings(prev => ({ ...prev, name: e.target.value }))}
-                                placeholder="Nom de l'école"
+                                placeholder={t('admin.settings.identity.schoolNamePlaceholder')}
                                 className="pl-9 bg-[#1A2530] border-white/5"
                             />
                         </div>
                     </div>
                     <div className="space-y-2">
-                        <Label>Slogan / Devise</Label>
+                        <Label>{t('admin.settings.identity.sloganLabel')}</Label>
                         <Input
-                            value={settings.slogan}
-                            onChange={(e) => setSettings(prev => ({ ...prev, slogan: e.target.value }))}
-                            placeholder="Slogan"
-                            className="bg-[#1A2530] border-white/5"
+                             value={settings.slogan}
+                             onChange={(e) => setSettings(prev => ({ ...prev, slogan: e.target.value }))}
+                             placeholder={t('admin.settings.identity.sloganPlaceholder')}
+                             className="bg-[#1A2530] border-white/5"
                         />
                     </div>
                 </div>
 
                 <div className="space-y-2">
-                    <Label>Adresse</Label>
+                    <Label>{t('admin.settings.identity.addressLabel')}</Label>
                     <div className="relative">
                         <MapPin className="absolute left-3 top-3 h-4 w-4 text-gray-500" />
                         <Input
                             value={settings.address}
                             onChange={(e) => setSettings(prev => ({ ...prev, address: e.target.value }))}
-                            placeholder="Adresse complète"
+                            placeholder={t('admin.settings.identity.addressPlaceholder')}
                             className="pl-9 bg-[#1A2530] border-white/5"
                         />
                     </div>
@@ -182,7 +184,7 @@ export function SchoolIdentity() {
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
                     <div className="space-y-2">
-                        <Label>Téléphone</Label>
+                        <Label>{t('admin.settings.identity.phoneLabel')}</Label>
                         <div className="relative">
                             <Phone className="absolute left-3 top-3 h-4 w-4 text-gray-500" />
                             <Input
@@ -194,7 +196,7 @@ export function SchoolIdentity() {
                         </div>
                     </div>
                     <div className="space-y-2">
-                        <Label>Email de contact</Label>
+                        <Label>{t('admin.settings.identity.emailLabel')}</Label>
                         <div className="relative">
                             <Mail className="absolute left-3 top-3 h-4 w-4 text-gray-500" />
                             <Input
@@ -216,11 +218,11 @@ export function SchoolIdentity() {
                     className="bg-emerald-500 hover:bg-emerald-600 text-black font-bold px-8 gap-2"
                 >
                     {isPending ? (
-                        <><Loader2 className="h-4 w-4 animate-spin" /> Enregistrement...</>
+                        <><Loader2 className="h-4 w-4 animate-spin" /> {t('admin.settings.identity.saving')}</>
                     ) : isSaved ? (
-                        <><CheckCircle2 className="h-4 w-4" /> Enregistré!</>
+                        <><CheckCircle2 className="h-4 w-4" /> {t('admin.settings.identity.saved')}</>
                     ) : (
-                        'Enregistrer les modifications'
+                        t('admin.settings.identity.saveChanges')
                     )}
                 </Button>
             </div>

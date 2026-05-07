@@ -1,11 +1,12 @@
 'use client'
 
-import { ChevronLeft, BookOpen, FileText, FolderOpen, Download, Search } from 'lucide-react'
+import { ArrowLeft, ArrowRight, BookOpen, FileText, FolderOpen, Download, Search } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { cn } from '@/lib/utils'
 import Link from 'next/link'
 import { useState } from 'react'
+import { useLanguage } from '@/i18n'
 
 interface Subject {
     id: string
@@ -26,38 +27,33 @@ interface Document {
     created_at: string | null
 }
 
-const DOC_TYPE_LABELS: Record<string, string> = {
-    course: 'Cours', exercise: 'Exercice', exam: 'Examen',
-    devoirs: 'Devoirs', correction: 'Correction', resource: 'Ressource', general: 'Général',
-}
-
-const DOC_TYPE_COLORS: Record<string, { text: string; bg: string }> = {
-    course: { text: 'text-cyan-500', bg: 'bg-cyan-500/10' },
-    exercise: { text: 'text-emerald-500', bg: 'bg-emerald-500/10' },
-    exam: { text: 'text-red-500', bg: 'bg-red-500/10' },
-    correction: { text: 'text-purple-500', bg: 'bg-purple-500/10' },
-    resource: { text: 'text-blue-500', bg: 'bg-blue-500/10' },
-    general: { text: 'text-gray-400', bg: 'bg-gray-500/10' },
-}
-
 interface Props {
     subjects: Subject[]
     documents: Document[]
 }
 
+const DOC_TYPE_COLORS: Record<string, { text: string; bg: string }> = {
+    course: { text: 'text-cyan-600 dark:text-cyan-400', bg: 'bg-cyan-50 dark:bg-cyan-500/10' },
+    exercise: { text: 'text-emerald-600 dark:text-emerald-400', bg: 'bg-emerald-50 dark:bg-emerald-500/10' },
+    exam: { text: 'text-red-600 dark:text-red-400', bg: 'bg-red-50 dark:bg-red-500/10' },
+    correction: { text: 'text-purple-600 dark:text-purple-400', bg: 'bg-purple-50 dark:bg-purple-500/10' },
+    resource: { text: 'text-blue-600 dark:text-blue-400', bg: 'bg-blue-50 dark:bg-blue-500/10' },
+    general: { text: 'text-gray-600 dark:text-gray-400', bg: 'bg-gray-50 dark:bg-gray-500/10' },
+}
+
 // Color mapping for subjects
 const SUBJECT_COLORS: Record<string, { text: string; bg: string; icon: string }> = {
-    'Mathématiques': { text: 'text-indigo-400', bg: 'bg-indigo-500/10', icon: 'Σ' },
-    'Français': { text: 'text-amber-400', bg: 'bg-amber-500/10', icon: 'Fr' },
-    'Arabe': { text: 'text-emerald-400', bg: 'bg-emerald-500/10', icon: 'ع' },
-    'Anglais': { text: 'text-blue-400', bg: 'bg-blue-500/10', icon: 'En' },
-    'Physique': { text: 'text-orange-400', bg: 'bg-orange-500/10', icon: '⚡' },
-    'Physique-Chimie': { text: 'text-orange-400', bg: 'bg-orange-500/10', icon: '⚗' },
-    'Sciences': { text: 'text-cyan-400', bg: 'bg-cyan-500/10', icon: '🔬' },
-    'Histoire': { text: 'text-red-400', bg: 'bg-red-500/10', icon: '📜' },
-    'Géographie': { text: 'text-teal-400', bg: 'bg-teal-500/10', icon: '🌍' },
-    'Éducation Islamique': { text: 'text-green-400', bg: 'bg-green-500/10', icon: '☪' },
-    'default': { text: 'text-gray-400', bg: 'bg-gray-500/10', icon: '📚' }
+    'Mathématiques': { text: 'text-indigo-600 dark:text-indigo-400', bg: 'bg-indigo-50 dark:bg-indigo-500/10', icon: 'Σ' },
+    'Français': { text: 'text-amber-600 dark:text-amber-400', bg: 'bg-amber-50 dark:bg-amber-500/10', icon: 'Fr' },
+    'Arabe': { text: 'text-emerald-600 dark:text-emerald-400', bg: 'bg-emerald-50 dark:bg-emerald-500/10', icon: 'ع' },
+    'Anglais': { text: 'text-blue-600 dark:text-blue-400', bg: 'bg-blue-50 dark:bg-blue-500/10', icon: 'En' },
+    'Physique': { text: 'text-orange-600 dark:text-orange-400', bg: 'bg-orange-50 dark:bg-orange-500/10', icon: '⚡' },
+    'Physique-Chimie': { text: 'text-orange-600 dark:text-orange-400', bg: 'bg-orange-50 dark:bg-orange-500/10', icon: '⚗' },
+    'Sciences': { text: 'text-cyan-600 dark:text-cyan-400', bg: 'bg-cyan-50 dark:bg-cyan-500/10', icon: '🔬' },
+    'Histoire': { text: 'text-red-600 dark:text-red-400', bg: 'bg-red-50 dark:bg-red-500/10', icon: '📜' },
+    'Géographie': { text: 'text-teal-600 dark:text-teal-400', bg: 'bg-teal-50 dark:bg-teal-500/10', icon: '🌍' },
+    'Éducation Islamique': { text: 'text-green-600 dark:text-green-400', bg: 'bg-green-50 dark:bg-green-500/10', icon: '☪' },
+    'default': { text: 'text-gray-600 dark:text-gray-400', bg: 'bg-gray-50 dark:bg-gray-500/10', icon: '📚' }
 }
 
 function formatFileSize(bytes: number | null): string {
@@ -69,6 +65,7 @@ function formatFileSize(bytes: number | null): string {
 
 export function StudentCoursesView({ subjects, documents }: Props) {
     const [searchQuery, setSearchQuery] = useState('')
+    const { t, direction } = useLanguage()
 
     const getSubjectStyle = (name: string) => {
         return SUBJECT_COLORS[name] || SUBJECT_COLORS['default']
@@ -84,55 +81,65 @@ export function StudentCoursesView({ subjects, documents }: Props) {
         (d.subjects?.name && d.subjects.name.toLowerCase().includes(searchQuery.toLowerCase()))
     )
 
+    const BackIcon = direction === 'rtl' ? ArrowRight : ArrowLeft
+
     return (
-        <div className="max-w-md mx-auto lg:max-w-3xl pb-24 space-y-6 p-4">
+        <div className="max-w-4xl space-y-8 pb-12 animate-in fade-in duration-500 p-6 md:p-8" dir={direction}>
             {/* Header */}
-            <div className="flex items-center gap-2 mb-4">
+            <div className="flex items-center gap-4.5">
                 <Link href="/student">
-                    <Button variant="ghost" size="icon" className="-ml-2"><ChevronLeft /></Button>
+                    <Button variant="ghost" size="icon" className="h-11 w-11 rounded-2xl text-gray-400 hover:text-gray-900 dark:hover:text-white border border-gray-100 dark:border-white/10 hover:bg-gray-50 dark:hover:bg-white/5 shadow-sm transition-all duration-300">
+                        <BackIcon className="w-5 h-5" />
+                    </Button>
                 </Link>
-                <h1 className="font-bold text-xl">Bibliothèque de cours</h1>
+                <div>
+                    <h1 className="text-2xl md:text-3xl font-black text-gray-900 dark:text-white tracking-tight leading-tight">
+                        {t('student.courses.title')}
+                    </h1>
+                </div>
             </div>
 
-            {/* Search */}
+            {/* Search Input */}
             <div className="relative">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500" />
+                <Search className={cn("absolute top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400", direction === 'rtl' ? 'right-4' : 'left-4')} />
                 <Input
-                    placeholder="Rechercher une matière ou un fichier..."
+                    placeholder={t('student.courses.searchPlaceholder')}
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
-                    className="bg-[#0D1117] border-white/5 pl-9 h-10 text-sm text-white focus-visible:ring-cyan-500/50"
+                    className={cn("bg-white dark:bg-slate-900 border-gray-200 dark:border-white/10 text-gray-900 dark:text-white placeholder:text-gray-400 rounded-2xl h-12 shadow-sm transition-all focus:bg-white focus:ring-2 focus:ring-purple-500/10", direction === 'rtl' ? 'pr-12 pl-4' : 'pl-12 pr-4')}
                 />
             </div>
 
             {/* Subjects Grid */}
-            <div>
-                <div className="flex justify-between items-center mb-4">
-                    <h2 className="font-bold text-lg">Matières</h2>
-                    <span className="text-[10px] text-cyan-400 font-bold bg-cyan-950/50 px-2 py-0.5 rounded border border-cyan-500/30">
-                        {filteredSubjects.length} Matière{filteredSubjects.length > 1 ? 's' : ''}
+            <div className="space-y-4">
+                <div className="flex justify-between items-center">
+                    <h2 className="font-bold text-gray-900 dark:text-white text-lg">{t('student.courses.subjects')}</h2>
+                    <span className="text-[10px] text-purple-600 dark:text-purple-400 font-black bg-purple-50 dark:bg-purple-500/10 px-3 py-1 rounded-full border border-purple-100 dark:border-purple-500/20 uppercase tracking-wider">
+                        {filteredSubjects.length} {filteredSubjects.length > 1 ? t('student.courses.subjects') : t('student.courses.subject')}
                     </span>
                 </div>
 
                 {filteredSubjects.length === 0 ? (
-                    <div className="text-center py-10 text-muted-foreground">
-                        <BookOpen className="w-10 h-10 mx-auto mb-3 opacity-30" />
-                        <p className="text-sm">Aucune matière trouvée</p>
+                    <div className="text-center py-16 bg-white dark:bg-slate-900 border border-gray-100 dark:border-white/5 rounded-3xl shadow-sm text-gray-400">
+                        <BookOpen className="w-12 h-12 mx-auto mb-3 opacity-30 text-purple-600 animate-pulse" />
+                        <p className="font-bold text-gray-500">{t('student.courses.noSubjects')}</p>
                     </div>
                 ) : (
-                    <div className="grid grid-cols-2 gap-3">
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-5">
                         {filteredSubjects.map((subject) => {
                             const style = getSubjectStyle(subject.name)
                             const iconLabel = subject.icon || style.icon
                             return (
                                 <div
                                     key={subject.id}
-                                    className="bg-card border border-border/50 p-4 rounded-2xl relative overflow-hidden group hover:border-white/10 transition-colors cursor-pointer"
+                                    className="bg-white dark:bg-slate-900 border border-gray-100 dark:border-white/5 p-6 rounded-3xl relative overflow-hidden group hover:border-purple-200 dark:hover:border-purple-500/20 hover:shadow-md transition-all duration-300 cursor-pointer flex items-center gap-4.5"
                                 >
-                                    <div className={cn("h-12 w-12 rounded-xl flex items-center justify-center mb-3 text-xl font-bold", style.bg, style.text)}>
+                                    <div className={cn("h-13 w-13 rounded-2xl flex items-center justify-center text-xl font-black shrink-0 border transition-all duration-300 group-hover:scale-105", style.bg, style.text, style.text.includes('dark:') ? style.text.split(' ')[0].replace('text-', 'border-').replace('600', '100') : 'border-transparent')}>
                                         {iconLabel}
                                     </div>
-                                    <h3 className="font-bold text-sm text-gray-200 mb-1">{subject.name}</h3>
+                                    <div className="min-w-0">
+                                        <h3 className="font-black text-base text-gray-900 dark:text-white group-hover:text-purple-600 dark:group-hover:text-purple-400 transition-colors truncate">{subject.name}</h3>
+                                    </div>
                                 </div>
                             )
                         })}
@@ -141,23 +148,23 @@ export function StudentCoursesView({ subjects, documents }: Props) {
             </div>
 
             {/* Recent Documents */}
-            <div className="pt-2">
-                <div className="flex justify-between items-center mb-4">
-                    <h2 className="font-bold text-lg">Documents récents</h2>
+            <div className="space-y-4">
+                <div className="flex justify-between items-center">
+                    <h2 className="font-bold text-gray-900 dark:text-white text-lg">{t('student.courses.recentDocuments')}</h2>
                     {filteredDocs.length > 0 && (
-                        <span className="text-[10px] text-gray-400 font-bold bg-white/5 px-2 py-0.5 rounded">
-                            {filteredDocs.length} fichier{filteredDocs.length > 1 ? 's' : ''}
+                        <span className="text-[10px] text-gray-400 dark:text-gray-500 font-black bg-gray-50 dark:bg-white/5 px-3 py-1 rounded-full border border-gray-100 dark:border-white/5 uppercase tracking-wider">
+                            {filteredDocs.length} {filteredDocs.length > 1 ? t('student.courses.files') : t('student.courses.file')}
                         </span>
                     )}
                 </div>
 
                 {filteredDocs.length === 0 ? (
-                    <div className="text-center py-10 text-muted-foreground">
-                        <FolderOpen className="w-10 h-10 mx-auto mb-3 opacity-30" />
-                        <p className="text-sm">Aucun document disponible</p>
+                    <div className="text-center py-16 bg-white dark:bg-slate-900 border border-gray-100 dark:border-white/5 rounded-3xl shadow-sm text-gray-400">
+                        <FolderOpen className="w-12 h-12 mx-auto mb-3 opacity-30 text-purple-600 animate-pulse" />
+                        <p className="font-bold text-gray-500">{t('student.courses.noDocuments')}</p>
                     </div>
                 ) : (
-                    <div className="space-y-3">
+                    <div className="space-y-3.5">
                         {filteredDocs.map((doc) => {
                             const typeStyle = DOC_TYPE_COLORS[doc.document_type] || DOC_TYPE_COLORS.general
                             const subjectIcon = doc.subjects?.icon
@@ -168,22 +175,22 @@ export function StudentCoursesView({ subjects, documents }: Props) {
                                     href={doc.file_url || '#'}
                                     target={doc.file_url ? '_blank' : undefined}
                                     rel="noopener noreferrer"
-                                    className="flex items-center gap-3 bg-card border border-border/50 p-4 rounded-2xl hover:bg-card/80 hover:border-white/10 transition-colors group"
+                                    className="flex items-center gap-4.5 bg-white dark:bg-slate-900 border border-gray-100 dark:border-white/5 p-5 rounded-3xl hover:bg-gray-50/50 dark:hover:bg-white/[0.02] hover:border-purple-200 dark:hover:border-purple-500/20 hover:shadow-sm transition-all duration-300 group"
                                 >
-                                    <div className={cn("h-10 w-10 rounded-xl flex items-center justify-center shrink-0", typeStyle.bg)}>
+                                    <div className={cn("h-12 w-12 rounded-2xl flex items-center justify-center shrink-0 border transition-all duration-300 group-hover:scale-105", typeStyle.bg, typeStyle.text.includes('dark:') ? typeStyle.text.split(' ')[0].replace('text-', 'border-').replace('600', '100') : 'border-transparent')}>
                                         {subjectIcon ? (
-                                            <span className="text-base">{subjectIcon}</span>
+                                            <span className="text-lg">{subjectIcon}</span>
                                         ) : (
-                                            <FileText className={cn("w-5 h-5", typeStyle.text)} />
+                                            <FileText className={cn("w-5.5 h-5.5", typeStyle.text)} />
                                         )}
                                     </div>
                                     <div className="flex-1 min-w-0">
-                                        <p className="font-medium text-sm text-gray-200 truncate group-hover:text-white transition-colors">
+                                        <p className="font-bold text-sm text-gray-900 dark:text-white truncate group-hover:text-purple-600 dark:group-hover:text-purple-400 transition-colors leading-snug">
                                             {doc.name}
                                         </p>
-                                        <div className="flex items-center gap-2 text-[10px] text-muted-foreground mt-0.5">
-                                            <span className={cn("font-bold", typeStyle.text)}>
-                                                {DOC_TYPE_LABELS[doc.document_type] || doc.document_type}
+                                        <div className="flex items-center gap-2 text-[10px] text-gray-400 dark:text-gray-500 font-bold mt-1 uppercase tracking-wider">
+                                            <span className={cn("font-black", typeStyle.text)}>
+                                                {t('student.courses.' + doc.document_type, { defaultValue: doc.document_type })}
                                             </span>
                                             {doc.subjects?.name && (
                                                 <>
@@ -200,7 +207,7 @@ export function StudentCoursesView({ subjects, documents }: Props) {
                                         </div>
                                     </div>
                                     {doc.file_url && (
-                                        <Download className="w-4 h-4 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity shrink-0" />
+                                        <Download className="w-4.5 h-4.5 text-gray-400 opacity-0 group-hover:opacity-100 transition-opacity shrink-0" />
                                     )}
                                 </a>
                             )

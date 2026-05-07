@@ -7,6 +7,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { cn } from '@/lib/utils'
 import { useParent } from '@/context/parent-context'
 import { createClient } from '@/utils/supabase/client'
+import { useLanguage } from '@/i18n'
 
 interface Payment {
     id: string
@@ -20,6 +21,7 @@ interface Payment {
 
 export function ParentFinances() {
     const { selectedChild, loading } = useParent()
+    const { t, locale } = useLanguage()
     const [pendingPayments, setPendingPayments] = useState<Payment[]>([])
     const [paidHistory, setPaidHistory] = useState<Payment[]>([])
     const [loadingData, setLoadingData] = useState(false)
@@ -80,21 +82,21 @@ export function ParentFinances() {
 
     const getPaymentLabel = (type: string) => {
         const labels: Record<string, string> = {
-            'scolarite': 'Scolarité',
-            'bus': 'Transport',
-            'cantine': 'Cantine',
-            'activites': 'Activités',
+            'scolarite': t('parent.finances.scolarite'),
+            'bus': t('parent.finances.bus'),
+            'cantine': t('parent.finances.cantine'),
+            'activites': t('parent.finances.activites'),
         }
         return labels[type] || type
     }
 
     const formatAmount = (amount: number) => {
-        return new Intl.NumberFormat('fr-FR').format(amount) + ' MRU'
+        return new Intl.NumberFormat(locale === 'ar' ? 'ar-MR' : 'fr-FR').format(amount) + ' ' + t('parent.finances.mru')
     }
 
     const formatDate = (dateStr: string) => {
         const date = new Date(dateStr)
-        return date.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', year: 'numeric' })
+        return date.toLocaleDateString(locale === 'ar' ? 'ar-EG' : 'fr-FR', { day: 'numeric', month: 'short', year: 'numeric' })
     }
 
     if (loading) {
@@ -107,16 +109,16 @@ export function ParentFinances() {
 
     if (!selectedChild) {
         return (
-            <div className="max-w-md mx-auto lg:max-w-3xl p-4">
+            <div className="max-w-md mx-auto lg:max-w-3xl lg:ms-12 lg:me-auto p-4">
                 <div className="bg-card border border-border rounded-3xl p-6 text-center">
-                    <p className="text-muted-foreground">Aucun enfant sélectionné.</p>
+                    <p className="text-muted-foreground">{t('parent.finances.noChild')}</p>
                 </div>
             </div>
         )
     }
 
     return (
-        <div className="max-w-md mx-auto lg:max-w-3xl pb-24 space-y-6 p-4">
+        <div className="max-w-md mx-auto lg:max-w-3xl lg:ms-12 lg:me-auto pb-24 space-y-6 p-4">
             {/* Header */}
             <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
@@ -125,7 +127,7 @@ export function ParentFinances() {
                         <AvatarFallback>{selectedChild.name.substring(0, 2).toUpperCase()}</AvatarFallback>
                     </Avatar>
                     <div className="flex flex-col">
-                        <span className="font-bold text-lg">Finances</span>
+                        <span className="font-bold text-lg">{t('parent.finances.title')}</span>
                         <span className="text-xs text-muted-foreground">{selectedChild.name}</span>
                     </div>
                 </div>
@@ -146,7 +148,7 @@ export function ParentFinances() {
                 </div>
 
                 <div className="space-y-1 relative z-10">
-                    <p className="text-xs text-cyan-200/70 uppercase tracking-widest font-medium">Solde Restant</p>
+                    <p className="text-xs text-cyan-200/70 uppercase tracking-widest font-medium">{t('parent.finances.remainingBalance')}</p>
                     <h2 className="text-3xl font-bold text-white">
                         {loadingData ? <Loader2 className="h-6 w-6 animate-spin" /> : formatAmount(totalPending)}
                     </h2>
@@ -154,17 +156,17 @@ export function ParentFinances() {
 
                 <div className="flex items-center gap-2 text-[10px] text-cyan-400/80 font-medium">
                     <CheckCircle2 className="w-3 h-3 text-emerald-500" />
-                    Paiement sécurisé par Qalami Pay
+                    {t('parent.finances.securePayment')}
                 </div>
             </div>
 
             {/* Fees to Pay */}
             <div className="space-y-4">
                 <div className="flex items-center justify-between px-1">
-                    <h2 className="text-lg font-bold">Frais à payer</h2>
+                    <h2 className="text-lg font-bold">{t('parent.finances.feesToPay')}</h2>
                     {pendingPayments.filter(p => p.payment_status === 'overdue').length > 0 && (
                         <span className="bg-red-500/10 text-red-500 text-[10px] font-bold px-2 py-0.5 rounded border border-red-500/20">
-                            {pendingPayments.filter(p => p.payment_status === 'overdue').length} URGENT{pendingPayments.filter(p => p.payment_status === 'overdue').length > 1 ? 'S' : ''}
+                            {pendingPayments.filter(p => p.payment_status === 'overdue').length} {pendingPayments.filter(p => p.payment_status === 'overdue').length > 1 ? t('parent.finances.urgents') : t('parent.finances.urgent')}
                         </span>
                     )}
                 </div>
@@ -176,7 +178,7 @@ export function ParentFinances() {
                 ) : pendingPayments.length === 0 ? (
                     <div className="bg-card border border-border rounded-3xl p-6 text-center">
                         <CheckCircle2 className="w-12 h-12 text-emerald-500 mx-auto mb-3" />
-                        <p className="text-muted-foreground">Aucun paiement en attente</p>
+                        <p className="text-muted-foreground">{t('parent.finances.noPending')}</p>
                     </div>
                 ) : (
                     <div className="space-y-3">
@@ -193,9 +195,9 @@ export function ParentFinances() {
                                             <h3 className="font-bold text-sm">{getPaymentLabel(item.payment_type)}</h3>
                                             <p className="text-xs text-muted-foreground">
                                                 {item.payment_status === 'overdue' ? (
-                                                    <span className="text-red-400">En retard - {formatDate(item.due_date)}</span>
+                                                    <span className="text-red-400">{t('parent.finances.overdue')} - {formatDate(item.due_date)}</span>
                                                 ) : (
-                                                    <>Échéance: {formatDate(item.due_date)}</>
+                                                    <>{t('parent.finances.dueDate')}: {formatDate(item.due_date)}</>
                                                 )}
                                             </p>
                                         </div>
@@ -203,7 +205,7 @@ export function ParentFinances() {
                                     <div className="flex items-center gap-3">
                                         <span className="font-bold text-sm">{formatAmount(item.amount)}</span>
                                         <Button size="sm" className="bg-cyan-500 hover:bg-cyan-600 text-black font-bold rounded-xl h-9 px-5">
-                                            Payer
+                                            {t('parent.finances.pay')}
                                         </Button>
                                     </div>
                                 </div>
@@ -215,14 +217,14 @@ export function ParentFinances() {
 
             {/* History */}
             <div className="space-y-4">
-                <h2 className="text-lg font-bold px-1">Historique des paiements</h2>
+                <h2 className="text-lg font-bold px-1">{t('parent.finances.paymentHistory')}</h2>
                 {loadingData ? (
                     <div className="flex items-center justify-center py-8">
                         <Loader2 className="h-6 w-6 animate-spin text-primary" />
                     </div>
                 ) : paidHistory.length === 0 ? (
                     <div className="bg-card/30 p-4 rounded-2xl text-center">
-                        <p className="text-muted-foreground text-sm">Aucun paiement effectué</p>
+                        <p className="text-muted-foreground text-sm">{t('parent.finances.noPayments')}</p>
                     </div>
                 ) : (
                     <div className="space-y-3">

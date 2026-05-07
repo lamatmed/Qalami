@@ -4,6 +4,7 @@ import { useState, useEffect, useMemo } from 'react'
 import { Loader2, FileText, TrendingUp, BookOpen } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { createClient } from '@/utils/supabase/client'
+import { useLanguage } from '@/i18n'
 
 interface Assignment {
     subjectId: string
@@ -17,12 +18,6 @@ interface GradeEntry {
     term: string
 }
 
-const TERM_LABELS: Record<string, string> = {
-    T1: '1er Trimestre',
-    T2: '2ème Trimestre',
-    T3: '3ème Trimestre',
-}
-
 const termColor = (term: string) => {
     if (term === 'T1') return 'text-blue-400'
     if (term === 'T2') return 'text-purple-400'
@@ -30,10 +25,17 @@ const termColor = (term: string) => {
 }
 
 export function TeacherEvaluations({ teacherId }: { teacherId: string }) {
+    const { t } = useLanguage()
     const [assignments, setAssignments] = useState<Assignment[]>([])
     const [grades, setGrades] = useState<GradeEntry[]>([])
     const [studentCount, setStudentCount] = useState(0)
     const [loading, setLoading] = useState(true)
+
+    const termLabels: Record<string, string> = {
+        T1: t('admin.teachers.evaluations.terms.T1'),
+        T2: t('admin.teachers.evaluations.terms.T2'),
+        T3: t('admin.teachers.evaluations.terms.T3'),
+    }
 
     useEffect(() => {
         const fetch = async () => {
@@ -101,9 +103,9 @@ export function TeacherEvaluations({ teacherId }: { teacherId: string }) {
                 }))
                 .filter(x => x.count > 0)
 
-            return { term, label: TERM_LABELS[term], items, total: items.reduce((s, x) => s + x.count, 0) }
+            return { term, label: termLabels[term], items, total: items.reduce((s, x) => s + x.count, 0) }
         }).filter(g => g.items.length > 0)
-    }, [assignments, countMap])
+    }, [assignments, countMap, termLabels])
 
     if (loading) {
         return (
@@ -117,9 +119,9 @@ export function TeacherEvaluations({ teacherId }: { teacherId: string }) {
         return (
             <div className="flex flex-col items-center justify-center py-16 text-gray-500 bg-[#1A2530] rounded-3xl border border-white/5">
                 <FileText className="w-10 h-10 mb-3 opacity-20" />
-                <p className="font-medium">Aucune affectation</p>
+                <p className="font-medium">{t('admin.teachers.evaluations.noAssignments')}</p>
                 <p className="text-sm mt-1 text-gray-600 text-center max-w-xs">
-                    Assignez cet enseignant à des classes pour suivre ses évaluations.
+                    {t('admin.teachers.evaluations.noAssignmentsDesc')}
                 </p>
             </div>
         )
@@ -134,25 +136,27 @@ export function TeacherEvaluations({ teacherId }: { teacherId: string }) {
             <div className="grid grid-cols-3 gap-3">
                 <div className="bg-[#1A2530] rounded-2xl border border-white/5 p-4 text-center">
                     <p className="text-2xl font-black text-emerald-500 tabular-nums">{totalGrades}</p>
-                    <p className="text-[10px] text-gray-500 uppercase tracking-wider mt-1 font-bold">Notes saisies</p>
+                    <p className="text-[10px] text-gray-500 uppercase tracking-wider mt-1 font-bold">{t('admin.teachers.evaluations.gradesEntered')}</p>
                 </div>
                 <div className="bg-[#1A2530] rounded-2xl border border-white/5 p-4 text-center">
                     <p className="text-2xl font-black text-white tabular-nums">{studentCount}</p>
-                    <p className="text-[10px] text-gray-500 uppercase tracking-wider mt-1 font-bold">Élèves</p>
+                    <p className="text-[10px] text-gray-500 uppercase tracking-wider mt-1 font-bold">{t('admin.teachers.evaluations.students')}</p>
                 </div>
                 <div className="bg-[#1A2530] rounded-2xl border border-white/5 p-4 text-center">
                     <p className="text-2xl font-black text-blue-400 tabular-nums">
                         {[...new Set(assignments.map(a => a.subjectId))].length}
                     </p>
-                    <p className="text-[10px] text-gray-500 uppercase tracking-wider mt-1 font-bold">Matières</p>
+                    <p className="text-[10px] text-gray-500 uppercase tracking-wider mt-1 font-bold">{t('admin.teachers.evaluations.subjects')}</p>
                 </div>
             </div>
 
             {totalGrades === 0 ? (
                 <div className="flex flex-col items-center justify-center py-12 text-gray-600 bg-[#1A2530] rounded-3xl border border-white/5">
                     <TrendingUp className="w-8 h-8 mb-2 opacity-20" />
-                    <p className="text-sm">Aucune note saisie pour les matières de cet enseignant.</p>
-                    <p className="text-xs mt-1 text-gray-700">{studentCount} élève{studentCount > 1 ? 's' : ''} inscrits dans ses classes.</p>
+                    <p className="text-sm">{t('admin.teachers.evaluations.noGrades')}</p>
+                    <p className="text-xs mt-1 text-gray-700">
+                        {t('admin.teachers.evaluations.studentsEnrolled').replace('{count}', studentCount.toString())}
+                    </p>
                 </div>
             ) : (
                 termGroups.map(group => (
@@ -160,7 +164,7 @@ export function TeacherEvaluations({ teacherId }: { teacherId: string }) {
                         <div className="px-5 py-4 border-b border-white/5 flex justify-between items-center">
                             <h3 className="font-bold text-white">{group.label}</h3>
                             <span className={cn("text-xs font-bold tabular-nums", termColor(group.term))}>
-                                {group.total} note{group.total > 1 ? 's' : ''}
+                                {t('admin.teachers.evaluations.gradesCount').replace('{count}', group.total.toString())}
                             </span>
                         </div>
                         <div className="divide-y divide-white/5">

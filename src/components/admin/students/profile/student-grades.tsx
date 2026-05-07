@@ -8,6 +8,7 @@ import { Download, FileText, Loader2, ChevronDown } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { createClient } from '@/utils/supabase/client'
 import { toast } from 'sonner'
+import { useLanguage } from '@/i18n'
 
 // ─── Types ─────────────────────────────────────────────────────────────────────
 
@@ -44,6 +45,7 @@ const TERM_LABELS: Record<string, string> = { T1: '1er Trimestre', T2: '2ème Tr
 // ─── Main component ────────────────────────────────────────────────────────────
 
 export function StudentGrades({ studentId }: { studentId: string }) {
+    const { t, language } = useLanguage()
     const [grades, setGrades] = useState<Grade[]>([])
     const [loading, setLoading] = useState(true)
     const [selectedTerm, setSelectedTerm] = useState('T1')
@@ -125,7 +127,7 @@ export function StudentGrades({ studentId }: { studentId: string }) {
                 txt += `  · ${g.assessment_type || 'Évaluation'} : ${g.value}/${g.max_value}\n`
             })
         })
-        txt += `\nGénéré par Qalami — ${new Date().toLocaleDateString('fr-FR')}`
+        txt += `\n${t('admin.students.register.confirmation.generatedBy')} — ${new Date().toLocaleDateString(language === 'ar' ? 'ar-u-ca-gregory' : 'fr-FR')}`
         const blob = new Blob([txt], { type: 'text/plain;charset=utf-8;' })
         const url = URL.createObjectURL(blob)
         const a = document.createElement('a')
@@ -133,7 +135,7 @@ export function StudentGrades({ studentId }: { studentId: string }) {
         a.download = `bulletin-${t.term.toLowerCase()}.txt`
         a.click()
         URL.revokeObjectURL(url)
-        toast.success('Bulletin téléchargé')
+        toast.success(t('common.download'))
     }
 
     if (loading) {
@@ -148,8 +150,8 @@ export function StudentGrades({ studentId }: { studentId: string }) {
         return (
             <div className="text-center py-16 text-gray-500">
                 <FileText className="w-10 h-10 mx-auto mb-3 opacity-20" />
-                <p className="font-medium">Aucune note enregistrée</p>
-                <p className="text-sm mt-1 text-gray-600">Les notes apparaîtront ici une fois saisies par les enseignants.</p>
+                <p className="font-medium">{t('admin.students.profile.noGrades')}</p>
+                <p className="text-sm mt-1 text-gray-600">{t('admin.students.profile.gradesAppearHint')}</p>
             </div>
         )
     }
@@ -186,8 +188,8 @@ export function StudentGrades({ studentId }: { studentId: string }) {
             {/* Overall average + download */}
             <div className="bg-[#1A2530] rounded-3xl border border-white/5 p-5 flex items-center justify-between gap-4">
                 <div>
-                    <p className="text-xs font-bold text-gray-500 uppercase tracking-wider">Moyenne annuelle</p>
-                    <p className="text-sm text-gray-400 mt-0.5">Sur les trimestres validés</p>
+                    <p className="text-xs font-bold text-gray-500 uppercase tracking-wider">{t('admin.students.profile.yearlyAverage')}</p>
+                    <p className="text-sm text-gray-400 mt-0.5">{t('admin.students.profile.validatedTerms')}</p>
                 </div>
                 <div className="flex items-center gap-4">
                     {overallAvg !== null ? (
@@ -202,7 +204,7 @@ export function StudentGrades({ studentId }: { studentId: string }) {
                         onClick={handleDownload}
                         disabled={currentTerm.subjects.length === 0}
                     >
-                        <Download className="w-4 h-4" /> Bulletin
+                        <Download className="w-4 h-4" /> {t('admin.students.profile.reportCard')}
                     </Button>
                 </div>
             </div>
@@ -210,7 +212,7 @@ export function StudentGrades({ studentId }: { studentId: string }) {
             {/* Subject details */}
             <div className="bg-[#1A2530] rounded-3xl border border-white/5 overflow-hidden">
                 <div className="p-5 border-b border-white/5 flex justify-between items-center">
-                    <h3 className="font-bold text-white">Détail par matière</h3>
+                    <h3 className="font-bold text-white">{t('admin.students.profile.bySubjectDetails')}</h3>
                     <div className="relative">
                         <button
                             className="flex items-center gap-1.5 text-xs text-gray-400 hover:text-white transition-colors"
@@ -236,7 +238,7 @@ export function StudentGrades({ studentId }: { studentId: string }) {
 
                 {currentTerm.subjects.length === 0 ? (
                     <div className="text-center py-12 text-gray-600">
-                        <p>Aucune note pour {TERM_LABELS[selectedTerm]}</p>
+                        <p>{t('admin.students.profile.noGradesFor')} {TERM_LABELS[selectedTerm]}</p>
                     </div>
                 ) : (
                     <div className="divide-y divide-white/5">
@@ -264,7 +266,7 @@ export function StudentGrades({ studentId }: { studentId: string }) {
 
                                     {expandedSubject === subject.subjectId && (
                                         <div className="bg-[#0F1720] px-5 py-4 border-t border-white/5 space-y-2 animate-in fade-in duration-150">
-                                            <p className="text-[10px] font-bold text-gray-500 uppercase tracking-wider mb-3">Évaluations</p>
+                                            <p className="text-[10px] font-bold text-gray-500 uppercase tracking-wider mb-3">{t('admin.students.profile.assessments')}</p>
                                             {subject.grades.map((g, i) => (
                                                 <div key={i} className="flex items-center justify-between py-1.5">
                                                     <span className="text-sm text-gray-400">{g.assessment_type || 'Évaluation'}</span>

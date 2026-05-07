@@ -7,15 +7,17 @@ import { Label } from '@/components/ui/label'
 import { KeyRound, ShieldCheck } from 'lucide-react'
 import { changeFirstLoginPassword } from '@/app/staff-first-login/actions'
 import { toast } from 'sonner'
+import { useLanguage } from '@/i18n'
 
 export function FirstLoginForm() {
+    const { t } = useLanguage()
     const [password, setPassword] = useState('')
     const [confirm, setConfirm] = useState('')
     const [saving, setSaving] = useState(false)
 
     async function handleSubmit() {
-        if (!password.trim()) { toast.error('Veuillez saisir un mot de passe'); return }
-        if (password !== confirm) { toast.error('Les mots de passe ne correspondent pas'); return }
+        if (!password.trim()) { toast.error(t('admin.users.pleaseEnterPassword')); return }
+        if (password !== confirm) { toast.error(t('admin.users.passwordsDoNotMatch')); return }
 
         setSaving(true)
         const result = await changeFirstLoginPassword(password)
@@ -34,34 +36,34 @@ export function FirstLoginForm() {
                         <ShieldCheck className="w-8 h-8 text-emerald-500" />
                     </div>
                 </div>
-                <h1 className="text-2xl font-bold text-gray-900 dark:text-white text-center mb-1">Première connexion</h1>
+                <h1 className="text-2xl font-bold text-gray-900 dark:text-white text-center mb-1">{t('admin.users.firstLoginTitle')}</h1>
                 <p className="text-sm text-gray-400 text-center mb-8">
-                    Veuillez choisir un nouveau mot de passe pour sécuriser votre compte.
+                    {t('admin.users.firstLoginDesc')}
                 </p>
 
                 <div className="space-y-4">
                     <div className="space-y-2">
-                        <Label>Nouveau mot de passe *</Label>
+                        <Label>{t('admin.users.newPassword')}</Label>
                         <div className="relative">
                             <KeyRound className="absolute left-3 top-3 w-4 h-4 text-gray-400" />
                             <Input
                                 type="password"
                                 value={password}
                                 onChange={e => setPassword(e.target.value)}
-                                placeholder="Minimum 4 caractères"
+                                placeholder={t('admin.users.newPasswordPlaceholder')}
                                 className="pl-9 bg-gray-50 dark:bg-[#1A2530] border-gray-200 dark:border-white/5"
                             />
                         </div>
                     </div>
                     <div className="space-y-2">
-                        <Label>Confirmer le mot de passe *</Label>
+                        <Label>{t('admin.users.confirmPassword')}</Label>
                         <div className="relative">
                             <KeyRound className="absolute left-3 top-3 w-4 h-4 text-gray-400" />
                             <Input
                                 type="password"
                                 value={confirm}
                                 onChange={e => setConfirm(e.target.value)}
-                                placeholder="Répétez le mot de passe"
+                                placeholder={t('admin.users.confirmPasswordPlaceholder')}
                                 className="pl-9 bg-gray-50 dark:bg-[#1A2530] border-gray-200 dark:border-white/5"
                                 onKeyDown={e => e.key === 'Enter' && handleSubmit()}
                             />
@@ -74,7 +76,7 @@ export function FirstLoginForm() {
                     onClick={handleSubmit}
                     disabled={saving}
                 >
-                    {saving ? 'Enregistrement...' : 'Confirmer et accéder'}
+                    {saving ? t('admin.users.saving') : t('admin.users.confirmAndAccess')}
                 </Button>
             </div>
         </div>

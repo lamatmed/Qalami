@@ -4,6 +4,8 @@ import React, { createContext, useContext, useState, useEffect, useCallback } fr
 import frDict from './dictionaries/fr.json'
 import arDict from './dictionaries/ar.json'
 
+// Forced dictionary reload trigger comment
+
 export type Language = 'fr' | 'ar'
 export type Direction = 'ltr' | 'rtl'
 
@@ -84,7 +86,14 @@ export function LanguageProvider({ children }: { children: React.ReactNode }) {
 export function useLanguage() {
     const context = useContext(LanguageContext)
     if (!context) {
-        throw new Error('useLanguage must be used within a LanguageProvider')
+        return {
+            language: 'fr',
+            direction: 'ltr',
+            setLanguage: () => {},
+            t: (key: string) => key,
+            dict: {},
+            mounted: false
+        }
     }
     return context
 }

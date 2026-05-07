@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 'use client'
 
 import { useState, useEffect, useMemo } from 'react'
@@ -31,16 +32,15 @@ function parseMinutes(t: string): number {
     return h * 60 + (m || 0)
 }
 
-const STATUS_LABELS: Record<string, string> = {
-    active: 'Actifs',
-    suspended: 'Suspendus',
-    inactive: 'Inactifs',
-    archived: 'Archivés',
-}
-
 export function TeacherDirectory() {
     const router = useRouter()
     const { t } = useLanguage()
+    const STATUS_LABELS: Record<string, string> = {
+        active: t('admin.students.statusActive'),
+        suspended: t('admin.students.statusSuspended'),
+        inactive: t('admin.students.statusInactive'),
+        archived: t('admin.students.statusArchived'),
+    }
     const [teachers, setTeachers] = useState<Teacher[]>([])
     const [loading, setLoading] = useState(true)
     const [searchTerm, setSearchTerm] = useState('')
@@ -156,7 +156,7 @@ export function TeacherDirectory() {
                     <AlertTriangle className="w-4 h-4 text-amber-400 mt-0.5 shrink-0" />
                     <div className="min-w-0">
                         <p className="text-sm font-bold text-amber-400">
-                            {unassigned.length} enseignant{unassigned.length > 1 ? 's' : ''} sans affectation pour cette année
+                            {unassigned.length > 1 ? t('admin.teachers.noAssignmentAlertPlural', { count: unassigned.length }) : t('admin.teachers.noAssignmentAlert', { count: unassigned.length })}
                         </p>
                         <p className="text-xs text-amber-400/70 mt-0.5 truncate">
                             {unassigned.map(tc => tc.name).join(', ')}
@@ -184,7 +184,7 @@ export function TeacherDirectory() {
                             onClick={() => setStatusFilter('all')}
                             className={cn("px-3 py-1.5 text-xs font-bold rounded-lg transition-all", statusFilter === 'all' ? "bg-white/10 text-white" : "text-gray-500 hover:text-gray-300")}
                         >
-                            Tous
+                            {t('admin.teachers.filterAll')}
                         </button>
                         {Object.entries(STATUS_LABELS).map(([val, label]) => (
                             <button
@@ -203,7 +203,7 @@ export function TeacherDirectory() {
                             onChange={e => setSubjectFilter(e.target.value)}
                             className="bg-[#161B22] border border-white/5 text-gray-300 text-xs rounded-xl px-3 h-10 focus:outline-none focus:border-emerald-500/50"
                         >
-                            <option value="all">Toutes les matières</option>
+                            <option value="all">{t('admin.teachers.allSubjects')}</option>
                             {allSubjects.map(s => <option key={s} value={s}>{s}</option>)}
                         </select>
                     )}
@@ -213,7 +213,7 @@ export function TeacherDirectory() {
             {/* Result count */}
             <p className="text-xs text-gray-500">
                 <span className="font-bold text-emerald-500 uppercase tracking-widest">
-                    {loading ? '…' : `${filtered.length} enseignant${filtered.length !== 1 ? 's' : ''}`}
+                    {loading ? '…' : filtered.length !== 1 ? t('admin.teachers.teacherCountPlural', { count: filtered.length }) : t('admin.teachers.teacherCount', { count: filtered.length })}
                 </span>
             </p>
 
@@ -233,7 +233,7 @@ export function TeacherDirectory() {
                         {/* Top actions */}
                         <div className="absolute top-3 right-3 flex items-center gap-2">
                             {!teacher.hasAssignment && (
-                                <span title="Sans affectation" className="inline-flex">
+                                <span title={t('admin.teachers.noAssignment')} className="inline-flex">
                                     <AlertTriangle className="w-3.5 h-3.5 text-amber-400 shrink-0" />
                                 </span>
                             )}
@@ -241,7 +241,7 @@ export function TeacherDirectory() {
                             <button
                                 className="text-gray-600 hover:text-orange-400 transition-colors opacity-0 group-hover:opacity-100"
                                 onClick={e => { e.stopPropagation(); setStatusDialog({ open: true, teacher }) }}
-                                title="Changer le statut"
+                                title={t('admin.teachers.profile.changeStatus')}
                             >
                                 <ShieldAlert className="w-3.5 h-3.5" />
                             </button>
@@ -274,7 +274,7 @@ export function TeacherDirectory() {
                                     )}
                                 </div>
                             ) : (
-                                <p className="text-[10px] text-amber-400/70 mt-1.5 font-medium">Aucune matière assignée</p>
+                                <p className="text-[10px] text-amber-400/70 mt-1.5 font-medium">{t('admin.teachers.noSubjectAssigned')}</p>
                             )}
                         </div>
 
@@ -282,7 +282,7 @@ export function TeacherDirectory() {
                         <div className="flex items-center justify-between pt-3 border-t border-white/5 text-xs text-gray-500">
                             <div className="flex items-center gap-1">
                                 <BookOpen className="w-3 h-3" />
-                                <span>{teacher.classes.length} classe{teacher.classes.length !== 1 ? 's' : ''}</span>
+                                <span>{teacher.classes.length !== 1 ? t('admin.teachers.classCountPlural', { count: teacher.classes.length }) : t('admin.teachers.classCount', { count: teacher.classes.length })}</span>
                             </div>
                             <div className="flex items-center gap-1">
                                 <Clock className="w-3 h-3" />

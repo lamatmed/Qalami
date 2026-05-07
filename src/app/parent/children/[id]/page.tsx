@@ -12,6 +12,7 @@ import { ParentAttendance } from '@/components/parent/parent-attendance'
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { createClient } from '@/utils/supabase/client'
 import { useParent } from '@/context/parent-context'
+import { useLanguage } from '@/i18n'
 
 interface ChildData {
     name: string
@@ -26,6 +27,7 @@ export default function ChildProfilePage() {
     const params = useParams()
     const childId = params.id as string
     const { childrenList, setSelectedChild } = useParent()
+    const { t } = useLanguage()
     const [child, setChild] = useState<ChildData | null>(null)
     const [loading, setLoading] = useState(true)
 
@@ -45,27 +47,44 @@ export default function ChildProfilePage() {
             const contextChild = childrenList.find(c => c.id === childId)
 
             // Fetch profile data
-            const { data: profile } = await supabase
+            const { data: profile, error: profileError } = await supabase
                 .from('profiles')
-                .select(`
-                    id,
-                    full_name,
-                    avatar_url,
-                    enrollments!inner (
-                        academic_year,
-                        status,
-                        classes (
-                            name,
-                            schools (
-                                name
-                            )
-                        )
-                    )
-                `)
+                .select('id, full_name, avatar_url')
                 .eq('id', childId)
                 .single()
 
+            if (profileError) {
+                console.error('Error fetching student profile:', profileError)
+            }
+
             if (profile) {
+                let activeEnrollment: any = null
+                try {
+                    const { data: enrollments, error: enrollError } = await supabase
+                        .from('enrollments')
+                        .select(`
+                            academic_year,
+                            status,
+                            classes (
+                                name,
+                                schools (
+                                    name
+                                )
+                            )
+                        `)
+                        .eq('student_id', childId)
+
+                    if (enrollError) {
+                        console.error('Error fetching student enrollments:', enrollError)
+                    } else if (enrollments && enrollments.length > 0) {
+                        activeEnrollment = enrollments.find(
+                            (e: any) => e.academic_year === currentAcademicYear && e.status === 'active'
+                        ) ?? enrollments[0]
+                    }
+                } catch (enrollException) {
+                    console.error('Exception during enrollments fetch:', enrollException)
+                }
+
                 // Calculate average from grades
                 const { data: grades } = await supabase
                     .from('grades')
@@ -92,12 +111,6 @@ export default function ChildProfilePage() {
                     .select('status')
                     .eq('student_id', childId)
                     .neq('status', 'present')
-
-                // Prefer current-year active enrollment; fallback to latest
-                const enrollments = profile.enrollments as any[] || []
-                const activeEnrollment = enrollments.find(
-                    (e: any) => e.academic_year === currentAcademicYear && e.status === 'active'
-                ) ?? enrollments[0]
 
                 setChild({
                     name: profile.full_name || 'Élève',
@@ -132,31 +145,31 @@ export default function ChildProfilePage() {
 
     if (!child) {
         return (
-            <div className="space-y-6 p-4">
+            <div className="max-w-md mx-auto lg:max-w-3xl lg:ms-12 lg:me-auto pb-24 space-y-6 p-4">
                 <Link href="/parent/children">
                     <Button variant="ghost" size="icon" className="rounded-full">
-                        <ArrowLeft className="w-5 h-5" />
+                        <ArrowLeft className="w-5 h-5 rtl:rotate-180" />
                     </Button>
                 </Link>
                 <div className="bg-card border border-border rounded-3xl p-6 text-center">
-                    <p className="text-muted-foreground">Élève non trouvé.</p>
+                    <p className="text-muted-foreground">{t('parent.children.notFound')}</p>
                 </div>
             </div>
         )
     }
 
     return (
-        <div className="space-y-6">
+        <div className="max-w-md mx-auto lg:max-w-3xl lg:ms-12 lg:me-auto pb-24 space-y-6 p-4">
             {/* Header / Nav */}
             <div className="flex items-center gap-4">
                 <Link href="/parent/children">
                     <Button variant="ghost" size="icon" className="rounded-full">
-                        <ArrowLeft className="w-5 h-5" />
+                        <ArrowLeft className="w-5 h-5 rtl:rotate-180" />
                     </Button>
                 </Link>
                 <div>
-                    <h1 className="text-2xl font-bold tracking-tight">Profil Élève</h1>
-                    <p className="text-muted-foreground text-sm">Vue détaillée</p>
+                    <h1 className="text-2xl font-bold tracking-tight">{t('parent.children.childProfile')}</h1>
+                    <p className="text-muted-foreground text-sm">{t('parent.children.detailedView')}</p>
                 </div>
             </div>
 
@@ -181,14 +194,14 @@ export default function ChildProfilePage() {
 
                         <div className="flex gap-4 pt-2">
                             <div className="bg-white/10 px-3 py-1.5 rounded-lg backdrop-blur-sm border border-white/10">
-                                <span className="block text-[10px] text-blue-200 uppercase tracking-widest">Moyenne</span>
+                                <span className="block text-[10px] text-blue-200 uppercase tracking-widest">{t('parent.children.average')}</span>
                                 <span className="font-bold text-lg">
                                     {child.average !== null ? child.average.toFixed(1) : '--'}
                                     <span className="text-xs font-normal opacity-70">/20</span>
                                 </span>
                             </div>
                             <div className="bg-white/10 px-3 py-1.5 rounded-lg backdrop-blur-sm border border-white/10">
-                                <span className="block text-[10px] text-blue-200 uppercase tracking-widest">Absences</span>
+                                <span className="block text-[10px] text-blue-200 uppercase tracking-widest">{t('parent.children.absences')}</span>
                                 <span className="font-bold text-lg">{child.absences}<span className="text-xs font-normal opacity-70">h</span></span>
                             </div>
                         </div>
@@ -199,10 +212,10 @@ export default function ChildProfilePage() {
             {/* Content Tabs */}
             <Tabs defaultValue="overview" className="w-full">
                 <TabsList className="w-full justify-start overflow-x-auto scrollbar-hide bg-transparent p-0 border-b border-border/40 h-auto gap-4 mb-6">
-                    <TabsTrigger value="overview" className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent px-2 pb-2">Vue d'ensemble</TabsTrigger>
-                    <TabsTrigger value="grades" className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent px-2 pb-2">Notes & Bulletin</TabsTrigger>
-                    <TabsTrigger value="schedule" className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent px-2 pb-2">Emploi du temps</TabsTrigger>
-                    <TabsTrigger value="attendance" className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent px-2 pb-2">Absences</TabsTrigger>
+                    <TabsTrigger value="overview" className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent px-2 pb-2">{t('parent.children.overviewTab')}</TabsTrigger>
+                    <TabsTrigger value="grades" className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent px-2 pb-2">{t('parent.children.gradesTab')}</TabsTrigger>
+                    <TabsTrigger value="schedule" className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent px-2 pb-2">{t('parent.children.scheduleTab')}</TabsTrigger>
+                    <TabsTrigger value="attendance" className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent px-2 pb-2">{t('parent.children.attendanceTab')}</TabsTrigger>
                 </TabsList>
 
                 <TabsContent value="overview" className="animate-in fade-in slide-in-from-bottom-4 duration-500">
@@ -210,21 +223,21 @@ export default function ChildProfilePage() {
                         {/* Quick Actions / Recent Activity Placeholder */}
                         <div className="bg-card border border-border/50 rounded-2xl p-6">
                             <h3 className="font-bold mb-4 flex items-center gap-2">
-                                <Clock className="w-4 h-4 text-amber-500" /> Activité Récente
+                                <Clock className="w-4 h-4 text-amber-500" /> {t('parent.children.recentActivity')}
                             </h3>
                             <div className="space-y-4">
                                 <div className="flex gap-3 text-sm">
                                     <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 mt-1.5 shrink-0" />
                                     <div>
-                                        <p className="font-medium">Devoir de Mathématiques rendu</p>
-                                        <p className="text-muted-foreground text-xs">Il y a 2 heures</p>
+                                        <p className="font-medium">{t('parent.children.mathHomeworkSubmitted')}</p>
+                                        <p className="text-muted-foreground text-xs">{t('parent.home.hoursAgo', { hours: 2 })}</p>
                                     </div>
                                 </div>
                                 <div className="flex gap-3 text-sm">
                                     <div className="w-1.5 h-1.5 rounded-full bg-blue-500 mt-1.5 shrink-0" />
                                     <div>
-                                        <p className="font-medium">Nouveau bulletin disponible</p>
-                                        <p className="text-muted-foreground text-xs">Hier</p>
+                                        <p className="font-medium">{t('parent.children.newReportCard')}</p>
+                                        <p className="text-muted-foreground text-xs">{t('parent.children.yesterday')}</p>
                                     </div>
                                 </div>
                             </div>
@@ -232,7 +245,7 @@ export default function ChildProfilePage() {
 
                         <div className="bg-card border border-border/50 rounded-2xl p-6">
                             <h3 className="font-bold mb-4 flex items-center gap-2">
-                                <MapPin className="w-4 h-4 text-blue-500" /> Prochain Cours
+                                <MapPin className="w-4 h-4 text-blue-500" /> {t('parent.children.nextClass')}
                             </h3>
                             <div className="p-4 bg-primary/5 border border-primary/10 rounded-xl">
                                 <h4 className="font-bold text-lg text-primary">Physique-Chimie</h4>

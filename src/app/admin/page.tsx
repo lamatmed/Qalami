@@ -1,8 +1,10 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 'use client'
 
 import { useCallback, useEffect, useState } from 'react'
 import { createClient } from '@/utils/supabase/client'
 import { useSchoolContext } from '@/lib/use-school-context'
+import { useLanguage } from '@/i18n'
 import Link from 'next/link'
 import { cn } from '@/lib/utils'
 import {
@@ -38,6 +40,7 @@ interface DashboardData {
 
 export default function AdminDashboard() {
     const { context, loading: ctxLoading } = useSchoolContext()
+    const { t } = useLanguage()
     const [data, setData] = useState<DashboardData | null>(null)
     const [loading, setLoading] = useState(true)
     const [error, setError] = useState<string | null>(null)
@@ -166,8 +169,8 @@ export default function AdminDashboard() {
     }, [context])
 
     useEffect(() => {
-        fetchAll().catch(() => { setError('Erreur de chargement'); setLoading(false) })
-    }, [fetchAll])
+        fetchAll().catch(() => { setError(t('common.loadingError')); setLoading(false) })
+    }, [fetchAll, t])
 
     if (ctxLoading || loading) return <DashboardSkeleton />
     if (error) return (
@@ -175,7 +178,7 @@ export default function AdminDashboard() {
             <AlertTriangle className="w-8 h-8 text-red-400" />
             <p className="text-sm text-gray-400">{error}</p>
             <Button variant="outline" onClick={fetchAll} className="gap-2">
-                <RefreshCw className="w-4 h-4" /> Réessayer
+                <RefreshCw className="w-4 h-4" /> {t('admin.dashboard.retry')}
             </Button>
         </div>
     )
@@ -203,11 +206,16 @@ export default function AdminDashboard() {
                             <AlertTriangle className="w-4 h-4 text-amber-400" />
                         </div>
                         <p className="text-sm text-amber-700 dark:text-amber-300">
-                            <span className="font-semibold">{data.unassignedStudents} élève{data.unassignedStudents > 1 ? 's' : ''}</span> sans classe assignée
+                            <span className="font-semibold">
+                                {t('admin.dashboard.unassignedStudentsAlert', { 
+                                    count: data.unassignedStudents,
+                                    s: data.unassignedStudents > 1 ? 's' : '' 
+                                })}
+                            </span>
                         </p>
                     </div>
                     <Link href="/admin/students" className="flex items-center gap-1.5 text-xs font-semibold text-amber-400 hover:text-amber-300 transition-colors shrink-0">
-                        Gérer les élèves <ArrowRight className="w-3.5 h-3.5" />
+                        {t('admin.dashboard.manageStudents')} <ArrowRight className="w-3.5 h-3.5" />
                     </Link>
                 </div>
             )}
@@ -215,27 +223,27 @@ export default function AdminDashboard() {
             {/* ── 4 Stat cards ── */}
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
                 <StatCard
-                    label="Élèves actifs"
+                    label={t('admin.dashboard.activeStudents')}
                     value={data.studentCount}
                     accent="emerald"
                     href="/admin/students"
                     bars={sparkBars(data.studentCount)}
                 />
                 <StatCard
-                    label="Enseignants"
+                    label={t('admin.dashboard.teachers')}
                     value={data.teacherCount}
                     accent="blue"
                     href="/admin/teachers"
                     bars={sparkBars(data.teacherCount + 17)}
                 />
                 <StatCard
-                    label="Taux de présence"
+                    label={t('admin.dashboard.attendanceRate')}
                     value={data.attendanceRate != null ? `${data.attendanceRate}%` : '—'}
                     accent={data.attendanceRate == null ? 'gray' : data.attendanceRate >= 80 ? 'emerald' : data.attendanceRate >= 60 ? 'amber' : 'red'}
                     bars={sparkBars(data.attendanceRate)}
                 />
                 <StatCard
-                    label="Recouvrement"
+                    label={t('admin.dashboard.recovery')}
                     value={data.recoveryRate != null ? `${data.recoveryRate}%` : '—'}
                     accent={data.recoveryRate == null ? 'gray' : data.recoveryRate >= 80 ? 'emerald' : data.recoveryRate >= 50 ? 'amber' : 'red'}
                     href="/admin/finance/tuition"
@@ -248,12 +256,12 @@ export default function AdminDashboard() {
 
                 {/* Actions rapides */}
                 <div className="bg-[#161B22] rounded-2xl border border-white/5 p-5">
-                    <p className="text-[11px] font-bold text-gray-500 uppercase tracking-wider mb-4">Actions rapides</p>
+                    <p className="text-[11px] font-bold text-gray-500 uppercase tracking-wider mb-4">{t('admin.dashboard.quickActions')}</p>
                     <div className="grid grid-cols-2 gap-2.5">
                         {[
-                            { icon: UserPlus,    label: 'Inscrire un élève',   href: '/admin/students/register', iconCls: 'text-emerald-400 bg-emerald-500/10' },
-                            { icon: DollarSign,  label: 'Ajouter transaction', href: '/admin/finance',           iconCls: 'text-amber-400 bg-amber-500/10' },
-                            { icon: Clock,       label: 'Emploi du temps',     href: '/admin/schedule',          iconCls: 'text-blue-400 bg-blue-500/10' },
+                            { icon: UserPlus,    label: t('admin.dashboard.enrollStudent'),   href: '/admin/students/register', iconCls: 'text-emerald-400 bg-emerald-500/10' },
+                            { icon: DollarSign,  label: t('admin.dashboard.addTransaction'), href: '/admin/finance',           iconCls: 'text-amber-400 bg-amber-500/10' },
+                            { icon: Clock,       label: t('admin.sidebar.schedule'),     href: '/admin/schedule',          iconCls: 'text-blue-400 bg-blue-500/10' },
                         ].map(a => (
                             <Link
                                 key={a.href}
@@ -272,9 +280,9 @@ export default function AdminDashboard() {
                 {/* Répartition par classe */}
                 <div className="bg-[#161B22] rounded-2xl border border-white/5 p-5">
                     <div className="flex items-center justify-between mb-4">
-                        <p className="text-[11px] font-bold text-gray-500 uppercase tracking-wider">Répartition par classe</p>
+                        <p className="text-[11px] font-bold text-gray-500 uppercase tracking-wider">{t('admin.dashboard.classDistribution')}</p>
                         <Link href="/admin/classes" className="text-[11px] text-gray-600 hover:text-gray-400 transition-colors">
-                            Voir tout →
+                            {t('admin.dashboard.viewAll')} →
                         </Link>
                     </div>
                     {data.classes.length === 0 ? (
@@ -294,10 +302,10 @@ export default function AdminDashboard() {
                                                     c.avgGrade >= 14 ? 'text-emerald-400' :
                                                     c.avgGrade >= 10 ? 'text-amber-400' : 'text-red-400'
                                                 )}>
-                                                    moy. {c.avgGrade}/20
+                                                    {t('admin.dashboard.avg')} {c.avgGrade}/20
                                                 </span>
                                             )}
-                                            <span className="text-[11px] text-gray-500">{c.studentCount} élèves</span>
+                                            <span className="text-[11px] text-gray-500">{c.studentCount} {t('common.students').toLowerCase()}</span>
                                         </div>
                                     </div>
                                     <div className="h-1.5 bg-white/5 rounded-full overflow-hidden">
@@ -319,15 +327,15 @@ export default function AdminDashboard() {
                 {/* Dernières notes */}
                 <div className="bg-[#161B22] rounded-2xl border border-white/5 p-5">
                     <div className="flex items-center justify-between mb-4">
-                        <p className="text-[11px] font-bold text-gray-500 uppercase tracking-wider">Dernières notes</p>
+                        <p className="text-[11px] font-bold text-gray-500 uppercase tracking-wider">{t('admin.dashboard.recentGrades')}</p>
                         <Link href="/admin/grades" className="text-[11px] text-gray-600 hover:text-gray-400 transition-colors">
-                            Voir tout →
+                            {t('admin.dashboard.viewAll')} →
                         </Link>
                     </div>
                     {data.recentGrades.length === 0 ? (
                         <div className="text-center py-8">
                             <BookOpen className="w-8 h-8 text-gray-700 mx-auto mb-2" />
-                            <p className="text-xs text-gray-600">Aucune note saisie</p>
+                            <p className="text-xs text-gray-600">{t('admin.dashboard.noGrades')}</p>
                         </div>
                     ) : (
                         <div className="space-y-3.5">
@@ -372,12 +380,12 @@ export default function AdminDashboard() {
                 {/* Annonces récentes */}
                 <div className="bg-[#161B22] rounded-2xl border border-white/5 p-5">
                     <div className="flex items-center justify-between mb-4">
-                        <p className="text-[11px] font-bold text-gray-500 uppercase tracking-wider">Annonces récentes</p>
+                        <p className="text-[11px] font-bold text-gray-500 uppercase tracking-wider">{t('admin.dashboard.recentAnnouncements')}</p>
                     </div>
                     {data.announcements.length === 0 ? (
                         <div className="text-center py-8">
                             <Megaphone className="w-8 h-8 text-gray-700 mx-auto mb-2" />
-                            <p className="text-xs text-gray-600">Aucune annonce publiée</p>
+                            <p className="text-xs text-gray-600">{t('admin.dashboard.noAnnouncements')}</p>
                         </div>
                     ) : (
                         <div className="space-y-3">
@@ -386,8 +394,8 @@ export default function AdminDashboard() {
                                     ? ann.target_audience.filter(Boolean)
                                     : ann.target_audience ? [ann.target_audience] : []
                                 const LABEL: Record<string, string> = {
-                                    all: 'Tous', parents: 'Parents', eleves: 'Élèves', enseignants: 'Enseignants',
-                                    parent: 'Parents', student: 'Élèves', teacher: 'Enseignants',
+                                    all: t('common.all'), parents: t('common.parents'), eleves: t('common.students'), enseignants: t('common.teachers'),
+                                    parent: t('common.parents'), student: t('common.students'), teacher: t('common.teachers'),
                                 }
                                 const COLOR: Record<string, string> = {
                                     all: 'bg-gray-500/15 text-gray-400',
@@ -404,7 +412,7 @@ export default function AdminDashboard() {
                                                 </span>
                                             ))}
                                             {ann.priority === 'high' && (
-                                                <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-red-500/15 text-red-400">Urgent</span>
+                                                <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-red-500/15 text-red-400">{t('admin.dashboard.urgent')}</span>
                                             )}
                                         </div>
                                         <p className="text-xs font-semibold text-white/85 line-clamp-1">{ann.title}</p>

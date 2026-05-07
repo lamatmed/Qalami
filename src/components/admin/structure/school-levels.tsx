@@ -1,6 +1,7 @@
 'use client'
 
 import { Button } from '@/components/ui/button'
+// Forced level reload trigger comment
 import { Plus, GraduationCap, Settings, Loader2, X, ChevronDown, Trash2, AlertTriangle } from 'lucide-react'
 import { Input } from '@/components/ui/input'
 import Link from 'next/link'
@@ -48,7 +49,7 @@ export function SchoolLevels() {
             toast.error(result.error)
             setConfirmDeleting(false)
         } else {
-            toast.success(`Niveau "${deletingLevel.nameFr}" supprimé`)
+            toast.success(t('admin.structure.levelDeletedSuccess', { name: deletingLevel.nameFr }))
             setLevels(prev => prev.filter(l => l.id !== deletingLevel.id))
             setDeletingLevel(null)
             setConfirmDeleting(false)
@@ -136,19 +137,19 @@ export function SchoolLevels() {
     }
 
     const handleCreateCycle = async () => {
-        if (!newLevelNameFr.trim()) { toast.error('Veuillez entrer un nom de niveau en français'); return }
+        if (!newLevelNameFr.trim()) { toast.error(t('admin.structure.enterLevelNameFrError')); return }
         setCreating(true)
         try {
             const result = await createLevel(newLevelNameFr.trim(), newLevelNameAr.trim() || newLevelNameFr.trim())
             if (result?.error) throw new Error(result.error)
-            toast.success(`Niveau "${newLevelNameFr}" créé`)
+            toast.success(t('admin.structure.levelCreatedSuccess', { name: newLevelNameFr }))
             setShowNewCycleForm(false)
             setNewLevelNameFr('')
             setNewLevelNameAr('')
             setLoading(true)
             await fetchLevels()
         } catch (err: any) {
-            toast.error(err?.message || 'Erreur lors de la création du niveau')
+            toast.error(err?.message || t('admin.structure.levelCreationError'))
         } finally {
             setCreating(false)
         }
@@ -175,7 +176,7 @@ export function SchoolLevels() {
                 <div>
                     <h2 className="text-2xl font-bold text-foreground">{t('admin.structure.schoolStructure')}</h2>
                     <p className="text-sm text-muted-foreground mt-0.5">
-                        {levels.length} niveau{levels.length !== 1 ? 'x' : ''} · {totalClasses} classe{totalClasses !== 1 ? 's' : ''} · {totalStudents} élève{totalStudents !== 1 ? 's' : ''}
+                        {t('admin.structure.levelsCount', { count: levels.length, x: levels.length !== 1 ? 'x' : '' })} · {t('admin.structure.classesCount', { count: totalClasses, s: totalClasses !== 1 ? 's' : '' })} · {t('admin.structure.studentsCount', { count: totalStudents, s: totalStudents !== 1 ? 's' : '' })}
                     </p>
                 </div>
                 <Link href="/admin/settings">
@@ -201,10 +202,9 @@ export function SchoolLevels() {
                         return (
                             <div key={level.id} className="border border-border rounded-2xl overflow-hidden bg-card">
                                 {/* Level row */}
-                                <button
-                                    type="button"
+                                <div
                                     onClick={() => toggleLevel(level.id)}
-                                    className="w-full flex items-center justify-between px-5 py-4 hover:bg-muted/50 transition-colors text-left group"
+                                    className="cursor-pointer w-full flex items-center justify-between px-5 py-4 hover:bg-muted/50 transition-colors text-left group"
                                 >
                                     <div className="flex items-center gap-3 min-w-0">
                                         <div className="h-8 w-8 rounded-lg bg-emerald-500/10 flex items-center justify-center shrink-0">
@@ -219,13 +219,13 @@ export function SchoolLevels() {
                                     </div>
                                     <div className="flex items-center gap-2 shrink-0 ml-4">
                                         <span className="text-xs text-muted-foreground font-medium hidden sm:block">
-                                            {level.classes.length} classe{level.classes.length !== 1 ? 's' : ''} · {levelStudents} élève{levelStudents !== 1 ? 's' : ''}
+                                            {t('admin.structure.classesCount', { count: level.classes.length, s: level.classes.length !== 1 ? 's' : '' })} · {t('admin.structure.studentsCount', { count: levelStudents, s: levelStudents !== 1 ? 's' : '' })}
                                         </span>
                                         <button
                                             type="button"
                                             onClick={e => { e.stopPropagation(); setDeletingLevel(level) }}
                                             className="p-1.5 rounded-lg text-muted-foreground hover:text-red-400 hover:bg-red-500/10 transition-colors opacity-0 group-hover:opacity-100"
-                                            title="Supprimer ce niveau"
+                                            title={t('admin.structure.deleteLevelTitle')}
                                         >
                                             <Trash2 className="w-3.5 h-3.5" />
                                         </button>
@@ -234,17 +234,17 @@ export function SchoolLevels() {
                                             !isOpen && "-rotate-90"
                                         )} />
                                     </div>
-                                </button>
+                                </div>
 
                                 {/* Classes */}
                                 {isOpen && (
                                     <div className="border-t border-border px-5 py-4 bg-muted/20">
                                         {level.classes.length === 0 ? (
                                             <div className="flex items-center justify-between py-2">
-                                                <p className="text-sm text-muted-foreground">Aucune classe dans ce niveau</p>
+                                                <p className="text-sm text-muted-foreground">{t('admin.structure.noClassesInLevel')}</p>
                                                 <Link href={`/admin/classes/${level.id}/new`}>
                                                     <Button size="sm" variant="outline" className="gap-1.5 h-8 text-xs">
-                                                        <Plus className="w-3.5 h-3.5" /> Ajouter une classe
+                                                        <Plus className="w-3.5 h-3.5" /> {t('admin.structure.addClass')}
                                                     </Button>
                                                 </Link>
                                             </div>
@@ -282,7 +282,7 @@ export function SchoolLevels() {
                                                 <Link href={`/admin/classes/${level.id}/new`}>
                                                     <div className="border-2 border-dashed border-border rounded-xl p-3 flex flex-col items-center justify-center hover:border-emerald-500/40 hover:bg-emerald-500/5 transition-all cursor-pointer group min-h-[88px]">
                                                         <Plus className="w-5 h-5 text-muted-foreground group-hover:text-emerald-600 transition-colors" />
-                                                        <p className="text-xs text-muted-foreground group-hover:text-emerald-600 transition-colors mt-1 font-medium">Ajouter</p>
+                                                        <p className="text-xs text-muted-foreground group-hover:text-emerald-600 transition-colors mt-1 font-medium">{t('admin.structure.add')}</p>
                                                     </div>
                                                 </Link>
                                             </div>
@@ -306,9 +306,9 @@ export function SchoolLevels() {
                     </div>
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                         <div>
-                            <label className="text-xs text-muted-foreground font-bold mb-1.5 block">Nom du niveau (français)</label>
+                            <label className="text-xs text-muted-foreground font-bold mb-1.5 block">{t('admin.structure.levelNameFr')}</label>
                             <Input
-                                placeholder="Ex: 1ère Année, Terminale..."
+                                placeholder={t('admin.structure.levelNameFrPlaceholder')}
                                 className="h-11"
                                 value={newLevelNameFr}
                                 onChange={(e) => setNewLevelNameFr(e.target.value)}
@@ -316,9 +316,9 @@ export function SchoolLevels() {
                             />
                         </div>
                         <div>
-                            <label className="text-xs text-muted-foreground font-bold mb-1.5 block">Nom du niveau (arabe)</label>
+                            <label className="text-xs text-muted-foreground font-bold mb-1.5 block">{t('admin.structure.levelNameAr')}</label>
                             <Input
-                                placeholder="مثال: السنة الأولى..."
+                                placeholder={t('admin.structure.levelNameArPlaceholder')}
                                 className="h-11 text-right"
                                 dir="rtl"
                                 value={newLevelNameAr}
@@ -332,8 +332,8 @@ export function SchoolLevels() {
                         disabled={creating}
                     >
                         {creating
-                            ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Création...</>
-                            : <><Plus className="w-4 h-4 mr-2" /> Créer le niveau</>
+                            ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> {t('admin.structure.creating')}</>
+                            : <><Plus className="w-4 h-4 mr-2" /> {t('admin.structure.createLevel')}</>
                         }
                     </Button>
                 </div>
@@ -362,22 +362,22 @@ export function SchoolLevels() {
                                 <AlertTriangle className="w-4 h-4 text-red-400" />
                             </div>
                             <div className="flex-1 min-w-0">
-                                <h3 className="text-base font-semibold text-white">Supprimer le niveau</h3>
+                                <h3 className="text-base font-semibold text-white">{t('admin.structure.deleteLevelTitle')}</h3>
                                 <p className="text-sm text-gray-400 mt-0.5">
-                                    <span className="font-semibold text-white">"{deletingLevel.nameFr}"</span> sera supprimé définitivement.
+                                    {t('admin.structure.deleteLevelDesc1', { name: deletingLevel.nameFr })}
                                 </p>
                             </div>
                         </div>
 
                         {/* Impact summary */}
                         <div className="bg-red-500/8 border border-red-500/15 rounded-xl p-4 space-y-2">
-                            <p className="text-[11px] font-bold text-red-400 uppercase tracking-wider mb-2">Cette action va :</p>
+                            <p className="text-[11px] font-bold text-red-400 uppercase tracking-wider mb-2">{t('admin.structure.deleteLevelImpactTitle')}</p>
                             {[
-                                `Supprimer ${deletingLevel.classes.length} classe${deletingLevel.classes.length !== 1 ? 's' : ''}`,
-                                `Désassigner ${deletingLevel.classes.reduce((s, c) => s + c.students, 0)} élève${deletingLevel.classes.reduce((s, c) => s + c.students, 0) !== 1 ? 's' : ''}`,
-                                'Supprimer toutes les matières liées',
-                                'Retirer toutes les affectations enseignants',
-                                "Effacer les créneaux de l'emploi du temps",
+                                t('admin.structure.impactDeleteClasses', { count: deletingLevel.classes.length }),
+                                t('admin.structure.impactUnassignStudents', { count: deletingLevel.classes.reduce((s, c) => s + c.students, 0) }),
+                                t('admin.structure.impactDeleteSubjects'),
+                                t('admin.structure.impactRemoveTeacherAssignments'),
+                                t('admin.structure.impactClearSchedule'),
                             ].map(line => (
                                 <div key={line} className="flex items-start gap-2">
                                     <span className="text-red-500 mt-0.5 shrink-0 text-xs">·</span>
@@ -390,7 +390,7 @@ export function SchoolLevels() {
                         {deletingLevel.classes.length > 0 && (
                             <div className="space-y-1.5">
                                 <p className="text-[10px] font-bold text-gray-600 uppercase tracking-wider">
-                                    Classes concernées
+                                    {t('admin.structure.concernedClasses')}
                                 </p>
                                 <div className="flex flex-wrap gap-1.5">
                                     {deletingLevel.classes.map(cls => (
@@ -409,7 +409,7 @@ export function SchoolLevels() {
                                 disabled={confirmDeleting}
                                 className="flex-1 h-10 rounded-xl border border-white/8 text-gray-500 hover:text-gray-300 hover:bg-white/4 text-sm font-medium transition-colors disabled:opacity-40"
                             >
-                                Annuler
+                                {t('common.cancel')}
                             </button>
                             <button
                                 onClick={handleDeleteLevel}
@@ -417,8 +417,8 @@ export function SchoolLevels() {
                                 className="flex-1 h-10 rounded-xl bg-red-600/85 hover:bg-red-600 text-white text-sm font-semibold disabled:opacity-40 transition-colors flex items-center justify-center gap-2"
                             >
                                 {confirmDeleting
-                                    ? <><Loader2 className="w-4 h-4 animate-spin" /> Suppression…</>
-                                    : <><Trash2 className="w-3.5 h-3.5" /> Supprimer le niveau</>
+                                    ? <><Loader2 className="w-4 h-4 animate-spin" /> {t('admin.structure.deleting')}</>
+                                    : <><Trash2 className="w-3.5 h-3.5" /> {t('admin.structure.deleteLevel')}</>
                                 }
                             </button>
                         </div>

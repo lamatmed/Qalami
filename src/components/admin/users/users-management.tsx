@@ -34,6 +34,7 @@ const COUNTRY_CODES = [
     { code: '+33', flag: '🇫🇷', name: 'France' },
     { code: '+1', flag: '🇺🇸', name: 'USA' },
 ]
+import { useLanguage } from '@/i18n'
 import {
     getStaffUsers, createStaffUser, updateStaffPermissions,
     deleteStaffUser, getActivityLogs, type Permission
@@ -75,6 +76,7 @@ interface ActivityLog {
 type TabType = 'users' | 'logs'
 
 export function UsersManagement() {
+    const { t } = useLanguage()
     const [tab, setTab] = useState<TabType>('users')
     const [users, setUsers] = useState<StaffUser[]>([])
     const [logs, setLogs] = useState<ActivityLog[]>([])
@@ -131,7 +133,7 @@ export function UsersManagement() {
         if (result.error) {
             toast.error(result.error)
         } else {
-            toast.success('Utilisateur créé avec succès')
+            toast.success(t('admin.users.savedSuccess'))
             setShowCreate(false)
             setForm({ fullName: '', phone: '', password: '' })
             setCountryCode(COUNTRY_CODES[0])
@@ -145,17 +147,17 @@ export function UsersManagement() {
         setSavingPerms(userId)
         const result = await updateStaffPermissions(userId, editPerms[userId] || [])
         if (result.error) toast.error(result.error)
-        else toast.success('Permissions mises à jour')
+        else toast.success(t('admin.users.permissionsUpdated'))
         setSavingPerms(null)
     }
 
     async function handleDelete(userId: string) {
-        if (!confirm('Supprimer cet utilisateur ? Cette action est irréversible.')) return
+        if (!confirm(t('admin.users.confirmDelete'))) return
         setDeletingId(userId)
         const result = await deleteStaffUser(userId)
         if (result.error) toast.error(result.error)
         else {
-            toast.success('Utilisateur supprimé')
+            toast.success(t('admin.users.userDeleted'))
             loadUsers()
         }
         setDeletingId(null)
@@ -171,7 +173,7 @@ export function UsersManagement() {
                     onClick={() => setShowCreate(true)}
                     className="bg-emerald-500 hover:bg-emerald-600 text-black font-bold rounded-xl"
                 >
-                    <UserPlus className="w-4 h-4 mr-2" /> Ajouter un utilisateur
+                    <UserPlus className="w-4 h-4 mr-2" /> {t('admin.users.addUser')}
                 </Button>
             </div>
 
@@ -181,13 +183,13 @@ export function UsersManagement() {
                     onClick={() => setTab('users')}
                     className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all ${tab === 'users' ? 'bg-white dark:bg-[#0F1720] text-gray-900 dark:text-white shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
                 >
-                    <Users className="w-4 h-4" /> Utilisateurs
+                    <Users className="w-4 h-4" /> {t('admin.users.users')}
                 </button>
                 <button
                     onClick={() => setTab('logs')}
                     className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all ${tab === 'logs' ? 'bg-white dark:bg-[#0F1720] text-gray-900 dark:text-white shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
                 >
-                    <Activity className="w-4 h-4" /> Journal d'activité
+                    <Activity className="w-4 h-4" /> {t('admin.users.activityLog')}
                 </button>
             </div>
 
@@ -200,23 +202,23 @@ export function UsersManagement() {
                                 <UserPlus className="w-5 h-5 text-emerald-500" />
                             </div>
                             <div>
-                                <h2 className="text-lg font-bold text-gray-900 dark:text-white">Nouvel utilisateur</h2>
-                                <p className="text-xs text-gray-400">Compte sous-admin avec permissions limitées</p>
+                                <h2 className="text-lg font-bold text-gray-900 dark:text-white">{t('admin.users.newUser')}</h2>
+                                <p className="text-xs text-gray-400">{t('admin.users.newUserDesc')}</p>
                             </div>
                         </div>
 
                         <div className="space-y-4">
                             <div className="space-y-2">
-                                <Label>Nom complet *</Label>
+                                <Label>{t('admin.users.fullName')}</Label>
                                 <div className="relative">
                                     <User className="absolute left-3 top-3 w-4 h-4 text-gray-400" />
                                     <Input value={form.fullName} onChange={e => setForm(f => ({ ...f, fullName: e.target.value }))}
-                                        placeholder="ex. Ahmed Ould Mohamed"
+                                        placeholder={t('admin.users.fullNamePlaceholder')}
                                         className="pl-9 bg-gray-50 dark:bg-[#1A2530] border-gray-200 dark:border-white/5" />
                                 </div>
                             </div>
                             <div className="space-y-2">
-                                <Label>Numéro de téléphone *</Label>
+                                <Label>{t('admin.users.phone')}</Label>
                                 <div className="relative flex">
                                     {/* Country code selector */}
                                     <div className="relative">
@@ -260,14 +262,14 @@ export function UsersManagement() {
                                 </div>
                             </div>
                             <div className="space-y-2">
-                                <Label>Mot de passe instantané *</Label>
+                                <Label>{t('admin.users.password')}</Label>
                                 <div className="relative">
                                     <KeyRound className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
                                     <Input
                                         type={showPassword ? 'text' : 'password'}
                                         value={form.password}
                                         onChange={e => setForm(f => ({ ...f, password: e.target.value }))}
-                                        placeholder="ex. Staff2024"
+                                        placeholder={t('admin.users.passwordPlaceholder')}
                                         className="pl-9 pr-10 bg-gray-50 dark:bg-[#1A2530] border-gray-200 dark:border-white/5"
                                     />
                                     <button
@@ -279,19 +281,19 @@ export function UsersManagement() {
                                         {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                                     </button>
                                 </div>
-                                <p className="text-[11px] text-gray-400 italic">L'utilisateur devra le changer à la première connexion.</p>
+                                <p className="text-[11px] text-gray-400 italic">{t('admin.users.passwordDesc')}</p>
                             </div>
 
                             {/* Permissions */}
                             <div className="space-y-2">
                                 <div className="flex items-center justify-between">
-                                    <Label>Permissions</Label>
+                                    <Label>{t('admin.users.permissionsLabel')}</Label>
                                     <button
                                         type="button"
                                         onClick={() => setNewPerms(newPerms.length === ALL_PERMISSIONS.length ? [] : ALL_PERMISSIONS.map(p => p.key))}
                                         className="text-xs text-emerald-500 hover:text-emerald-600 font-medium"
                                     >
-                                        {newPerms.length === ALL_PERMISSIONS.length ? 'Désélectionner tout' : 'Sélectionner tout'}
+                                        {newPerms.length === ALL_PERMISSIONS.length ? t('admin.users.deselectAll') : t('admin.users.selectAll')}
                                     </button>
                                 </div>
                                 <div className="grid grid-cols-2 gap-2">
@@ -307,7 +309,7 @@ export function UsersManagement() {
                                             {newPerms.includes(p.key)
                                                 ? <CheckSquare2 className="w-3.5 h-3.5 shrink-0" />
                                                 : <Square className="w-3.5 h-3.5 shrink-0" />}
-                                            <span className="truncate">{p.label}</span>
+                                            <span className="truncate">{t('admin.users.permissions.' + p.key)}</span>
                                         </button>
                                     ))}
                                 </div>
@@ -316,14 +318,14 @@ export function UsersManagement() {
 
                         <div className="flex gap-3 mt-6">
                             <Button variant="outline" className="flex-1 dark:border-white/10" onClick={() => setShowCreate(false)}>
-                                Annuler
+                                {t('admin.users.cancel')}
                             </Button>
                             <Button
                                 className="flex-1 bg-emerald-500 hover:bg-emerald-600 text-black font-bold"
                                 onClick={handleCreate}
                                 disabled={creating || !form.fullName.trim() || !form.phone.trim() || !form.password.trim()}
                             >
-                                {creating ? 'Création...' : 'Créer'}
+                                {creating ? t('admin.users.creating') : t('admin.users.create')}
                             </Button>
                         </div>
                     </div>
@@ -342,8 +344,8 @@ export function UsersManagement() {
                             <div className="w-16 h-16 bg-gray-100 dark:bg-[#1A2530] rounded-full flex items-center justify-center mx-auto mb-4">
                                 <Users className="w-8 h-8 text-gray-400" />
                             </div>
-                            <p className="text-gray-500 font-medium">Aucun utilisateur staff</p>
-                            <p className="text-gray-400 text-sm mt-1">Créez des sous-admins pour déléguer la gestion de l'école.</p>
+                            <p className="text-gray-500 font-medium">{t('admin.users.noStaffUser')}</p>
+                            <p className="text-gray-400 text-sm mt-1">{t('admin.users.noStaffUserDesc')}</p>
                         </div>
                     ) : (
                         users.map(u => (
@@ -360,17 +362,16 @@ export function UsersManagement() {
                                             <p className="font-semibold text-gray-900 dark:text-white truncate">{u.full_name}</p>
                                             {u.first_login && (
                                                 <span className="text-[10px] bg-amber-100 text-amber-700 px-2 py-0.5 rounded-full font-medium shrink-0">
-                                                    1ère connexion
+                                                    {t('admin.users.firstLogin')}
                                                 </span>
                                             )}
                                         </div>
                                         <p className="text-sm text-gray-500">{u.phone}</p>
                                         <div className="flex flex-wrap gap-1 mt-1">
                                             {u.permissions.slice(0, 4).map(p => {
-                                                const info = ALL_PERMISSIONS.find(x => x.key === p)
                                                 return (
                                                     <span key={p} className="text-[10px] bg-gray-100 dark:bg-[#1A2530] text-gray-600 dark:text-gray-400 px-1.5 py-0.5 rounded">
-                                                        {info?.label}
+                                                        {t('admin.users.permissions.' + p)}
                                                     </span>
                                                 )
                                             })}
@@ -378,7 +379,7 @@ export function UsersManagement() {
                                                 <span className="text-[10px] text-gray-400">+{u.permissions.length - 4}</span>
                                             )}
                                             {u.permissions.length === 0 && (
-                                                <span className="text-[10px] text-gray-400 italic">Aucune permission</span>
+                                                <span className="text-[10px] text-gray-400 italic">{t('admin.users.noPermission')}</span>
                                             )}
                                         </div>
                                     </div>
@@ -386,7 +387,7 @@ export function UsersManagement() {
                                         <button
                                             onClick={() => setExpandedUser(expandedUser === u.id ? null : u.id)}
                                             className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-[#1A2530] text-gray-500 transition-colors"
-                                            title="Modifier les permissions"
+                                            title={t('admin.users.modifyPermissions')}
                                         >
                                             <Shield className="w-4 h-4" />
                                         </button>
@@ -394,7 +395,7 @@ export function UsersManagement() {
                                             onClick={() => handleDelete(u.id)}
                                             disabled={deletingId === u.id}
                                             className="p-2 rounded-lg hover:bg-red-50 text-gray-400 hover:text-red-500 transition-colors"
-                                            title="Supprimer"
+                                            title={t('admin.users.delete')}
                                         >
                                             {deletingId === u.id
                                                 ? <RefreshCw className="w-4 h-4 animate-spin" />
@@ -415,7 +416,7 @@ export function UsersManagement() {
                                         <div className="flex items-center justify-between mb-3">
                                             <div className="flex items-center gap-2">
                                                 <ShieldCheck className="w-4 h-4 text-emerald-500" />
-                                                <span className="text-sm font-semibold text-gray-700 dark:text-gray-300">Permissions</span>
+                                                <span className="text-sm font-semibold text-gray-700 dark:text-gray-300">{t('admin.users.permissionsLabel')}</span>
                                             </div>
                                             <button
                                                 type="button"
@@ -429,7 +430,7 @@ export function UsersManagement() {
                                                 }}
                                                 className="text-xs text-emerald-500 hover:text-emerald-600 font-medium"
                                             >
-                                                {(editPerms[u.id] || []).length === ALL_PERMISSIONS.length ? 'Désélectionner tout' : 'Sélectionner tout'}
+                                                {(editPerms[u.id] || []).length === ALL_PERMISSIONS.length ? t('admin.users.deselectAll') : t('admin.users.selectAll')}
                                             </button>
                                         </div>
                                         <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 mb-4">
@@ -450,7 +451,7 @@ export function UsersManagement() {
                                                         {active
                                                             ? <CheckSquare2 className="w-3.5 h-3.5 shrink-0" />
                                                             : <Square className="w-3.5 h-3.5 shrink-0" />}
-                                                        <span className="truncate">{p.label}</span>
+                                                        <span className="truncate">{t('admin.users.permissions.' + p.key)}</span>
                                                     </button>
                                                 )
                                             })}
@@ -460,7 +461,7 @@ export function UsersManagement() {
                                             disabled={savingPerms === u.id}
                                             className="bg-emerald-500 hover:bg-emerald-600 text-black font-bold rounded-xl h-9 text-sm"
                                         >
-                                            {savingPerms === u.id ? 'Enregistrement...' : 'Enregistrer les permissions'}
+                                            {savingPerms === u.id ? t('admin.users.saving') : t('admin.users.savePermissions')}
                                         </Button>
                                     </div>
                                 )}
@@ -480,7 +481,7 @@ export function UsersManagement() {
                     ) : logs.length === 0 ? (
                         <div className="text-center py-16">
                             <Activity className="w-12 h-12 text-gray-300 mx-auto mb-3" />
-                            <p className="text-gray-500 font-medium">Aucune activité enregistrée</p>
+                            <p className="text-gray-500 font-medium">{t('admin.users.noActivity')}</p>
                         </div>
                     ) : (
                         <div className="space-y-2">

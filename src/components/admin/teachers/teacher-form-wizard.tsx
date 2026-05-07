@@ -7,8 +7,10 @@ import { ArrowLeft } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 import { motion } from 'framer-motion'
 import { toast } from 'sonner'
+import { useLanguage } from '@/i18n'
 
 export function TeacherFormWizard() {
+    const { t } = useLanguage()
     const router = useRouter()
     const [formData, setFormData] = useState<{ name?: string; phone?: string; email?: string; nni?: string; password?: string }>({})
     const [isSubmitting, setIsSubmitting] = useState(false)
@@ -32,15 +34,15 @@ export function TeacherFormWizard() {
 
             if (result.success && result.credentials) {
                 const cred = result.credentials
-                toast.success(`${cred.fullName} ajouté avec succès!`, {
-                    description: `Mot de passe: ${cred.password}`,
+                toast.success(t('admin.teachers.teacherAddedSuccess', { name: cred.fullName }), {
+                    description: t('admin.teachers.passwordIs', { password: cred.password }),
                     duration: 10000,
                 })
             }
 
             router.push('/admin/teachers')
         } catch (err: any) {
-            toast.error('Erreur lors de la création: ' + err.message)
+            toast.error(t('admin.teachers.creationError', { error: err.message }))
         } finally {
             setIsSubmitting(false)
         }
@@ -54,8 +56,8 @@ export function TeacherFormWizard() {
                     <ArrowLeft className="w-5 h-5" />
                 </Button>
                 <div>
-                    <h1 className="text-2xl font-bold text-white">Ajouter un Enseignant</h1>
-                    <p className="text-gray-400 text-sm">Remplissez les informations pour créer un nouveau profil.</p>
+                    <h1 className="text-2xl font-bold text-white">{t('admin.teachers.addTeacher')}</h1>
+                    <p className="text-gray-400 text-sm">{t('admin.teachers.addTeacherDesc')}</p>
                 </div>
             </div>
 

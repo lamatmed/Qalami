@@ -26,6 +26,9 @@ const roleColors: Record<string, string> = {
     student: 'bg-blue-500/10 text-blue-500',
     parent: 'bg-purple-500/10 text-purple-500',
     teacher: 'bg-emerald-500/10 text-emerald-500',
+    admin: 'bg-indigo-500/10 text-indigo-500',
+    super_admin: 'bg-rose-500/10 text-rose-500',
+    school_staff: 'bg-pink-500/10 text-pink-500',
 }
 
 export function InvitationsPageClient({ invitations }: { invitations: Invitation[] }) {
@@ -35,6 +38,9 @@ export function InvitationsPageClient({ invitations }: { invitations: Invitation
         student: t('common.student'),
         parent: t('common.parent'),
         teacher: t('common.teacher'),
+        admin: t('admin.settings.roles.names.admin') || t('common.admin'),
+        super_admin: t('admin.settings.roles.names.super_admin') || t('common.superAdmin'),
+        school_staff: t('admin.settings.roles.names.school_staff'),
     }
 
     const statusConfig: Record<string, { icon: typeof CheckCircle2, color: string, label: string }> = {

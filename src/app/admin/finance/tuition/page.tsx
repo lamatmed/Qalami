@@ -14,6 +14,7 @@ import {
 } from '@/components/ui/select'
 import { Button } from '@/components/ui/button'
 import { toast } from 'sonner'
+import { useLanguage } from '@/i18n'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -31,23 +32,17 @@ interface PaymentRow {
     academic_year_id: string | null
 }
 
-const PAYMENT_TYPE_LABELS: Record<string, string> = {
-    scolarite: 'Scolarité',
-    bus: 'Transport',
-    cantine: 'Cantine',
-    activites: 'Activités',
-}
-
-const STATUS_CONFIG: Record<string, { label: string; color: string; icon: React.ElementType }> = {
-    paid: { label: 'Payé', color: 'text-emerald-500 bg-emerald-500/10 border-emerald-500/20', icon: CheckCircle },
-    partial: { label: 'Partiel', color: 'text-amber-500 bg-amber-500/10 border-amber-500/20', icon: Clock },
-    pending: { label: 'En attente', color: 'text-blue-400 bg-blue-500/10 border-blue-500/20', icon: Clock },
-    overdue: { label: 'En retard', color: 'text-red-400 bg-red-500/10 border-red-500/20', icon: AlertCircle },
+const STATUS_CONFIG: Record<string, { color: string; icon: React.ElementType }> = {
+    paid: { color: 'text-emerald-500 bg-emerald-500/10 border-emerald-500/20', icon: CheckCircle },
+    partial: { color: 'text-amber-500 bg-amber-500/10 border-amber-500/20', icon: Clock },
+    pending: { color: 'text-blue-400 bg-blue-500/10 border-blue-500/20', icon: Clock },
+    overdue: { color: 'text-red-400 bg-red-500/10 border-red-500/20', icon: AlertCircle },
 }
 
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default function TuitionPage() {
+    const { t } = useLanguage()
     const [payments, setPayments] = useState<PaymentRow[]>([])
     const [loading, setLoading] = useState(true)
     const [search, setSearch] = useState('')
@@ -98,7 +93,7 @@ export default function TuitionPage() {
             .eq('school_id', profile.school_id)
             .order('due_date', { ascending: true })
 
-        if (error) { toast.error('Erreur de chargement'); setLoading(false); return }
+        if (error) { toast.error(t('admin.tuition.loadError')); setLoading(false); return }
 
         // Fetch active enrollments to get class names
         const { data: enrollments } = await supabase
@@ -152,9 +147,9 @@ export default function TuitionPage() {
 
     // ── CSV Export ────────────────────────────────────────────────────────────
     const handleExport = () => {
-        let csv = 'Élève,Classe,Type,Montant,Payé,Restant,Statut,Échéance\n'
+        let csv = `${t('admin.tuition.table.student')},${t('admin.tuition.table.class')},${t('admin.tuition.table.type')},${t('admin.tuition.table.amount')},${t('admin.tuition.table.paid')},${t('admin.tuition.table.remaining')},${t('admin.tuition.table.status')},${t('admin.tuition.table.dueDate')}\n`
         filtered.forEach(p => {
-            csv += `"${p.student_name}","${p.class_name ?? '—'}","${PAYMENT_TYPE_LABELS[p.payment_type] ?? p.payment_type}",${p.amount},${p.amount_paid},${p.amount - p.amount_paid},${STATUS_CONFIG[p.status]?.label ?? p.status},"${p.due_date ?? '—'}"\n`
+            csv += `"${p.student_name}","${p.class_name ?? '—'}","${t(`admin.tuition.paymentTypes.${p.payment_type}`)}",${p.amount},${p.amount_paid},${p.amount - p.amount_paid},${t(`admin.tuition.status.${p.status}`)},"${p.due_date ?? '—'}"\n`
         })
         const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' })
         const url = URL.createObjectURL(blob)
@@ -165,7 +160,7 @@ export default function TuitionPage() {
         link.click()
         document.body.removeChild(link)
         URL.revokeObjectURL(url)
-        toast.success('Export téléchargé')
+        toast.success(t('admin.tuition.exportDownloaded'))
     }
 
     // ─── Render ───────────────────────────────────────────────────────────────
@@ -189,49 +184,49 @@ export default function TuitionPage() {
                     onClick={handleExport}
                 >
                     <Download className="w-4 h-4 mr-2" />
-                    Exporter CSV
+                    {t('admin.tuition.exportCsv')}
                 </Button>
             </div>
 
             {/* Stats */}
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
                 <StatCard
-                    label="Total attendu"
+                    label={t('admin.tuition.totalExpected')}
                     value={`${totalExpected.toLocaleString('fr-FR')} MRU`}
                     icon={CreditCard}
                     color="text-blue-400"
                     bg="bg-blue-500/10 border-blue-500/20"
                 />
                 <StatCard
-                    label="Total encaissé"
+                    label={t('admin.tuition.totalReceived')}
                     value={`${totalReceived.toLocaleString('fr-FR')} MRU`}
                     icon={TrendingUp}
                     color="text-emerald-400"
                     bg="bg-emerald-500/10 border-emerald-500/20"
-                    sub={`${recoveryRate}% de recouvrement`}
+                    sub={t('admin.tuition.recoveryRateSub', { rate: recoveryRate })}
                 />
                 <StatCard
-                    label="En retard"
+                    label={t('admin.tuition.overdue')}
                     value={`${totalOverdue.toLocaleString('fr-FR')} MRU`}
                     icon={AlertCircle}
                     color="text-red-400"
                     bg="bg-red-500/10 border-red-500/20"
-                    sub={`${payments.filter(p => p.status === 'overdue').length} dossiers`}
+                    sub={t('admin.tuition.overdueSub', { count: payments.filter(p => p.status === 'overdue').length })}
                 />
                 <StatCard
-                    label="Élèves concernés"
+                    label={t('admin.tuition.concernedStudents')}
                     value={String(totalStudents)}
                     icon={Users}
                     color="text-purple-400"
                     bg="bg-purple-500/10 border-purple-500/20"
-                    sub={`${payments.length} lignes de paiement`}
+                    sub={t('admin.tuition.concernedStudentsSub', { count: payments.length })}
                 />
             </div>
 
             {/* Recovery bar */}
             <div className="bg-[#1A2530] rounded-2xl border border-white/5 p-4">
                 <div className="flex items-center justify-between mb-2">
-                    <span className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Taux de recouvrement global</span>
+                    <span className="text-xs font-semibold text-gray-400 uppercase tracking-wider">{t('admin.tuition.globalRecoveryRate')}</span>
                     <span className="text-sm font-bold text-white">{recoveryRate}%</span>
                 </div>
                 <div className="h-2 bg-white/5 rounded-full overflow-hidden">
@@ -251,7 +246,7 @@ export default function TuitionPage() {
                 <div className="relative flex-1">
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500" />
                     <Input
-                        placeholder="Rechercher un élève ou une classe…"
+                        placeholder={t('admin.tuition.searchPlaceholder')}
                         value={search}
                         onChange={e => setSearch(e.target.value)}
                         className="pl-9 bg-[#1A2530] border-white/10 text-white placeholder:text-gray-500"
@@ -259,34 +254,34 @@ export default function TuitionPage() {
                 </div>
                 <Select value={filterStatus} onValueChange={setFilterStatus}>
                     <SelectTrigger className="w-44 bg-[#1A2530] border-white/10 text-white">
-                        <SelectValue placeholder="Statut" />
+                        <SelectValue placeholder={t('admin.tuition.filters.status')} />
                     </SelectTrigger>
                     <SelectContent>
-                        <SelectItem value="all">Tous les statuts</SelectItem>
-                        <SelectItem value="paid">Payé</SelectItem>
-                        <SelectItem value="partial">Partiel</SelectItem>
-                        <SelectItem value="pending">En attente</SelectItem>
-                        <SelectItem value="overdue">En retard</SelectItem>
+                        <SelectItem value="all">{t('admin.tuition.filters.allStatus')}</SelectItem>
+                        <SelectItem value="paid">{t('admin.tuition.status.paid')}</SelectItem>
+                        <SelectItem value="partial">{t('admin.tuition.status.partial')}</SelectItem>
+                        <SelectItem value="pending">{t('admin.tuition.status.pending')}</SelectItem>
+                        <SelectItem value="overdue">{t('admin.tuition.status.overdue')}</SelectItem>
                     </SelectContent>
                 </Select>
                 <Select value={filterType} onValueChange={setFilterType}>
                     <SelectTrigger className="w-44 bg-[#1A2530] border-white/10 text-white">
-                        <SelectValue placeholder="Type" />
+                        <SelectValue placeholder={t('admin.tuition.filters.type')} />
                     </SelectTrigger>
                     <SelectContent>
-                        <SelectItem value="all">Tous les types</SelectItem>
-                        <SelectItem value="scolarite">Scolarité</SelectItem>
-                        <SelectItem value="bus">Transport</SelectItem>
-                        <SelectItem value="cantine">Cantine</SelectItem>
-                        <SelectItem value="activites">Activités</SelectItem>
+                        <SelectItem value="all">{t('admin.tuition.filters.allTypes')}</SelectItem>
+                        <SelectItem value="scolarite">{t('admin.tuition.paymentTypes.scolarite')}</SelectItem>
+                        <SelectItem value="bus">{t('admin.tuition.paymentTypes.bus')}</SelectItem>
+                        <SelectItem value="cantine">{t('admin.tuition.paymentTypes.cantine')}</SelectItem>
+                        <SelectItem value="activites">{t('admin.tuition.paymentTypes.activites')}</SelectItem>
                     </SelectContent>
                 </Select>
                 <Select value={filterClass} onValueChange={setFilterClass}>
                     <SelectTrigger className="w-44 bg-[#1A2530] border-white/10 text-white">
-                        <SelectValue placeholder="Classe" />
+                        <SelectValue placeholder={t('admin.tuition.filters.class')} />
                     </SelectTrigger>
                     <SelectContent>
-                        <SelectItem value="all">Toutes les classes</SelectItem>
+                        <SelectItem value="all">{t('admin.tuition.filters.allClasses')}</SelectItem>
                         {classes.map(c => (
                             <SelectItem key={c.id} value={c.name}>{c.name}</SelectItem>
                         ))}
@@ -298,27 +293,27 @@ export default function TuitionPage() {
             <div className="bg-[#1A2530] rounded-3xl border border-white/5 overflow-hidden">
                 <div className="px-6 py-4 border-b border-white/5 flex items-center justify-between">
                     <h3 className="text-xs font-bold text-gray-500 uppercase tracking-wider">
-                        {filtered.length} enregistrement{filtered.length !== 1 ? 's' : ''}
+                        {t('admin.tuition.recordsCount', { count: filtered.length })}
                     </h3>
                 </div>
 
                 {filtered.length === 0 ? (
                     <div className="text-center py-16 text-gray-500 text-sm">
-                        Aucun paiement trouvé pour ces critères.
+                        {t('admin.tuition.noPaymentFound')}
                     </div>
                 ) : (
                     <div className="overflow-x-auto">
                         <table className="w-full text-sm">
                             <thead>
                                 <tr className="border-b border-white/5">
-                                    <th className="text-left px-6 py-3 text-[11px] font-semibold text-gray-500 uppercase tracking-wider">Élève</th>
-                                    <th className="text-left px-4 py-3 text-[11px] font-semibold text-gray-500 uppercase tracking-wider">Classe</th>
-                                    <th className="text-left px-4 py-3 text-[11px] font-semibold text-gray-500 uppercase tracking-wider">Type</th>
-                                    <th className="text-right px-4 py-3 text-[11px] font-semibold text-gray-500 uppercase tracking-wider">Montant</th>
-                                    <th className="text-right px-4 py-3 text-[11px] font-semibold text-gray-500 uppercase tracking-wider">Payé</th>
-                                    <th className="text-right px-4 py-3 text-[11px] font-semibold text-gray-500 uppercase tracking-wider">Restant</th>
-                                    <th className="text-center px-4 py-3 text-[11px] font-semibold text-gray-500 uppercase tracking-wider">Statut</th>
-                                    <th className="text-left px-4 py-3 text-[11px] font-semibold text-gray-500 uppercase tracking-wider">Échéance</th>
+                                    <th className="text-left px-6 py-3 text-[11px] font-semibold text-gray-500 uppercase tracking-wider">{t('admin.tuition.table.student')}</th>
+                                    <th className="text-left px-4 py-3 text-[11px] font-semibold text-gray-500 uppercase tracking-wider">{t('admin.tuition.table.class')}</th>
+                                    <th className="text-left px-4 py-3 text-[11px] font-semibold text-gray-500 uppercase tracking-wider">{t('admin.tuition.table.type')}</th>
+                                    <th className="text-right px-4 py-3 text-[11px] font-semibold text-gray-500 uppercase tracking-wider">{t('admin.tuition.table.amount')}</th>
+                                    <th className="text-right px-4 py-3 text-[11px] font-semibold text-gray-500 uppercase tracking-wider">{t('admin.tuition.table.paid')}</th>
+                                    <th className="text-right px-4 py-3 text-[11px] font-semibold text-gray-500 uppercase tracking-wider">{t('admin.tuition.table.remaining')}</th>
+                                    <th className="text-center px-4 py-3 text-[11px] font-semibold text-gray-500 uppercase tracking-wider">{t('admin.tuition.table.status')}</th>
+                                    <th className="text-left px-4 py-3 text-[11px] font-semibold text-gray-500 uppercase tracking-wider">{t('admin.tuition.table.dueDate')}</th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-white/5">
@@ -346,7 +341,7 @@ export default function TuitionPage() {
                                                 )}
                                             </td>
                                             <td className="px-4 py-3 text-gray-400 text-xs">
-                                                {PAYMENT_TYPE_LABELS[p.payment_type] ?? p.payment_type}
+                                                {t(`admin.tuition.paymentTypes.${p.payment_type}`)}
                                             </td>
                                             <td className="px-4 py-3 text-right font-mono text-white text-sm">
                                                 {p.amount.toLocaleString('fr-FR')}
@@ -368,7 +363,7 @@ export default function TuitionPage() {
                                                     statusCfg.color
                                                 )}>
                                                     <StatusIcon className="w-3 h-3" />
-                                                    {statusCfg.label}
+                                                    {t(`admin.tuition.status.${p.status}`)}
                                                 </span>
                                             </td>
                                             <td className="px-4 py-3 text-xs text-gray-500">

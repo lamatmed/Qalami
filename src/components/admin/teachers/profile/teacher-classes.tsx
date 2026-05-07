@@ -7,6 +7,7 @@ import { cn } from '@/lib/utils'
 import { createClient } from '@/utils/supabase/client'
 import { Skeleton } from '@/components/ui/skeleton'
 import { useRouter } from 'next/navigation'
+import { useLanguage } from '@/i18n'
 
 interface TeacherClass {
     id: string
@@ -18,6 +19,7 @@ interface TeacherClass {
 
 export function TeacherClasses({ teacherId }: { teacherId: string }) {
     const router = useRouter()
+    const { t } = useLanguage()
     const [classes, setClasses] = useState<TeacherClass[]>([])
     const [loading, setLoading] = useState(true)
 
@@ -88,13 +90,13 @@ export function TeacherClasses({ teacherId }: { teacherId: string }) {
     return (
         <div className="space-y-6">
             <div className="flex items-center justify-between">
-                <h2 className="text-xl font-bold text-foreground">Classes enseignées</h2>
+                <h2 className="text-xl font-bold text-foreground">{t('admin.teachers.classesAssigned.title')}</h2>
             </div>
-
+ 
             {classes.length === 0 ? (
                 <div className="bg-card rounded-3xl border border-border p-12 text-center text-muted-foreground">
                     <GraduationCap className="w-12 h-12 mx-auto mb-4 opacity-50" />
-                    <p>Aucune classe assignée</p>
+                    <p>{t('admin.teachers.classesAssigned.noClasses')}</p>
                 </div>
             ) : (
                 <div className="space-y-3">
@@ -111,7 +113,7 @@ export function TeacherClasses({ teacherId }: { teacherId: string }) {
                                 <div>
                                     <h4 className="font-bold text-foreground text-lg group-hover:text-primary transition-colors">{cls.name}</h4>
                                     <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                                        <span className="flex items-center gap-1"><Users className="w-3 h-3" /> {cls.studentCount} élèves</span>
+                                        <span className="flex items-center gap-1"><Users className="w-3 h-3" /> {t('admin.teachers.classesAssigned.studentsCount').replace('{count}', cls.studentCount.toString())}</span>
                                         {cls.subjectName && (
                                             <>
                                                 <span>•</span>
@@ -121,9 +123,9 @@ export function TeacherClasses({ teacherId }: { teacherId: string }) {
                                     </div>
                                 </div>
                             </div>
-
-                            <Button variant="ghost" size="icon" className="text-muted-foreground hover:text-foreground">
-                                <ChevronRight className="w-5 h-5" />
+ 
+                            <Button variant="ghost" size="icon" className="text-muted-foreground hover:text-foreground shrink-0">
+                                <ChevronRight className="w-5 h-5 rtl:rotate-180" />
                             </Button>
                         </div>
                     ))}

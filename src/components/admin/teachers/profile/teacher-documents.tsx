@@ -9,22 +9,18 @@ import { toast } from 'sonner'
 import { createClient } from '@/utils/supabase/client'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { UploadDocumentDialog } from '@/components/admin/documents/upload-document-dialog'
+import { useLanguage } from '@/i18n'
 
 interface TeacherDocumentsProps {
     teacherId?: string
 }
 
 const ADMIN_DOCS = [
-    { id: '1', name: 'CV', type: 'CV', size: '', status: 'missing', date: '', file_url: '' },
-    { id: '2', name: 'Contrat de travail', type: 'Contrat', size: '', status: 'missing', date: '', file_url: '' },
-    { id: '3', name: 'Diplôme', type: 'Diplôme', size: '', status: 'missing', date: '', file_url: '' },
-    { id: '4', name: 'Certificat Médical', type: 'Médical', size: '', status: 'missing', date: '', file_url: '' },
+    { id: '1', name: 'CV', type: 'cv', size: '', status: 'missing', date: '', file_url: '' },
+    { id: '2', name: 'Contrat de travail', type: 'contract', size: '', status: 'missing', date: '', file_url: '' },
+    { id: '3', name: 'Diplôme', type: 'diploma', size: '', status: 'missing', date: '', file_url: '' },
+    { id: '4', name: 'Certificat Médical', type: 'medical', size: '', status: 'missing', date: '', file_url: '' },
 ]
-
-const DOC_TYPE_LABELS: Record<string, string> = {
-    course: 'Cours', exercise: 'Exercice', exam: 'Examen',
-    devoirs: 'Devoirs', correction: 'Correction', resource: 'Ressource', general: 'Général',
-}
 
 interface TeacherResource {
     id: string
@@ -41,6 +37,7 @@ interface TeacherResource {
 }
 
 export function TeacherDocuments({ teacherId }: TeacherDocumentsProps) {
+    const { t } = useLanguage()
     const [adminDocs, setAdminDocs] = useState(ADMIN_DOCS)
     const [uploading, setUploading] = useState(false)
     const [viewingDoc, setViewingDoc] = useState<string | null>(null)
@@ -54,6 +51,16 @@ export function TeacherDocuments({ teacherId }: TeacherDocumentsProps) {
     const [subjectFilter, setSubjectFilter] = useState('all')
     const [subjects, setSubjects] = useState<{ id: string; name: string }[]>([])
     const [uploadDialogOpen, setUploadDialogOpen] = useState(false)
+
+    const docTypeLabels: Record<string, string> = {
+        course: t('admin.teachers.documents.types.course'),
+        exercise: t('admin.teachers.documents.types.exercise'),
+        exam: t('admin.teachers.documents.types.exam'),
+        devoirs: t('admin.teachers.documents.types.devoirs'),
+        correction: t('admin.teachers.documents.types.correction'),
+        resource: t('admin.teachers.documents.types.resource'),
+        general: t('admin.teachers.documents.types.general'),
+    }
 
     const fetchResources = async () => {
         if (!teacherId) return
@@ -117,7 +124,7 @@ export function TeacherDocuments({ teacherId }: TeacherDocumentsProps) {
 
             if (uploadError) {
                 if (uploadError.message?.includes('not found') || uploadError.message?.includes('Bucket')) {
-                    toast.error('Le bucket de stockage "documents" n\'existe pas encore.')
+                    toast.error(t('admin.teachers.documents.storageBucketError'))
                     return
                 }
                 throw uploadError
@@ -126,21 +133,21 @@ export function TeacherDocuments({ teacherId }: TeacherDocumentsProps) {
             const { data: urlData } = supabase.storage.from('documents').getPublicUrl(filePath)
 
             setAdminDocs(prev => prev.map(d =>
-                d.name === uploadTarget
+                d.name === uploadTarget || d.type === uploadTarget
                     ? {
                         ...d,
                         status: 'verified',
-                        date: new Date().toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: 'numeric' }),
+                        date: new Date().toLocaleDateString(t('common.locale') || 'fr-FR', { day: '2-digit', month: 'short', year: 'numeric' }),
                         size: `${(file.size / (1024 * 1024)).toFixed(1)} MB`,
                         file_url: urlData.publicUrl
                     }
                     : d
             ))
 
-            toast.success(`${uploadTarget} uploadé avec succès`)
+            toast.success(t('admin.teachers.documents.uploadSuccess', { name: uploadTarget }))
         } catch (err) {
             console.error('Upload error:', err)
-            toast.error('Erreur lors de l\'upload')
+            toast.error(t('admin.teachers.documents.uploadError'))
         } finally {
             setUploading(false)
             if (fileInputRef.current) fileInputRef.current.value = ''
@@ -148,12 +155,12 @@ export function TeacherDocuments({ teacherId }: TeacherDocumentsProps) {
     }
 
     const handleViewDoc = (url: string) => {
-        if (!url) { toast.error('Aucun fichier à visualiser'); return }
+        if (!url) { toast.error(t('admin.teachers.documents.noFileToView')); return }
         setViewingDoc(url)
     }
 
     const handleDownload = (url: string, name: string) => {
-        if (!url) { toast.error('Aucun fichier à télécharger'); return }
+        if (!url) { toast.error(t('admin.teachers.documents.noFileToDownload')); return }
         const link = document.createElement('a')
         link.href = url
         link.download = name
@@ -187,7 +194,7 @@ export function TeacherDocuments({ teacherId }: TeacherDocumentsProps) {
                 <div className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4" onClick={() => setViewingDoc(null)}>
                     <div className="relative max-w-4xl w-full max-h-[90vh] bg-[#1A2530] rounded-2xl overflow-hidden" onClick={e => e.stopPropagation()}>
                         <div className="flex items-center justify-between p-4 border-b border-white/5">
-                            <h3 className="font-bold text-white">Aperçu du document</h3>
+                            <h3 className="font-bold text-white">{t('admin.teachers.documents.preview')}</h3>
                             <Button variant="ghost" size="icon" className="text-gray-400 hover:text-white" onClick={() => setViewingDoc(null)}>
                                 <X className="w-4 h-4" />
                             </Button>
@@ -206,10 +213,10 @@ export function TeacherDocuments({ teacherId }: TeacherDocumentsProps) {
             <Tabs defaultValue="admin">
                 <TabsList className="bg-[#1A2530] border border-white/5 p-1 rounded-xl w-full grid grid-cols-2 mb-2">
                     <TabsTrigger value="admin" className="rounded-lg data-[state=active]:bg-emerald-500/20 data-[state=active]:text-emerald-400 text-xs font-bold">
-                        Documents Administratifs
+                        {t('admin.teachers.documents.title')}
                     </TabsTrigger>
                     <TabsTrigger value="resources" className="rounded-lg data-[state=active]:bg-cyan-500/20 data-[state=active]:text-cyan-400 text-xs font-bold">
-                        Ressources Pédagogiques
+                        {t('admin.teachers.documents.pedagogicalResources')}
                     </TabsTrigger>
                 </TabsList>
 
@@ -217,65 +224,71 @@ export function TeacherDocuments({ teacherId }: TeacherDocumentsProps) {
                 <TabsContent value="admin" className="space-y-4">
                     <div className="flex justify-between items-center bg-[#1A2530] p-4 rounded-2xl border border-white/5">
                         <div>
-                            <h3 className="text-white font-bold">Documents Administratifs</h3>
-                            <p className="text-xs text-gray-400">{verifiedCount} sur {adminDocs.length} vérifiés</p>
+                            <h3 className="text-white font-bold">{t('admin.teachers.documents.title')}</h3>
+                            <p className="text-xs text-gray-400">
+                                {t('admin.teachers.documents.verifiedCount').replace('{verified}', verifiedCount.toString()).replace('{total}', adminDocs.length.toString())}
+                            </p>
                         </div>
                         <Button
                             className="bg-emerald-500 hover:bg-emerald-600 text-black font-bold gap-2"
-                            onClick={() => { setUploadTarget('Autre document'); fileInputRef.current?.click() }}
+                            onClick={() => { setUploadTarget('cv'); fileInputRef.current?.click() }}
                             disabled={uploading}
                         >
                             {uploading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Upload className="w-4 h-4" />}
-                            Ajouter
+                            {t('admin.teachers.documents.add')}
                         </Button>
                     </div>
 
                     <div className="bg-[#1A2530] rounded-3xl border border-white/5 overflow-hidden">
                         <div className="divide-y divide-white/5">
-                            {adminDocs.map((doc) => (
-                                <div key={doc.id} className="p-4 sm:p-5 flex items-center justify-between hover:bg-[#0F1720] transition-colors group">
-                                    <div className="flex items-center gap-4">
-                                        <div className="h-12 w-12 bg-[#0F1720] rounded-xl flex items-center justify-center border border-white/5 group-hover:border-emerald-500/30 transition-colors">
-                                            <FileText className="w-6 h-6 text-gray-400 group-hover:text-emerald-500" />
-                                        </div>
-                                        <div>
-                                            <h4 className="font-bold text-white text-sm group-hover:text-emerald-500 transition-colors">{doc.name}</h4>
-                                            <div className="flex items-center gap-2 text-xs mt-1">
-                                                <Badge variant="outline" className="bg-white/5 border-white/10 text-gray-400 font-normal">{doc.type}</Badge>
-                                                {doc.size && <span className="text-gray-500">• {doc.size}</span>}
-                                                {doc.date && <span className="text-gray-500">• {doc.date}</span>}
+                            {adminDocs.map((doc) => {
+                                const localizedName = t(`admin.teachers.documents.types.${doc.type}`) || doc.name
+                                const localizedType = t(`admin.teachers.documents.types.${doc.type}`) || doc.type
+                                return (
+                                    <div key={doc.id} className="p-4 sm:p-5 flex items-center justify-between hover:bg-[#0F1720] transition-colors group">
+                                        <div className="flex items-center gap-4">
+                                            <div className="h-12 w-12 bg-[#0F1720] rounded-xl flex items-center justify-center border border-white/5 group-hover:border-emerald-500/30 transition-colors">
+                                                <FileText className="w-6 h-6 text-gray-400 group-hover:text-emerald-500" />
+                                            </div>
+                                            <div>
+                                                <h4 className="font-bold text-white text-sm group-hover:text-emerald-500 transition-colors">{localizedName}</h4>
+                                                <div className="flex items-center gap-2 text-xs mt-1">
+                                                    <Badge variant="outline" className="bg-white/5 border-white/10 text-gray-400 font-normal">{localizedType}</Badge>
+                                                    {doc.size && <span className="text-gray-500">• {doc.size}</span>}
+                                                    {doc.date && <span className="text-gray-500">• {doc.date}</span>}
+                                                </div>
                                             </div>
                                         </div>
-                                    </div>
-                                    <div className="flex items-center gap-4">
-                                        {doc.status === 'verified' ? (
-                                            <div className="flex items-center gap-1.5 bg-emerald-500/10 px-2.5 py-1 rounded-full border border-emerald-500/20">
-                                                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500" />
-                                                <span className="text-[10px] font-bold text-emerald-500 uppercase">Vérifié</span>
-                                            </div>
-                                        ) : doc.status === 'expired' ? (
-                                            <div className="flex items-center gap-1.5 bg-red-500/10 px-2.5 py-1 rounded-full border border-red-500/20">
-                                                <AlertCircle className="w-3.5 h-3.5 text-red-500" />
-                                                <span className="text-[10px] font-bold text-red-500 uppercase">Expiré</span>
-                                            </div>
-                                        ) : (
-                                            <Button size="sm" className="bg-emerald-500 hover:bg-emerald-600 text-black font-bold h-7 text-xs rounded-lg gap-1" onClick={() => handleUpload(doc.name)}>
-                                                <Upload className="w-3 h-3" /> Ajouter
-                                            </Button>
-                                        )}
-                                        {doc.file_url && (
-                                            <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                                                <Button variant="ghost" size="icon" className="text-gray-400 hover:text-white h-8 w-8" onClick={() => handleViewDoc(doc.file_url)}>
-                                                    <Eye className="w-4 h-4" />
+                                        <div className="flex items-center gap-4">
+                                            {doc.status === 'verified' ? (
+                                                <div className="flex items-center gap-1.5 bg-emerald-500/10 px-2.5 py-1 rounded-full border border-emerald-500/20">
+                                                    <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500" />
+                                                    <span className="text-[10px] font-bold text-emerald-500 uppercase">{t('admin.teachers.documents.verified')}</span>
+                                                </div>
+                                            ) : doc.status === 'expired' ? (
+                                                <div className="flex items-center gap-1.5 bg-red-500/10 px-2.5 py-1 rounded-full border border-red-500/20">
+                                                    <AlertCircle className="w-3.5 h-3.5 text-red-500" />
+                                                    <span className="text-[10px] font-bold text-red-500 uppercase">{t('admin.teachers.documents.expired')}</span>
+                                                </div>
+                                            ) : (
+                                                <Button size="sm" className="bg-emerald-500 hover:bg-emerald-600 text-black font-bold h-7 text-xs rounded-lg gap-1" onClick={() => handleUpload(doc.type)}>
+                                                    <Upload className="w-3 h-3" /> {t('admin.teachers.documents.add')}
                                                 </Button>
-                                                <Button variant="ghost" size="icon" className="text-gray-400 hover:text-white h-8 w-8" onClick={() => handleDownload(doc.file_url, doc.name)}>
-                                                    <Download className="w-4 h-4" />
-                                                </Button>
-                                            </div>
-                                        )}
+                                            )}
+                                            {doc.file_url && (
+                                                <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                                    <Button variant="ghost" size="icon" className="text-gray-400 hover:text-white h-8 w-8" onClick={() => handleViewDoc(doc.file_url)}>
+                                                        <Eye className="w-4 h-4" />
+                                                    </Button>
+                                                    <Button variant="ghost" size="icon" className="text-gray-400 hover:text-white h-8 w-8" onClick={() => handleDownload(doc.file_url, localizedName)}>
+                                                        <Download className="w-4 h-4" />
+                                                    </Button>
+                                                </div>
+                                            )}
+                                        </div>
                                     </div>
-                                </div>
-                            ))}
+                                )
+                            })}
                         </div>
                     </div>
                 </TabsContent>
@@ -283,9 +296,11 @@ export function TeacherDocuments({ teacherId }: TeacherDocumentsProps) {
                 {/* Tab 2: Pedagogical resources */}
                 <TabsContent value="resources" className="space-y-4">
                     <div className="flex items-center justify-between">
-                        <h3 className="font-bold text-white text-sm">Mes ressources ({resources.length})</h3>
+                        <h3 className="font-bold text-white text-sm">
+                            {t('admin.teachers.documents.myResources').replace('{count}', resources.length.toString())}
+                        </h3>
                         <Button size="sm" className="bg-cyan-600 hover:bg-cyan-700 text-white font-bold gap-1 h-8" onClick={() => setUploadDialogOpen(true)}>
-                            <Plus className="w-3.5 h-3.5" /> Ajouter
+                            <Plus className="w-3.5 h-3.5" /> {t('admin.teachers.documents.add')}
                         </Button>
                     </div>
 
@@ -296,8 +311,8 @@ export function TeacherDocuments({ teacherId }: TeacherDocumentsProps) {
                                 <SelectValue placeholder="Type" />
                             </SelectTrigger>
                             <SelectContent className="bg-[#1A2530] border-white/10 text-white">
-                                <SelectItem value="all">Tous les types</SelectItem>
-                                {Object.entries(DOC_TYPE_LABELS).map(([v, l]) => (
+                                <SelectItem value="all">{t('admin.teachers.documents.allTypes')}</SelectItem>
+                                {Object.entries(docTypeLabels).map(([v, l]) => (
                                     <SelectItem key={v} value={v}>{l}</SelectItem>
                                 ))}
                             </SelectContent>
@@ -308,7 +323,7 @@ export function TeacherDocuments({ teacherId }: TeacherDocumentsProps) {
                                     <SelectValue placeholder="Matière" />
                                 </SelectTrigger>
                                 <SelectContent className="bg-[#1A2530] border-white/10 text-white">
-                                    <SelectItem value="all">Toutes les matières</SelectItem>
+                                    <SelectItem value="all">{t('admin.teachers.documents.allSubjects')}</SelectItem>
                                     {subjects.map(s => (
                                         <SelectItem key={s.id} value={s.name}>{s.name}</SelectItem>
                                     ))}
@@ -324,8 +339,8 @@ export function TeacherDocuments({ teacherId }: TeacherDocumentsProps) {
                     ) : filteredResources.length === 0 ? (
                         <div className="text-center py-10 text-gray-500">
                             <BookOpen className="w-10 h-10 mx-auto mb-3 opacity-30" />
-                            <p className="text-sm">Aucune ressource disponible</p>
-                            <p className="text-xs mt-1">Uploadez vos cours, exercices et examens</p>
+                            <p className="text-sm">{t('admin.teachers.documents.noResources')}</p>
+                            <p className="text-xs mt-1">{t('admin.teachers.documents.noResourcesDesc')}</p>
                         </div>
                     ) : (
                         <div className="space-y-2">
@@ -341,7 +356,7 @@ export function TeacherDocuments({ teacherId }: TeacherDocumentsProps) {
                                     <div className="flex-1 min-w-0">
                                         <p className="text-sm font-medium text-white truncate">{doc.name}</p>
                                         <p className="text-[10px] text-gray-500 mt-0.5">
-                                            <span className="text-cyan-400 font-bold">{DOC_TYPE_LABELS[doc.document_type] || doc.document_type}</span>
+                                            <span className="text-cyan-400 font-bold">{docTypeLabels[doc.document_type] || doc.document_type}</span>
                                             {doc.subjectName && ` · ${doc.subjectName}`}
                                             {doc.className && ` · ${doc.className}`}
                                             {doc.academic_year && ` · ${doc.academic_year}`}

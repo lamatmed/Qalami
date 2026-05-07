@@ -1,9 +1,14 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
+/* eslint-disable react-hooks/set-state-in-effect */
 'use client'
 
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import { useEffect, useState } from 'react'
 import { cn } from '@/lib/utils'
+import { motion, AnimatePresence, Reorder } from 'framer-motion'
+
+
 import {
     LayoutDashboard,
     Users,
@@ -29,11 +34,14 @@ import {
     ChevronUp,
     ShieldCheck,
     ChevronDown,
+    GripVertical,
 } from 'lucide-react'
+
 import { createClient } from '@/utils/supabase/client'
 import { useLanguage } from '@/i18n'
 import { LanguageSwitcher } from '@/components/shared/language-switcher'
 import { getMySchoolContext } from '@/app/admin/actions'
+
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -45,9 +53,11 @@ interface SidebarItem {
 }
 
 interface SidebarGroup {
+    id: string
     label: string
     items: SidebarItem[]
 }
+
 
 interface UserInfo {
     name: string
@@ -59,22 +69,22 @@ interface UserInfo {
 // ─── Flat list (kept for mobile nav compatibility) ────────────────────────────
 
 export const sidebarItems = [
-    { icon: LayoutDashboard, label: 'Tableau de bord', href: '/admin' },
-    { icon: BarChart3, label: 'Analytics', href: '/admin/analytics' },
-    { icon: Users, label: 'Élèves', href: '/admin/students' },
-    { icon: UserCheck, label: 'Parents', href: '/admin/parents' },
-    { icon: BookOpen, label: 'Enseignants', href: '/admin/teachers' },
-    { icon: UserPlus, label: 'Invitations', href: '/admin/invitations' },
-    { icon: GraduationCap, label: 'Classes', href: '/admin/classes' },
-    { icon: BookMarked, label: 'Matières', href: '/admin/subjects' },
-    { icon: ClipboardList, label: 'Affectations', href: '/admin/assignments' },
-    { icon: Clock, label: 'Emploi du temps', href: '/admin/schedule' },
-    { icon: CalendarRange, label: 'Trimestres', href: '/admin/terms' },
-    { icon: DollarSign, label: 'Comptabilité', href: '/admin/finance' },
-    { icon: CreditCard, label: 'Scolarité & Paiements', href: '/admin/finance/tuition' },
-    { icon: Wallet, label: 'Gestion Paie', href: '/admin/finance/payroll' },
-    { icon: FileText, label: 'Archives', href: '/admin/documents' },
-    { icon: Settings, label: 'Paramètres', href: '/admin/settings' },
+    { icon: LayoutDashboard, label: 'admin.sidebar.dashboard', href: '/admin' },
+    { icon: BarChart3, label: 'admin.sidebar.analytics', href: '/admin/analytics' },
+    { icon: Users, label: 'admin.sidebar.students', href: '/admin/students' },
+    { icon: UserCheck, label: 'admin.sidebar.parents', href: '/admin/parents' },
+    { icon: BookOpen, label: 'admin.sidebar.teachers', href: '/admin/teachers' },
+    { icon: UserPlus, label: 'admin.sidebar.invitations', href: '/admin/invitations' },
+    { icon: GraduationCap, label: 'admin.sidebar.classes', href: '/admin/classes' },
+    { icon: BookMarked, label: 'admin.sidebar.subjects', href: '/admin/subjects' },
+    { icon: ClipboardList, label: 'admin.sidebar.assignments', href: '/admin/assignments' },
+    { icon: Clock, label: 'admin.sidebar.schedule', href: '/admin/schedule' },
+    { icon: CalendarRange, label: 'admin.sidebar.terms', href: '/admin/terms' },
+    { icon: DollarSign, label: 'admin.sidebar.accounting', href: '/admin/finance' },
+    { icon: CreditCard, label: 'admin.sidebar.tuition', href: '/admin/finance/tuition' },
+    { icon: Wallet, label: 'admin.sidebar.payroll', href: '/admin/finance/payroll' },
+    { icon: FileText, label: 'admin.sidebar.archives', href: '/admin/documents' },
+    { icon: Settings, label: 'admin.sidebar.settings', href: '/admin/settings' },
 ]
 
 // ─── Sidebar Component ────────────────────────────────────────────────────────
@@ -93,6 +103,33 @@ export function AdminSidebar() {
     const [userMenuOpen, setUserMenuOpen] = useState(false)
     const [staffPermissions, setStaffPermissions] = useState<string[] | null>(null)
     const [schoolName, setSchoolName] = useState<string | null>(null)
+    const [openGroups, setOpenGroups] = useState<string[]>([])
+    const [groupOrder, setGroupOrder] = useState<string[]>(['general', 'community', 'pedagogy', 'finance'])
+
+    // Load saved group order
+    useEffect(() => {
+        const saved = localStorage.getItem('qalami-admin-sidebar-order')
+        if (saved) {
+            try {
+                const parsed = JSON.parse(saved)
+                if (Array.isArray(parsed) && parsed.length > 0) {
+                    setGroupOrder(parsed)
+                }
+            } catch (e) {
+                console.error('Failed to parse sidebar order', e)
+            }
+        }
+    }, [])
+
+    // Persist group order
+    useEffect(() => {
+        if (groupOrder.length > 0) {
+            localStorage.setItem('qalami-admin-sidebar-order', JSON.stringify(groupOrder))
+        }
+    }, [groupOrder])
+
+
+
 
     useEffect(() => {
         async function fetchSidebarData() {
@@ -196,6 +233,7 @@ export function AdminSidebar() {
 
     const allGroups: SidebarGroup[] = [
         {
+            id: 'general',
             label: t('admin.sidebar.general'),
             items: [
                 { icon: LayoutDashboard, label: t('admin.sidebar.dashboard'), href: '/admin' },
@@ -203,6 +241,7 @@ export function AdminSidebar() {
             ],
         },
         {
+            id: 'community',
             label: t('admin.sidebar.community'),
             items: [
                 { icon: Users, label: t('admin.sidebar.students'), href: '/admin/students', badge: unassignedStudents },
@@ -212,6 +251,7 @@ export function AdminSidebar() {
             ],
         },
         {
+            id: 'pedagogy',
             label: t('admin.sidebar.pedagogy'),
             items: [
                 { icon: GraduationCap, label: t('admin.sidebar.classes'), href: '/admin/classes' },
@@ -219,11 +259,13 @@ export function AdminSidebar() {
                 { icon: ClipboardList, label: t('admin.sidebar.assignments'), href: '/admin/assignments' },
                 { icon: Clock, label: t('admin.sidebar.schedule'), href: '/admin/schedule' },
                 { icon: CalendarRange, label: t('admin.sidebar.terms'), href: '/admin/terms' },
-                { icon: ClipboardCheck, label: 'Présences', href: '/admin/attendance' },
-                { icon: ScrollText, label: 'Bulletins scolaires', href: '/admin/reports' },
+                { icon: ClipboardCheck, label: t('admin.sidebar.attendance'), href: '/admin/attendance' },
+                { icon: ScrollText, label: t('admin.sidebar.reports'), href: '/admin/reports' },
             ],
         },
+
         {
+            id: 'finance',
             label: t('admin.sidebar.finance'),
             items: [
                 { icon: DollarSign, label: t('admin.sidebar.accounting'), href: '/admin/finance' },
@@ -232,19 +274,47 @@ export function AdminSidebar() {
             ],
         },
         {
+            id: 'system',
             label: t('admin.sidebar.system'),
             items: [
-                { icon: ShieldCheck, label: 'Utilisateurs', href: '/admin/users' },
+                { icon: ShieldCheck, label: t('admin.sidebar.users'), href: '/admin/users' },
                 { icon: FileText, label: t('admin.sidebar.archives'), href: '/admin/documents' },
                 { icon: Settings, label: t('admin.sidebar.settings'), href: '/admin/settings' },
             ],
         },
+
+
     ]
 
-    // Filter groups for school_staff based on permissions
+    // Filter and order groups
     const groups = allGroups
         .map(group => ({ ...group, items: group.items.filter(item => canSeeHref(item.href)) }))
         .filter(group => group.items.length > 0)
+
+    const orderedGroups = [
+        ...groupOrder
+            .map(id => groups.find(g => g.id === id))
+            .filter((g): g is SidebarGroup => !!g),
+        ...groups.filter(g => !groupOrder.includes(g.id) && g.id !== 'system')
+    ]
+
+    const systemGroup = groups.find(g => g.id === 'system')
+
+
+    // Initialize all groups as open on first load
+    useEffect(() => {
+        if (groups.length > 0 && openGroups.length === 0) {
+            setOpenGroups(groups.map(g => g.id))
+        }
+    }, [groups, openGroups.length])
+
+    const toggleGroup = (id: string) => {
+        setOpenGroups(prev => 
+            prev.includes(id) ? prev.filter(l => l !== id) : [...prev, id]
+        )
+    }
+
+
 
     const handleLogout = async () => {
         const supabase = createClient()
@@ -262,19 +332,23 @@ export function AdminSidebar() {
             {/* ── Logo ──────────────────────────────────────────────────────── */}
             <div className="px-4 pt-5 pb-3 space-y-3">
                 {/* App identity */}
-                <div className="flex items-center gap-3">
-                    <div className="w-9 h-9 rounded-xl bg-emerald-600 flex items-center justify-center shrink-0 shadow-sm">
-                        <span className="font-black text-[16px] text-white leading-none">Q</span>
-                    </div>
-                    <div className="min-w-0">
-                        <p className="font-bold text-[15px] text-foreground leading-none tracking-tight">{t('common.appName')}</p>
-                        {schoolName && (
-                            <p className="text-[10px] text-muted-foreground/50 uppercase tracking-widest font-medium mt-0.5 truncate">
-                                {schoolName}
-                            </p>
-                        )}
-                    </div>
+                <div className="flex items-center justify-between">
+                    <Link href="/admin" className="flex items-center gap-3 hover:opacity-80 transition-opacity">
+                        <div className="w-9 h-9 rounded-xl bg-emerald-600 flex items-center justify-center shrink-0 shadow-sm">
+                            <span className="font-black text-[16px] text-white leading-none">Q</span>
+                        </div>
+                        <div className="min-w-0">
+                            <p className="font-bold text-[15px] text-foreground leading-none tracking-tight">{t('common.appName')}</p>
+                            {schoolName && (
+                                <p className="text-[10px] text-muted-foreground/50 uppercase tracking-widest font-medium mt-0.5 truncate">
+                                    {schoolName}
+                                </p>
+                            )}
+                        </div>
+                    </Link>
+                   
                 </div>
+
 
                 {/* Year / term pill */}
                 <Link
@@ -303,57 +377,152 @@ export function AdminSidebar() {
             </div>
 
             {/* ── Navigation ────────────────────────────────────────────────── */}
-            <nav className="flex-1 overflow-y-auto py-3 px-3 space-y-4 scrollbar-hide">
-                {groups.map((group) => (
-                    <div key={group.label}>
-                        <p className="px-2 mb-1.5 text-[11px] font-semibold text-muted-foreground/50 uppercase tracking-widest">
-                            {group.label}
-                        </p>
-                        <div className="space-y-0.5">
-                            {group.items.map((item) => {
-                                const isActive = pathname === item.href || (item.href !== '/admin' && pathname.startsWith(item.href))
-                                // Badges that signal "action needed" get teal; neutral counts get gray
-                                const isActionBadge = item.href === '/admin/students' || item.href === '/admin/invitations'
-                                return (
-                                    <Link
-                                        key={item.href}
-                                        href={item.href}
-                                        className={cn(
-                                            "flex items-center justify-between px-3 py-2.5 rounded-xl text-[14px] transition-colors",
-                                            isActive
-                                                ? "bg-emerald-50 text-emerald-700 font-bold"
-                                                : "text-foreground/70 hover:text-foreground hover:bg-muted/60 font-normal"
-                                        )}
-                                    >
-                                        <div className="flex items-center gap-3 min-w-0">
-                                            <item.icon className={cn(
-                                                "h-[18px] w-[18px] shrink-0",
-                                                isActive ? "text-emerald-600" : "text-foreground/40"
-                                            )} />
-                                            <span className="truncate">{item.label}</span>
-                                        </div>
-                                        {item.badge != null && item.badge > 0 && (
-                                            isActionBadge ? (
-                                                <span className="ml-2 min-w-[22px] h-[22px] px-1.5 rounded-full text-[11px] font-bold flex items-center justify-center shrink-0 bg-emerald-500 text-white">
-                                                    {item.badge > 99 ? '99+' : item.badge}
-                                                </span>
-                                            ) : (
-                                                <span className="ml-2 min-w-[22px] h-[22px] px-1.5 rounded-full text-[11px] font-semibold flex items-center justify-center shrink-0 bg-muted text-muted-foreground">
-                                                    {item.badge > 99 ? '99+' : item.badge}
-                                                </span>
-                                            )
-                                        )}
-                                    </Link>
-                                )
-                            })}
-                        </div>
-                    </div>
-                ))}
+            <nav className="flex-1 overflow-y-auto py-3 px-3 flex flex-col scrollbar-hide">
 
-                <div className="pt-1 pb-2">
-                    <LanguageSwitcher variant="full" />
+                <Reorder.Group 
+                    axis="y" 
+                    values={groupOrder} 
+                    onReorder={setGroupOrder}
+                    className="space-y-4"
+                >
+                    {orderedGroups.map((group) => {
+                        const isOpen = openGroups.includes(group.id)
+                        return (
+                            <Reorder.Item 
+                                key={group.id} 
+                                value={group.id}
+                                className="space-y-1"
+                            >
+                                <div className="flex items-center group/label">
+                                    <div className="w-4 flex items-center justify-center opacity-0 group-hover/label:opacity-100 transition-opacity cursor-grab active:cursor-grabbing">
+                                        <GripVertical className="h-3 w-3 text-muted-foreground/30" />
+                                    </div>
+                                    <button
+                                        onClick={() => toggleGroup(group.id)}
+                                        className="flex-1 flex items-center justify-between py-1 pr-2 text-[11px] font-semibold text-muted-foreground/40 hover:text-muted-foreground transition-colors uppercase tracking-widest"
+                                    >
+                                        <span>{group.label}</span>
+                                        <ChevronDown className={cn(
+                                            "h-3 w-3 transition-transform duration-200",
+                                            !isOpen && "-rotate-90"
+                                        )} />
+                                    </button>
+                                </div>
+
+
+
+
+                                <AnimatePresence initial={false}>
+                                    {isOpen && (
+                                        <motion.div
+                                            initial={{ height: 0, opacity: 0 }}
+                                            animate={{ height: "auto", opacity: 1 }}
+                                            exit={{ height: 0, opacity: 0 }}
+                                            transition={{ duration: 0.3, ease: "easeInOut" }}
+                                            className="overflow-hidden space-y-0.5"
+                                        >
+                                            {group.items.map((item) => {
+                                                const isActive = pathname === item.href || (item.href !== '/admin' && pathname.startsWith(item.href))
+                                                const isActionBadge = item.href === '/admin/students' || item.href === '/admin/invitations'
+                                                return (
+                                                    <Link
+                                                        key={item.href}
+                                                        href={item.href}
+                                                        className={cn(
+                                                            "flex items-center justify-between px-3 py-2.5 rounded-xl text-[14px] transition-colors",
+                                                            isActive
+                                                                ? "bg-emerald-50 text-emerald-700 font-bold"
+                                                                : "text-foreground/70 hover:text-foreground hover:bg-muted/60 font-normal"
+                                                        )}
+                                                    >
+                                                        <div className="flex items-center gap-3 min-w-0">
+                                                            <item.icon className={cn(
+                                                                "h-[18px] w-[18px] shrink-0",
+                                                                isActive ? "text-emerald-600" : "text-foreground/40"
+                                                            )} />
+                                                            <span className="truncate">{item.label}</span>
+                                                        </div>
+                                                        {item.badge != null && item.badge > 0 && (
+                                                            isActionBadge ? (
+                                                                <span className="ml-2 min-w-[22px] h-[22px] px-1.5 rounded-full text-[11px] font-bold flex items-center justify-center shrink-0 bg-emerald-500 text-white">
+                                                                    {item.badge > 99 ? '99+' : item.badge}
+                                                                </span>
+                                                            ) : (
+                                                                <span className="ml-2 min-w-[22px] h-[22px] px-1.5 rounded-full text-[11px] font-semibold flex items-center justify-center shrink-0 bg-muted text-muted-foreground">
+                                                                    {item.badge > 99 ? '99+' : item.badge}
+                                                                </span>
+                                                            )
+                                                        )}
+                                                    </Link>
+                                                )
+                                            })}
+                                        </motion.div>
+                                    )}
+                                </AnimatePresence>
+                            </Reorder.Item>
+                        )
+                    })}
+                </Reorder.Group>
+
+                <div className="mt-auto pt-4 space-y-4">
+                    {systemGroup && (
+                        <div key={systemGroup.id} className="space-y-1">
+                            <button
+                                onClick={() => toggleGroup(systemGroup.id)}
+                                className="w-full flex items-center justify-between px-2 mb-1 text-[11px] font-semibold text-muted-foreground/40 hover:text-muted-foreground transition-colors uppercase tracking-widest"
+                            >
+                                <span>{systemGroup.label}</span>
+                                <ChevronDown className={cn(
+                                    "h-3 w-3 transition-transform duration-200",
+                                    !openGroups.includes(systemGroup.id) && "-rotate-90"
+                                )} />
+                            </button>
+                            
+                            <AnimatePresence initial={false}>
+                                {openGroups.includes(systemGroup.id) && (
+                                    <motion.div
+                                        initial={{ height: 0, opacity: 0 }}
+                                        animate={{ height: "auto", opacity: 1 }}
+                                        exit={{ height: 0, opacity: 0 }}
+                                        transition={{ duration: 0.3, ease: "easeInOut" }}
+                                        className="overflow-hidden space-y-0.5"
+                                    >
+                                        {systemGroup.items.map((item) => {
+                                            const isActive = pathname === item.href || (item.href !== '/admin' && pathname.startsWith(item.href))
+                                            return (
+                                                <Link
+                                                    key={item.href}
+                                                    href={item.href}
+                                                    className={cn(
+                                                        "flex items-center justify-between px-3 py-2.5 rounded-xl text-[14px] transition-colors",
+                                                        isActive
+                                                            ? "bg-emerald-50 text-emerald-700 font-bold"
+                                                            : "text-foreground/70 hover:text-foreground hover:bg-muted/60 font-normal"
+                                                    )}
+                                                >
+                                                    <div className="flex items-center gap-3 min-w-0">
+                                                        <item.icon className={cn(
+                                                            "h-[18px] w-[18px] shrink-0",
+                                                            isActive ? "text-emerald-600" : "text-foreground/40"
+                                                        )} />
+                                                        <span className="truncate">{item.label}</span>
+                                                    </div>
+                                                </Link>
+                                            )
+                                        })}
+                                    </motion.div>
+                                )}
+                            </AnimatePresence>
+                        </div>
+                    )}
+                    <div className="pt-1 pb-2">
+                        <LanguageSwitcher variant="full" />
+                    </div>
                 </div>
+
+
             </nav>
+
 
             {/* ── User footer ───────────────────────────────────────────────── */}
             <div className="border-t border-border p-3 space-y-1">
@@ -380,20 +549,13 @@ export function AdminSidebar() {
                             {userInfo?.name ?? '—'}
                         </p>
                         <p className="text-[10px] text-muted-foreground/60 leading-tight capitalize">
-                            {userInfo?.role === 'super_admin' ? 'Super Admin' : userInfo?.role === 'school_staff' ? 'Staff' : 'Admin'}
+                            {userInfo?.role === 'super_admin' ? t('common.superAdmin') : userInfo?.role === 'school_staff' ? 'Staff' : t('common.admin')}
                         </p>
+
                     </div>
 
-                    {/* Bell + chevron */}
-                    <div className="flex items-center gap-1.5 shrink-0">
-                        <span className="relative p-1 rounded-md">
-                            <Bell className="w-3.5 h-3.5 text-muted-foreground/40 group-hover:text-muted-foreground" />
-                            {unreadNotifications > 0 && (
-                                <span className="absolute -top-0.5 -right-0.5 w-3.5 h-3.5 rounded-full bg-emerald-500 text-[8px] font-black text-white flex items-center justify-center">
-                                    {unreadNotifications > 9 ? '9+' : unreadNotifications}
-                                </span>
-                            )}
-                        </span>
+                    {/* Chevron */}
+                    <div className="flex items-center shrink-0">
                         <ChevronUp className={cn(
                             'w-3.5 h-3.5 text-muted-foreground/40 transition-transform',
                             !userMenuOpen && 'rotate-180'

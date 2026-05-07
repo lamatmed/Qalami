@@ -115,7 +115,7 @@ export function ParentAttendance({ studentId }: ParentAttendanceProps = {}) {
 
     if (!effectiveStudentId) {
         return (
-            <div className="max-w-md mx-auto lg:max-w-3xl p-4">
+            <div className="max-w-md mx-auto lg:max-w-3xl lg:ms-12 lg:me-auto p-4">
                 <div className="bg-card border border-border rounded-3xl p-6 text-center">
                     <p className="text-muted-foreground">Aucun enfant sélectionné.</p>
                 </div>
@@ -126,7 +126,7 @@ export function ParentAttendance({ studentId }: ParentAttendanceProps = {}) {
     const isEmbedded = !!studentId
 
     return (
-        <div className={isEmbedded ? "space-y-6" : "max-w-md mx-auto lg:max-w-3xl pb-24 space-y-6 p-4"}>
+        <div className={isEmbedded ? "space-y-6" : "max-w-md mx-auto lg:max-w-3xl lg:ms-12 lg:me-auto pb-24 space-y-6 p-4"}>
             {/* Header - only show when not embedded */}
             {!isEmbedded && selectedChild && (
                 <div className="flex items-center justify-between">

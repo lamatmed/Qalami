@@ -30,7 +30,7 @@ const item = {
 }
 
 export default function SubjectsPage() {
-    const { language } = useLanguage()
+    const { language, t } = useLanguage()
     const { context, loading: ctxLoading, error: ctxError } = useSchoolContext()
     const [subjects, setSubjects] = useState<any[]>([])
     const [fetchError, setFetchError] = useState(false)
@@ -67,7 +67,7 @@ export default function SubjectsPage() {
 
     if (error) return (
         <div className="flex items-center justify-center h-64 text-muted-foreground text-sm">
-            Impossible de charger les données.
+            {t('admin.subjects.loadError')}
         </div>
     )
 
@@ -81,7 +81,7 @@ export default function SubjectsPage() {
                     <input
                         value={search}
                         onChange={e => setSearch(e.target.value)}
-                        placeholder="Rechercher une matière…"
+                        placeholder={t('admin.subjects.searchPlaceholder')}
                         className="w-full pl-9 pr-3 h-10 bg-card border border-border/50 rounded-2xl text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-primary/50 transition-colors"
                     />
                 </div>
@@ -97,8 +97,8 @@ export default function SubjectsPage() {
                         <BookOpen className="w-6 h-6 text-primary" />
                     </div>
                     <div className="text-center">
-                        <p className="font-bold text-foreground">Aucune matière</p>
-                        <p className="text-sm text-muted-foreground mt-1">Commencez par ajouter vos premières matières.</p>
+                        <p className="font-bold text-foreground">{t('admin.subjects.noSubjects')}</p>
+                        <p className="text-sm text-muted-foreground mt-1">{t('admin.subjects.noSubjectsDesc')}</p>
                     </div>
                     <AddSubjectDialog onSuccess={fetchData} />
                 </motion.div>
@@ -107,7 +107,7 @@ export default function SubjectsPage() {
                     className="flex flex-col items-center justify-center py-16 gap-2 text-muted-foreground"
                 >
                     <Search className="w-6 h-6 opacity-40" />
-                    <p className="text-sm">Aucun résultat pour «&nbsp;{search}&nbsp;»</p>
+                    <p className="text-sm">{t('admin.subjects.noResults', { search })}</p>
                 </motion.div>
             ) : (
                 /* Subject list — same card pattern as dashboard activity items */
@@ -132,7 +132,7 @@ export default function SubjectsPage() {
                                 <div className="flex-1 min-w-0">
                                     <h4 className="font-semibold text-sm truncate text-foreground">{sub.name}</h4>
                                     <p className="text-xs text-muted-foreground mt-0.5">
-                                        Ajouté le {new Date(sub.created_at).toLocaleDateString(locale, { day: 'numeric', month: 'short', year: 'numeric' })}
+                                        {t('admin.subjects.addedOn', { date: new Date(sub.created_at).toLocaleDateString(locale, { day: 'numeric', month: 'short', year: 'numeric' }) })}
                                     </p>
                                 </div>
 
@@ -140,18 +140,18 @@ export default function SubjectsPage() {
                                 <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                                     <button
                                         onClick={() => setCoeffSubject(sub)}
-                                        title="Coefficients par classe"
+                                        title={t('admin.subjects.coeffTooltip')}
                                         className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-xs font-medium text-muted-foreground hover:text-primary hover:bg-primary/10 transition-colors"
                                     >
                                         <Hash className="w-3.5 h-3.5" />
-                                        Coefficients
+                                        {t('admin.subjects.coefficients')}
                                     </button>
                                     <button
                                         onClick={() => setEditSubject(sub)}
                                         className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-xs font-medium text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
                                     >
                                         <Pencil className="w-3.5 h-3.5" />
-                                        Modifier
+                                        {t('admin.subjects.edit')}
                                     </button>
                                     <DeleteSubjectButton id={sub.id} onSuccess={fetchData} />
                                 </div>

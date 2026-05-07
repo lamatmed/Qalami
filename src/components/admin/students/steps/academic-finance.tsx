@@ -9,6 +9,7 @@ import { Switch } from '@/components/ui/switch'
 import { ChevronLeft, GraduationCap, DollarSign, Loader2 } from 'lucide-react'
 import { RegistrationData } from '../registration-wizard'
 import { createClient } from '@/utils/supabase/client'
+import { useLanguage } from '@/i18n'
 
 interface StepProps {
     data: RegistrationData
@@ -42,6 +43,7 @@ function getAcademicYearOptions(): string[] {
 }
 
 export function AcademicFinance({ data, updateData, onNext, onPrev }: StepProps) {
+    const { t } = useLanguage()
     const { academic } = data
     const [levels, setLevels] = useState<LevelOption[]>([])
     const [classes, setClasses] = useState<ClassOption[]>([])
@@ -99,8 +101,8 @@ export function AcademicFinance({ data, updateData, onNext, onPrev }: StepProps)
     return (
         <div className="space-y-6">
             <div className="mb-6">
-                <h2 className="text-2xl font-bold text-white mb-2">Finaliser l&apos;inscription</h2>
-                <p className="text-gray-400 text-sm">&Eacute;tape 3 sur 4 : Affectation scolaire et r&egrave;glement.</p>
+                <h2 className="text-2xl font-bold text-white mb-2">{t('admin.students.register.academic.title')}</h2>
+                <p className="text-gray-400 text-sm">{t('admin.students.register.academic.subtitle')}</p>
             </div>
 
             <div className="space-y-6">
@@ -108,14 +110,14 @@ export function AcademicFinance({ data, updateData, onNext, onPrev }: StepProps)
                 <div className="space-y-4">
                     <div className="flex items-center gap-2 mb-2">
                         <GraduationCap className="w-5 h-5 text-emerald-500" />
-                        <h3 className="font-bold text-white">Affectation Scolaire</h3>
+                        <h3 className="font-bold text-white">{t('admin.students.register.academic.assignmentTitle')}</h3>
                     </div>
 
                     <div className="space-y-2 mb-4">
-                        <Label>Année académique</Label>
+                        <Label>{t('admin.students.register.academic.academicYear')}</Label>
                         <Select onValueChange={(val) => handleChange('academicYear', val)} value={academic.academicYear}>
                             <SelectTrigger className="bg-[#1A2530] border-white/5 h-11">
-                                <SelectValue placeholder="Choisir l'année" />
+                                <SelectValue placeholder={t('admin.students.register.academic.chooseYear')} />
                             </SelectTrigger>
                             <SelectContent className="bg-[#1A2530] border-white/5 text-white">
                                 {academicYearOptions.map(year => (
@@ -127,10 +129,10 @@ export function AcademicFinance({ data, updateData, onNext, onPrev }: StepProps)
 
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div className="space-y-2">
-                            <Label>Niveau d&apos;&eacute;tudes</Label>
+                            <Label>{t('admin.students.register.academic.studyLevel')}</Label>
                             <Select onValueChange={handleLevelChange} value={academic.levelId || undefined}>
                                 <SelectTrigger className="bg-[#1A2530] border-white/5 h-11">
-                                    <SelectValue placeholder="Choisir le niveau" />
+                                    <SelectValue placeholder={t('admin.students.register.academic.chooseLevel')} />
                                 </SelectTrigger>
                                 <SelectContent className="bg-[#1A2530] border-white/5 text-white">
                                     {loading ? (
@@ -138,7 +140,7 @@ export function AcademicFinance({ data, updateData, onNext, onPrev }: StepProps)
                                             <Loader2 className="w-4 h-4 animate-spin text-gray-400" />
                                         </div>
                                     ) : levels.length === 0 ? (
-                                        <div className="px-4 py-2 text-xs text-gray-500">Aucun niveau trouvé</div>
+                                        <div className="px-4 py-2 text-xs text-gray-500">{t('admin.students.register.academic.noLevelFound')}</div>
                                     ) : (
                                         levels.map(l => (
                                             <SelectItem key={l.id} value={l.id}>{l.name_fr}</SelectItem>
@@ -148,7 +150,7 @@ export function AcademicFinance({ data, updateData, onNext, onPrev }: StepProps)
                             </Select>
                         </div>
                         <div className="space-y-2">
-                            <Label>Classe sp&eacute;cifique</Label>
+                            <Label>{t('admin.students.register.academic.classroom')}</Label>
                             <Select
                                 key={academic.levelId}
                                 onValueChange={(val) => handleChange('className', val)}
@@ -156,7 +158,7 @@ export function AcademicFinance({ data, updateData, onNext, onPrev }: StepProps)
                                 disabled={!academic.levelId}
                             >
                                 <SelectTrigger className="bg-[#1A2530] border-white/5 h-11 disabled:opacity-50">
-                                    <SelectValue placeholder={!academic.levelId ? 'Choisir d\'abord le niveau' : 'Choisir la classe'} />
+                                    <SelectValue placeholder={!academic.levelId ? t('admin.students.register.academic.chooseLevelFirst') : t('admin.students.register.academic.chooseClass')} />
                                 </SelectTrigger>
                                 <SelectContent className="bg-[#1A2530] border-white/5 text-white">
                                     {loading ? (
@@ -164,7 +166,7 @@ export function AcademicFinance({ data, updateData, onNext, onPrev }: StepProps)
                                             <Loader2 className="w-4 h-4 animate-spin text-gray-400" />
                                         </div>
                                     ) : filteredClasses.length === 0 ? (
-                                        <div className="px-4 py-2 text-xs text-gray-500">Aucune classe pour ce niveau</div>
+                                        <div className="px-4 py-2 text-xs text-gray-500">{t('admin.students.register.academic.noClassForLevel')}</div>
                                     ) : (
                                         filteredClasses.map(cls => (
                                             <SelectItem key={cls.id} value={cls.name}>{cls.name}</SelectItem>
@@ -180,11 +182,11 @@ export function AcademicFinance({ data, updateData, onNext, onPrev }: StepProps)
                 <div className="bg-[#1A2530]/50 p-5 rounded-2xl border border-white/5 space-y-4">
                     <div className="flex items-center gap-2 mb-2">
                         <DollarSign className="w-5 h-5 text-emerald-500" />
-                        <h3 className="font-bold text-white">D&eacute;tails Financiers</h3>
+                        <h3 className="font-bold text-white">{t('admin.students.register.academic.financeTitle')}</h3>
                     </div>
 
                     <div className="space-y-2">
-                        <Label>Frais d&apos;inscription (MRU)</Label>
+                        <Label>{t('admin.students.register.academic.registrationFee')}</Label>
                         <Input
                             type="number"
                             value={academic.registrationFee}
@@ -194,7 +196,7 @@ export function AcademicFinance({ data, updateData, onNext, onPrev }: StepProps)
                     </div>
 
                     <div className="flex items-center justify-between bg-[#0F1720] p-3 rounded-xl border border-white/5">
-                        <span className="text-sm text-gray-300">Marquer comme r&eacute;gl&eacute; &agrave; l&apos;instant</span>
+                        <span className="text-sm text-gray-300">{t('admin.students.register.academic.markPaidNow')}</span>
                         <Switch
                             checked={academic.isPaid}
                             onCheckedChange={(checked) => handleChange('isPaid', checked)}
@@ -202,7 +204,7 @@ export function AcademicFinance({ data, updateData, onNext, onPrev }: StepProps)
                     </div>
 
                     <div className="bg-emerald-500/10 p-3 rounded-xl border border-emerald-500/20 text-center">
-                        <p className="text-xs text-emerald-400 font-bold uppercase tracking-wider mb-1">Total Annuel Estim&eacute;</p>
+                        <p className="text-xs text-emerald-400 font-bold uppercase tracking-wider mb-1">{t('admin.students.register.academic.estimatedAnnualTotal')}</p>
                         <p className="text-2xl font-black text-emerald-500">{academic.tuitionFee.toLocaleString()} MRU</p>
                     </div>
                 </div>
@@ -214,13 +216,13 @@ export function AcademicFinance({ data, updateData, onNext, onPrev }: StepProps)
                     onClick={onPrev}
                     className="flex-1 bg-transparent border-white/10 text-white h-12 rounded-xl hover:bg-white/5"
                 >
-                    <ChevronLeft className="mr-2 w-4 h-4" /> Retour
+                    <ChevronLeft className="mr-2 w-4 h-4" /> {t('common.back')}
                 </Button>
                 <Button
                     onClick={onNext}
                     className="flex-1 bg-emerald-500 hover:bg-emerald-600 text-black font-bold h-12 rounded-xl"
                 >
-                    Confirmer l&apos;inscription
+                    {t('admin.students.register.academic.confirmRegistration')}
                 </Button>
             </div>
         </div>

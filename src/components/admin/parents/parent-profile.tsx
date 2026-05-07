@@ -99,7 +99,7 @@ export function ParentProfile({ parent, onClose, onParentUpdated }: ParentProfil
 
     const handleCall = () => {
         if (!parentPhone) {
-            toast.error('Aucun numéro de téléphone enregistré')
+            toast.error(t('admin.parents.noPhoneRecorded'))
             return
         }
         window.open(`tel:${phoneLink}`, '_self')
@@ -107,7 +107,7 @@ export function ParentProfile({ parent, onClose, onParentUpdated }: ParentProfil
 
     const handleWhatsApp = () => {
         if (!parentPhone) {
-            toast.error('Aucun numéro de téléphone enregistré')
+            toast.error(t('admin.parents.noPhoneRecorded'))
             return
         }
         // Remove + for wa.me link
@@ -118,7 +118,7 @@ export function ParentProfile({ parent, onClose, onParentUpdated }: ParentProfil
     const handleMessage = () => {
         const email = parent.email || parent.mother_email || ''
         if (!email) {
-            toast.error('Aucune adresse email enregistrée')
+            toast.error(t('admin.parents.noEmailRecorded'))
             return
         }
         window.open(`mailto:${email}`, '_self')
@@ -219,8 +219,8 @@ export function ParentProfile({ parent, onClose, onParentUpdated }: ParentProfil
                             <div className="space-y-2">
                                 {parent.children.length === 0 ? (
                                     <div className="py-6 text-center rounded-xl bg-[#0D1117] border border-white/5">
-                                        <p className="text-xs text-gray-500">Aucun élève lié à ce parent</p>
-                                        <p className="text-[11px] text-gray-600 mt-1">Les élèves sont liés lors de leur inscription</p>
+                                        <p className="text-xs text-gray-500">{t('admin.parents.noStudentsLinked')}</p>
+                                        <p className="text-[11px] text-gray-600 mt-1">{t('admin.parents.studentsLinkedHint')}</p>
                                     </div>
                                 ) : (
                                     parent.children.map((child: any) => (
@@ -252,7 +252,7 @@ export function ParentProfile({ parent, onClose, onParentUpdated }: ParentProfil
                                     <div>
                                         <p className="text-[10px] text-gray-500 uppercase font-bold mb-0.5">{t('admin.parents.address')}</p>
                                         <p className="text-sm text-gray-300">
-                                            {parent.address || <span className="italic text-gray-500">Adresse non renseignée</span>}
+                                            {parent.address || <span className="italic text-gray-500">{t('admin.parents.addressNotProvided')}</span>}
                                         </p>
                                     </div>
                                 </div>

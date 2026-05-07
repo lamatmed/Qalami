@@ -10,13 +10,7 @@ import { Loader2, ShieldAlert } from 'lucide-react'
 import { toast } from 'sonner'
 import { updateProfileStatus } from '@/app/auth/actions'
 import type { ProfileStatus } from './status-badge'
-
-const STATUS_OPTIONS: { value: ProfileStatus; label: string; description: string }[] = [
-    { value: 'active',    label: 'Actif',    description: 'Accès normal au système' },
-    { value: 'suspended', label: 'Suspendu', description: 'Accès temporairement bloqué' },
-    { value: 'inactive',  label: 'Inactif',  description: 'Compte désactivé par l\'admin' },
-    { value: 'archived',  label: 'Archivé',  description: 'Ancien utilisateur, conservé pour l\'historique' },
-]
+import { useLanguage } from '@/i18n'
 
 interface ChangeStatusDialogProps {
     open: boolean
@@ -35,9 +29,16 @@ export function ChangeStatusDialog({
     userName,
     onSuccess,
 }: ChangeStatusDialogProps) {
+    const { t } = useLanguage()
     const [newStatus, setNewStatus] = useState<ProfileStatus>(currentStatus as ProfileStatus)
     const [reason, setReason] = useState('')
     const [loading, setLoading] = useState(false)
+    const STATUS_OPTIONS: { value: ProfileStatus; label: string; description: string }[] = [
+        { value: 'active', label: t('admin.students.statusActive'), description: t('admin.students.statusActiveDesc') },
+        { value: 'suspended', label: t('admin.students.statusSuspended'), description: t('admin.students.statusSuspendedDesc') },
+        { value: 'inactive', label: t('admin.students.statusInactive'), description: t('admin.students.statusInactiveDesc') },
+        { value: 'archived', label: t('admin.students.statusArchived'), description: t('admin.students.statusArchivedDesc') },
+    ]
 
     const handleSubmit = async () => {
         if (newStatus === currentStatus) {
@@ -45,7 +46,7 @@ export function ChangeStatusDialog({
             return
         }
         if (!reason.trim()) {
-            toast.error('Le motif est obligatoire')
+            toast.error(t('admin.students.reasonRequired'))
             return
         }
 
@@ -58,17 +59,17 @@ export function ChangeStatusDialog({
             })
 
             if (result.error) {
-                toast.error('Erreur', { description: result.error })
+                toast.error(t('common.error'), { description: result.error })
                 return
             }
 
             const label = STATUS_OPTIONS.find(s => s.value === newStatus)?.label ?? newStatus
-            toast.success('Statut mis à jour', { description: `${userName} → ${label}` })
+            toast.success(t('admin.students.statusUpdated'), { description: `${userName} → ${label}` })
             onSuccess?.(newStatus)
             onOpenChange(false)
             setReason('')
         } catch (err: any) {
-            toast.error('Erreur inattendue', { description: err.message })
+            toast.error(t('admin.students.unexpectedError'), { description: err.message })
         } finally {
             setLoading(false)
         }
@@ -80,17 +81,17 @@ export function ChangeStatusDialog({
                 <DialogHeader>
                     <DialogTitle className="flex items-center gap-2">
                         <ShieldAlert className="w-5 h-5 text-orange-400" />
-                        Changer le statut
+                        {t('admin.students.changeStatus')}
                     </DialogTitle>
                 </DialogHeader>
 
                 <div className="space-y-5 pt-2">
                     <p className="text-sm text-gray-400">
-                        Modification du statut de <span className="text-white font-bold">{userName}</span>
+                        {t('admin.students.changingStatusFor')} <span className="text-white font-bold">{userName}</span>
                     </p>
 
                     <div className="space-y-2">
-                        <Label className="text-gray-300">Nouveau statut</Label>
+                        <Label className="text-gray-300">{t('admin.students.newStatus')}</Label>
                         <Select value={newStatus} onValueChange={(v) => setNewStatus(v as ProfileStatus)}>
                             <SelectTrigger className="bg-[#0F1720] border-white/10 text-white">
                                 <SelectValue />
@@ -112,16 +113,16 @@ export function ChangeStatusDialog({
 
                     <div className="space-y-2">
                         <Label className="text-gray-300">
-                            Motif <span className="text-red-400">*</span>
+                            {t('admin.students.reason')} <span className="text-red-400">*</span>
                         </Label>
                         <Textarea
-                            placeholder="Ex: Congé maladie, sanction disciplinaire, fin de contrat..."
+                            placeholder={t('admin.students.reasonPlaceholder')}
                             className="bg-[#0F1720] border-white/10 text-white placeholder:text-gray-600 resize-none"
                             rows={3}
                             value={reason}
                             onChange={(e) => setReason(e.target.value)}
                         />
-                        <p className="text-[11px] text-gray-500">Ce motif sera enregistré dans l'historique du compte.</p>
+                        <p className="text-[11px] text-gray-500">{t('admin.students.reasonHint')}</p>
                     </div>
 
                     <div className="flex gap-3 pt-2">
@@ -131,7 +132,7 @@ export function ChangeStatusDialog({
                             onClick={() => onOpenChange(false)}
                             disabled={loading}
                         >
-                            Annuler
+                            {t('common.cancel')}
                         </Button>
                         <Button
                             className="flex-1 bg-orange-500 hover:bg-orange-600 text-white font-bold"
@@ -139,7 +140,7 @@ export function ChangeStatusDialog({
                             disabled={loading || newStatus === currentStatus}
                         >
                             {loading && <Loader2 className="w-4 h-4 animate-spin mr-2" />}
-                            Confirmer
+                            {t('common.confirm')}
                         </Button>
                     </div>
                 </div>

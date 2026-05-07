@@ -10,6 +10,8 @@ import { toast } from 'sonner'
 import Link from 'next/link'
 import Image from 'next/image'
 
+import { useLanguage } from '@/i18n'
+
 interface InvitationData {
     fullName: string
     email: string | null
@@ -19,21 +21,66 @@ interface InvitationData {
 
 interface InviteCompletionFormProps {
     token: string
-    invitation: InvitationData
+    invitation?: InvitationData
+    error?: string | null
 }
 
-const roleLabels: Record<string, string> = {
-    student: 'Élève',
-    parent: 'Parent',
-    teacher: 'Enseignant',
-}
-
-export function InviteCompletionForm({ token, invitation }: InviteCompletionFormProps) {
+export function InviteCompletionForm({ token, invitation, error: initialError }: InviteCompletionFormProps) {
+    const { t } = useLanguage()
     const [pin, setPin] = useState('')
     const [confirmPin, setConfirmPin] = useState('')
     const [isLoading, setIsLoading] = useState(false)
     const [isComplete, setIsComplete] = useState(false)
-    const [error, setError] = useState<string | null>(null)
+    const [error, setError] = useState<string | null>(initialError || null)
+
+    if (initialError) {
+        return (
+            <div className="backdrop-blur-xl bg-white/80 border border-white/40 shadow-2xl rounded-2xl p-8 md:p-10 text-center relative overflow-hidden">
+                <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-transparent via-red-500 to-transparent opacity-50" />
+
+                <div className="flex justify-center mb-6">
+                    <Image
+                        src="/Logo.png"
+                        alt="Qalami"
+                        width={120}
+                        height={48}
+                        priority
+                        className="drop-shadow-md"
+                    />
+                </div>
+
+                <div className="w-16 h-16 bg-red-500/10 rounded-full flex items-center justify-center mx-auto mb-4">
+                    <AlertTriangle className="w-8 h-8 text-red-400" />
+                </div>
+
+                <h1 className="text-xl font-bold text-foreground mb-2">
+                    {t('auth.invalidInvitation')}
+                </h1>
+                <p className="text-sm text-muted-foreground mb-6">
+                    {initialError === 'Invitation expirée'
+                        ? t('auth.inviteExpiredDesc')
+                        : initialError === 'Invitation déjà utilisée'
+                        ? t('auth.inviteUsed')
+                        : initialError === 'Invitation introuvable'
+                        ? t('auth.inviteNotFound')
+                        : initialError}
+                </p>
+
+                <Link href="/login" className="text-sm text-primary hover:underline block mt-4">
+                    {t('auth.goToLogin')}
+                </Link>
+            </div>
+        )
+    }
+
+    const roleLabels: Record<string, string> = {
+        student: t('common.student'),
+        parent: t('common.parent'),
+        teacher: t('common.teacher'),
+        admin: t('admin.settings.roles.names.admin') || t('common.admin'),
+        super_admin: t('admin.settings.roles.names.super_admin') || t('common.superAdmin'),
+        school_staff: t('admin.settings.roles.names.school_staff'),
+    }
 
     const pinMismatch = confirmPin.length === 4 && pin !== confirmPin
     const canSubmit = pin.length === 4 && confirmPin.length === 4 && pin === confirmPin
@@ -57,11 +104,11 @@ export function InviteCompletionForm({ token, invitation }: InviteCompletionForm
                 toast.error(result.error)
             } else {
                 setIsComplete(true)
-                toast.success('Inscription terminée !')
+                toast.success(t('auth.registrationComplete'))
             }
         } catch {
-            setError('Une erreur est survenue')
-            toast.error('Une erreur est survenue')
+            setError(t('common.error'))
+            toast.error(t('common.error'))
         } finally {
             setIsLoading(false)
         }
@@ -90,15 +137,15 @@ export function InviteCompletionForm({ token, invitation }: InviteCompletionForm
                     </motion.div>
 
                     <h1 className="text-2xl font-bold text-foreground mb-2">
-                        Inscription terminée !
+                        {t('auth.registrationComplete')}
                     </h1>
                     <p className="text-sm text-muted-foreground mb-8">
-                        Votre compte a été activé avec succès. Vous pouvez maintenant vous connecter avec votre numéro de téléphone et votre code PIN.
+                        {t('auth.registrationCompleteDesc')}
                     </p>
 
                     <Link href="/login">
                         <Button className="w-full h-11 text-base font-medium shadow-lg shadow-primary/25">
-                            Aller à la connexion
+                            {t('auth.goToLogin')}
                         </Button>
                     </Link>
                 </div>
@@ -134,10 +181,10 @@ export function InviteCompletionForm({ token, invitation }: InviteCompletionForm
                         />
                     </motion.div>
                     <h1 className="text-2xl font-bold tracking-tight text-foreground">
-                        Finalisez votre inscription
+                        {t('auth.inviteTitle')}
                     </h1>
                     <p className="text-sm text-muted-foreground">
-                        Créez votre code PIN pour accéder à Qalami
+                        {t('auth.inviteSubtitle')}
                     </p>
                 </div>
 
@@ -169,7 +216,7 @@ export function InviteCompletionForm({ token, invitation }: InviteCompletionForm
                         <PinInput
                             value={pin}
                             onChange={setPin}
-                            label="Créer votre code PIN"
+                            label={t('auth.createPin')}
                             disabled={isLoading}
                             autoFocus
                         />
@@ -177,8 +224,8 @@ export function InviteCompletionForm({ token, invitation }: InviteCompletionForm
                         <PinInput
                             value={confirmPin}
                             onChange={setConfirmPin}
-                            label="Confirmer le code PIN"
-                            error={pinMismatch ? 'Les codes PIN ne correspondent pas' : undefined}
+                            label={t('auth.confirmPin')}
+                            error={pinMismatch ? t('auth.pinMismatch') : undefined}
                             disabled={isLoading}
                         />
                     </div>
@@ -192,7 +239,7 @@ export function InviteCompletionForm({ token, invitation }: InviteCompletionForm
                                 className="flex items-center gap-2 text-emerald-500 text-sm justify-center"
                             >
                                 <ShieldCheck className="w-4 h-4" />
-                                <span>Les codes PIN correspondent</span>
+                                <span>{t('auth.pinsMatch')}</span>
                             </motion.div>
                         )}
                     </AnimatePresence>
@@ -216,16 +263,16 @@ export function InviteCompletionForm({ token, invitation }: InviteCompletionForm
                         {isLoading ? (
                             <Loader2 className="h-4 w-4 animate-spin" />
                         ) : (
-                            'Activer mon compte'
+                            t('auth.activateAccount')
                         )}
                     </Button>
                 </form>
 
                 <div className="mt-6 text-center">
                     <p className="text-xs text-muted-foreground">
-                        Vous avez déjà un compte ?{' '}
+                        {t('auth.hasAccount')}{' '}
                         <Link href="/login" className="text-primary hover:underline">
-                            Se connecter
+                            {t('auth.login')}
                         </Link>
                     </p>
                 </div>

@@ -8,6 +8,7 @@ import { cn } from '@/lib/utils'
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { createClient } from '@/utils/supabase/client'
 import { useStudent } from '@/context/student-context'
+import { useLanguage } from '@/i18n'
 
 interface Grade {
     id: string
@@ -37,6 +38,7 @@ export function StudentGrades() {
     const [loading, setLoading] = useState(true)
     const [expandedSubject, setExpandedSubject] = useState<string | null>(null)
     const [selectedTrimester, setSelectedTrimester] = useState('t1')
+    const { t } = useLanguage()
 
     useEffect(() => {
         const fetchGrades = async () => {
@@ -90,7 +92,7 @@ export function StudentGrades() {
 
         filteredGrades.forEach(grade => {
             const subjectId = grade.subjects?.id || 'unknown'
-            const subjectName = grade.subjects?.name || 'Matière inconnue'
+            const subjectName = grade.subjects?.name || t('student.grades.unknownSubject')
 
             if (!grouped[subjectId]) {
                 grouped[subjectId] = {
@@ -121,7 +123,7 @@ export function StudentGrades() {
         })
 
         return Object.values(grouped).sort((a, b) => a.subjectName.localeCompare(b.subjectName))
-    }, [filteredGrades])
+    }, [filteredGrades, t])
 
     // Calculate overall average
     const overallStats = useMemo(() => {
@@ -156,11 +158,11 @@ export function StudentGrades() {
 
     // Get mention based on average
     const getMention = (avg: number) => {
-        if (avg >= 16) return 'Très Bien'
-        if (avg >= 14) return 'Bien'
-        if (avg >= 12) return 'Assez Bien'
-        if (avg >= 10) return 'Passable'
-        return 'Insuffisant'
+        if (avg >= 16) return t('student.grades.veryGood')
+        if (avg >= 14) return t('student.grades.good')
+        if (avg >= 12) return t('student.grades.satisfactory')
+        if (avg >= 10) return t('student.grades.passing')
+        return t('student.grades.insufficient')
     }
 
     // Get subject icon abbreviation
@@ -200,7 +202,7 @@ export function StudentGrades() {
 
     if (studentLoading || loading) {
         return (
-            <div className="max-w-md mx-auto lg:max-w-3xl pb-24 space-y-6 p-4">
+            <div className="max-w-md mx-auto lg:max-w-3xl lg:ms-12 lg:me-auto pb-24 space-y-6 p-4">
                 <div className="animate-pulse space-y-4">
                     <div className="h-12 bg-card rounded-xl" />
                     <div className="h-40 bg-blue-600/50 rounded-3xl" />
@@ -212,9 +214,10 @@ export function StudentGrades() {
     }
 
     const avgNum = parseFloat(overallStats.average as string)
+    const activeLocale = t('common.locale') === 'ar' ? 'ar-u-ca-gregory' : 'fr-FR'
 
     return (
-        <div className="max-w-md mx-auto lg:max-w-3xl pb-24 space-y-6 p-4">
+        <div className="max-w-md mx-auto lg:max-w-3xl lg:ms-12 lg:me-auto pb-24 space-y-6 p-4">
             {/* Header */}
             <div className="flex items-center justify-between mb-2">
                 <div className="flex items-center gap-3">
@@ -223,8 +226,8 @@ export function StudentGrades() {
                         <AvatarFallback>{student?.name?.slice(0, 2).toUpperCase() || 'EL'}</AvatarFallback>
                     </Avatar>
                     <div className="flex flex-col">
-                        <span className="text-[10px] text-cyan-500 font-bold tracking-widest uppercase">QALAMI MAURITANIE</span>
-                        <span className="font-bold text-lg">Mes Notes</span>
+                        <span className="text-[10px] text-cyan-500 font-bold tracking-widest uppercase">{t('student.grades.subtitle')}</span>
+                        <span className="font-bold text-lg">{t('student.grades.title')}</span>
                     </div>
                 </div>
                 <Button variant="ghost" size="icon" className="rounded-full">
@@ -235,9 +238,9 @@ export function StudentGrades() {
             {/* Trimester Tabs */}
             <Tabs value={selectedTrimester} onValueChange={setSelectedTrimester} className="w-full">
                 <TabsList className="bg-card border border-border/50 p-1 rounded-xl w-full grid grid-cols-3 mb-6 h-auto">
-                    <TabsTrigger value="t1" className="rounded-lg text-xs py-2 data-[state=active]:bg-blue-600 data-[state=active]:text-white font-bold">1er Trimestre</TabsTrigger>
-                    <TabsTrigger value="t2" className="rounded-lg text-xs py-2 data-[state=active]:bg-blue-600 data-[state=active]:text-white font-bold">2ème Trimestre</TabsTrigger>
-                    <TabsTrigger value="t3" className="rounded-lg text-xs py-2 data-[state=active]:bg-blue-600 data-[state=active]:text-white font-bold">3ème Trimestre</TabsTrigger>
+                    <TabsTrigger value="t1" className="rounded-lg text-xs py-2 data-[state=active]:bg-blue-600 data-[state=active]:text-white font-bold">{t('student.grades.t1')}</TabsTrigger>
+                    <TabsTrigger value="t2" className="rounded-lg text-xs py-2 data-[state=active]:bg-blue-600 data-[state=active]:text-white font-bold">{t('student.grades.t2')}</TabsTrigger>
+                    <TabsTrigger value="t3" className="rounded-lg text-xs py-2 data-[state=active]:bg-blue-600 data-[state=active]:text-white font-bold">{t('student.grades.t3')}</TabsTrigger>
                 </TabsList>
 
                 {/* Main Stats Card */}
@@ -247,7 +250,7 @@ export function StudentGrades() {
                     <div className="relative z-10 space-y-4">
                         <div className="flex justify-between items-start">
                             <div>
-                                <p className="text-blue-200 text-xs font-bold uppercase tracking-wider mb-1">MOYENNE GÉNÉRALE</p>
+                                <p className="text-blue-200 text-xs font-bold uppercase tracking-wider mb-1">{t('student.grades.overallAverage')}</p>
                                 <div className="flex items-baseline gap-1">
                                     <span className="text-5xl font-bold text-white tracking-tighter">
                                         {filteredGrades.length > 0 ? overallStats.average : '--'}
@@ -256,7 +259,7 @@ export function StudentGrades() {
                                 </div>
                             </div>
                             <span className="bg-white/20 px-3 py-1 rounded-lg text-xs font-bold text-white border border-white/20">
-                                Rang: {overallStats.rank} / 32
+                                {t('student.grades.rank')} {overallStats.rank} / 32
                             </span>
                         </div>
 
@@ -264,18 +267,18 @@ export function StudentGrades() {
                             <div className="flex items-center gap-2 pt-2">
                                 <Award className="w-5 h-5 text-amber-300" />
                                 <span className="font-bold text-white text-sm">
-                                    Mention: {getMention(avgNum)}
+                                    {t('student.grades.mentionLabel')} {getMention(avgNum)}
                                 </span>
                             </div>
                         )}
 
                         <div className="pt-2 flex justify-between items-end">
                             <Button className="bg-white text-blue-600 hover:bg-blue-50 font-bold rounded-xl h-10 px-6">
-                                Consulter le Bulletin
+                                {t('student.grades.viewReport')}
                             </Button>
                             <div className="text-right">
                                 <span className="block text-[10px] text-blue-200">
-                                    {overallStats.totalGrades} notes enregistrées
+                                    {t('student.grades.gradesCount', { count: overallStats.totalGrades })}
                                 </span>
                                 {filteredGrades.length > 0 && (() => {
                                     const latest = filteredGrades.reduce((a, b) => {
@@ -286,7 +289,7 @@ export function StudentGrades() {
                                     const latestDate = latest.updated_at || latest.created_at
                                     return (
                                         <span className="block text-[10px] text-blue-300/60">
-                                            MàJ: {new Date(latestDate).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short' })}
+                                            {t('student.grades.updatedAt')} {new Date(latestDate).toLocaleDateString(activeLocale, { day: '2-digit', month: 'short' })}
                                         </span>
                                     )
                                 })()}
@@ -297,11 +300,11 @@ export function StudentGrades() {
 
                 {/* Subject List */}
                 <div className="space-y-4">
-                    <h3 className="font-bold text-sm px-1">Matières & Moyennes</h3>
+                    <h3 className="font-bold text-sm px-1">{t('student.grades.subjectsAndAverages')}</h3>
 
                     {subjectGrades.length === 0 ? (
                         <div className="bg-card border border-border/50 rounded-2xl p-8 text-center text-muted-foreground">
-                            Aucune note enregistrée pour ce trimestre
+                            {t('student.grades.noGrades')}
                         </div>
                     ) : (
                         subjectGrades.map((subject) => {
@@ -328,7 +331,7 @@ export function StudentGrades() {
                                             <div>
                                                 <h4 className="font-bold text-sm">{subject.subjectName}</h4>
                                                 <p className="text-[10px] text-muted-foreground">
-                                                    COEFF: {subject.totalCoeff.toFixed(1)} • {subject.grades.length} NOTES
+                                                    {t('student.grades.coeff')}: {subject.totalCoeff.toFixed(1)} • {subject.grades.length} {t('student.grades.notes')}
                                                 </p>
                                             </div>
                                         </div>
@@ -351,10 +354,10 @@ export function StudentGrades() {
                                     {isExpanded && (
                                         <div className="bg-black/20 p-4 space-y-3">
                                             {subject.grades.map((grade) => {
-                                                const dateStr = new Date(grade.created_at).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short' })
+                                                const dateStr = new Date(grade.created_at).toLocaleDateString(activeLocale, { day: '2-digit', month: 'short' })
                                                 const wasUpdated = grade.updated_at && grade.updated_at !== grade.created_at
                                                 const updatedStr = wasUpdated
-                                                    ? new Date(grade.updated_at!).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short' })
+                                                    ? new Date(grade.updated_at!).toLocaleDateString(activeLocale, { day: '2-digit', month: 'short' })
                                                     : null
 
                                                 return (
@@ -362,10 +365,10 @@ export function StudentGrades() {
                                                         <div>
                                                             <p className="font-bold text-xs capitalize">{grade.assessment_type}</p>
                                                             <p className="text-[10px] text-muted-foreground">
-                                                                {dateStr} • Coeff x{grade.coefficient || 1}
+                                                                {dateStr} • {t('student.grades.coeffShort')}{grade.coefficient || 1}
                                                             </p>
                                                             {updatedStr && (
-                                                                <p className="text-[10px] text-amber-500/70">Mis à jour: {updatedStr}</p>
+                                                                <p className="text-[10px] text-amber-500/70">{t('student.grades.updated')} {updatedStr}</p>
                                                             )}
                                                         </div>
                                                         <span className={cn(

@@ -31,7 +31,7 @@ interface RoleSidebarProps {
 export function RoleSidebar({ items, logoIcon: LogoIcon, logoBgClass, roleLabel, accent }: RoleSidebarProps) {
     const pathname = usePathname()
     const router = useRouter()
-    const { t, direction } = useLanguage()
+    const { t, direction, mounted } = useLanguage()
 
     const handleLogout = async () => {
         const supabase = createClient()
@@ -44,7 +44,7 @@ export function RoleSidebar({ items, logoIcon: LogoIcon, logoBgClass, roleLabel,
         <aside
             className={cn(
                 "w-64 bg-[#0D1117] border-white/5 h-screen flex flex-col fixed top-0 overflow-hidden z-40",
-                direction === "rtl" ? "right-0 border-l" : "left-0 border-r"
+                mounted && direction === "rtl" ? "right-0 border-l" : "left-0 border-r"
             )}
         >
             {/* Logo */}

@@ -9,6 +9,7 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { CalendarIcon, ChevronRight, User, MapPin, CreditCard, Home, KeyRound, Phone, Smartphone, SmartphoneNfc } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { RegistrationData } from '../registration-wizard'
+import { useLanguage } from '@/i18n'
 
 interface StepProps {
     data: RegistrationData
@@ -18,17 +19,16 @@ interface StepProps {
     savedCredentials?: any
 }
 
-const months = [
-    'Janvier', 'Février', 'Mars', 'Avril', 'Mai', 'Juin',
-    'Juillet', 'Août', 'Septembre', 'Octobre', 'Novembre', 'Décembre'
-]
-
 function getDaysInMonth(year: number, month: number) {
     return new Date(year, month + 1, 0).getDate()
 }
 
 export function PersonalInfo({ data, updateData, onNext }: StepProps) {
+    const { t, language } = useLanguage()
     const { personal } = data
+    const months = language === 'ar'
+        ? ['يناير', 'فبراير', 'مارس', 'أبريل', 'مايو', 'يونيو', 'يوليو', 'أغسطس', 'سبتمبر', 'أكتوبر', 'نوفمبر', 'ديسمبر']
+        : ['Janvier', 'Février', 'Mars', 'Avril', 'Mai', 'Juin', 'Juillet', 'Août', 'Septembre', 'Octobre', 'Novembre', 'Décembre']
 
     // Parse existing date if any
     const existingDate = personal.dateOfBirth ? new Date(personal.dateOfBirth) : null
@@ -90,30 +90,30 @@ export function PersonalInfo({ data, updateData, onNext }: StepProps) {
     return (
         <div className="space-y-6">
             <div className="mb-6">
-                <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">Informations Personnelles</h2>
-                <p className="text-gray-400 text-sm">Étape 1 sur 4 : Identité de l'élève telle que figurant sur l'acte de naissance.</p>
+                <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">{t('admin.students.register.personal.title')}</h2>
+                <p className="text-gray-400 text-sm">{t('admin.students.register.personal.subtitle')}</p>
             </div>
 
             <div className="space-y-4">
                 <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-2">
-                        <Label>Prénom</Label>
+                        <Label>{t('admin.students.register.personal.firstName')}</Label>
                         <div className="relative">
                             <User className="absolute left-3 top-3 h-4 w-4 text-gray-500" />
                             <Input
                                 value={personal.firstName}
                                 onChange={(e) => handleChange('firstName', e.target.value)}
-                                placeholder="ex. Mohamed"
+                                placeholder={t('admin.students.register.personal.firstNamePlaceholder')}
                                 className="pl-9 bg-gray-50 dark:bg-[#1A2530] border-gray-200 dark:border-white/5"
                             />
                         </div>
                     </div>
                     <div className="space-y-2">
-                        <Label>Nom</Label>
+                        <Label>{t('admin.students.register.personal.lastName')}</Label>
                         <Input
                             value={personal.lastName}
                             onChange={(e) => handleChange('lastName', e.target.value)}
-                            placeholder="ex. Ould Ahmed"
+                            placeholder={t('admin.students.register.personal.lastNamePlaceholder')}
                             className="bg-gray-50 dark:bg-[#1A2530] border-gray-200 dark:border-white/5"
                         />
                     </div>
@@ -121,7 +121,7 @@ export function PersonalInfo({ data, updateData, onNext }: StepProps) {
 
                 {/* Date de Naissance - Year → Month → Day */}
                 <div className="space-y-2">
-                    <Label>Date de Naissance</Label>
+                    <Label>{t('admin.students.register.personal.birthDate')}</Label>
                     <Popover open={isOpen} onOpenChange={setIsOpen}>
                         <PopoverTrigger asChild>
                             <Button
@@ -132,19 +132,19 @@ export function PersonalInfo({ data, updateData, onNext }: StepProps) {
                                 )}
                             >
                                 <CalendarIcon className="mr-2 h-4 w-4" />
-                                {formatDisplayDate() || <span>Choisir une date</span>}
+                                {formatDisplayDate() || <span>{t('admin.students.register.personal.chooseDate')}</span>}
                             </Button>
                         </PopoverTrigger>
                         <PopoverContent className="w-80 p-4 bg-white dark:bg-[#0F1720] border-gray-200 dark:border-white/10" align="start">
                             <div className="space-y-3">
-                                <p className="text-xs text-gray-500 font-bold uppercase mb-2">Sélectionner la date</p>
+                                <p className="text-xs text-gray-500 font-bold uppercase mb-2">{t('admin.students.register.personal.selectDate')}</p>
 
                                 {/* Year selector */}
                                 <div className="space-y-1">
-                                    <label className="text-xs text-gray-400">Année</label>
+                                    <label className="text-xs text-gray-400">{t('admin.students.register.personal.year')}</label>
                                     <Select value={selectedYear} onValueChange={handleYearChange}>
                                         <SelectTrigger className="bg-gray-50 dark:bg-[#1A2530] border-gray-200 dark:border-white/5 h-10 text-gray-900 dark:text-white">
-                                            <SelectValue placeholder="Année..." />
+                                            <SelectValue placeholder={t('admin.students.register.personal.yearPlaceholder')} />
                                         </SelectTrigger>
                                         <SelectContent className="bg-white dark:bg-[#1A2530] border-gray-200 dark:border-white/5 text-gray-900 dark:text-white max-h-[200px]">
                                             {years.map(y => (
@@ -157,10 +157,10 @@ export function PersonalInfo({ data, updateData, onNext }: StepProps) {
                                 {/* Month selector */}
                                 {selectedYear && (
                                     <div className="space-y-1 animate-in fade-in slide-in-from-top-1 duration-200">
-                                        <label className="text-xs text-gray-400">Mois</label>
+                                        <label className="text-xs text-gray-400">{t('admin.students.register.personal.month')}</label>
                                         <Select value={selectedMonth} onValueChange={handleMonthChange}>
                                             <SelectTrigger className="bg-gray-50 dark:bg-[#1A2530] border-gray-200 dark:border-white/5 h-10 text-gray-900 dark:text-white">
-                                                <SelectValue placeholder="Mois..." />
+                                                <SelectValue placeholder={t('admin.students.register.personal.monthPlaceholder')} />
                                             </SelectTrigger>
                                             <SelectContent className="bg-white dark:bg-[#1A2530] border-gray-200 dark:border-white/5 text-gray-900 dark:text-white max-h-[200px]">
                                                 {months.map((m, i) => (
@@ -174,10 +174,10 @@ export function PersonalInfo({ data, updateData, onNext }: StepProps) {
                                 {/* Day selector */}
                                 {selectedYear && selectedMonth !== '' && (
                                     <div className="space-y-1 animate-in fade-in slide-in-from-top-1 duration-200">
-                                        <label className="text-xs text-gray-400">Jour</label>
+                                        <label className="text-xs text-gray-400">{t('admin.students.register.personal.day')}</label>
                                         <Select value={selectedDay} onValueChange={handleDayChange}>
                                             <SelectTrigger className="bg-gray-50 dark:bg-[#1A2530] border-gray-200 dark:border-white/5 h-10 text-gray-900 dark:text-white">
-                                                <SelectValue placeholder="Jour..." />
+                                                <SelectValue placeholder={t('admin.students.register.personal.dayPlaceholder')} />
                                             </SelectTrigger>
                                             <SelectContent className="bg-white dark:bg-[#1A2530] border-gray-200 dark:border-white/5 text-gray-900 dark:text-white max-h-[200px]">
                                                 {days.map(d => (
@@ -193,7 +193,7 @@ export function PersonalInfo({ data, updateData, onNext }: StepProps) {
                 </div>
 
                 <div className="space-y-2">
-                    <Label>Genre</Label>
+                    <Label>{t('admin.students.register.personal.gender')}</Label>
                     <div className="grid grid-cols-2 gap-4">
                         <button
                             onClick={() => handleChange('gender', 'male')}
@@ -202,7 +202,7 @@ export function PersonalInfo({ data, updateData, onNext }: StepProps) {
                                 personal.gender === 'male' ? "bg-emerald-500/20 border-emerald-500 text-emerald-500" : "bg-gray-50 dark:bg-[#1A2530] border-gray-200 dark:border-white/5 text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-[#23303d]"
                             )}
                         >
-                            Masculin
+                            {t('common.male')}
                         </button>
                         <button
                             onClick={() => handleChange('gender', 'female')}
@@ -211,46 +211,46 @@ export function PersonalInfo({ data, updateData, onNext }: StepProps) {
                                 personal.gender === 'female' ? "bg-pink-500/20 border-pink-500 text-pink-500" : "bg-gray-50 dark:bg-[#1A2530] border-gray-200 dark:border-white/5 text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-[#23303d]"
                             )}
                         >
-                            Féminin
+                            {t('common.female')}
                         </button>
                     </div>
                 </div>
 
                 <div className="space-y-2">
-                    <Label>Lieu de Naissance</Label>
+                    <Label>{t('admin.students.register.personal.birthPlace')}</Label>
                     <div className="relative">
                         <MapPin className="absolute left-3 top-3 h-4 w-4 text-gray-500" />
                         <Input
                             value={personal.placeOfBirth}
                             onChange={(e) => handleChange('placeOfBirth', e.target.value)}
-                            placeholder="ex. Nouakchott"
+                            placeholder={t('admin.students.register.personal.birthPlacePlaceholder')}
                             className="pl-9 bg-gray-50 dark:bg-[#1A2530] border-gray-200 dark:border-white/5"
                         />
                     </div>
                 </div>
 
                 <div className="space-y-2">
-                    <Label>Numéro National d'Identité (NNI)</Label>
+                    <Label>{t('admin.students.register.personal.nationalId')}</Label>
                     <div className="relative">
                         <CreditCard className="absolute left-3 top-3 h-4 w-4 text-gray-500" />
                         <Input
                             value={personal.nationalId ?? ''}
                             onChange={(e) => handleChange('nationalId', e.target.value)}
-                            placeholder="ex. 1234567890"
+                            placeholder={t('admin.students.register.personal.nationalIdPlaceholder')}
                             className="pl-9 bg-gray-50 dark:bg-[#1A2530] border-gray-200 dark:border-white/5"
                         />
                     </div>
-                    <p className="text-[11px] text-gray-400 italic">Optionnel — requis pour l'enregistrement officiel.</p>
+                    <p className="text-[11px] text-gray-400 italic">{t('admin.students.register.personal.nationalIdHint')}</p>
                 </div>
 
                 <div className="space-y-2">
-                    <Label>Adresse</Label>
+                    <Label>{t('common.address')}</Label>
                     <div className="relative">
                         <Home className="absolute left-3 top-3 h-4 w-4 text-gray-500" />
                         <Input
                             value={personal.address ?? ''}
                             onChange={(e) => handleChange('address', e.target.value)}
-                            placeholder="ex. Tevragh Zeina, Nouakchott"
+                            placeholder={t('admin.students.register.personal.addressPlaceholder')}
                             className="pl-9 bg-gray-50 dark:bg-[#1A2530] border-gray-200 dark:border-white/5"
                         />
                     </div>
@@ -258,7 +258,7 @@ export function PersonalInfo({ data, updateData, onNext }: StepProps) {
 
                 {/* Phone toggle */}
                 <div className="pt-2 border-t border-gray-200 dark:border-white/5">
-                    <p className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">L'élève a-t-il un numéro de téléphone ?</p>
+                    <p className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">{t('admin.students.register.personal.hasPhoneQuestion')}</p>
                     <div className="grid grid-cols-2 gap-3">
                         <button
                             type="button"
@@ -270,7 +270,7 @@ export function PersonalInfo({ data, updateData, onNext }: StepProps) {
                                     : "bg-gray-50 dark:bg-[#1A2530] border-gray-200 dark:border-white/5 text-gray-400 hover:bg-gray-100 dark:hover:bg-[#23303d]"
                             )}
                         >
-                            <SmartphoneNfc className="w-4 h-4" /> Non
+                            <SmartphoneNfc className="w-4 h-4" /> {t('common.no')}
                         </button>
                         <button
                             type="button"
@@ -282,7 +282,7 @@ export function PersonalInfo({ data, updateData, onNext }: StepProps) {
                                     : "bg-gray-50 dark:bg-[#1A2530] border-gray-200 dark:border-white/5 text-gray-400 hover:bg-gray-100 dark:hover:bg-[#23303d]"
                             )}
                         >
-                            <Smartphone className="w-4 h-4" /> Oui
+                            <Smartphone className="w-4 h-4" /> {t('common.yes')}
                         </button>
                     </div>
                 </div>
@@ -291,37 +291,37 @@ export function PersonalInfo({ data, updateData, onNext }: StepProps) {
                 {personal.hasPhone && (
                     <>
                         <div className="space-y-2">
-                            <Label>Numéro de téléphone *</Label>
+                            <Label>{t('admin.students.register.personal.phoneRequired')}</Label>
                             <div className="relative">
                                 <Phone className="absolute left-3 top-3 h-4 w-4 text-gray-500" />
                                 <Input
                                     value={personal.phone ?? ''}
                                     onChange={(e) => handleChange('phone', e.target.value)}
-                                    placeholder="ex. +22236123456"
+                                    placeholder={t('admin.students.register.personal.phonePlaceholder')}
                                     className="pl-9 bg-gray-50 dark:bg-[#1A2530] border-gray-200 dark:border-white/5"
                                 />
                             </div>
                         </div>
 
                         <div className="space-y-2">
-                            <Label>Mot de passe instantané *</Label>
+                            <Label>{t('admin.students.register.personal.tempPassword')}</Label>
                             <div className="relative">
                                 <KeyRound className="absolute left-3 top-3 h-4 w-4 text-gray-500" />
                                 <Input
                                     value={personal.password ?? ''}
                                     onChange={(e) => handleChange('password', e.target.value)}
-                                    placeholder="ex. Eleve2024"
+                                    placeholder={t('admin.students.register.personal.tempPasswordPlaceholder')}
                                     className="pl-9 bg-gray-50 dark:bg-[#1A2530] border-gray-200 dark:border-white/5"
                                 />
                             </div>
-                            <p className="text-[11px] text-gray-400 italic">Ce mot de passe sera communiqué à l'élève pour la première connexion.</p>
+                            <p className="text-[11px] text-gray-400 italic">{t('admin.students.register.personal.tempPasswordHint')}</p>
                         </div>
                     </>
                 )}
 
                 {!personal.hasPhone && (
                     <div className="bg-blue-500/10 border border-blue-500/20 rounded-xl p-3">
-                        <p className="text-xs text-blue-500">Les parents pourront suivre cet élève via leur compte. L'élève n'aura pas accès à l'application.</p>
+                        <p className="text-xs text-blue-500">{t('admin.students.register.personal.parentsOnlyAccess')}</p>
                     </div>
                 )}
             </div>
@@ -332,7 +332,7 @@ export function PersonalInfo({ data, updateData, onNext }: StepProps) {
                     disabled={!isValid}
                     className="w-full bg-emerald-500 hover:bg-emerald-600 text-black font-bold h-12 rounded-xl"
                 >
-                    Suivant <ChevronRight className="ml-2 w-4 h-4" />
+                    {t('common.next')} <ChevronRight className="ml-2 w-4 h-4" />
                 </Button>
             </div>
         </div>

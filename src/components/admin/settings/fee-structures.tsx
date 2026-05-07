@@ -11,6 +11,7 @@ import {
 import { cn } from '@/lib/utils'
 import { toast } from 'sonner'
 import { getMySchoolContext } from '@/app/admin/actions'
+import { useLanguage } from '@/i18n'
 
 // ─── Types ─────────────────────────────────────────────────────────────────────
 
@@ -60,6 +61,7 @@ function defaultFees(): FeeState {
 // ─── Component ─────────────────────────────────────────────────────────────────
 
 export function FeeStructures() {
+    const { t } = useLanguage()
     const [fees, setFees] = useState<FeeState>(defaultFees())
     const [currentYear, setCurrentYear] = useState<{ id: string; name: string } | null>(null)
     const [saving, setSaving] = useState(false)
@@ -111,23 +113,23 @@ export function FeeStructures() {
             const supabase = createClient()
 
             if (!currentYear?.id) {
-                toast.success('Barème enregistré localement', {
-                    description: "Définissez une année scolaire active pour synchroniser avec la base de données.",
+                toast.success(t('admin.settings.fees.toastLocalSuccess'), {
+                    description: t('admin.settings.fees.toastLocalDesc'),
                 })
                 setSaving(false)
                 return
             }
 
             const activeFees = FEE_TYPES
-                .filter(t => fees[t.id].enabled && fees[t.id].amount)
-                .map(t => ({
+                .filter(t_item => fees[t_item.id].enabled && fees[t_item.id].amount)
+                .map(t_item => ({
                     school_id: schoolId,
                     academic_year_id: currentYear.id,
-                    name: `${t.label} ${currentYear.name}`,
-                    fee_type: t.id,
-                    amount: parseFloat(fees[t.id].amount) || 0,
-                    frequency: fees[t.id].frequency,
-                    due_day: parseInt(fees[t.id].due_day) || 5,
+                    name: `${t('admin.settings.fees.types.' + t_item.id + '.label')} ${currentYear.name}`,
+                    fee_type: t_item.id,
+                    amount: parseFloat(fees[t_item.id].amount) || 0,
+                    frequency: fees[t_item.id].frequency,
+                    due_day: parseInt(fees[t_item.id].due_day) || 5,
                     is_active: true,
                 }))
 
@@ -140,15 +142,15 @@ export function FeeStructures() {
 
                 if (error) {
                     // Fallback to local-only if table or constraint is missing
-                    toast.success('Barème enregistré localement')
+                    toast.success(t('admin.settings.fees.toastLocalSuccess'))
                 } else {
-                    toast.success('Barème enregistré')
+                    toast.success(t('admin.settings.fees.toastSuccess'))
                 }
             } else {
-                toast.success('Paramètres sauvegardés')
+                toast.success(t('admin.settings.fees.toastSuccess'))
             }
         } catch {
-            toast.error('Erreur lors de la sauvegarde')
+            toast.error(t('admin.settings.fees.toastError'))
         }
         setSaving(false)
     }
@@ -173,9 +175,9 @@ export function FeeStructures() {
         <div className="space-y-8 animate-in fade-in duration-300">
             <div className="flex items-start justify-between gap-4">
                 <div>
-                    <h3 className="text-xl font-bold text-white">Barème des frais</h3>
+                    <h3 className="text-xl font-bold text-white">{t('admin.settings.fees.title')}</h3>
                     <p className="text-gray-400 text-sm mt-1">
-                        {"Définissez les montants standard par type de frais pour l'année en cours."}
+                        {t('admin.settings.fees.subtitle')}
                     </p>
                 </div>
                 {currentYear && (
@@ -190,9 +192,9 @@ export function FeeStructures() {
             <div className="flex items-start gap-3 bg-blue-500/10 border border-blue-500/20 rounded-xl p-4 text-sm text-blue-300">
                 <Info className="w-4 h-4 shrink-0 mt-0.5" />
                 <div>
-                    <p className="font-semibold">Barème de référence</p>
+                    <p className="font-semibold">{t('admin.settings.fees.infoTitle')}</p>
                     <p className="text-xs text-blue-400 mt-0.5">
-                        Ces montants servent de référence lors de la création de fiches de paiement. Les données sont synchronisées avec la table <code className="bg-white/10 px-1 rounded">fee_structures</code> si elle existe.
+                        {t('admin.settings.fees.infoDesc')}
                     </p>
                 </div>
             </div>
@@ -220,8 +222,8 @@ export function FeeStructures() {
                                     <Icon className="w-5 h-5" />
                                 </div>
                                 <div className="flex-1 min-w-0">
-                                    <p className="font-bold text-white text-sm">{type.label}</p>
-                                    <p className="text-xs text-gray-500">{type.description}</p>
+                                    <p className="font-bold text-white text-sm">{t('admin.settings.fees.types.' + type.id + '.label')}</p>
+                                    <p className="text-xs text-gray-500">{t('admin.settings.fees.types.' + type.id + '.desc')}</p>
                                 </div>
 
                                 {/* Enabled toggle */}
@@ -243,7 +245,7 @@ export function FeeStructures() {
                             {fee.enabled && (
                                 <div className="grid grid-cols-3 gap-3 px-4 pb-4">
                                     <div className="space-y-1.5">
-                                        <Label className="text-[11px] font-bold text-gray-500 uppercase tracking-wider">Montant (MRU)</Label>
+                                        <Label className="text-[11px] font-bold text-gray-500 uppercase tracking-wider">{t('admin.settings.fees.amountLabel')}</Label>
                                         <div className="relative">
                                             <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-500" />
                                             <Input
@@ -257,7 +259,7 @@ export function FeeStructures() {
                                     </div>
 
                                     <div className="space-y-1.5">
-                                        <Label className="text-[11px] font-bold text-gray-500 uppercase tracking-wider">Fréquence</Label>
+                                        <Label className="text-[11px] font-bold text-gray-500 uppercase tracking-wider">{t('admin.settings.fees.frequencyLabel')}</Label>
                                         <div className="flex flex-col gap-1">
                                             {(['monthly', 'trimester', 'annual'] as const).map(f => (
                                                 <button
@@ -270,14 +272,14 @@ export function FeeStructures() {
                                                             : "text-gray-500 hover:text-gray-300 hover:bg-white/5"
                                                     )}
                                                 >
-                                                    {FREQ_LABELS[f]}
+                                                    {t('admin.settings.fees.frequencies.' + f)}
                                                 </button>
                                             ))}
                                         </div>
                                     </div>
 
                                     <div className="space-y-1.5">
-                                        <Label className="text-[11px] font-bold text-gray-500 uppercase tracking-wider">{"Jour d'échéance"}</Label>
+                                        <Label className="text-[11px] font-bold text-gray-500 uppercase tracking-wider">{t('admin.settings.fees.dueDayLabel')}</Label>
                                         <Input
                                             type="number"
                                             min="1"
@@ -289,7 +291,7 @@ export function FeeStructures() {
                                         />
                                         {annual > 0 && (
                                             <p className="text-[11px] text-emerald-400 font-semibold">
-                                                ≈ {annual.toLocaleString('fr-FR')} MRU/an
+                                                {t('admin.settings.fees.annualEquivalent').replace('{amount}', annual.toLocaleString('fr-FR'))}
                                             </p>
                                         )}
                                     </div>
@@ -301,28 +303,28 @@ export function FeeStructures() {
             </div>
 
             {/* Annual summary */}
-            {FEE_TYPES.some(t => fees[t.id].enabled && fees[t.id].amount) && (
+            {FEE_TYPES.some(t_item => fees[t_item.id].enabled && fees[t_item.id].amount) && (
                 <div className="bg-[#1A2530] rounded-2xl border border-white/5 p-4">
-                    <h4 className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-3">Récapitulatif annuel par élève</h4>
+                    <h4 className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-3">{t('admin.settings.fees.annualSummaryTitle')}</h4>
                     <div className="space-y-2">
-                        {FEE_TYPES.filter(t => fees[t.id].enabled && fees[t.id].amount).map(type => {
+                        {FEE_TYPES.filter(t_item => fees[t_item.id].enabled && fees[t_item.id].amount).map(type => {
                             const annual = annualEquivalent(fees[type.id])
                             return (
                                 <div key={type.id} className="flex justify-between text-sm">
-                                    <span className="text-gray-400">{type.label}</span>
+                                    <span className="text-gray-400">{t('admin.settings.fees.types.' + type.id + '.label')}</span>
                                     <span className="font-mono font-bold text-white">{annual.toLocaleString('fr-FR')} <span className="text-gray-500 text-xs">MRU</span></span>
                                 </div>
                             )
                         })}
                         <div className="pt-2 border-t border-white/5 flex justify-between text-sm font-bold">
-                            <span className="text-white">Total annuel</span>
-                            <span className="font-mono text-emerald-400">
-                                {FEE_TYPES
-                                    .filter(t => fees[t.id].enabled && fees[t.id].amount)
-                                    .reduce((s, t) => s + annualEquivalent(fees[t.id]), 0)
-                                    .toLocaleString('fr-FR')}{' '}
-                                <span className="text-gray-500 text-xs font-normal">MRU</span>
-                            </span>
+                             <span className="text-white">{t('admin.settings.fees.totalAnnual')}</span>
+                             <span className="font-mono text-emerald-400">
+                                 {FEE_TYPES
+                                     .filter(t_item => fees[t_item.id].enabled && fees[t_item.id].amount)
+                                     .reduce((s, t_item) => s + annualEquivalent(fees[t_item.id]), 0)
+                                     .toLocaleString('fr-FR')}{' '}
+                                 <span className="text-gray-500 text-xs font-normal">MRU</span>
+                             </span>
                         </div>
                     </div>
                 </div>
@@ -335,7 +337,7 @@ export function FeeStructures() {
                     className="bg-emerald-500 hover:bg-emerald-400 text-black font-bold"
                 >
                     {saving ? <Loader2 className="w-4 h-4 me-2 animate-spin" /> : <Save className="w-4 h-4 me-2" />}
-                    Enregistrer le barème
+                    {saving ? t('admin.settings.fees.saving') : t('admin.settings.fees.saveButton')}
                 </Button>
             </div>
         </div>

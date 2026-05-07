@@ -281,14 +281,14 @@ export function QuizSessionView({
 
                 {/* Options Grid */}
                 <div className={cn("grid gap-4", currentQuestion.type === 'image-choice' ? "grid-cols-2" : "grid-cols-1")}>
-                    {currentQuestion.options.map((option) => {
+                    {currentQuestion.options.map((option, idx) => {
                         const isSelected = selectedOption === option.id
                         const showCorrect = isAnswered && option.isCorrect
                         const showWrong = isAnswered && isSelected && !option.isCorrect
 
                         return (
                             <button
-                                key={option.id}
+                                key={option.id ? `${option.id}-${idx}` : idx}
                                 onClick={() => handleOptionSelect(option.id)}
                                 disabled={isAnswered}
                                 className={cn(

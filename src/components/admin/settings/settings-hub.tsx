@@ -24,16 +24,18 @@ export function SettingsHub() {
     const menuItems = [
         // ── École ─────────────────────────────────────────────────────────────
         {
-            group: 'École',
+            id: 'school',
+            group: t('admin.settings.groups.school'),
             items: [
                 { id: 'identity',  label: t('admin.settings.schoolIdentity'),     icon: School,    desc: t('admin.settings.schoolIdentityDesc'),  component: SchoolIdentity,        color: 'text-indigo-500 bg-indigo-500/10' },
-                { id: 'academic',  label: 'Années scolaires',                     icon: Calendar,  desc: 'Années, trimestres et calendrier',       component: AcademicYearsSettings, color: 'text-violet-500 bg-violet-500/10' },
-                { id: 'fees',      label: 'Barème des frais',                     icon: DollarSign, desc: 'Scolarité, transport, cantine…',        component: FeeStructures,         color: 'text-amber-500 bg-amber-500/10' },
+                { id: 'academic',  label: t('admin.settings.academicYears'),      icon: Calendar,  desc: t('admin.settings.academicYearsDesc'),   component: AcademicYearsSettings, color: 'text-violet-500 bg-violet-500/10' },
+                { id: 'fees',      label: t('admin.settings.feeStructures'),      icon: DollarSign, desc: t('admin.settings.feeStructuresDesc'),   component: FeeStructures,         color: 'text-amber-500 bg-amber-500/10' },
             ],
         },
         // ── Pédagogie ─────────────────────────────────────────────────────────
         {
-            group: 'Pédagogie',
+            id: 'pedagogy',
+            group: t('admin.settings.groups.pedagogy'),
             items: [
                 { id: 'subjects',  label: t('admin.settings.subjectsGrading'),    icon: BookOpen,  desc: t('admin.settings.subjectsGradingDesc'), component: SubjectsGrading,       color: 'text-emerald-500 bg-emerald-500/10' },
                 { id: 'staff',     label: t('admin.settings.personnelManagement'), icon: Users,    desc: t('admin.settings.personnelDesc'),        component: PersonnelManagement,   color: 'text-pink-500 bg-pink-500/10' },
@@ -41,11 +43,12 @@ export function SettingsHub() {
         },
         // ── Système ───────────────────────────────────────────────────────────
         {
-            group: 'Système',
+            id: 'system',
+            group: t('admin.settings.groups.system'),
             items: [
-                { id: 'roles',         label: 'Rôles & Permissions',      icon: Shield,  desc: 'Droits d\'accès par profil',               component: RolesPermissions,    color: 'text-blue-500 bg-blue-500/10' },
-                { id: 'notifications', label: 'Notifications',             icon: Bell,    desc: 'Événements et canaux d\'alerte',           component: NotificationSettings, color: 'text-cyan-500 bg-cyan-500/10' },
-                { id: 'general',       label: t('admin.settings.appSettings'), icon: Settings, desc: t('admin.settings.appSettingsDesc'), component: GeneralSettings,     color: 'text-gray-400 bg-gray-500/10' },
+                { id: 'roles',         label: t('admin.settings.roles.title'),          icon: Shield,  desc: t('admin.settings.roles.subtitle'),         component: RolesPermissions,    color: 'text-blue-500 bg-blue-500/10' },
+                { id: 'notifications', label: t('admin.settings.notifications.title'),  icon: Bell,    desc: t('admin.settings.notifications.subtitle'), component: NotificationSettings, color: 'text-cyan-500 bg-cyan-500/10' },
+                { id: 'general',       label: t('admin.settings.appSettings'),          icon: Settings, desc: t('admin.settings.appSettingsDesc'),       component: GeneralSettings,     color: 'text-gray-400 bg-gray-500/10' },
             ],
         },
     ]
@@ -64,7 +67,7 @@ export function SettingsHub() {
                 </div>
 
                 {menuItems.map(group => (
-                    <div key={group.group} className="space-y-1.5">
+                    <div key={group.id} className="space-y-1.5">
                         <p className="text-[10px] font-bold text-gray-600 uppercase tracking-widest px-1">
                             {group.group}
                         </p>

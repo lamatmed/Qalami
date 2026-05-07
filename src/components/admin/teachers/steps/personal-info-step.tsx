@@ -4,6 +4,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Button } from '@/components/ui/button'
 import { Camera, User, Phone, Mail, Briefcase, KeyRound, Loader2, UserPlus } from 'lucide-react'
+import { useLanguage } from '@/i18n'
 
 interface PersonalInfoStepProps {
     data: any
@@ -13,6 +14,7 @@ interface PersonalInfoStepProps {
 }
 
 export function PersonalInfoStep({ data, onUpdate, onNext, isSubmitting }: PersonalInfoStepProps) {
+    const { t } = useLanguage()
     return (
         <div className="space-y-6">
             {/* Photo Upload */}
@@ -29,16 +31,16 @@ export function PersonalInfoStep({ data, onUpdate, onNext, isSubmitting }: Perso
                         <Camera className="w-4 h-4" />
                     </div>
                 </div>
-                <p className="text-xs text-gray-400 mt-2 font-medium uppercase tracking-wider">Photo de profil</p>
+                <p className="text-xs text-gray-400 mt-2 font-medium uppercase tracking-wider">{t('admin.teachers.profilePhoto')}</p>
             </div>
 
             <div className="space-y-4">
                 <div className="space-y-2">
-                    <Label className="text-gray-300">Nom Complet</Label>
+                    <Label className="text-gray-300">{t('admin.teachers.fullName')}</Label>
                     <div className="relative">
                         <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500" />
                         <Input
-                            placeholder="Ex: Ahmed Fall"
+                            placeholder={t('admin.teachers.fullNamePlaceholder')}
                             className="pl-10 bg-[#0F1720] border-white/10 text-white focus:ring-emerald-500/50"
                             defaultValue={data.name}
                             onChange={(e) => onUpdate({ ...data, name: e.target.value })}
@@ -48,11 +50,11 @@ export function PersonalInfoStep({ data, onUpdate, onNext, isSubmitting }: Perso
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div className="space-y-2">
-                        <Label className="text-gray-300">Téléphone</Label>
+                        <Label className="text-gray-300">{t('admin.teachers.phone')}</Label>
                         <div className="relative">
                             <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 text-sm font-bold">+222</span>
                             <Input
-                                placeholder="XX XX XX XX"
+                                placeholder={t('admin.teachers.phonePlaceholder')}
                                 className="pl-14 bg-[#0F1720] border-white/10 text-white focus:ring-emerald-500/50"
                                 defaultValue={data.phone}
                                 onChange={(e) => onUpdate({ ...data, phone: e.target.value })}
@@ -62,11 +64,11 @@ export function PersonalInfoStep({ data, onUpdate, onNext, isSubmitting }: Perso
                     </div>
 
                     <div className="space-y-2">
-                        <Label className="text-gray-300">Email</Label>
+                        <Label className="text-gray-300">{t('admin.teachers.email')}</Label>
                         <div className="relative">
                             <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500" />
                             <Input
-                                placeholder="enseignant@ecole.mr"
+                                placeholder={t('admin.teachers.emailPlaceholder')}
                                 className="pl-10 bg-[#0F1720] border-white/10 text-white focus:ring-emerald-500/50"
                                 defaultValue={data.email}
                                 onChange={(e) => onUpdate({ ...data, email: e.target.value })}
@@ -76,31 +78,31 @@ export function PersonalInfoStep({ data, onUpdate, onNext, isSubmitting }: Perso
                 </div>
 
                 <div className="space-y-2">
-                    <Label className="text-gray-300">Numéro National d'Identité (NNI)</Label>
+                    <Label className="text-gray-300">{t('admin.teachers.nni')}</Label>
                     <div className="relative">
                         <Briefcase className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500" />
                         <Input
-                            placeholder="10 chiffres"
+                            placeholder={t('admin.teachers.nniPlaceholder')}
                             className="pl-10 bg-[#0F1720] border-white/10 text-white focus:ring-emerald-500/50"
                             defaultValue={data.nni}
                             onChange={(e) => onUpdate({ ...data, nni: e.target.value })}
                         />
                     </div>
-                    <p className="text-[10px] text-gray-500 italic">Le NNI est requis pour l'enregistrement officiel au ministère.</p>
+                    <p className="text-[10px] text-gray-500 italic">{t('admin.teachers.nniHint')}</p>
                 </div>
 
                 <div className="space-y-2">
-                    <Label className="text-gray-300">Mot de passe instantané *</Label>
+                    <Label className="text-gray-300">{t('admin.teachers.tempPassword')}</Label>
                     <div className="relative">
                         <KeyRound className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500" />
                         <Input
-                            placeholder="ex. Prof2024"
+                            placeholder={t('admin.teachers.tempPasswordPlaceholder')}
                             className="pl-10 bg-[#0F1720] border-white/10 text-white focus:ring-emerald-500/50"
                             defaultValue={data.password}
                             onChange={(e) => onUpdate({ ...data, password: e.target.value })}
                         />
                     </div>
-                    <p className="text-[10px] text-gray-500 italic">Ce mot de passe sera communiqué à l'enseignant pour la première connexion.</p>
+                    <p className="text-[10px] text-gray-500 italic">{t('admin.teachers.tempPasswordHint')}</p>
                 </div>
             </div>
 
@@ -113,7 +115,7 @@ export function PersonalInfoStep({ data, onUpdate, onNext, isSubmitting }: Perso
                     {isSubmitting ? (
                         <Loader2 className="w-5 h-5 animate-spin" />
                     ) : (
-                        <><UserPlus className="w-5 h-5 mr-2" /> Enregistrer l'enseignant</>
+                        <><UserPlus className="w-5 h-5 mr-2" /> {t('admin.teachers.saveTeacher')}</>
                     )}
                 </Button>
             </div>

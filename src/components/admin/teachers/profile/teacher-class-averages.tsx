@@ -4,6 +4,7 @@ import { useState, useEffect, useMemo } from 'react'
 import { createClient } from '@/utils/supabase/client'
 import { Loader2, GraduationCap, TrendingUp, Users } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { useLanguage } from '@/i18n'
 
 interface GradeRow {
     value: number
@@ -40,9 +41,10 @@ function bgForAvg(a: number) {
 }
 
 export function TeacherClassAverages({ teacherId }: { teacherId: string }) {
+    const { t } = useLanguage()
     const [grades, setGrades] = useState<GradeRow[]>([])
     const [loading, setLoading] = useState(true)
-
+ 
     useEffect(() => {
         async function load() {
             const supabase = createClient()
@@ -55,42 +57,42 @@ export function TeacherClassAverages({ teacherId }: { teacherId: string }) {
                     class:classes ( id, name )
                 `)
                 .eq('teacher_id', teacherId)
-
+ 
             if (data) setGrades(data as unknown as GradeRow[])
             setLoading(false)
         }
         load()
     }, [teacherId])
-
+ 
     const classStats = useMemo<ClassStat[]>(() => {
         const map = new Map<string, GradeRow[]>()
-
+ 
         for (const g of grades) {
             if (!g.class?.id) continue
             const key = g.class.id
             if (!map.has(key)) map.set(key, [])
             map.get(key)!.push(g)
         }
-
+ 
         return Array.from(map.entries()).map(([classId, rows]) => {
             const className = rows[0].class?.name ?? classId
-
+ 
             // Per-student averages
             const studentMap = new Map<string, { name: string; values: number[] }>()
             for (const r of rows) {
                 if (!r.student?.id) continue
                 const sid = r.student.id
-                if (!studentMap.has(sid)) studentMap.set(sid, { name: r.student.full_name ?? 'Élève', values: [] })
+                if (!studentMap.has(sid)) studentMap.set(sid, { name: r.student.full_name ?? t('admin.teachers.averages.studentFallback'), values: [] })
                 studentMap.get(sid)!.values.push(r.value)
             }
-
+ 
             const studentAvgs = Array.from(studentMap.values()).map(s => ({
                 name: s.name,
                 avg: avg(s.values),
             }))
-
+ 
             studentAvgs.sort((a, b) => b.avg - a.avg)
-
+ 
             return {
                 classId,
                 className,
@@ -99,19 +101,19 @@ export function TeacherClassAverages({ teacherId }: { teacherId: string }) {
                 best: studentAvgs[0] ?? null,
             }
         }).sort((a, b) => b.average - a.average)
-    }, [grades])
-
+    }, [grades, t])
+ 
     if (loading) return (
         <div className="flex items-center justify-center py-20">
             <Loader2 className="w-6 h-6 animate-spin text-emerald-500" />
         </div>
     )
-
+ 
     if (grades.length === 0) return (
         <div className="text-center py-20 bg-[#1A2530] rounded-3xl border border-white/5">
             <GraduationCap className="w-10 h-10 text-gray-600 mx-auto mb-3" />
-            <p className="text-gray-500 font-medium">Aucune note enregistrée</p>
-            <p className="text-xs text-gray-600 mt-1">Les moyennes apparaîtront ici après la saisie des notes.</p>
+            <p className="text-gray-500 font-medium">{t('admin.teachers.averages.noGrades')}</p>
+            <p className="text-xs text-gray-600 mt-1">{t('admin.teachers.averages.noGradesDesc')}</p>
         </div>
     )
 
@@ -122,13 +124,13 @@ export function TeacherClassAverages({ teacherId }: { teacherId: string }) {
             <div className="grid grid-cols-2 gap-3">
                 <div className="bg-[#1A2530] rounded-2xl border border-white/5 p-4 text-center">
                     <p className="text-2xl font-black text-white">{classStats.length}</p>
-                    <p className="text-[10px] text-gray-500 font-bold uppercase mt-1">Classes</p>
+                    <p className="text-[10px] text-gray-500 font-bold uppercase mt-1">{t('admin.teachers.averages.classes')}</p>
                 </div>
                 <div className="bg-[#1A2530] rounded-2xl border border-white/5 p-4 text-center">
                     <p className={cn('text-2xl font-black', colorForAvg(avg(grades.map(g => g.value))))}>
                         {avg(grades.map(g => g.value)).toFixed(2)}
                     </p>
-                    <p className="text-[10px] text-gray-500 font-bold uppercase mt-1">Moy. générale</p>
+                    <p className="text-[10px] text-gray-500 font-bold uppercase mt-1">{t('admin.teachers.averages.generalAverage')}</p>
                 </div>
             </div>
 
@@ -144,7 +146,7 @@ export function TeacherClassAverages({ teacherId }: { teacherId: string }) {
                                 </div>
                                 <div>
                                     <p className="text-sm font-bold text-white">{cls.className}</p>
-                                    <p className="text-[10px] text-gray-500">{cls.grades.length} note{cls.grades.length !== 1 ? 's' : ''}</p>
+                                    <p className="text-[10px] text-gray-500">{t('admin.teachers.averages.gradesCount').replace('{count}', cls.grades.length.toString()).replace('{plural}', cls.grades.length !== 1 ? 's' : '')}</p>
                                 </div>
                             </div>
                             <div className={cn('px-4 py-1.5 rounded-full border text-sm font-black', bgForAvg(cls.average), colorForAvg(cls.average))}>
@@ -157,7 +159,7 @@ export function TeacherClassAverages({ teacherId }: { teacherId: string }) {
                             <div className="p-4">
                                 <div className="flex items-center gap-2 mb-2">
                                     <TrendingUp className="w-3.5 h-3.5 text-emerald-400" />
-                                    <p className="text-[10px] font-bold text-gray-500 uppercase">Meilleur élève</p>
+                                    <p className="text-[10px] font-bold text-gray-500 uppercase">{t('admin.teachers.averages.bestStudent')}</p>
                                 </div>
                                 {cls.best ? (
                                     <>

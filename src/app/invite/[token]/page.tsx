@@ -21,45 +21,11 @@ export default async function InvitePage({ params }: InvitePageProps) {
             </div>
 
             <div className="relative z-10 w-full max-w-md">
-                {result.error ? (
-                    <div className="backdrop-blur-xl bg-white/80 border border-white/40 shadow-2xl rounded-2xl p-8 md:p-10 text-center relative overflow-hidden">
-                        <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-transparent via-red-500 to-transparent opacity-50" />
-
-                        <div className="flex justify-center mb-6">
-                            <Image
-                                src="/Logo.png"
-                                alt="Qalami"
-                                width={120}
-                                height={48}
-                                priority
-                                className="drop-shadow-md"
-                            />
-                        </div>
-
-                        <div className="w-16 h-16 bg-red-500/10 rounded-full flex items-center justify-center mx-auto mb-4">
-                            <AlertTriangle className="w-8 h-8 text-red-400" />
-                        </div>
-
-                        <h1 className="text-xl font-bold text-foreground mb-2">
-                            Invitation invalide
-                        </h1>
-                        <p className="text-sm text-muted-foreground mb-6">
-                            {result.error}
-                        </p>
-
-                        <Link
-                            href="/login"
-                            className="text-sm text-primary hover:underline"
-                        >
-                            Retour à la connexion
-                        </Link>
-                    </div>
-                ) : (
-                    <InviteCompletionForm
-                        token={token}
-                        invitation={result.invitation!}
-                    />
-                )}
+                <InviteCompletionForm
+                    token={token}
+                    invitation={result.invitation || undefined}
+                    error={result.error}
+                />
             </div>
         </div>
     )

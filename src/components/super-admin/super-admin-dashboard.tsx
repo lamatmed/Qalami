@@ -5,6 +5,7 @@ import { Building2, Users, GraduationCap } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { createClient } from '@/utils/supabase/client'
 import Link from 'next/link'
+import { useLanguage } from '@/i18n'
 
 interface GlobalStats {
     totalSchools: number
@@ -15,6 +16,7 @@ interface GlobalStats {
 }
 
 export function SuperAdminDashboard() {
+    const { t } = useLanguage()
     const supabase = createClient()
     const [stats, setStats] = useState<GlobalStats | null>(null)
     const [recentSchools, setRecentSchools] = useState<any[]>([])
@@ -71,18 +73,18 @@ export function SuperAdminDashboard() {
     }
 
     const kpis = [
-        { label: 'ÉCOLES', value: stats?.totalSchools ?? 0, icon: Building2, color: 'purple', trend: stats?.activeSchools ?? 0, trendLabel: 'actives' },
-        { label: 'ÉLÈVES', value: stats?.totalStudents ?? 0, icon: GraduationCap, color: 'blue' },
-        { label: 'ENSEIGNANTS', value: stats?.totalTeachers ?? 0, icon: Users, color: 'indigo' },
-        { label: 'PARENTS', value: stats?.totalParents ?? 0, icon: Users, color: 'amber' },
+        { label: t('superAdmin.dashboard.schools').toUpperCase(), value: stats?.totalSchools ?? 0, icon: Building2, color: 'purple', trend: stats?.activeSchools ?? 0, trendLabel: t('superAdmin.dashboard.active') },
+        { label: t('superAdmin.dashboard.students').toUpperCase(), value: stats?.totalStudents ?? 0, icon: GraduationCap, color: 'blue' },
+        { label: t('superAdmin.dashboard.teachers').toUpperCase(), value: stats?.totalTeachers ?? 0, icon: Users, color: 'indigo' },
+        { label: t('superAdmin.dashboard.parents').toUpperCase(), value: stats?.totalParents ?? 0, icon: Users, color: 'amber' },
     ]
 
     return (
-        <div className="space-y-8">
+        <div className="space-y-8 animate-in fade-in duration-500">
             {/* Header */}
             <div>
-                <h1 className="text-3xl font-black text-gray-900 dark:text-white">Tableau de bord</h1>
-                <p className="text-gray-500">Vue globale de la plateforme Qalami</p>
+                <h1 className="text-3xl font-black text-gray-900 dark:text-white">{t('superAdmin.dashboard.title')}</h1>
+                <p className="text-gray-500">{t('superAdmin.dashboard.subtitle')}</p>
             </div>
 
             {/* KPI Cards */}
@@ -110,16 +112,16 @@ export function SuperAdminDashboard() {
             {/* Recent Schools */}
             <div className="bg-white dark:bg-slate-800/50 border border-gray-200 dark:border-white/5 rounded-2xl p-6 shadow-sm">
                 <div className="flex items-center justify-between mb-6">
-                    <h2 className="font-bold text-lg text-gray-900 dark:text-white">Écoles récentes</h2>
+                    <h2 className="font-bold text-lg text-gray-900 dark:text-white">{t('superAdmin.dashboard.recentSchools')}</h2>
                     <Link href="/super-admin/schools" className="text-sm text-purple-500 dark:text-purple-400 hover:underline">
-                        Voir tout →
+                        {t('superAdmin.dashboard.viewAll')}
                     </Link>
                 </div>
 
                 {recentSchools.length === 0 ? (
                     <div className="text-center py-8 text-gray-500">
                         <Building2 className="w-10 h-10 mx-auto mb-2 opacity-50" />
-                        <p>Aucune école</p>
+                        <p>{t('superAdmin.dashboard.noSchools')}</p>
                     </div>
                 ) : (
                     <div className="space-y-3">
@@ -136,7 +138,7 @@ export function SuperAdminDashboard() {
                                     <div>
                                         <p className="font-bold text-gray-900 dark:text-white group-hover:text-purple-500 dark:group-hover:text-purple-400 transition-colors">{school.name}</p>
                                         <p className="text-xs text-gray-500">
-                                            Créée le {new Date(school.created_at).toLocaleDateString('fr-FR')}
+                                            {t('superAdmin.dashboard.createdAt').replace('{date}', new Date(school.created_at).toLocaleDateString(t('common.locale') || 'fr-FR'))}
                                         </p>
                                     </div>
                                 </div>
@@ -147,7 +149,7 @@ export function SuperAdminDashboard() {
                                             ? "bg-emerald-500/10 text-emerald-500"
                                             : "bg-red-500/10 text-red-500"
                                     )}>
-                                        {school.is_active ? 'Active' : 'Inactive'}
+                                        {school.is_active ? t('superAdmin.dashboard.activeLabel') : t('superAdmin.dashboard.inactiveLabel')}
                                     </span>
                                 </div>
                             </Link>

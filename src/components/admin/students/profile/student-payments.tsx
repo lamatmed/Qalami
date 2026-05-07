@@ -9,6 +9,7 @@ import { CreditCard, Clock, CheckCircle2, X, Loader2, Send } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { toast } from 'sonner'
 import { createClient } from '@/utils/supabase/client'
+import { useLanguage } from '@/i18n'
 
 interface StudentPaymentsProps {
     studentId?: string
@@ -25,6 +26,7 @@ interface Payment {
 }
 
 export function StudentPayments({ studentId, studentName }: StudentPaymentsProps) {
+    const { t, language } = useLanguage()
     const [payments, setPayments] = useState<Payment[]>([])
     const [loading, setLoading] = useState(true)
     const [showPaymentForm, setShowPaymentForm] = useState(false)
@@ -69,11 +71,11 @@ export function StudentPayments({ studentId, studentName }: StudentPaymentsProps
     const handleRegisterPayment = async () => {
         const amount = parseFloat(paymentAmount)
         if (!amount || amount <= 0) {
-            toast.error('Veuillez entrer un montant valide')
+            toast.error(t('admin.students.profile.validAmountRequired'))
             return
         }
         if (!studentId) {
-            toast.error('Étudiant non identifié')
+            toast.error(t('admin.students.profile.studentNotIdentified'))
             return
         }
 
@@ -83,7 +85,7 @@ export function StudentPayments({ studentId, studentName }: StudentPaymentsProps
 
             // Get school_id from admin
             const { data: { user } } = await supabase.auth.getUser()
-            if (!user) throw new Error('Non authentifié')
+            if (!user) throw new Error(t('admin.students.profile.notAuthenticated'))
 
             const { data: profile } = await supabase
                 .from('profiles')
@@ -91,7 +93,7 @@ export function StudentPayments({ studentId, studentName }: StudentPaymentsProps
                 .eq('id', user.id)
                 .single()
 
-            if (!profile?.school_id) throw new Error('École non trouvée')
+            if (!profile?.school_id) throw new Error(t('admin.students.profile.schoolNotFound'))
 
             // Resolve current academic year
             const { data: currentYear } = await supabase
@@ -116,14 +118,14 @@ export function StudentPayments({ studentId, studentName }: StudentPaymentsProps
 
             if (error) throw error
 
-            toast.success(`Paiement de ${amount.toLocaleString('fr-FR')} MRU enregistré`)
+            toast.success(t('admin.students.profile.paymentRegistered', { amount: amount.toLocaleString(language === 'ar' ? 'ar-u-ca-gregory' : 'fr-FR') }))
             setShowPaymentForm(false)
             setPaymentAmount('')
             setPaymentNote('')
             fetchPayments()
         } catch (err) {
             console.error('Error registering payment:', err)
-            toast.error('Erreur lors de l\'enregistrement du paiement')
+            toast.error(t('admin.students.profile.paymentRegisterError'))
         } finally {
             setSubmitting(false)
         }
@@ -141,7 +143,7 @@ export function StudentPayments({ studentId, studentName }: StudentPaymentsProps
                 .eq('student_id', studentId)
 
             if (!links || links.length === 0) {
-                toast.error('Aucun parent lié à cet élève')
+                toast.error(t('admin.students.profile.noLinkedParent'))
                 return
             }
 
@@ -156,8 +158,8 @@ export function StudentPayments({ studentId, studentName }: StudentPaymentsProps
             if (adminProfile?.school_id) {
                 await supabase.from('announcements').insert({
                     school_id: adminProfile.school_id,
-                    title: `Rappel de paiement - ${studentName || 'Élève'}`,
-                    content: `Un rappel de paiement a été envoyé pour ${studentName || 'votre enfant'}. Montant restant: ${remaining.toLocaleString('fr-FR')} MRU. Merci de régulariser votre situation.`,
+                    title: `${t('admin.students.profile.paymentReminder')} - ${studentName || t('common.student')}`,
+                    content: `${t('admin.students.profile.reminderSentFor')} ${studentName || t('admin.students.profile.yourChild')}. ${t('admin.students.profile.remainingAmount')}: ${remaining.toLocaleString(language === 'ar' ? 'ar-u-ca-gregory' : 'fr-FR')} MRU.`,
                     target_audience: ['parent'],
                     priority: 'high',
                     published_at: new Date().toISOString(),
@@ -165,22 +167,22 @@ export function StudentPayments({ studentId, studentName }: StudentPaymentsProps
                 })
             }
 
-            const parentName = (links[0]?.profiles as { full_name?: string })?.full_name || 'Parent'
+            const parentName = (links[0]?.profiles as { full_name?: string })?.full_name || t('common.parent')
             const parentPhone = (links[0]?.profiles as { phone?: string })?.phone
 
-            toast.success(`Rappel envoyé à ${parentName}`, {
+            toast.success(`${t('admin.students.profile.reminderSentTo')} ${parentName}`, {
                 description: parentPhone ? `Tél: ${parentPhone}` : undefined,
                 action: parentPhone ? {
                     label: 'WhatsApp',
                     onClick: () => {
                         const waNumber = parentPhone.replace(/[\s\-\(\)\+]/g, '')
-                        window.open(`https://wa.me/${waNumber}?text=${encodeURIComponent(`Bonjour, rappel de paiement pour ${studentName}. Montant restant: ${remaining.toLocaleString('fr-FR')} MRU.`)}`, '_blank')
+                        window.open(`https://wa.me/${waNumber}?text=${encodeURIComponent(`${t('admin.students.profile.hello')}, ${t('admin.students.profile.paymentReminderFor')} ${studentName}. ${t('admin.students.profile.remainingAmount')}: ${remaining.toLocaleString(language === 'ar' ? 'ar-u-ca-gregory' : 'fr-FR')} MRU.`)}`, '_blank')
                     }
                 } : undefined
             })
         } catch (err) {
             console.error('Error sending reminder:', err)
-            toast.error('Erreur lors de l\'envoi du rappel')
+            toast.error(t('admin.students.profile.reminderSendError'))
         } finally {
             setSendingReminder(false)
         }
@@ -188,7 +190,7 @@ export function StudentPayments({ studentId, studentName }: StudentPaymentsProps
 
     const formatDate = (dateStr: string | null) => {
         if (!dateStr) return '—'
-        return new Date(dateStr).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: 'numeric' })
+        return new Date(dateStr).toLocaleDateString(language === 'ar' ? 'ar-u-ca-gregory' : 'fr-FR', { day: '2-digit', month: 'short', year: 'numeric' })
     }
 
     const getTypeLabel = (type: string) => {
@@ -209,18 +211,18 @@ export function StudentPayments({ studentId, studentName }: StudentPaymentsProps
                 <div className="space-y-2">
                     <h3 className="font-bold text-white text-lg flex items-center gap-2 justify-center sm:justify-start">
                         <CreditCard className="w-5 h-5 text-emerald-500" />
-                        État de la scolarité
+                        {t('admin.students.profile.tuitionStatus')}
                     </h3>
-                    <p className="text-emerald-200/60 text-sm">Année Scolaire {new Date().getFullYear() - 1}-{new Date().getFullYear()}</p>
+                    <p className="text-emerald-200/60 text-sm">{t('common.schoolYear')} {new Date().getFullYear() - 1}-{new Date().getFullYear()}</p>
                 </div>
                 <div className="mt-4 sm:mt-0">
                     <div className="flex items-end gap-2 justify-center sm:justify-end">
                         <span className="text-4xl font-bold text-white">{loading ? '...' : `${paidPercentage}%`}</span>
-                        <span className="text-emerald-500 font-bold mb-2">Payé</span>
+                        <span className="text-emerald-500 font-bold mb-2">{t('common.paid')}</span>
                     </div>
                     <Progress value={paidPercentage} className="h-2 w-48 bg-black/20 mt-2" />
                     <p className="text-[10px] text-emerald-200/50 mt-2 text-right">
-                        {loading ? '...' : `Reste à payer: ${remaining.toLocaleString('fr-FR')} MRU`}
+                        {loading ? '...' : `${t('admin.students.profile.remainingToPay')}: ${remaining.toLocaleString(language === 'ar' ? 'ar-u-ca-gregory' : 'fr-FR')} MRU`}
                     </p>
                 </div>
             </div>
@@ -229,7 +231,7 @@ export function StudentPayments({ studentId, studentName }: StudentPaymentsProps
             {showPaymentForm && (
                 <div className="bg-[#1A2530] rounded-3xl border border-emerald-500/20 p-6 space-y-4 animate-in fade-in slide-in-from-top-4 duration-300">
                     <div className="flex items-center justify-between">
-                        <h3 className="font-bold text-white">Enregistrer un paiement</h3>
+                        <h3 className="font-bold text-white">{t('admin.students.profile.registerPayment')}</h3>
                         <Button variant="ghost" size="icon" className="text-gray-400 hover:text-white" onClick={() => setShowPaymentForm(false)}>
                             <X className="w-4 h-4" />
                         </Button>
@@ -237,17 +239,17 @@ export function StudentPayments({ studentId, studentName }: StudentPaymentsProps
 
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                         <div>
-                            <label className="text-xs text-gray-400 font-bold mb-1.5 block">Montant (MRU)</label>
+                            <label className="text-xs text-gray-400 font-bold mb-1.5 block">{t('common.amount')} (MRU)</label>
                             <Input
                                 type="number"
-                                placeholder="Ex: 15000"
+                                placeholder={t('admin.students.profile.amountPlaceholder')}
                                 className="bg-[#0D1117] border-white/10 text-white h-11 rounded-xl"
                                 value={paymentAmount}
                                 onChange={(e) => setPaymentAmount(e.target.value)}
                             />
                         </div>
                         <div>
-                            <label className="text-xs text-gray-400 font-bold mb-1.5 block">Type</label>
+                            <label className="text-xs text-gray-400 font-bold mb-1.5 block">{t('common.type')}</label>
                             <select
                                 className="w-full h-11 bg-[#0D1117] border border-white/10 rounded-xl px-3 text-white text-sm"
                                 value={paymentType}
@@ -263,9 +265,9 @@ export function StudentPayments({ studentId, studentName }: StudentPaymentsProps
                     </div>
 
                     <div>
-                        <label className="text-xs text-gray-400 font-bold mb-1.5 block">Note (optionnel)</label>
+                            <label className="text-xs text-gray-400 font-bold mb-1.5 block">{t('admin.students.profile.noteOptional')}</label>
                         <Input
-                            placeholder="Ex: Paiement du mois de Mars"
+                            placeholder={t('admin.students.profile.notePlaceholder')}
                             className="bg-[#0D1117] border-white/10 text-white h-11 rounded-xl"
                             value={paymentNote}
                             onChange={(e) => setPaymentNote(e.target.value)}
@@ -278,9 +280,9 @@ export function StudentPayments({ studentId, studentName }: StudentPaymentsProps
                         disabled={submitting}
                     >
                         {submitting ? (
-                            <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Enregistrement...</>
+                            <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> {t('admin.students.profile.saving')}</>
                         ) : (
-                            <><CheckCircle2 className="w-4 h-4 mr-2" /> Confirmer le paiement</>
+                            <><CheckCircle2 className="w-4 h-4 mr-2" /> {t('admin.students.profile.confirmPayment')}</>
                         )}
                     </Button>
                 </div>
@@ -292,7 +294,7 @@ export function StudentPayments({ studentId, studentName }: StudentPaymentsProps
                     className="bg-[#1A2530] hover:bg-[#253545] text-white border border-white/5 h-12 rounded-xl"
                     onClick={() => setShowPaymentForm(true)}
                 >
-                    <CreditCard className="w-4 h-4 mr-2 text-emerald-500" /> Enregistrer Paiement
+                    <CreditCard className="w-4 h-4 mr-2 text-emerald-500" /> {t('admin.students.profile.registerPayment')}
                 </Button>
                 <Button
                     className="bg-[#1A2530] hover:bg-[#253545] text-white border border-white/5 h-12 rounded-xl"
@@ -300,9 +302,9 @@ export function StudentPayments({ studentId, studentName }: StudentPaymentsProps
                     disabled={sendingReminder}
                 >
                     {sendingReminder ? (
-                        <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Envoi...</>
+                        <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> {t('admin.students.profile.sending')}</>
                     ) : (
-                        <><Send className="w-4 h-4 mr-2 text-orange-500" /> Envoyer Rappel</>
+                        <><Send className="w-4 h-4 mr-2 text-orange-500" /> {t('admin.students.profile.sendReminder')}</>
                     )}
                 </Button>
             </div>
@@ -310,7 +312,7 @@ export function StudentPayments({ studentId, studentName }: StudentPaymentsProps
             {/* History List */}
             <div className="bg-[#1A2530] rounded-3xl border border-white/5 overflow-hidden">
                 <div className="p-4 sm:p-6 border-b border-white/5">
-                    <h3 className="font-bold text-white">Historique des paiements</h3>
+                    <h3 className="font-bold text-white">{t('admin.students.profile.paymentHistory')}</h3>
                 </div>
 
                 {loading ? (
@@ -320,7 +322,7 @@ export function StudentPayments({ studentId, studentName }: StudentPaymentsProps
                 ) : payments.length === 0 ? (
                     <div className="text-center py-12 text-gray-500">
                         <CreditCard className="w-10 h-10 mx-auto mb-3 opacity-30" />
-                        <p>Aucun paiement enregistré</p>
+                        <p>{t('admin.students.profile.noPayment')}</p>
                     </div>
                 ) : (
                     <div className="divide-y divide-white/5">

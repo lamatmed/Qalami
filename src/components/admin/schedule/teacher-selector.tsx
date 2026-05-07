@@ -11,6 +11,7 @@ import { GraduationCap, Loader2 } from "lucide-react"
 import { createClient } from '@/utils/supabase/client'
 import { useState, useEffect } from 'react'
 import { getMySchoolContext } from '@/app/admin/actions'
+import { useLanguage } from '@/i18n'
 
 interface TeacherOption {
     id: string
@@ -25,6 +26,7 @@ export function TeacherSelector({
     selectedTeacher: string
     onTeacherChange: (value: string) => void
 }) {
+    const { t } = useLanguage()
     const [teachers, setTeachers] = useState<TeacherOption[]>([])
     const [loading, setLoading] = useState(true)
 
@@ -55,10 +57,10 @@ export function TeacherSelector({
                 subjectsByTeacher.set(a.teacher_id, list)
             })
 
-            const result: TeacherOption[] = (teacherData || []).map(t => ({
-                id: t.id,
-                full_name: t.full_name || 'Enseignant',
-                subjects: subjectsByTeacher.get(t.id) || [],
+            const result: TeacherOption[] = (teacherData || []).map(tOpt => ({
+                id: tOpt.id,
+                full_name: tOpt.full_name || t('admin.assignments.defaultTeacher'),
+                subjects: subjectsByTeacher.get(tOpt.id) || [],
             }))
 
             setTeachers(result)
@@ -70,7 +72,7 @@ export function TeacherSelector({
         fetchTeachers()
     }, [])
 
-    const selected = teachers.find(t => t.id === selectedTeacher)
+    const selected = teachers.find(tOpt => tOpt.id === selectedTeacher)
 
     return (
         <div className="flex flex-col sm:flex-row gap-4 items-center bg-card p-4 rounded-2xl border border-border">
@@ -79,8 +81,8 @@ export function TeacherSelector({
                     <GraduationCap className="w-5 h-5 text-primary" />
                 </div>
                 <div>
-                    <h3 className="text-foreground font-bold text-sm">Vue par enseignant</h3>
-                    <p className="text-muted-foreground text-xs">Sélectionnez un enseignant</p>
+                    <h3 className="text-foreground font-bold text-sm">{t('admin.schedule.byTeacherView')}</h3>
+                    <p className="text-muted-foreground text-xs">{t('admin.schedule.selectTeacherDesc')}</p>
                 </div>
             </div>
 
@@ -92,7 +94,7 @@ export function TeacherSelector({
                 ) : (
                     <Select value={selectedTeacher} onValueChange={onTeacherChange}>
                         <SelectTrigger className="w-full sm:w-[280px] bg-muted border-border text-foreground">
-                            <SelectValue placeholder="Choisir un enseignant..." />
+                            <SelectValue placeholder={t('admin.schedule.chooseTeacherPlaceholder')} />
                         </SelectTrigger>
                         <SelectContent className="bg-card border-border text-foreground">
                             {teachers.map(t => (

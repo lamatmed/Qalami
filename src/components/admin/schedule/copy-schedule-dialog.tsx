@@ -23,6 +23,7 @@ import { ArrowRight, Loader2, AlertTriangle, Copy } from 'lucide-react'
 import { copySchedule } from '@/app/admin/schedule/actions'
 import { toast } from 'sonner'
 import { getMySchoolContext } from '@/app/admin/actions'
+import { useLanguage } from '@/i18n'
 
 interface ClassOption { id: string; name: string; level: string | null }
 
@@ -35,6 +36,7 @@ export function CopyScheduleDialog({
     onClose: () => void
     onSuccess: () => void
 }) {
+    const { t } = useLanguage()
     const [classes, setClasses] = useState<ClassOption[]>([])
     const [loading, setLoading] = useState(true)
     const [saving, setSaving] = useState(false)
@@ -71,7 +73,7 @@ export function CopyScheduleDialog({
     const handleCopy = async () => {
         if (!sourceId || !targetId) return
         if (sourceId === targetId) {
-            toast.error('La source et la destination doivent être différentes')
+            toast.error(t('admin.schedule.copyDialog.errorSameClass'))
             return
         }
         setSaving(true)
@@ -80,7 +82,7 @@ export function CopyScheduleDialog({
         if (result.error) {
             toast.error(result.error)
         } else {
-            toast.success(`${result.count} cours copiés avec succès`)
+            toast.success(t('admin.schedule.copyDialog.successMessage', { count: result.count }))
             onSuccess()
         }
     }
@@ -94,25 +96,25 @@ export function CopyScheduleDialog({
                 <DialogHeader>
                     <DialogTitle className="flex items-center gap-2">
                         <Copy className="w-4 h-4" />
-                        Copier un emploi du temps
+                        {t('admin.schedule.copyDialog.title')}
                     </DialogTitle>
                     <DialogDescription className="text-muted-foreground">
-                        {"Copie tous les créneaux d'une classe vers une autre. L'emploi du temps de la classe cible sera remplacé."}
+                        {t('admin.schedule.copyDialog.description')}
                     </DialogDescription>
                 </DialogHeader>
 
                 <div className="grid gap-4 py-4">
                     {loading ? (
                         <div className="flex items-center justify-center py-6 text-muted-foreground">
-                            <Loader2 className="w-5 h-5 animate-spin me-2" /> Chargement...
+                            <Loader2 className="w-5 h-5 animate-spin me-2" /> {t('common.loading')}
                         </div>
                     ) : (
                         <>
                             <div className="grid gap-2">
-                                <Label className="text-xs uppercase font-bold text-muted-foreground">Classe source</Label>
+                                <Label className="text-xs uppercase font-bold text-muted-foreground">{t('admin.schedule.copyDialog.sourceClass')}</Label>
                                 <Select value={sourceId} onValueChange={setSourceId}>
                                     <SelectTrigger className="bg-muted border-border">
-                                        <SelectValue placeholder="Choisir la classe à copier..." />
+                                        <SelectValue placeholder={t('admin.schedule.copyDialog.sourcePlaceholder')} />
                                     </SelectTrigger>
                                     <SelectContent className="bg-card border-border">
                                         {classes.map(c => (
@@ -129,10 +131,10 @@ export function CopyScheduleDialog({
                             </div>
 
                             <div className="grid gap-2">
-                                <Label className="text-xs uppercase font-bold text-muted-foreground">Classe cible</Label>
+                                <Label className="text-xs uppercase font-bold text-muted-foreground">{t('admin.schedule.copyDialog.targetClass')}</Label>
                                 <Select value={targetId} onValueChange={setTargetId}>
                                     <SelectTrigger className="bg-muted border-border">
-                                        <SelectValue placeholder="Choisir la classe de destination..." />
+                                        <SelectValue placeholder={t('admin.schedule.copyDialog.targetPlaceholder')} />
                                     </SelectTrigger>
                                     <SelectContent className="bg-card border-border">
                                         {classes.map(c => (
@@ -148,7 +150,7 @@ export function CopyScheduleDialog({
                                 <div className="flex items-start gap-2 bg-amber-500/10 border border-amber-500/30 rounded-lg px-3 py-2 text-amber-400 text-sm">
                                     <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" />
                                     <span>
-                                        {"L'emploi du temps de"} <strong>{targetName}</strong> sera entièrement remplacé par celui de <strong>{sourceName}</strong>.
+                                        {t('admin.schedule.copyDialog.warningMessage', { target: targetName || '', source: sourceName || '' })}
                                     </span>
                                 </div>
                             )}
@@ -158,7 +160,7 @@ export function CopyScheduleDialog({
 
                 <DialogFooter>
                     <Button variant="ghost" onClick={onClose} className="text-muted-foreground">
-                        Annuler
+                        {t('common.cancel')}
                     </Button>
                     <Button
                         onClick={handleCopy}
@@ -166,7 +168,7 @@ export function CopyScheduleDialog({
                         className="bg-primary hover:bg-primary/90 text-primary-foreground font-bold"
                     >
                         {saving && <Loader2 className="w-4 h-4 me-2 animate-spin" />}
-                        Copier
+                        {t('admin.schedule.copy')}
                     </Button>
                 </DialogFooter>
             </DialogContent>

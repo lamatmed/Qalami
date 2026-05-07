@@ -107,11 +107,11 @@ export function ParentDirectory() {
 
     const handleAddParent = async () => {
         if (!newParent.firstName || !newParent.lastName) {
-            toast.error('Le prenom et le nom sont obligatoires')
+            toast.error(t('admin.parents.firstNameRequired'))
             return
         }
         if (!newParent.password.trim()) {
-            toast.error('Le mot de passe instantané est obligatoire')
+            toast.error(t('admin.parents.passwordRequired'))
             return
         }
         setAddingParent(true)
@@ -132,8 +132,8 @@ export function ParentDirectory() {
 
             if (result.success && result.credentials) {
                 const cred = result.credentials
-                toast.success(`${cred.fullName} ajouté avec succès!`, {
-                    description: `Mot de passe: ${cred.password}`,
+                toast.success(t('admin.parents.parentAddedSuccess', { name: cred.fullName }), {
+                    description: t('admin.parents.passwordIs', { password: cred.password }),
                     duration: 10000
                 })
             }
@@ -142,7 +142,7 @@ export function ParentDirectory() {
             setNewParent({ firstName: '', lastName: '', phone: '', email: '', password: '' })
             await fetchParents()
         } catch (err: any) {
-            toast.error('Erreur lors de la creation du parent', { description: err.message })
+            toast.error(t('admin.parents.addParentError'), { description: err.message })
         } finally {
             setAddingParent(false)
         }
@@ -189,7 +189,7 @@ export function ParentDirectory() {
                                                 : "bg-[#161B22] text-gray-400 border border-white/5 hover:bg-white/5"
                                         )}
                                     >
-                                        {status === 'tous' ? t('common.all') : status === 'actif' ? t('common.active') + 's' : status + 's'}
+                                        {status === 'tous' ? t('common.all') : status === 'actif' ? t('admin.parents.filterActive') : t('admin.parents.filterInactive')}
                                     </button>
                                 ))}
                             </div>
@@ -268,7 +268,7 @@ export function ParentDirectory() {
                                 <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm" onClick={() => setShowAddForm(false)}>
                                     <div className="bg-[#1A2530] border border-white/10 rounded-2xl p-6 w-full max-w-md shadow-2xl animate-in fade-in zoom-in-95 duration-200" onClick={(e) => e.stopPropagation()}>
                                         <div className="flex items-center justify-between mb-6">
-                                            <h3 className="text-lg font-bold text-white">Ajouter un Parent</h3>
+                                            <h3 className="text-lg font-bold text-white">{t('admin.parents.addParent')}</h3>
                                             <button onClick={() => setShowAddForm(false)} className="text-gray-400 hover:text-white">
                                                 <X className="w-5 h-5" />
                                             </button>
@@ -277,18 +277,18 @@ export function ParentDirectory() {
                                         <div className="space-y-4">
                                             <div className="grid grid-cols-2 gap-3">
                                                 <div className="space-y-1">
-                                                    <Label className="text-xs text-gray-400">Prenom *</Label>
+                                                    <Label className="text-xs text-gray-400">{t('admin.parents.firstName')}</Label>
                                                     <Input
-                                                        placeholder="ex. Mohamed"
+                                                        placeholder={t('admin.parents.firstNamePlaceholder')}
                                                         value={newParent.firstName}
                                                         onChange={(e) => setNewParent(p => ({ ...p, firstName: e.target.value }))}
                                                         className="bg-[#0D1117] border-white/10 text-white h-10"
                                                     />
                                                 </div>
                                                 <div className="space-y-1">
-                                                    <Label className="text-xs text-gray-400">Nom *</Label>
+                                                    <Label className="text-xs text-gray-400">{t('admin.parents.lastName')}</Label>
                                                     <Input
-                                                        placeholder="ex. Ould Ahmed"
+                                                        placeholder={t('admin.parents.lastNamePlaceholder')}
                                                         value={newParent.lastName}
                                                         onChange={(e) => setNewParent(p => ({ ...p, lastName: e.target.value }))}
                                                         className="bg-[#0D1117] border-white/10 text-white h-10"
@@ -296,33 +296,33 @@ export function ParentDirectory() {
                                                 </div>
                                             </div>
                                             <div className="space-y-1">
-                                                <Label className="text-xs text-gray-400">Telephone</Label>
+                                                <Label className="text-xs text-gray-400">{t('admin.parents.phoneLabel')}</Label>
                                                 <Input
-                                                    placeholder="ex. 36 12 34 56"
+                                                    placeholder={t('admin.parents.phonePlaceholder')}
                                                     value={newParent.phone}
                                                     onChange={(e) => setNewParent(p => ({ ...p, phone: e.target.value }))}
                                                     className="bg-[#0D1117] border-white/10 text-white h-10"
                                                 />
                                             </div>
                                             <div className="space-y-1">
-                                                <Label className="text-xs text-gray-400">Email</Label>
+                                                <Label className="text-xs text-gray-400">{t('admin.parents.emailLabel')}</Label>
                                                 <Input
                                                     type="email"
-                                                    placeholder="ex. parent@email.com"
+                                                    placeholder={t('admin.parents.emailPlaceholder')}
                                                     value={newParent.email}
                                                     onChange={(e) => setNewParent(p => ({ ...p, email: e.target.value }))}
                                                     className="bg-[#0D1117] border-white/10 text-white h-10"
                                                 />
                                             </div>
                                             <div className="space-y-1">
-                                                <Label className="text-xs text-gray-400">Mot de passe instantané *</Label>
+                                                <Label className="text-xs text-gray-400">{t('admin.parents.tempPassword')}</Label>
                                                 <Input
-                                                    placeholder="ex. Parent2024"
+                                                    placeholder={t('admin.parents.tempPasswordPlaceholder')}
                                                     value={newParent.password}
                                                     onChange={(e) => setNewParent(p => ({ ...p, password: e.target.value }))}
                                                     className="bg-[#0D1117] border-white/10 text-white h-10"
                                                 />
-                                                <p className="text-[10px] text-gray-600">Ce mot de passe sera communiqué au parent pour la première connexion.</p>
+                                                <p className="text-[10px] text-gray-600">{t('admin.parents.tempPasswordHint')}</p>
                                             </div>
                                         </div>
 
@@ -332,7 +332,7 @@ export function ParentDirectory() {
                                                 className="flex-1 border-white/10 text-gray-400 hover:text-white"
                                                 onClick={() => setShowAddForm(false)}
                                             >
-                                                Annuler
+                                                {t('common.cancel')}
                                             </Button>
                                             <Button
                                                 className="flex-1 bg-emerald-500 hover:bg-emerald-600 text-black font-bold"
@@ -340,7 +340,7 @@ export function ParentDirectory() {
                                                 disabled={addingParent}
                                             >
                                                 {addingParent ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Plus className="w-4 h-4 mr-2" />}
-                                                Enregistrer
+                                                {t('common.save')}
                                             </Button>
                                         </div>
                                     </div>

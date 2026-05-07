@@ -120,7 +120,7 @@ export function MobileNav({ items, user }: MobileNavProps) {
                                         </div>
                                     </div>
                                 ) : (
-                                    <SheetTitle>Menu</SheetTitle>
+                                    <SheetTitle>{t('common.menu')}</SheetTitle>
                                 )}
                             </SheetHeader>
 
@@ -134,7 +134,7 @@ export function MobileNav({ items, user }: MobileNavProps) {
                                         <div className="h-12 w-12 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center group-hover:bg-primary/20 group-hover:text-primary transition-colors">
                                             <item.icon className="h-6 w-6 text-muted-foreground group-hover:text-primary transition-colors" />
                                         </div>
-                                        <span className="font-medium text-sm text-gray-300 group-hover:text-white">{item.label}</span>
+                                        <span className="font-medium text-sm text-gray-300 group-hover:text-white">{t(item.label)}</span>
                                     </button>
                                 ))}
                             </div>
@@ -148,7 +148,7 @@ export function MobileNav({ items, user }: MobileNavProps) {
 
                                 {/* Theme Toggle */}
                                 <div className="flex items-center justify-between px-4 py-3 rounded-2xl border border-white/5 bg-card/30">
-                                    <span className="text-sm font-medium text-gray-300">Theme</span>
+                                    <span className="text-sm font-medium text-gray-300">{t('common.theme')}</span>
                                     <ThemeToggle />
                                 </div>
 

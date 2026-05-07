@@ -40,7 +40,7 @@ export function StudentMore() {
         .slice(0, 2) || 'EL'
 
     return (
-        <div className="max-w-md mx-auto lg:max-w-3xl pb-24 space-y-8 p-4">
+        <div className="max-w-md mx-auto lg:max-w-3xl lg:ms-12 lg:me-auto pb-24 space-y-8 p-4">
             {/* Header */}
             <div className="flex items-center gap-3 mb-6">
                 <Avatar className="h-12 w-12 border border-border">

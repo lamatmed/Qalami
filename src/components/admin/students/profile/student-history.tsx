@@ -7,6 +7,7 @@ import { Star, AlertTriangle, Clock, CheckCircle2, FileText, Download, Loader2 }
 import { cn } from '@/lib/utils'
 import { toast } from 'sonner'
 import { createClient } from '@/utils/supabase/client'
+import { useLanguage } from '@/i18n'
 
 type FilterType = 'all' | 'grade' | 'remark'
 
@@ -24,6 +25,7 @@ interface HistoryEvent {
 }
 
 export function StudentHistory({ studentId }: { studentId: string }) {
+    const { t } = useLanguage()
     const [filter, setFilter] = useState<FilterType>('all')
     const [events, setEvents] = useState<HistoryEvent[]>([])
     const [loading, setLoading] = useState(true)
@@ -152,10 +154,15 @@ export function StudentHistory({ studentId }: { studentId: string }) {
             <div className="flex justify-between items-center mb-6">
                 <h3 className="font-bold text-white flex items-center gap-2">
                     <FileText className="w-5 h-5 text-gray-400" />
-                    Historique Complet
+                    {t('admin.students.profile.history')}
                 </h3>
                 <Badge variant="outline" className="text-[10px] border-white/10 text-gray-400">
-                    {filteredEvents.length} &eacute;v&eacute;nement{filteredEvents.length > 1 ? 's' : ''}
+                    {filteredEvents.length === 0 
+                        ? t('admin.students.profile.historyZeroEvents')
+                        : filteredEvents.length === 1 
+                            ? t('admin.students.profile.historyEventsCount', { count: 1 })
+                            : t('admin.students.profile.historyEventsCountPlural', { count: filteredEvents.length })
+                    }
                 </Badge>
             </div>
 
@@ -172,7 +179,7 @@ export function StudentHistory({ studentId }: { studentId: string }) {
                             filter === f ? "bg-emerald-500/10 text-emerald-500" : "text-gray-500 hover:text-gray-300"
                         )}
                     >
-                        {f === 'all' ? 'Tout' : f === 'grade' ? 'Notes' : 'Remarques'}
+                        {f === 'all' ? t('admin.students.profile.historyFilterAll') : f === 'grade' ? t('admin.students.profile.historyFilterGrades') : t('admin.students.profile.historyFilterRemarks')}
                     </Button>
                 ))}
             </div>
@@ -185,7 +192,7 @@ export function StudentHistory({ studentId }: { studentId: string }) {
                     </div>
                 ) : filteredEvents.length === 0 ? (
                     <div className="text-center p-12 text-gray-500 text-sm">
-                        Aucun &eacute;v&eacute;nement enregistr&eacute;
+                        {t('admin.students.profile.historyNoEvents')}
                     </div>
                 ) : (
                     filteredEvents.map((event) => (

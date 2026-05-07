@@ -6,6 +6,7 @@ import { Clock, MapPin, CalendarDays } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { createClient } from '@/utils/supabase/client'
 import { Skeleton } from '@/components/ui/skeleton'
+import { useLanguage } from '@/i18n'
 
 const SESSION_TYPE_CONFIG: Record<string, { label: string; text: string }> = {
     course:   { label: 'Cours',    text: 'text-blue-400' },
@@ -36,14 +37,15 @@ interface ScheduleDay {
 const colors = ['purple', 'blue', 'emerald', 'orange', 'pink', 'cyan']
 
 export function TeacherSchedule({ teacherId }: { teacherId: string }) {
+    const { t } = useLanguage()
     const [days, setDays] = useState<ScheduleDay[]>([])
     const [loading, setLoading] = useState(true)
-
+ 
     useEffect(() => {
         async function fetchSchedule() {
             setLoading(true)
             const supabase = createClient()
-
+ 
             const { data, error } = await supabase
                 .from('schedule')
                 .select(`
@@ -58,18 +60,18 @@ export function TeacherSchedule({ teacherId }: { teacherId: string }) {
                 `)
                 .eq('teacher_id', teacherId)
                 .order('start_time')
-
+ 
             if (error) {
                 console.error('Error fetching teacher schedule:', error)
                 setLoading(false)
                 return
             }
-
+ 
             const dayNames = ['', 'Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi', 'Dimanche']
             const todayDow = new Date().getDay() // 0=Sun, 1=Mon, ...
             // Convert JS day to our day_of_week (1=Mon, ..., 7=Sun)
             const todayMapped = todayDow === 0 ? 7 : todayDow
-
+ 
             // Group by day
             const dayMap: Record<number, ScheduleEvent[]> = {}
             for (const item of data || []) {
@@ -78,7 +80,7 @@ export function TeacherSchedule({ teacherId }: { teacherId: string }) {
                 const className = (item.classes as any)?.name || ''
                 const start = item.start_time.substring(0, 5)
                 const end = item.end_time.substring(0, 5)
-
+ 
                 dayMap[item.day_of_week].push({
                     id: item.id,
                     subject: `${subjectName}${className ? ' - ' + className : ''}`,
@@ -89,7 +91,7 @@ export function TeacherSchedule({ teacherId }: { teacherId: string }) {
                     sessionType: (item as any).session_type || 'course'
                 })
             }
-
+ 
             const result: ScheduleDay[] = Object.entries(dayMap)
                 .map(([dow, events]) => ({
                     label: dayNames[parseInt(dow)] || `Jour ${dow}`,
@@ -98,14 +100,14 @@ export function TeacherSchedule({ teacherId }: { teacherId: string }) {
                     events
                 }))
                 .sort((a, b) => a.dayOfWeek - b.dayOfWeek)
-
+ 
             setDays(result)
             setLoading(false)
         }
-
+ 
         fetchSchedule()
     }, [teacherId])
-
+ 
     if (loading) {
         return (
             <div className="space-y-6">
@@ -115,23 +117,23 @@ export function TeacherSchedule({ teacherId }: { teacherId: string }) {
             </div>
         )
     }
-
+ 
     if (days.length === 0) {
         return (
             <div className="space-y-6">
-                <h2 className="text-xl font-bold text-foreground">Emploi du temps</h2>
+                <h2 className="text-xl font-bold text-foreground">{t('admin.teachers.schedule.title')}</h2>
                 <div className="bg-card rounded-3xl border border-border p-12 text-center text-muted-foreground">
                     <CalendarDays className="w-12 h-12 mx-auto mb-4 opacity-50" />
-                    <p>Aucun cours programmé pour cet enseignant</p>
+                    <p>{t('admin.teachers.schedule.noCourses')}</p>
                 </div>
             </div>
         )
     }
-
+ 
     return (
         <div className="space-y-6">
             <div className="flex items-center justify-between">
-                <h2 className="text-xl font-bold text-foreground">Emploi du temps</h2>
+                <h2 className="text-xl font-bold text-foreground">{t('admin.teachers.schedule.title')}</h2>
             </div>
 
             <div className="space-y-4">
@@ -139,9 +141,9 @@ export function TeacherSchedule({ teacherId }: { teacherId: string }) {
                     <div key={day.dayOfWeek} className="bg-card rounded-3xl border border-border overflow-hidden">
                         <div className="p-4 bg-muted/50 border-b border-border flex justify-between items-center">
                             <h3 className="font-bold text-foreground flex items-center gap-2">
-                                <CalendarDays className="w-4 h-4 text-muted-foreground" /> {day.label}
+                                <CalendarDays className="w-4 h-4 text-muted-foreground" /> {t(`admin.teachers.schedule.days.${day.dayOfWeek}`)}
                             </h3>
-                            {day.isToday && <Badge className="bg-primary text-primary-foreground font-bold text-[10px]">AUJOURD'HUI</Badge>}
+                            {day.isToday && <Badge className="bg-primary text-primary-foreground font-bold text-[10px]">{t('admin.teachers.schedule.today')}</Badge>}
                         </div>
 
                         <div className="p-4 space-y-6 relative">
@@ -172,7 +174,7 @@ export function TeacherSchedule({ teacherId }: { teacherId: string }) {
                                                 <h4 className="font-bold text-foreground text-lg group-hover:text-primary transition-colors">{event.subject}</h4>
                                                 {event.sessionType !== 'course' && (
                                                     <span className={cn("text-[10px] font-bold px-1.5 py-0.5 rounded-md bg-white/5 shrink-0", (SESSION_TYPE_CONFIG[event.sessionType] || SESSION_TYPE_CONFIG.course).text)}>
-                                                        {(SESSION_TYPE_CONFIG[event.sessionType] || SESSION_TYPE_CONFIG.course).label}
+                                                        {t(`admin.teachers.schedule.sessionType.${event.sessionType}`) || (SESSION_TYPE_CONFIG[event.sessionType] || SESSION_TYPE_CONFIG.course).label}
                                                     </span>
                                                 )}
                                             </div>

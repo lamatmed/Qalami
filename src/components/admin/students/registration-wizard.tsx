@@ -8,6 +8,7 @@ import { ParentDetails } from './steps/parent-details'
 import { AcademicFinance } from './steps/academic-finance'
 import { Confirmation } from './steps/confirmation'
 import { toast } from 'sonner'
+import { useLanguage } from '@/i18n'
 
 export type RegistrationData = {
     personal: {
@@ -60,6 +61,7 @@ const steps = [
 ]
 
 export function RegistrationWizard() {
+    const { t } = useLanguage()
     const [currentStep, setCurrentStep] = useState(1)
     const [formData, setFormData] = useState<RegistrationData>(initialData)
     const [direction, setDirection] = useState(0)
@@ -106,7 +108,7 @@ export function RegistrationWizard() {
                     setSavedCredentials(result.credentials)
                 }
             } catch (err: any) {
-                toast.error('Erreur lors de l\'inscription: ' + err.message)
+                toast.error(`${t('admin.students.register.errors.registrationFailed')}: ${err.message}`)
                 setSaving(false)
                 return
             }
@@ -133,7 +135,7 @@ export function RegistrationWizard() {
             {/* Progress Header */}
             <div className="mb-8">
                 <div className="flex justify-between items-center mb-4 px-2">
-                    {steps.map((step) => (
+                                {steps.map((step) => (
                         <div key={step.id} className="flex flex-col items-center relative z-10 group cursor-default">
                             <div className={`w-10 h-10 rounded-full flex items-center justify-center font-bold text-sm transition-all duration-300 ${currentStep > step.id ? 'bg-emerald-500 text-black' :
                                 currentStep === step.id ? 'bg-emerald-500 text-black shadow-lg shadow-emerald-500/30 ring-4 ring-emerald-500/20' :
@@ -143,7 +145,7 @@ export function RegistrationWizard() {
                             </div>
                             <span className={`text-xs mt-2 font-medium transition-colors duration-300 ${currentStep >= step.id ? 'text-gray-900 dark:text-white' : 'text-gray-400 dark:text-gray-600'
                                 }`}>
-                                {step.title}
+                                {t(`admin.students.register.steps.${step.id}`)}
                             </span>
                         </div>
                     ))}
@@ -158,7 +160,7 @@ export function RegistrationWizard() {
                     <div className="absolute inset-0 z-20 bg-white/80 dark:bg-[#0F1720]/80 flex items-center justify-center backdrop-blur-sm rounded-3xl">
                         <div className="text-center space-y-3">
                             <div className="w-10 h-10 border-4 border-emerald-500 border-t-transparent rounded-full animate-spin mx-auto" />
-                            <p className="text-sm text-gray-600 dark:text-gray-400 font-medium">Inscription en cours...</p>
+                            <p className="text-sm text-gray-600 dark:text-gray-400 font-medium">{t('admin.students.register.saving')}</p>
                         </div>
                     </div>
                 )}

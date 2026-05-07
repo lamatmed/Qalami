@@ -13,14 +13,15 @@ import { cn } from '@/lib/utils'
 import { useTeacher } from '@/context/teacher-context'
 import { createClient } from '@/utils/supabase/client'
 import { toast } from 'sonner'
+import { useLanguage } from '@/i18n'
 
 const REMARK_CATEGORIES = [
-    { value: 'comportement', label: 'Comportement', color: 'text-red-400',     bg: 'bg-red-500/10' },
-    { value: 'scolaire',     label: 'Scolaire',     color: 'text-blue-400',    bg: 'bg-blue-500/10' },
-    { value: 'assiduite',    label: 'Assiduité',    color: 'text-amber-400',   bg: 'bg-amber-500/10' },
-    { value: 'participation',label: 'Participation', color: 'text-emerald-400', bg: 'bg-emerald-500/10' },
-    { value: 'devoirs',      label: 'Devoirs',      color: 'text-purple-400',  bg: 'bg-purple-500/10' },
-    { value: 'general',      label: 'Général',      color: 'text-gray-400',    bg: 'bg-gray-500/10' },
+    { value: 'comportement', color: 'text-red-400',     bg: 'bg-red-500/10' },
+    { value: 'scolaire',     color: 'text-blue-400',    bg: 'bg-blue-500/10' },
+    { value: 'assiduite',    color: 'text-amber-400',   bg: 'bg-amber-500/10' },
+    { value: 'participation', color: 'text-emerald-400', bg: 'bg-emerald-500/10' },
+    { value: 'devoirs',      color: 'text-purple-400',  bg: 'bg-purple-500/10' },
+    { value: 'general',      color: 'text-gray-400',    bg: 'bg-gray-500/10' },
 ]
 
 interface Student {
@@ -36,7 +37,6 @@ interface SubjectOption {
 
 interface FeedbackType {
     type: 'positive' | 'warning' | 'concern' | 'participation' | 'improvement' | 'other'
-    label: string
     icon: React.FC<{ className?: string }>
     color: string
     bg: string
@@ -53,14 +53,15 @@ interface RecentRemark {
 }
 
 const feedbackTypes: FeedbackType[] = [
-    { type: 'positive', label: 'Encouragement', icon: Star, color: 'text-amber-500', bg: 'bg-amber-500/10' },
-    { type: 'warning', label: 'Avertissement', icon: AlertTriangle, color: 'text-red-500', bg: 'bg-red-500/10' },
-    { type: 'participation', label: 'Participation', icon: Hand, color: 'text-blue-500', bg: 'bg-blue-500/10' },
-    { type: 'improvement', label: 'Amélioration', icon: TrendingUp, color: 'text-emerald-500', bg: 'bg-emerald-500/10' },
-    { type: 'concern', label: 'Préoccupation', icon: MessageCircle, color: 'text-purple-500', bg: 'bg-purple-500/10' },
+    { type: 'positive', icon: Star, color: 'text-amber-500', bg: 'bg-amber-500/10' },
+    { type: 'warning', icon: AlertTriangle, color: 'text-red-500', bg: 'bg-red-500/10' },
+    { type: 'participation', icon: Hand, color: 'text-blue-500', bg: 'bg-blue-500/10' },
+    { type: 'improvement', icon: TrendingUp, color: 'text-emerald-500', bg: 'bg-emerald-500/10' },
+    { type: 'concern', icon: MessageCircle, color: 'text-purple-500', bg: 'bg-purple-500/10' },
 ]
 
 export function TeacherRemarks() {
+    const { t, direction } = useLanguage()
     const { teacherId, loading, classes, schoolId } = useTeacher()
     const [isPending, startTransition] = useTransition()
 
@@ -122,6 +123,7 @@ export function TeacherRemarks() {
                         )
                     `)
                     .eq('class_id', selectedClass)
+                    .eq('status', 'active')
 
                 if (error) {
                     console.error('Error fetching students:', error)
@@ -167,7 +169,6 @@ export function TeacherRemarks() {
                     .select(`
                         id,
                         type,
-                        category,
                         message,
                         created_at,
                         profiles!remarks_student_id_fkey (full_name),
@@ -212,7 +213,7 @@ export function TeacherRemarks() {
 
     const handleSubmit = async () => {
         if (!selectedStudent || !selectedType || !message.trim() || !teacherId || !selectedClass || !schoolId) {
-            toast.error('Veuillez remplir tous les champs')
+            toast.error(t('teacher.remarks.fillAllFields'))
             return
         }
 
@@ -236,11 +237,11 @@ export function TeacherRemarks() {
 
             if (error) {
                 console.error('Error inserting remark:', error)
-                toast.error('Erreur lors de l\'envoi de la remarque')
+                toast.error(t('teacher.remarks.sendError'))
                 return
             }
 
-            toast.success('Remarque envoyée avec succès!')
+            toast.success(t('teacher.remarks.sendSuccess'))
 
             // Reset form
             setMessage('')
@@ -255,7 +256,6 @@ export function TeacherRemarks() {
                 .select(`
                     id,
                     type,
-                    category,
                     message,
                     created_at,
                     profiles!remarks_student_id_fkey (full_name),
@@ -292,10 +292,10 @@ export function TeacherRemarks() {
         const diffHours = Math.floor(diffMins / 60)
         const diffDays = Math.floor(diffHours / 24)
 
-        if (diffMins < 60) return `Il y a ${diffMins} min`
-        if (diffHours < 24) return `Il y a ${diffHours}h`
-        if (diffDays === 1) return 'Hier'
-        return date.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })
+        if (diffMins < 60) return t('teacher.remarks.timeAgoMins').replace('{mins}', diffMins.toString())
+        if (diffHours < 24) return t('teacher.remarks.timeAgoHours').replace('{hours}', diffHours.toString())
+        if (diffDays === 1) return t('teacher.remarks.yesterday')
+        return date.toLocaleDateString(t('common.locale') || 'fr-FR', { day: 'numeric', month: 'short' })
     }
 
     const getTypeInfo = (type: string) => {
@@ -311,16 +311,16 @@ export function TeacherRemarks() {
     }
 
     return (
-        <div className="max-w-xl mx-auto pb-24 relative min-h-screen">
+        <div className="max-w-xl mx-auto pb-24 relative min-h-screen animate-in fade-in duration-500">
             {/* Header */}
             <div className="flex items-center justify-between mb-6">
                 <div className="flex items-center gap-3">
                     <Link href="/teacher">
                         <Button variant="ghost" size="icon" className="rounded-full">
-                            <ArrowLeft className="w-5 h-5" />
+                            <ArrowLeft className={cn("w-5 h-5", direction === 'rtl' && 'rotate-180')} />
                         </Button>
                     </Link>
-                    <h1 className="text-2xl font-bold">Remarques</h1>
+                    <h1 className="text-2xl font-black text-gray-900 dark:text-white">{t('teacher.remarks.title')}</h1>
                 </div>
                 <Button variant="ghost" size="icon" className="rounded-full">
                     <History className="w-5 h-5" />
@@ -329,7 +329,7 @@ export function TeacherRemarks() {
 
             {/* Step 1: Select Class */}
             <div className="mb-6">
-                <h2 className="text-sm font-bold text-muted-foreground mb-3">1. Sélectionner une classe</h2>
+                <h2 className="text-xs font-bold text-muted-foreground mb-3 uppercase tracking-wider">{t('teacher.remarks.selectClass')}</h2>
                 <div className="flex flex-wrap gap-2">
                     {classes.map(c => (
                         <Button
@@ -340,7 +340,7 @@ export function TeacherRemarks() {
                                 setSelectedClass(c.id)
                                 setSelectedStudent(null)
                             }}
-                            className="rounded-full"
+                            className="rounded-full font-semibold"
                         >
                             {c.name}
                         </Button>
@@ -355,13 +355,13 @@ export function TeacherRemarks() {
                     animate={{ opacity: 1, y: 0 }}
                     className="mb-6"
                 >
-                    <h2 className="text-sm font-bold text-muted-foreground mb-3">2. Sélectionner un élève</h2>
+                    <h2 className="text-xs font-bold text-muted-foreground mb-3 uppercase tracking-wider">{t('teacher.remarks.selectStudent')}</h2>
 
                     <div className="relative mb-3">
                         <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                         <Input
-                            placeholder="Rechercher un élève..."
-                            className="pl-10 rounded-xl"
+                            placeholder={t('teacher.remarks.searchPlaceholder')}
+                            className="pl-10 rounded-xl bg-card"
                             value={searchQuery}
                             onChange={(e) => setSearchQuery(e.target.value)}
                         />
@@ -372,7 +372,7 @@ export function TeacherRemarks() {
                             <Loader2 className="h-6 w-6 animate-spin text-primary" />
                         </div>
                     ) : filteredStudents.length === 0 ? (
-                        <p className="text-sm text-muted-foreground text-center py-4">Aucun élève trouvé</p>
+                        <p className="text-sm text-muted-foreground text-center py-4">{t('teacher.remarks.noStudentsFound')}</p>
                     ) : (
                         <div className="flex flex-wrap gap-2">
                             {filteredStudents.map(student => (
@@ -381,7 +381,7 @@ export function TeacherRemarks() {
                                     variant={selectedStudent?.id === student.id ? "default" : "outline"}
                                     size="sm"
                                     onClick={() => setSelectedStudent(student)}
-                                    className="rounded-full gap-2"
+                                    className="rounded-full gap-2 font-medium"
                                 >
                                     <Avatar className="h-5 w-5">
                                         <AvatarImage src={student.avatar} />
@@ -402,7 +402,7 @@ export function TeacherRemarks() {
                     animate={{ opacity: 1, y: 0 }}
                     className="mb-6"
                 >
-                    <h2 className="text-sm font-bold text-muted-foreground mb-3">3. Type de remarque</h2>
+                    <h2 className="text-xs font-bold text-muted-foreground mb-3 uppercase tracking-wider">{t('teacher.remarks.remarkType')}</h2>
                     <div className="grid grid-cols-3 gap-2">
                         {feedbackTypes.map(type => (
                             <Button
@@ -410,14 +410,14 @@ export function TeacherRemarks() {
                                 variant="outline"
                                 onClick={() => setSelectedType(type)}
                                 className={cn(
-                                    "flex flex-col h-auto py-4 rounded-2xl transition-all",
-                                    selectedType?.type === type.type && `border-2 ${type.bg} border-current`
+                                    "flex flex-col h-auto py-4 rounded-2xl transition-all bg-card/50",
+                                    selectedType?.type === type.type && `border-2 ${type.bg} border-indigo-500`
                                 )}
                             >
                                 <div className={cn("p-2 rounded-full mb-2", type.bg)}>
                                     <type.icon className={cn("w-5 h-5", type.color)} />
                                 </div>
-                                <span className="text-xs">{type.label}</span>
+                                <span className="text-xs font-semibold">{t(`teacher.remarks.types.${type.type}`)}</span>
                             </Button>
                         ))}
                     </div>
@@ -431,7 +431,7 @@ export function TeacherRemarks() {
                     animate={{ opacity: 1, y: 0 }}
                     className="mb-6"
                 >
-                    <h2 className="text-sm font-bold text-muted-foreground mb-3">4. Catégorie</h2>
+                    <h2 className="text-xs font-bold text-muted-foreground mb-3 uppercase tracking-wider">{t('teacher.remarks.category')}</h2>
                     <div className="flex flex-wrap gap-2">
                         {REMARK_CATEGORIES.map(cat => (
                             <button
@@ -444,7 +444,7 @@ export function TeacherRemarks() {
                                         : "bg-card border-border text-muted-foreground hover:border-border/80"
                                 )}
                             >
-                                {cat.label}
+                                {t(`teacher.remarks.categories.${cat.value}`)}
                             </button>
                         ))}
                     </div>
@@ -458,13 +458,17 @@ export function TeacherRemarks() {
                     animate={{ opacity: 1, y: 0 }}
                     className="mb-6"
                 >
-                    <h2 className="text-sm font-bold text-muted-foreground mb-3">5. Matière <span className="font-normal">(optionnel)</span></h2>
+                    <h2 className="text-xs font-bold text-muted-foreground mb-3 uppercase tracking-wider">
+                        {t('teacher.remarks.subject')} <span className="font-normal lowercase">{t('teacher.remarks.optional')}</span>
+                    </h2>
                     <Select value={selectedSubject} onValueChange={setSelectedSubject}>
                         <SelectTrigger className="rounded-xl bg-card border-border">
-                            <SelectValue placeholder="Aucune matière liée" />
+                            <SelectTrigger asChild>
+                                <SelectValue placeholder={t('teacher.remarks.noSubjectLinked')} />
+                            </SelectTrigger>
                         </SelectTrigger>
                         <SelectContent className="bg-card border-border">
-                            <SelectItem value="">Aucune matière</SelectItem>
+                            <SelectItem value="">{t('teacher.remarks.noSubject')}</SelectItem>
                             {subjects.map(s => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}
                         </SelectContent>
                     </Select>
@@ -478,32 +482,32 @@ export function TeacherRemarks() {
                     animate={{ opacity: 1, y: 0 }}
                     className="mb-6"
                 >
-                    <h2 className="text-sm font-bold text-muted-foreground mb-3">{subjects.length > 0 ? '6' : '4'}. Message</h2>
-                    <div className="bg-card border rounded-2xl p-4">
+                    <h2 className="text-xs font-bold text-muted-foreground mb-3 uppercase tracking-wider">{t('teacher.remarks.messageLabel')}</h2>
+                    <div className="bg-card border rounded-2xl p-4 shadow-sm">
                         <div className="flex items-center gap-2 mb-3">
                             <Avatar className="h-8 w-8">
                                 <AvatarImage src={selectedStudent.avatar} />
                                 <AvatarFallback>{selectedStudent.name.slice(0, 2).toUpperCase()}</AvatarFallback>
                             </Avatar>
                             <div>
-                                <p className="text-sm font-bold">{selectedStudent.name}</p>
-                                <p className={cn("text-[10px]", selectedType.color)}>{selectedType.label}</p>
+                                <p className="text-sm font-bold text-gray-900 dark:text-white">{selectedStudent.name}</p>
+                                <p className={cn("text-[10px] font-semibold", selectedType.color)}>{t(`teacher.remarks.types.${selectedType.type}`)}</p>
                             </div>
                         </div>
                         <Textarea
-                            placeholder="Écrivez votre remarque..."
+                            placeholder={t('teacher.remarks.messagePlaceholder')}
                             value={message}
                             onChange={(e) => setMessage(e.target.value)}
-                            className="min-h-[100px] resize-none border-0 focus-visible:ring-0 p-0"
+                            className="min-h-[100px] resize-none border-0 focus-visible:ring-0 p-0 bg-transparent"
                         />
                         <div className="flex justify-end mt-4">
                             <Button
                                 onClick={handleSubmit}
                                 disabled={!message.trim() || isPending}
-                                className="gap-2 rounded-xl"
+                                className="gap-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 font-bold px-5"
                             >
                                 {isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
-                                Envoyer
+                                {t('teacher.remarks.send')}
                             </Button>
                         </div>
                     </div>
@@ -512,9 +516,9 @@ export function TeacherRemarks() {
 
             {/* Recent Remarks */}
             <div className="mt-8">
-                <h2 className="text-sm font-bold text-muted-foreground mb-3 flex items-center gap-2">
+                <h2 className="text-sm font-bold text-muted-foreground mb-3 flex items-center gap-2 uppercase tracking-wider">
                     <History className="w-4 h-4" />
-                    Remarques récentes
+                    {t('teacher.remarks.recentRemarks')}
                 </h2>
 
                 {/* Filters */}
@@ -523,10 +527,10 @@ export function TeacherRemarks() {
                         onClick={() => setCategoryFilter('')}
                         className={cn(
                             "px-3 py-1 rounded-full text-xs font-bold border transition-all",
-                            categoryFilter === '' ? "bg-primary/20 text-primary border-primary/50" : "bg-card border-border text-muted-foreground"
+                            categoryFilter === '' ? "bg-indigo-500/20 text-indigo-500 border-indigo-500/50" : "bg-card border-border text-muted-foreground"
                         )}
                     >
-                        Tout
+                        {t('teacher.remarks.all')}
                     </button>
                     {REMARK_CATEGORIES.map(cat => (
                         <button
@@ -539,7 +543,7 @@ export function TeacherRemarks() {
                                     : "bg-card border-border text-muted-foreground"
                             )}
                         >
-                            {cat.label}
+                            {t(`teacher.remarks.categories.${cat.value}`)}
                         </button>
                     ))}
                 </div>
@@ -548,10 +552,10 @@ export function TeacherRemarks() {
                     <div className="mb-4">
                         <Select value={subjectFilter} onValueChange={setSubjectFilter}>
                             <SelectTrigger className="h-8 text-xs rounded-xl bg-card border-border w-48">
-                                <SelectValue placeholder="Filtrer par matière" />
+                                <SelectValue placeholder={t('teacher.remarks.filterBySubject')} />
                             </SelectTrigger>
                             <SelectContent className="bg-card border-border">
-                                <SelectItem value="">Toutes les matières</SelectItem>
+                                <SelectItem value="">{t('teacher.remarks.allSubjects')}</SelectItem>
                                 {subjects.map(s => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}
                             </SelectContent>
                         </Select>
@@ -564,7 +568,7 @@ export function TeacherRemarks() {
                     </div>
                 ) : recentRemarks.length === 0 ? (
                     <p className="text-sm text-muted-foreground text-center py-4 bg-card/50 rounded-2xl">
-                        Aucune remarque récente
+                        {t('teacher.remarks.noRecentRemarks')}
                     </p>
                 ) : (
                     <div className="space-y-2">
@@ -572,33 +576,33 @@ export function TeacherRemarks() {
                             .filter(r => !categoryFilter || r.category === categoryFilter)
                             .filter(r => !subjectFilter || r.subjectName === subjects.find(s => s.id === subjectFilter)?.name)
                             .map(remark => {
-                            const typeInfo = getTypeInfo(remark.type)
-                            const catInfo = REMARK_CATEGORIES.find(c => c.value === remark.category)
-                            return (
-                                <div key={remark.id} className="bg-card/50 p-3 rounded-2xl flex items-start gap-3">
-                                    <div className={cn("p-2 rounded-full shrink-0", typeInfo.bg)}>
-                                        <typeInfo.icon className={cn("w-4 h-4", typeInfo.color)} />
-                                    </div>
-                                    <div className="flex-1 min-w-0">
-                                        <div className="flex justify-between items-baseline">
-                                            <p className="font-medium text-sm">{remark.studentName}</p>
-                                            <span className="text-[10px] text-muted-foreground">{formatTimeAgo(remark.createdAt)}</span>
+                                const typeInfo = getTypeInfo(remark.type)
+                                const catInfo = REMARK_CATEGORIES.find(c => c.value === remark.category)
+                                return (
+                                    <div key={remark.id} className="bg-card/50 p-3 rounded-2xl flex items-start gap-3 border border-gray-100 dark:border-white/5">
+                                        <div className={cn("p-2 rounded-full shrink-0", typeInfo.bg)}>
+                                            <typeInfo.icon className={cn("w-4 h-4", typeInfo.color)} />
                                         </div>
-                                        <div className="flex items-center gap-2 mt-0.5">
-                                            {catInfo && (
-                                                <span className={cn("text-[10px] font-bold px-1.5 py-0.5 rounded-md", catInfo.bg, catInfo.color)}>
-                                                    {catInfo.label}
-                                                </span>
-                                            )}
-                                            {remark.subjectName && (
-                                                <span className="text-[10px] text-muted-foreground">{remark.subjectName}</span>
-                                            )}
+                                        <div className="flex-1 min-w-0">
+                                            <div className="flex justify-between items-baseline">
+                                                <p className="font-bold text-sm text-gray-900 dark:text-white">{remark.studentName}</p>
+                                                <span className="text-[10px] text-muted-foreground">{formatTimeAgo(remark.createdAt)}</span>
+                                            </div>
+                                            <div className="flex items-center gap-2 mt-0.5">
+                                                {catInfo && (
+                                                    <span className={cn("text-[10px] font-bold px-1.5 py-0.5 rounded-md", catInfo.bg, catInfo.color)}>
+                                                        {t(`teacher.remarks.categories.${catInfo.value}`)}
+                                                    </span>
+                                                )}
+                                                {remark.subjectName && (
+                                                    <span className="text-[10px] text-muted-foreground">{remark.subjectName}</span>
+                                                )}
+                                            </div>
+                                            <p className="text-xs text-muted-foreground truncate mt-1">{remark.message}</p>
                                         </div>
-                                        <p className="text-xs text-muted-foreground truncate mt-1">{remark.message}</p>
                                     </div>
-                                </div>
-                            )
-                        })}
+                                )
+                            })}
                     </div>
                 )}
             </div>

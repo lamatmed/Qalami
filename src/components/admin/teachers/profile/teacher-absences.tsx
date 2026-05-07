@@ -4,6 +4,7 @@ import { useState, useEffect, useMemo } from 'react'
 import { createClient } from '@/utils/supabase/client'
 import { XCircle, Clock, CheckCircle2, RefreshCw, Loader2, CalendarDays, StickyNote } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { useLanguage } from '@/i18n'
 
 interface AbsenceRecord {
     id: string
@@ -19,6 +20,7 @@ interface AbsenceRecord {
 type FilterType = 'all' | 'unjustified' | 'justified' | 'late' | 'made_up'
 
 export function TeacherAbsences({ teacherId }: { teacherId: string }) {
+    const { t } = useLanguage()
     const [records, setRecords] = useState<AbsenceRecord[]>([])
     const [loading, setLoading] = useState(true)
     const [tableExists, setTableExists] = useState(true)
@@ -80,9 +82,9 @@ export function TeacherAbsences({ teacherId }: { teacherId: string }) {
     if (!tableExists) return (
         <div className="text-center py-16 bg-[#1A2530] rounded-3xl border border-amber-500/20 p-8">
             <CalendarDays className="w-10 h-10 text-amber-500/40 mx-auto mb-3" />
-            <p className="text-amber-400 font-bold">Table non créée</p>
+            <p className="text-amber-400 font-bold">{t('admin.teachers.absences.tableError')}</p>
             <p className="text-gray-500 text-sm mt-2 max-w-xs mx-auto">
-                Exécutez le SQL de création de la table <code className="bg-white/10 px-1 rounded">teacher_attendance</code> dans Supabase.
+                {t('admin.teachers.absences.tableErrorDesc')}
             </p>
         </div>
     )
@@ -95,41 +97,41 @@ export function TeacherAbsences({ teacherId }: { teacherId: string }) {
                 <div className="bg-[#1A2530] rounded-2xl border border-red-500/20 p-4 text-center">
                     <XCircle className="w-4 h-4 text-red-400 mx-auto mb-1.5" />
                     <p className="text-2xl font-black text-red-400">{stats.unjustified}</p>
-                    <p className="text-[10px] text-gray-500 font-bold uppercase mt-0.5">Injustifiées</p>
+                    <p className="text-[10px] text-gray-500 font-bold uppercase mt-0.5">{t('admin.teachers.absences.unjustified')}</p>
                 </div>
                 <div className="bg-[#1A2530] rounded-2xl border border-amber-500/20 p-4 text-center">
                     <CheckCircle2 className="w-4 h-4 text-amber-400 mx-auto mb-1.5" />
                     <p className="text-2xl font-black text-amber-400">{stats.justified}</p>
-                    <p className="text-[10px] text-gray-500 font-bold uppercase mt-0.5">Justifiées</p>
+                    <p className="text-[10px] text-gray-500 font-bold uppercase mt-0.5">{t('admin.teachers.absences.justified')}</p>
                 </div>
                 <div className="bg-[#1A2530] rounded-2xl border border-blue-500/20 p-4 text-center">
                     <Clock className="w-4 h-4 text-blue-400 mx-auto mb-1.5" />
                     <p className="text-2xl font-black text-blue-400">{stats.late}</p>
-                    <p className="text-[10px] text-gray-500 font-bold uppercase mt-0.5">Retards</p>
+                    <p className="text-[10px] text-gray-500 font-bold uppercase mt-0.5">{t('admin.teachers.absences.lates')}</p>
                 </div>
                 <div className="bg-[#1A2530] rounded-2xl border border-emerald-500/20 p-4 text-center">
                     <RefreshCw className="w-4 h-4 text-emerald-400 mx-auto mb-1.5" />
                     <p className="text-2xl font-black text-emerald-400">{stats.made_up}</p>
-                    <p className="text-[10px] text-gray-500 font-bold uppercase mt-0.5">Rattrapées</p>
+                    <p className="text-[10px] text-gray-500 font-bold uppercase mt-0.5">{t('admin.teachers.absences.madeUp')}</p>
                 </div>
             </div>
 
             {/* Total */}
             <div className="bg-[#1A2530] rounded-2xl border border-white/5 px-5 py-3 flex justify-between items-center">
-                <p className="text-sm text-gray-400">Total absences &amp; retards</p>
+                <p className="text-sm text-gray-400">{t('admin.teachers.absences.totalLabel')}</p>
                 <p className="text-lg font-black text-white">
-                    {stats.total} <span className="text-xs text-gray-500 font-normal">événement{stats.total !== 1 ? 's' : ''}</span>
+                    {t('admin.teachers.absences.eventCount').replace('{count}', stats.total.toString()).replace('{plural}', stats.total !== 1 ? 's' : '')}
                 </p>
             </div>
 
             {/* Filters */}
             <div className="flex gap-2 flex-wrap">
                 {([
-                    { key: 'all',         label: 'Tous',          count: stats.total },
-                    { key: 'unjustified', label: 'Injustifiées',  count: stats.unjustified },
-                    { key: 'justified',   label: 'Justifiées',    count: stats.justified },
-                    { key: 'late',        label: 'Retards',       count: stats.late },
-                    { key: 'made_up',     label: 'Rattrapées',    count: stats.made_up },
+                    { key: 'all',         label: t('admin.teachers.absences.all'),          count: stats.total },
+                    { key: 'unjustified', label: t('admin.teachers.absences.unjustified'),  count: stats.unjustified },
+                    { key: 'justified',   label: t('admin.teachers.absences.justified'),    count: stats.justified },
+                    { key: 'late',        label: t('admin.teachers.absences.lates'),       count: stats.late },
+                    { key: 'made_up',     label: t('admin.teachers.absences.madeUp'),    count: stats.made_up },
                 ] as { key: FilterType; label: string; count: number }[]).map(f => (
                     <button
                         key={f.key}
@@ -150,12 +152,12 @@ export function TeacherAbsences({ teacherId }: { teacherId: string }) {
             {records.length === 0 ? (
                 <div className="text-center py-16 bg-[#1A2530] rounded-3xl border border-white/5">
                     <CheckCircle2 className="w-10 h-10 text-emerald-500/30 mx-auto mb-3" />
-                    <p className="text-gray-500 font-medium">Aucune absence enregistrée</p>
-                    <p className="text-xs text-gray-600 mt-1">L'assiduité de cet enseignant est parfaite.</p>
+                    <p className="text-gray-500 font-medium">{t('admin.teachers.absences.noAbsences')}</p>
+                    <p className="text-xs text-gray-600 mt-1">{t('admin.teachers.absences.perfectAttendance')}</p>
                 </div>
             ) : filtered.length === 0 ? (
                 <div className="text-center py-12 bg-[#1A2530] rounded-3xl border border-white/5">
-                    <p className="text-gray-500 text-sm">Aucun résultat pour ce filtre</p>
+                    <p className="text-gray-500 text-sm">{t('admin.teachers.absences.noFilterResults')}</p>
                 </div>
             ) : (
                 <div className="bg-[#1A2530] rounded-3xl border border-white/5 overflow-hidden">
@@ -164,10 +166,10 @@ export function TeacherAbsences({ teacherId }: { teacherId: string }) {
                             const isLate = r.status === 'late'
                             const isJustified = r.status === 'absent' && r.justified
                             const cfg = isLate
-                                ? { icon: Clock,        color: 'text-blue-400',   bg: 'bg-blue-500/10 border-blue-500/20',     label: 'Retard' }
+                                ? { icon: Clock,        color: 'text-blue-400',   bg: 'bg-blue-500/10 border-blue-500/20',     label: t('admin.teachers.absences.lateSingle') }
                                 : isJustified
-                                ? { icon: CheckCircle2, color: 'text-amber-400',  bg: 'bg-amber-500/10 border-amber-500/20',   label: 'Absence justifiée' }
-                                : { icon: XCircle,      color: 'text-red-400',    bg: 'bg-red-500/10 border-red-500/20',       label: 'Absence injustifiée' }
+                                ? { icon: CheckCircle2, color: 'text-amber-400',  bg: 'bg-amber-500/10 border-amber-500/20',   label: t('admin.teachers.absences.justifiedSingle') }
+                                : { icon: XCircle,      color: 'text-red-400',    bg: 'bg-red-500/10 border-red-500/20',       label: t('admin.teachers.absences.unjustifiedSingle') }
                             const Icon = cfg.icon
                             return (
                                 <div key={r.id} className="flex items-start gap-4 p-4 hover:bg-[#0F1720] transition-colors">
@@ -176,21 +178,21 @@ export function TeacherAbsences({ teacherId }: { teacherId: string }) {
                                     </div>
                                     <div className="flex-1 min-w-0">
                                         <div className="flex items-center justify-between gap-2">
-                                            <div className="flex items-center gap-2">
+                                            <div className="flex items-center gap-2 flex-wrap">
                                                 <p className={cn("text-sm font-bold", cfg.color)}>{cfg.label}</p>
                                                 {r.made_up && (
                                                     <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 flex items-center gap-1">
-                                                        <RefreshCw className="w-2.5 h-2.5" /> Rattrapée
-                                                        {r.made_up_date && ` le ${new Date(r.made_up_date).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short' })}`}
+                                                        <RefreshCw className="w-2.5 h-2.5" /> {t('admin.teachers.absences.madeUpLabel')}
+                                                        {r.made_up_date && ` ${t('admin.teachers.absences.madeUpOn')} ${new Date(r.made_up_date).toLocaleDateString(t('common.locale') || 'fr-FR', { day: '2-digit', month: 'short' })}`}
                                                     </span>
                                                 )}
                                             </div>
                                             <p className="text-xs text-gray-600 shrink-0">
-                                                {new Date(r.date).toLocaleDateString('fr-FR', { weekday: 'short', day: '2-digit', month: 'short', year: 'numeric' })}
+                                                {new Date(r.date).toLocaleDateString(t('common.locale') || 'fr-FR', { weekday: 'short', day: '2-digit', month: 'short', year: 'numeric' })}
                                             </p>
                                         </div>
                                         {r.recorder?.full_name && (
-                                            <p className="text-xs text-gray-600 mt-0.5">Enregistré par : {r.recorder.full_name}</p>
+                                            <p className="text-xs text-gray-600 mt-0.5">{t('admin.teachers.absences.recordedBy')} {r.recorder.full_name}</p>
                                         )}
                                         {r.justification_note && (
                                             <div className="mt-2 flex items-start gap-1.5 bg-white/5 rounded-lg px-3 py-2">

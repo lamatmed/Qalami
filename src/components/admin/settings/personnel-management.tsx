@@ -50,23 +50,26 @@ export function PersonnelManagement() {
 
             const { data, error } = await supabase
                 .from('profiles')
-                .select('id, full_name, phone, status, position')
+                .select('id, full_name, phone, status, contracts(position, monthly_salary)')
                 .eq('school_id', me.school_id)
-                .eq('role', 'staff')
+                .eq('role', 'school_staff')
                 .order('full_name', { ascending: true })
 
             if (error) {
                 console.error('Error fetching staff:', error.message, error.code)
             }
 
-            const processedData: StaffMember[] = (data || []).map(p => ({
-                id: p.id,
-                name: (p as any).full_name || 'Non défini',
-                role: (p as any).position || 'Staff',
-                phone: p.phone,
-                salary: 0,
-                status: p.status === 'active' ? 'Active' : (p.status || 'Active'),
-            }))
+            const processedData: StaffMember[] = (data || []).map(p => {
+                const contract = p.contracts && p.contracts.length > 0 ? p.contracts[0] : null;
+                return {
+                    id: p.id,
+                    name: (p as any).full_name || 'Non défini',
+                    role: contract?.position || 'Staff',
+                    phone: p.phone,
+                    salary: contract?.monthly_salary || 0,
+                    status: p.status === 'active' ? 'Active' : (p.status || 'Active'),
+                }
+            })
 
             setStaff(processedData)
             setLoading(false)
@@ -96,8 +99,7 @@ export function PersonnelManagement() {
             .insert({
                 full_name: newMember.name,
                 phone: newMember.phone || null,
-                role: 'staff',
-                position: newMember.role,
+                role: 'school_staff',
                 school_id: me.school_id,
                 status: 'active',
             })
@@ -109,6 +111,25 @@ export function PersonnelManagement() {
             toast.error(error.message || t('admin.personnel.addError'))
             setSaving(false)
             return
+        }
+
+        // Add contract details if salary or position provided
+        if (newProfile && (newMember.role || newMember.salary)) {
+            const { error: contractError } = await supabase
+                .from('contracts')
+                .insert({
+                    school_id: me.school_id,
+                    employee_id: newProfile.id,
+                    contract_type: 'CDI',
+                    position: newMember.role,
+                    monthly_salary: Number(newMember.salary) || 0,
+                    start_date: new Date().toISOString().split('T')[0],
+                    status: 'active'
+                })
+                
+            if (contractError) {
+                console.error('Contract creation error:', contractError.message)
+            }
         }
 
         setStaff(prev => [{

@@ -45,7 +45,7 @@ export function StudentQuizView({ quizzes }: Props) {
     const completedQuizzes = quizzes.filter(q => q.completed)
 
     return (
-        <div className="max-w-md mx-auto lg:max-w-3xl pb-24 space-y-6 p-4">
+        <div className="max-w-md mx-auto lg:max-w-3xl lg:ms-12 lg:me-auto pb-24 space-y-6 p-4">
             {/* Header */}
             <div className="flex items-center justify-between mb-2">
                 <div className="flex items-center gap-3">

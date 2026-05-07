@@ -28,6 +28,7 @@ import {
     DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import { toast } from 'sonner'
+import { useLanguage } from '@/i18n'
 
 interface Quiz {
     id: string
@@ -46,6 +47,7 @@ interface Quiz {
 }
 
 export default function TeacherQuizzesPage() {
+    const { t, direction } = useLanguage()
     const [quizzes, setQuizzes] = useState<Quiz[]>([])
     const [loading, setLoading] = useState(true)
 
@@ -88,15 +90,15 @@ export default function TeacherQuizzesPage() {
 
             const formattedQuizzes = (data || []).map(quiz => ({
                 ...quiz,
-                class_name: (quiz.classes as any)?.name || 'Non assigné',
-                subject_name: (quiz.subjects as any)?.name || 'Général',
+                class_name: (quiz.classes as any)?.name || t('teacher.quizzes.unassigned'),
+                subject_name: (quiz.subjects as any)?.name || t('teacher.quizzes.general'),
                 submission_count: submissionCounts.get(quiz.id) || 0
             }))
 
             setQuizzes(formattedQuizzes)
         } catch (error) {
             console.error('Error loading quizzes:', error)
-            toast.error('Erreur lors du chargement des quiz')
+            toast.error(t('teacher.quizzes.errorLoading'))
         }
 
         setLoading(false)
@@ -111,16 +113,16 @@ export default function TeacherQuizzesPage() {
             .eq('id', quizId)
 
         if (error) {
-            toast.error('Erreur lors de la mise à jour')
+            toast.error(t('teacher.quizzes.updateError'))
             return
         }
 
-        toast.success(currentState ? 'Quiz dépublié' : 'Quiz publié')
+        toast.success(currentState ? t('teacher.quizzes.unpublishSuccess') : t('teacher.quizzes.publishSuccess'))
         loadQuizzes()
     }
 
     const deleteQuiz = async (quizId: string) => {
-        if (!confirm('Êtes-vous sûr de vouloir supprimer ce quiz ?')) return
+        if (!confirm(t('teacher.quizzes.deleteConfirm'))) return
 
         const supabase = createClient()
 
@@ -130,17 +132,17 @@ export default function TeacherQuizzesPage() {
             .eq('id', quizId)
 
         if (error) {
-            toast.error('Erreur lors de la suppression')
+            toast.error(t('teacher.quizzes.deleteError'))
             return
         }
 
-        toast.success('Quiz supprimé')
+        toast.success(t('teacher.quizzes.deleteSuccess'))
         loadQuizzes()
     }
 
     if (loading) {
         return (
-            <div className="space-y-6">
+            <div className="space-y-6" dir={direction}>
                 <div className="flex justify-between items-center">
                     <Skeleton className="h-8 w-48" />
                     <Skeleton className="h-10 w-40" />
@@ -155,122 +157,126 @@ export default function TeacherQuizzesPage() {
     }
 
     return (
-        <div className="space-y-6">
+        <div className="space-y-6" dir={direction}>
             {/* Header */}
             <div className="flex justify-between items-center">
                 <div>
-                    <h1 className="text-2xl font-bold">Mes Quiz</h1>
-                    <p className="text-muted-foreground text-sm">{quizzes.length} quiz créé{quizzes.length !== 1 ? 's' : ''}</p>
+                    <h1 className="text-2xl font-black text-gray-900 dark:text-white">{t('teacher.quizzes.title')}</h1>
+                    <p className="text-muted-foreground text-sm">
+                        {t('teacher.quizzes.subtitle', { count: quizzes.length, plural: quizzes.length !== 1 ? 's' : '' })}
+                    </p>
                 </div>
                 <Link href="/teacher/quizzes/new">
-                    <Button className="gap-2">
+                    <Button className="gap-2 bg-purple-600 hover:bg-purple-700 text-white rounded-xl shadow-sm transition-all duration-300">
                         <Plus className="w-4 h-4" />
-                        Créer un Quiz
+                        {t('teacher.quizzes.createBtn')}
                     </Button>
                 </Link>
             </div>
 
             {/* Quiz List */}
             {quizzes.length === 0 ? (
-                <Card className="p-12 text-center">
-                    <div className="w-16 h-16 mx-auto rounded-full bg-primary/10 flex items-center justify-center mb-4">
-                        <BrainCircuit className="w-8 h-8 text-primary" />
+                <Card className="p-12 text-center border border-gray-100 dark:border-white/5 rounded-3xl bg-white dark:bg-slate-900 shadow-sm">
+                    <div className="w-16 h-16 mx-auto rounded-2xl bg-purple-50 dark:bg-purple-500/10 flex items-center justify-center mb-4 text-purple-600 dark:text-purple-400">
+                        <BrainCircuit className="w-8 h-8" />
                     </div>
-                    <h3 className="font-semibold text-lg mb-2">Aucun quiz créé</h3>
-                    <p className="text-muted-foreground mb-6">
-                        Créez votre premier quiz pour vos élèves !
+                    <h3 className="font-bold text-lg mb-2 text-gray-900 dark:text-white">{t('teacher.quizzes.noQuizzes')}</h3>
+                    <p className="text-muted-foreground mb-6 max-w-sm mx-auto">
+                        {t('teacher.quizzes.noQuizzesDesc')}
                     </p>
                     <Link href="/teacher/quizzes/new">
-                        <Button>
+                        <Button className="bg-purple-600 hover:bg-purple-700 text-white rounded-xl">
                             <Plus className="w-4 h-4 mr-2" />
-                            Créer un Quiz
+                            {t('teacher.quizzes.createBtn')}
                         </Button>
                     </Link>
                 </Card>
             ) : (
                 <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
                     {quizzes.map(quiz => (
-                        <Card key={quiz.id} className="group hover:border-primary/50 transition-all">
+                        <Card key={quiz.id} className="group hover:border-purple-200 dark:hover:border-purple-500/20 hover:shadow-md transition-all duration-300 bg-white dark:bg-slate-900 border border-gray-100 dark:border-white/5 rounded-2xl">
                             <CardHeader className="pb-3">
                                 <div className="flex items-start justify-between">
-                                    <div className="flex-1">
-                                        <div className="flex items-center gap-2 mb-1">
-                                            <Badge variant={quiz.is_published ? "default" : "secondary"}>
-                                                {quiz.is_published ? 'Publié' : 'Brouillon'}
+                                    <div className="flex-1 min-w-0">
+                                        <div className="flex items-center gap-2 mb-2 flex-wrap">
+                                            <Badge className={quiz.is_published 
+                                                ? "bg-emerald-50 text-emerald-700 border-emerald-100 hover:bg-emerald-50 dark:bg-emerald-500/10 dark:text-emerald-400 dark:border-emerald-500/20" 
+                                                : "bg-amber-50 text-amber-700 border-amber-100 hover:bg-amber-50 dark:bg-amber-500/10 dark:text-amber-400 dark:border-amber-500/20"}>
+                                                {quiz.is_published ? t('teacher.quizzes.published') : t('teacher.quizzes.draft')}
                                             </Badge>
-                                            <Badge variant="outline">{quiz.subject_name}</Badge>
+                                            <Badge variant="outline" className="border-gray-200 text-gray-600 dark:border-white/10 dark:text-gray-400">{quiz.subject_name}</Badge>
                                         </div>
-                                        <CardTitle className="text-lg line-clamp-1">{quiz.title}</CardTitle>
+                                        <CardTitle className="text-base font-bold text-gray-950 dark:text-white line-clamp-1 group-hover:text-purple-600 dark:group-hover:text-purple-400 transition-colors">{quiz.title}</CardTitle>
                                     </div>
                                     <DropdownMenu>
                                         <DropdownMenuTrigger asChild>
-                                            <Button variant="ghost" size="icon" className="h-8 w-8">
+                                            <Button variant="ghost" size="icon" className="h-8 w-8 text-gray-400 hover:text-gray-950 dark:hover:text-white rounded-lg">
                                                 <MoreVertical className="w-4 h-4" />
                                             </Button>
                                         </DropdownMenuTrigger>
-                                        <DropdownMenuContent align="end">
+                                        <DropdownMenuContent align={direction === 'rtl' ? 'start' : 'end'} className="rounded-xl border-gray-100 dark:border-white/10">
                                             <Link href={`/teacher/quizzes/${quiz.id}/preview`}>
-                                                <DropdownMenuItem>
-                                                    <Play className="w-4 h-4 mr-2" />
-                                                    Prévisualiser
+                                                <DropdownMenuItem className="cursor-pointer gap-2 rounded-lg font-semibold text-xs">
+                                                    <Play className="w-3.5 h-3.5" />
+                                                    {t('teacher.quizzes.preview')}
                                                 </DropdownMenuItem>
                                             </Link>
                                             <Link href={`/teacher/quizzes/${quiz.id}/results`}>
-                                                <DropdownMenuItem>
-                                                    <Trophy className="w-4 h-4 mr-2" />
-                                                    Voir les résultats
+                                                <DropdownMenuItem className="cursor-pointer gap-2 rounded-lg font-semibold text-xs">
+                                                    <Trophy className="w-3.5 h-3.5" />
+                                                    {t('teacher.quizzes.viewResults')}
                                                 </DropdownMenuItem>
                                             </Link>
                                             <Link href={`/teacher/quizzes/${quiz.id}/edit`}>
-                                                <DropdownMenuItem>
-                                                    <Edit className="w-4 h-4 mr-2" />
-                                                    Modifier
+                                                <DropdownMenuItem className="cursor-pointer gap-2 rounded-lg font-semibold text-xs">
+                                                    <Edit className="w-3.5 h-3.5" />
+                                                    {t('teacher.quizzes.modify')}
                                                 </DropdownMenuItem>
                                             </Link>
-                                            <DropdownMenuItem onClick={() => togglePublish(quiz.id, quiz.is_published)}>
+                                            <DropdownMenuItem onClick={() => togglePublish(quiz.id, quiz.is_published)} className="cursor-pointer gap-2 rounded-lg font-semibold text-xs">
                                                 {quiz.is_published ? (
                                                     <>
-                                                        <EyeOff className="w-4 h-4 mr-2" />
-                                                        Dépublier
+                                                        <EyeOff className="w-3.5 h-3.5" />
+                                                        {t('teacher.quizzes.unpublish')}
                                                     </>
                                                 ) : (
                                                     <>
-                                                        <Eye className="w-4 h-4 mr-2" />
-                                                        Publier
+                                                        <Eye className="w-3.5 h-3.5" />
+                                                        {t('teacher.quizzes.publish')}
                                                     </>
                                                 )}
                                             </DropdownMenuItem>
                                             <DropdownMenuItem
                                                 onClick={() => deleteQuiz(quiz.id)}
-                                                className="text-red-500 focus:text-red-500"
+                                                className="text-red-500 focus:text-red-500 cursor-pointer gap-2 rounded-lg font-semibold text-xs"
                                             >
-                                                <Trash2 className="w-4 h-4 mr-2" />
-                                                Supprimer
+                                                <Trash2 className="w-3.5 h-3.5" />
+                                                {t('teacher.quizzes.delete')}
                                             </DropdownMenuItem>
                                         </DropdownMenuContent>
                                     </DropdownMenu>
                                 </div>
                             </CardHeader>
                             <CardContent>
-                                <p className="text-sm text-muted-foreground line-clamp-2 mb-4">
-                                    {quiz.description || 'Pas de description'}
+                                <p className="text-sm text-muted-foreground line-clamp-2 mb-4 h-10 leading-snug">
+                                    {quiz.description || t('teacher.quizzes.noDescription')}
                                 </p>
-                                <div className="flex items-center gap-4 text-xs text-muted-foreground">
+                                <div className="flex items-center gap-4 text-xs text-gray-400 dark:text-gray-500 font-bold">
                                     <span className="flex items-center gap-1">
                                         <FileQuestion className="w-3.5 h-3.5" />
-                                        {Array.isArray(quiz.questions) ? quiz.questions.length : 0} questions
+                                        {t('teacher.quizzes.questionsCount', { count: Array.isArray(quiz.questions) ? quiz.questions.length : 0 })}
                                     </span>
                                     <span className="flex items-center gap-1">
                                         <Clock className="w-3.5 h-3.5" />
-                                        {quiz.time_limit_minutes} min
+                                        {t('teacher.quizzes.minsCount', { count: quiz.time_limit_minutes })}
                                     </span>
                                     <span className="flex items-center gap-1">
                                         <Users className="w-3.5 h-3.5" />
-                                        {quiz.submission_count} réponses
+                                        {t('teacher.quizzes.submissionsCount', { count: quiz.submission_count || 0 })}
                                     </span>
                                 </div>
-                                <div className="mt-3 pt-3 border-t text-xs text-muted-foreground">
-                                    Classe: {quiz.class_name}
+                                <div className="mt-4 pt-3 border-t border-gray-50 dark:border-white/5 text-xs text-gray-400 font-bold uppercase tracking-wider">
+                                    {t('teacher.quizzes.classLabel', { name: quiz.class_name })}
                                 </div>
                             </CardContent>
                         </Card>

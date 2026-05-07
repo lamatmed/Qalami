@@ -3,6 +3,7 @@ import { SuperAdminProvider } from '@/context/super-admin-context'
 import { createClient } from '@/utils/supabase/server'
 import { redirect } from 'next/navigation'
 import { Shield } from 'lucide-react'
+import { SuperAdminLayoutWrapper } from '@/components/super-admin/layout-wrapper'
 
 export default async function SuperAdminLayout({
     children,
@@ -27,7 +28,7 @@ export default async function SuperAdminLayout({
 
     return (
         <SuperAdminProvider>
-            <div className="flex h-screen bg-gray-50 dark:bg-slate-950">
+            <SuperAdminLayoutWrapper>
                 <SuperAdminSidebar />
                 <main className="flex-1 overflow-y-auto">
                     <header className="bg-white/80 dark:bg-slate-900/50 border-b border-gray-200 dark:border-white/10 px-8 py-4 flex justify-between items-center sticky top-0 z-10 backdrop-blur-sm">
@@ -43,7 +44,7 @@ export default async function SuperAdminLayout({
                         {children}
                     </div>
                 </main>
-            </div>
+            </SuperAdminLayoutWrapper>
         </SuperAdminProvider>
     )
 }

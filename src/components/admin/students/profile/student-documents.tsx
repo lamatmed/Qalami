@@ -10,6 +10,7 @@ import { createClient } from '@/utils/supabase/client'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { UploadDocumentDialog } from '@/components/admin/documents/upload-document-dialog'
+import { useLanguage } from '@/i18n'
 
 interface StudentDocumentsProps {
     studentId?: string
@@ -38,19 +39,26 @@ interface PedaDocument {
     created_at: string
 }
 
-const DOC_TYPE_LABELS: Record<string, string> = {
-    course: 'Cours', exercise: 'Exercice', exam: 'Examen',
-    devoirs: 'Devoirs', correction: 'Correction', resource: 'Ressource', general: 'Général',
+const DOC_TYPE_LABEL_KEYS: Record<string, string> = {
+    course: 'admin.students.profile.documentsTypeCourse',
+    exercise: 'admin.students.profile.documentsTypeExercise',
+    exam: 'admin.students.profile.documentsTypeExam',
+    devoirs: 'admin.students.profile.documentsTypeDevoirs',
+    correction: 'admin.students.profile.documentsTypeCorrection',
+    resource: 'admin.students.profile.documentsTypeResource',
+    general: 'admin.students.profile.documentsTypeGeneral',
 }
 
 const requiredDocuments = [
-    { name: 'Acte de Naissance', icon: FileText, color: 'text-blue-400' },
-    { name: 'Photo d\'identité', icon: ImageIcon, color: 'text-purple-400' },
-    { name: 'Certificat Médical', icon: FileText, color: 'text-emerald-400' },
-    { name: 'Bulletin Précédent', icon: FileText, color: 'text-orange-400' },
+    // `name` must stay in French to match DB `document_name` values.
+    { name: 'Acte de Naissance',   labelKey: 'admin.students.profile.documentsReqBirthCert',      icon: FileText,  color: 'text-blue-400' },
+    { name: 'Photo d\'identité',  labelKey: 'admin.students.profile.documentsReqIdPhoto',        icon: ImageIcon, color: 'text-purple-400' },
+    { name: 'Certificat Médical', labelKey: 'admin.students.profile.documentsReqMedicalCert',    icon: FileText,  color: 'text-emerald-400' },
+    { name: 'Bulletin Précédent', labelKey: 'admin.students.profile.documentsReqPreviousReport', icon: FileText,  color: 'text-orange-400' },
 ]
 
 export function StudentDocuments({ studentId, classId }: StudentDocumentsProps) {
+    const { t } = useLanguage()
     const [documents, setDocuments] = useState<Document[]>([])
     const [loading, setLoading] = useState(true)
     const [uploading, setUploading] = useState<string | null>(null)
@@ -214,7 +222,7 @@ export function StudentDocuments({ studentId, classId }: StudentDocumentsProps) 
             if (uploadError) {
                 // If bucket doesn't exist, try creating it
                 if (uploadError.message?.includes('not found') || uploadError.message?.includes('Bucket')) {
-                    toast.error('Le stockage n\'est pas configuré. Contactez l\'administrateur pour créer le bucket "documents" dans Supabase Storage.')
+                    toast.error(t('admin.students.profile.documentsStorageNotConfigured'))
                     return
                 }
                 throw uploadError
@@ -239,17 +247,17 @@ export function StudentDocuments({ studentId, classId }: StudentDocumentsProps) 
                 if (dbError) {
                     console.error('DB save error:', dbError)
                     // Even if DB save fails, file is uploaded
-                    toast.warning('Fichier uploadé mais non enregistré dans le dossier')
+                    toast.warning(t('admin.students.profile.documentsUploadSavedButNotFiled'))
                 }
             }
 
-            toast.success(`${docName} uploadé avec succès`, {
+            toast.success(t('admin.students.profile.documentsUploadSuccess', { docName }), {
                 description: `${file.name} (${(file.size / 1024).toFixed(0)} KB)`
             })
             fetchDocuments()
         } catch (err) {
             console.error('Upload error:', err)
-            toast.error('Erreur lors de l\'upload du fichier')
+            toast.error(t('admin.students.profile.documentsUploadError'))
         } finally {
             setUploading(null)
             // Reset file input
@@ -260,7 +268,7 @@ export function StudentDocuments({ studentId, classId }: StudentDocumentsProps) 
 
     const handleViewDocument = (url: string | null) => {
         if (!url) {
-            toast.error('Aucun fichier à visualiser')
+            toast.error(t('admin.students.profile.documentsNoFileToView'))
             return
         }
         setViewingDoc(url)
@@ -273,6 +281,11 @@ export function StudentDocuments({ studentId, classId }: StudentDocumentsProps) 
     const getDocIcon = (name: string) => {
         const found = requiredDocuments.find(r => r.name === name)
         return found || { icon: FileText, color: 'text-gray-400' }
+    }
+
+    const getDocLabel = (name: string) => {
+        const found = requiredDocuments.find(r => r.name === name)
+        return found?.labelKey ? t(found.labelKey) : name
     }
 
     const filteredPedaDocs = pedaDocs.filter(d => {
@@ -311,7 +324,7 @@ export function StudentDocuments({ studentId, classId }: StudentDocumentsProps) 
                 <div className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4" onClick={() => setViewingDoc(null)}>
                     <div className="relative max-w-4xl w-full max-h-[90vh] bg-[#1A2530] rounded-2xl overflow-hidden" onClick={e => e.stopPropagation()}>
                         <div className="flex items-center justify-between p-4 border-b border-white/5">
-                            <h3 className="font-bold text-white">Aperçu du document</h3>
+                            <h3 className="font-bold text-white">{t('admin.students.profile.documentsViewerTitle')}</h3>
                             <div className="flex gap-2">
                                 <Button variant="ghost" size="icon" className="text-gray-400 hover:text-white" onClick={() => window.open(viewingDoc, '_blank')}>
                                     <Download className="w-4 h-4" />
@@ -335,10 +348,10 @@ export function StudentDocuments({ studentId, classId }: StudentDocumentsProps) 
             <Tabs defaultValue="dossier">
                 <TabsList className="bg-[#0F1720] border border-white/5 p-1 rounded-xl w-full grid grid-cols-2 mb-4">
                     <TabsTrigger value="dossier" className="rounded-lg data-[state=active]:bg-emerald-500/20 data-[state=active]:text-emerald-400 text-xs font-bold">
-                        Dossier Officiel
+                        {t('admin.students.profile.documentsTabOfficial')}
                     </TabsTrigger>
                     <TabsTrigger value="ressources" className="rounded-lg data-[state=active]:bg-cyan-500/20 data-[state=active]:text-cyan-400 text-xs font-bold">
-                        Ressources Pédagogiques
+                        {t('admin.students.profile.documentsTabResources')}
                     </TabsTrigger>
                 </TabsList>
 
@@ -346,10 +359,10 @@ export function StudentDocuments({ studentId, classId }: StudentDocumentsProps) 
                 <TabsContent value="dossier" className="space-y-5">
                     <div className="flex justify-between items-center">
                         <div className="flex items-center gap-3">
-                            <h3 className="font-bold text-white">Dossier Élève</h3>
+                            <h3 className="font-bold text-white">{t('admin.students.profile.studentFile')}</h3>
                             {validCount === totalCount && totalCount > 0 && (
                                 <Badge variant="outline" className="bg-emerald-500/10 text-emerald-500 border-emerald-500/20">
-                                    <CheckCircle2 className="w-3 h-3 mr-1" /> Complet
+                                    <CheckCircle2 className="w-3 h-3 mr-1" /> {t('admin.students.profile.documentsComplete')}
                                 </Badge>
                             )}
                         </div>
@@ -357,13 +370,19 @@ export function StudentDocuments({ studentId, classId }: StudentDocumentsProps) 
 
                     <div className="space-y-2">
                         <div className="flex justify-between text-xs text-gray-400">
-                            <span>Progression du dossier</span>
+                            <span>{t('admin.students.profile.documentsProgress')}</span>
                             <span className="text-emerald-500 font-bold">{progressPercentage}%</span>
                         </div>
                         <div className="h-1.5 w-full bg-[#0F1720] rounded-full overflow-hidden">
                             <div className="h-full bg-emerald-500 rounded-full transition-all duration-500" style={{ width: `${progressPercentage}%` }} />
                         </div>
-                        <p className="text-[10px] text-gray-500 italic">{validCount} document{validCount > 1 ? 's' : ''} sur {totalCount} validé{validCount > 1 ? 's' : ''}</p>
+                        <p className="text-[10px] text-gray-500 italic">
+                            {t('admin.students.profile.documentsProgressCount', {
+                                validCount,
+                                totalCount,
+                                validPlural: validCount > 1 ? 's' : '',
+                            })}
+                        </p>
                     </div>
 
                     <div className="space-y-3">
@@ -384,11 +403,11 @@ export function StudentDocuments({ studentId, classId }: StudentDocumentsProps) 
                                                 {doc.status === 'pending' && <div className="absolute -top-1 -right-1 h-3 w-3 bg-orange-500 rounded-full border-2 border-[#0F1720]" />}
                                             </div>
                                             <div>
-                                                <h5 className={cn("font-bold text-sm", doc.status === 'missing' ? "text-red-400" : "text-white")}>{doc.name}</h5>
+                                                <h5 className={cn("font-bold text-sm", doc.status === 'missing' ? "text-red-400" : "text-white")}>{getDocLabel(doc.name)}</h5>
                                                 <p className={cn("text-[10px]", doc.status === 'valid' ? "text-emerald-500" : doc.status === 'pending' ? "text-orange-400" : "text-red-400")}>
-                                                    {doc.status === 'valid' && `Validé le ${doc.uploaded_at ? new Date(doc.uploaded_at).toLocaleDateString('fr-FR') : '—'}`}
-                                                    {doc.status === 'pending' && "En cours de vérification..."}
-                                                    {doc.status === 'missing' && "Document manquant"}
+                                                    {doc.status === 'valid' && t('admin.students.profile.documentsValidatedOn', { date: doc.uploaded_at ? new Date(doc.uploaded_at).toLocaleDateString('fr-FR') : '—' })}
+                                                    {doc.status === 'pending' && t('admin.students.profile.documentsPending')}
+                                                    {doc.status === 'missing' && t('admin.students.profile.documentsMissing')}
                                                 </p>
                                             </div>
                                         </div>
@@ -397,7 +416,7 @@ export function StudentDocuments({ studentId, classId }: StudentDocumentsProps) 
                                                 <Loader2 className="w-5 h-5 text-emerald-500 animate-spin" />
                                             ) : doc.status === 'missing' ? (
                                                 <Button size="sm" className="bg-emerald-500 hover:bg-emerald-600 text-black font-bold h-8 rounded-lg gap-1" onClick={() => handleUploadForDocument(doc.name)}>
-                                                    <Upload className="w-3 h-3" /> AJOUTER
+                                                    <Upload className="w-3 h-3" /> {t('admin.students.profile.documentsAddUpper')}
                                                 </Button>
                                             ) : (
                                                 <Button size="icon" variant="ghost" className="text-gray-500 hover:text-white" onClick={() => handleViewDocument(doc.file_url)}>
@@ -413,17 +432,17 @@ export function StudentDocuments({ studentId, classId }: StudentDocumentsProps) 
 
                     <div className="grid grid-cols-2 gap-3 pt-2">
                         <Button variant="outline" className="bg-[#0F1720] border-white/5 hover:bg-[#1A2530] text-gray-300 gap-2 h-10" onClick={handleCameraCapture}>
-                            <Camera className="w-4 h-4" /> Prendre une photo
+                            <Camera className="w-4 h-4" /> {t('admin.students.profile.documentsTakePhoto')}
                         </Button>
                         <Button variant="outline" className="bg-[#0F1720] border-white/5 hover:bg-[#1A2530] text-gray-300 gap-2 h-10" onClick={handleGeneralUpload}>
-                            <Upload className="w-4 h-4" /> Importer PDF
+                            <Upload className="w-4 h-4" /> {t('admin.students.profile.documentsImportPdf')}
                         </Button>
                     </div>
 
                     <div className="flex justify-center pt-2">
                         <div className="flex items-center gap-2 text-[10px] text-gray-500">
                             <CheckCircle2 className="w-3 h-3 text-emerald-500" />
-                            <span>Tous les documents sont chiffrés et sécurisés.</span>
+                            <span>{t('admin.students.profile.documentsEncryptedHint')}</span>
                         </div>
                     </div>
                 </TabsContent>
@@ -431,9 +450,9 @@ export function StudentDocuments({ studentId, classId }: StudentDocumentsProps) 
                 {/* Tab 2: Pedagogical resources */}
                 <TabsContent value="ressources" className="space-y-4">
                     <div className="flex items-center justify-between">
-                        <h3 className="font-bold text-white text-sm">Ressources de la classe</h3>
+                        <h3 className="font-bold text-white text-sm">{t('admin.students.profile.documentsClassResourcesTitle')}</h3>
                         <Button size="sm" className="bg-cyan-600 hover:bg-cyan-700 text-white font-bold gap-1 h-8" onClick={() => setUploadDialogOpen(true)}>
-                            <Plus className="w-3.5 h-3.5" /> Ajouter
+                            <Plus className="w-3.5 h-3.5" /> {t('admin.students.profile.documentsAdd')}
                         </Button>
                     </div>
 
@@ -441,22 +460,22 @@ export function StudentDocuments({ studentId, classId }: StudentDocumentsProps) 
                     <div className="flex gap-2">
                         <Select value={typeFilter} onValueChange={setTypeFilter}>
                             <SelectTrigger className="bg-[#0F1720] border-white/10 text-white h-8 text-xs flex-1">
-                                <SelectValue placeholder="Type" />
+                                <SelectValue placeholder={t('admin.students.profile.documentsFilterTypePlaceholder')} />
                             </SelectTrigger>
                             <SelectContent className="bg-[#1A2530] border-white/10 text-white">
-                                <SelectItem value="all">Tous les types</SelectItem>
-                                {Object.entries(DOC_TYPE_LABELS).map(([v, l]) => (
-                                    <SelectItem key={v} value={v}>{l}</SelectItem>
+                                <SelectItem value="all">{t('admin.students.profile.documentsFilterAllTypes')}</SelectItem>
+                                {Object.entries(DOC_TYPE_LABEL_KEYS).map(([v, k]) => (
+                                    <SelectItem key={v} value={v}>{t(k)}</SelectItem>
                                 ))}
                             </SelectContent>
                         </Select>
                         {subjects.length > 0 && (
                             <Select value={subjectFilter} onValueChange={setSubjectFilter}>
                                 <SelectTrigger className="bg-[#0F1720] border-white/10 text-white h-8 text-xs flex-1">
-                                    <SelectValue placeholder="Matière" />
+                                    <SelectValue placeholder={t('admin.students.profile.documentsFilterSubjectPlaceholder')} />
                                 </SelectTrigger>
                                 <SelectContent className="bg-[#1A2530] border-white/10 text-white">
-                                    <SelectItem value="all">Toutes les matières</SelectItem>
+                                    <SelectItem value="all">{t('admin.students.profile.documentsFilterAllSubjects')}</SelectItem>
                                     {subjects.map(s => (
                                         <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>
                                     ))}
@@ -472,8 +491,8 @@ export function StudentDocuments({ studentId, classId }: StudentDocumentsProps) 
                     ) : filteredPedaDocs.length === 0 ? (
                         <div className="text-center py-10 text-gray-500">
                             <BookOpen className="w-10 h-10 mx-auto mb-3 opacity-30" />
-                            <p className="text-sm">Aucun document disponible</p>
-                            {!classId && <p className="text-xs mt-1">Associez l'élève à une classe pour voir les ressources</p>}
+                            <p className="text-sm">{t('admin.students.profile.documentsNoneAvailable')}</p>
+                            {!classId && <p className="text-xs mt-1">{t('admin.students.profile.documentsAssignClassHint')}</p>}
                         </div>
                     ) : (
                         <div className="space-y-2">
@@ -495,7 +514,7 @@ export function StudentDocuments({ studentId, classId }: StudentDocumentsProps) 
                                     <div className="flex-1 min-w-0">
                                         <p className="text-sm font-medium text-white truncate group-hover:text-cyan-300 transition-colors">{doc.name}</p>
                                         <p className="text-[10px] text-gray-500 mt-0.5">
-                                            {DOC_TYPE_LABELS[doc.document_type] || doc.document_type}
+                                            {DOC_TYPE_LABEL_KEYS[doc.document_type] ? t(DOC_TYPE_LABEL_KEYS[doc.document_type]) : doc.document_type}
                                             {doc.subjectName && ` · ${doc.subjectName}`}
                                         </p>
                                     </div>

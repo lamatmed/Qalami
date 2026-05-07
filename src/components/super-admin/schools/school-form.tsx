@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { Building2, ArrowLeft, Loader2 } from 'lucide-react'
+import { Building2, ArrowLeft, Loader2, Sparkles, Phone, Mail, MapPin, Layers, Users2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -9,8 +9,11 @@ import { createClient } from '@/utils/supabase/client'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { toast } from 'sonner'
+import { useLanguage } from '@/i18n'
+import { cn } from '@/lib/utils'
 
 export function SchoolForm() {
+    const { t, direction } = useLanguage()
     const supabase = createClient()
     const router = useRouter()
     const [loading, setLoading] = useState(false)
@@ -36,7 +39,7 @@ export function SchoolForm() {
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault()
         if (!form.name || !form.slug) {
-            toast.error('Veuillez remplir les champs obligatoires')
+            toast.error(t('superAdmin.schools.new.fillRequired'))
             return
         }
 
@@ -59,113 +62,156 @@ export function SchoolForm() {
 
             if (error) throw error
 
-            toast.success('École créée avec succès!')
+            toast.success(t('superAdmin.schools.new.createSuccess'))
             router.push(`/super-admin/schools/${data.id}`)
         } catch (error: any) {
             console.error('Error creating school:', error)
-            toast.error(error.message || 'Erreur lors de la création')
+            toast.error(error.message || t('superAdmin.schools.new.createError'))
         } finally {
             setLoading(false)
         }
     }
 
     return (
-        <div className="max-w-2xl">
+        <div className="max-w-3xl mx-auto pb-12 animate-in fade-in duration-500">
             {/* Header */}
             <div className="flex items-center gap-4 mb-8">
                 <Link href="/super-admin/schools">
-                    <Button variant="ghost" size="icon" className="rounded-xl text-gray-400 hover:text-white">
-                        <ArrowLeft className="w-5 h-5" />
+                    <Button variant="outline" size="icon" className="rounded-2xl border-gray-200 dark:border-white/10 text-gray-500 hover:text-purple-600 dark:hover:text-purple-400 bg-white dark:bg-slate-900 shadow-sm">
+                        <ArrowLeft className={cn("w-5 h-5", direction === 'rtl' && 'rotate-180')} />
                     </Button>
                 </Link>
                 <div>
-                    <h1 className="text-2xl font-black text-white">Nouvelle école</h1>
-                    <p className="text-gray-500">Créer une nouvelle école sur la plateforme</p>
+                    <div className="flex items-center gap-2">
+                        <span className="p-1 px-2.5 rounded-full bg-purple-500/10 text-purple-600 text-[10px] font-black tracking-wider uppercase mb-1">
+                            {t('common.superAdmin')}
+                        </span>
+                    </div>
+                    <h1 className="text-3xl font-black text-gray-900 dark:text-white tracking-tight">
+                        {t('superAdmin.schools.new.title')}
+                    </h1>
+                    <p className="text-sm text-gray-500 mt-1">
+                        {t('superAdmin.schools.new.subtitle')}
+                    </p>
                 </div>
             </div>
 
             {/* Form */}
             <form onSubmit={handleSubmit} className="space-y-6">
-                <div className="bg-slate-800/50 border border-white/5 rounded-2xl p-6 space-y-6">
-                    <div className="flex items-center gap-4 pb-4 border-b border-white/5">
-                        <div className="h-12 w-12 rounded-xl bg-purple-500/10 flex items-center justify-center text-purple-500">
+                
+                {/* Section 1: Informations Générales */}
+                <div className="bg-white dark:bg-slate-900 border border-gray-100 dark:border-white/5 rounded-3xl p-8 shadow-sm space-y-6">
+                    <div className="flex items-center gap-4 pb-4 border-b border-gray-100 dark:border-white/5">
+                        <div className="h-12 w-12 rounded-2xl bg-purple-500/10 flex items-center justify-center text-purple-500 shrink-0">
                             <Building2 className="w-6 h-6" />
                         </div>
-                        <h2 className="font-bold text-white">Informations générales</h2>
+                        <div>
+                            <h2 className="font-bold text-gray-900 dark:text-white text-lg">
+                                {t('superAdmin.schools.new.generalInfo')}
+                            </h2>
+                        </div>
                     </div>
 
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                         <div className="space-y-2">
-                            <Label className="text-gray-400">Nom de l'école *</Label>
-                            <Input
-                                value={form.name}
-                                onChange={(e) => {
-                                    setForm({
-                                        ...form,
-                                        name: e.target.value,
-                                        slug: handleSlugify(e.target.value)
-                                    })
-                                }}
-                                placeholder="École Al-Nour"
-                                className="bg-slate-900/50 border-white/10 text-white rounded-xl"
-                                required
-                            />
+                            <Label className="text-gray-600 dark:text-gray-400 font-bold text-xs uppercase tracking-wider">
+                                {t('superAdmin.schools.new.schoolName')}
+                            </Label>
+                            <div className="relative">
+                                <Input
+                                    value={form.name}
+                                    onChange={(e) => {
+                                        setForm({
+                                            ...form,
+                                            name: e.target.value,
+                                            slug: handleSlugify(e.target.value)
+                                        })
+                                    }}
+                                    placeholder={t('superAdmin.schools.new.schoolNamePlaceholder')}
+                                    className="bg-gray-50/60 dark:bg-slate-950/50 border-gray-200 dark:border-white/10 text-gray-900 dark:text-white rounded-2xl h-12 transition-all focus:bg-white focus:ring-2 focus:ring-purple-500/20"
+                                    required
+                                />
+                            </div>
                         </div>
                         <div className="space-y-2">
-                            <Label className="text-gray-400">Slug (URL) *</Label>
+                            <Label className="text-gray-600 dark:text-gray-400 font-bold text-xs uppercase tracking-wider">
+                                {t('superAdmin.schools.new.slug')}
+                            </Label>
                             <Input
                                 value={form.slug}
                                 onChange={(e) => setForm({ ...form, slug: e.target.value })}
-                                placeholder="al-nour"
-                                className="bg-slate-900/50 border-white/10 text-white rounded-xl"
+                                placeholder={t('superAdmin.schools.new.slugPlaceholder')}
+                                className="bg-gray-50/60 dark:bg-slate-950/50 border-gray-200 dark:border-white/10 text-gray-900 dark:text-white rounded-2xl h-12 transition-all focus:bg-white focus:ring-2 focus:ring-purple-500/20"
                                 required
                             />
                         </div>
                     </div>
 
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                         <div className="space-y-2">
-                            <Label className="text-gray-400">Email</Label>
+                            <Label className="text-gray-600 dark:text-gray-400 font-bold text-xs uppercase tracking-wider flex items-center gap-1.5">
+                                <Mail className="w-3.5 h-3.5 text-gray-400" />
+                                {t('superAdmin.schools.new.email')}
+                            </Label>
                             <Input
                                 type="email"
                                 value={form.email}
                                 onChange={(e) => setForm({ ...form, email: e.target.value })}
-                                placeholder="contact@ecole.mr"
-                                className="bg-slate-900/50 border-white/10 text-white rounded-xl"
+                                placeholder={t('superAdmin.schools.new.emailPlaceholder')}
+                                className="bg-gray-50/60 dark:bg-slate-950/50 border-gray-200 dark:border-white/10 text-gray-900 dark:text-white rounded-2xl h-12 transition-all focus:bg-white focus:ring-2 focus:ring-purple-500/20"
                             />
                         </div>
                         <div className="space-y-2">
-                            <Label className="text-gray-400">Téléphone</Label>
+                            <Label className="text-gray-600 dark:text-gray-400 font-bold text-xs uppercase tracking-wider flex items-center gap-1.5">
+                                <Phone className="w-3.5 h-3.5 text-gray-400" />
+                                {t('superAdmin.schools.new.phone')}
+                            </Label>
                             <Input
                                 value={form.phone}
                                 onChange={(e) => setForm({ ...form, phone: e.target.value })}
-                                placeholder="+222 XX XX XX XX"
-                                className="bg-slate-900/50 border-white/10 text-white rounded-xl"
+                                placeholder={t('superAdmin.schools.new.phonePlaceholder')}
+                                className="bg-gray-50/60 dark:bg-slate-950/50 border-gray-200 dark:border-white/10 text-gray-900 dark:text-white rounded-2xl h-12 transition-all focus:bg-white focus:ring-2 focus:ring-purple-500/20"
                             />
                         </div>
                     </div>
 
                     <div className="space-y-2">
-                        <Label className="text-gray-400">Adresse</Label>
+                        <Label className="text-gray-600 dark:text-gray-400 font-bold text-xs uppercase tracking-wider flex items-center gap-1.5">
+                            <MapPin className="w-3.5 h-3.5 text-gray-400" />
+                            {t('superAdmin.schools.new.address')}
+                        </Label>
                         <Input
                             value={form.address}
                             onChange={(e) => setForm({ ...form, address: e.target.value })}
-                            placeholder="Nouakchott, Mauritanie"
-                            className="bg-slate-900/50 border-white/10 text-white rounded-xl"
+                            placeholder={t('superAdmin.schools.new.addressPlaceholder')}
+                            className="bg-gray-50/60 dark:bg-slate-950/50 border-gray-200 dark:border-white/10 text-gray-900 dark:text-white rounded-2xl h-12 transition-all focus:bg-white focus:ring-2 focus:ring-purple-500/20"
                         />
                     </div>
                 </div>
 
-                <div className="bg-slate-800/50 border border-white/5 rounded-2xl p-6 space-y-6">
-                    <h2 className="font-bold text-white">Abonnement</h2>
+                {/* Section 2: Abonnement */}
+                <div className="bg-white dark:bg-slate-900 border border-gray-100 dark:border-white/5 rounded-3xl p-8 shadow-sm space-y-6">
+                    <div className="flex items-center gap-4 pb-4 border-b border-gray-100 dark:border-white/5">
+                        <div className="h-12 w-12 rounded-2xl bg-purple-500/10 flex items-center justify-center text-purple-500 shrink-0">
+                            <Sparkles className="w-6 h-6" />
+                        </div>
+                        <div>
+                            <h2 className="font-bold text-gray-900 dark:text-white text-lg">
+                                {t('superAdmin.schools.new.subscription')}
+                            </h2>
+                        </div>
+                    </div>
 
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                         <div className="space-y-2">
-                            <Label className="text-gray-400">Plan</Label>
+                            <Label className="text-gray-600 dark:text-gray-400 font-bold text-xs uppercase tracking-wider flex items-center gap-1.5">
+                                <Layers className="w-3.5 h-3.5 text-gray-400" />
+                                {t('superAdmin.schools.new.plan')}
+                            </Label>
                             <select
                                 value={form.subscription_plan}
                                 onChange={(e) => setForm({ ...form, subscription_plan: e.target.value })}
-                                className="w-full h-10 px-3 rounded-xl bg-slate-900/50 border border-white/10 text-white"
+                                className="w-full h-12 px-4 rounded-2xl bg-gray-50/60 dark:bg-slate-950/50 border border-gray-200 dark:border-white/10 text-gray-900 dark:text-white focus:bg-white focus:ring-2 focus:ring-purple-500/20 transition-all font-semibold outline-none"
                             >
                                 <option value="free">Free</option>
                                 <option value="pro">Pro</option>
@@ -173,35 +219,39 @@ export function SchoolForm() {
                             </select>
                         </div>
                         <div className="space-y-2">
-                            <Label className="text-gray-400">Limite d'élèves</Label>
+                            <Label className="text-gray-600 dark:text-gray-400 font-bold text-xs uppercase tracking-wider flex items-center gap-1.5">
+                                <Users2 className="w-3.5 h-3.5 text-gray-400" />
+                                {t('superAdmin.schools.new.limitStudents')}
+                            </Label>
                             <Input
                                 type="number"
                                 value={form.max_students}
                                 onChange={(e) => setForm({ ...form, max_students: parseInt(e.target.value) || 100 })}
-                                className="bg-slate-900/50 border-white/10 text-white rounded-xl"
+                                className="bg-gray-50/60 dark:bg-slate-950/50 border-gray-200 dark:border-white/10 text-gray-900 dark:text-white rounded-2xl h-12 transition-all focus:bg-white focus:ring-2 focus:ring-purple-500/20"
                             />
                         </div>
                     </div>
                 </div>
 
-                <div className="flex gap-3">
+                {/* Submit and Cancel Buttons */}
+                <div className="flex gap-4">
                     <Link href="/super-admin/schools" className="flex-1">
-                        <Button type="button" variant="outline" className="w-full border-white/10 text-white hover:bg-white/5 rounded-xl h-12">
-                            Annuler
+                        <Button type="button" variant="outline" className="w-full border-gray-200 dark:border-white/10 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-white/5 rounded-2xl h-12 font-bold">
+                            {t('superAdmin.schools.new.cancel')}
                         </Button>
                     </Link>
                     <Button
                         type="submit"
                         disabled={loading}
-                        className="flex-1 bg-purple-600 hover:bg-purple-500 text-white font-bold rounded-xl h-12"
+                        className="flex-1 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white font-bold rounded-2xl h-12 shadow-lg shadow-purple-600/20 transition-all duration-300"
                     >
                         {loading ? (
                             <>
                                 <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                                Création...
+                                {t('superAdmin.schools.new.creating')}
                             </>
                         ) : (
-                            'Créer l\'école'
+                            t('superAdmin.schools.new.create')
                         )}
                     </Button>
                 </div>

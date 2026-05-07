@@ -7,6 +7,7 @@ import { Input } from '@/components/ui/input'
 import { cn } from '@/lib/utils'
 import { useParent } from '@/context/parent-context'
 import { createClient } from '@/utils/supabase/client'
+import { useLanguage } from '@/i18n'
 
 interface ClassDocument {
     id: string
@@ -18,11 +19,6 @@ interface ClassDocument {
     subjectIcon: string | null
     academic_year: string | null
     created_at: string
-}
-
-const DOC_TYPE_LABELS: Record<string, string> = {
-    course: 'Cours', exercise: 'Exercice', exam: 'Examen',
-    devoirs: 'Devoirs', correction: 'Correction', resource: 'Ressource', general: 'Général',
 }
 
 const TYPE_COLORS: Record<string, { text: string; bg: string }> = {
@@ -37,6 +33,7 @@ const TYPE_COLORS: Record<string, { text: string; bg: string }> = {
 
 export function ParentDocuments() {
     const { selectedChild, loading } = useParent()
+    const { t } = useLanguage()
     const [documents, setDocuments] = useState<ClassDocument[]>([])
     const [loadingDocs, setLoadingDocs] = useState(false)
     const [searchQuery, setSearchQuery] = useState('')
@@ -87,6 +84,10 @@ export function ParentDocuments() {
         fetchDocuments()
     }, [selectedChild])
 
+    const getDocTypeLabel = (type: string) => {
+        return t(`parent.documents.${type}`) || type
+    }
+
     const filtered = documents.filter(d => {
         if (typeFilter !== 'all' && d.document_type !== typeFilter) return false
         if (searchQuery && !d.name.toLowerCase().includes(searchQuery.toLowerCase()) && !(d.subjectName || '').toLowerCase().includes(searchQuery.toLowerCase())) return false
@@ -95,7 +96,7 @@ export function ParentDocuments() {
 
     // Group by subject
     const grouped = filtered.reduce((acc, doc) => {
-        const key = doc.subjectName || 'Général'
+        const key = doc.subjectName || t('parent.documents.general')
         if (!acc[key]) acc[key] = { icon: doc.subjectIcon, docs: [] }
         acc[key].docs.push(doc)
         return acc
@@ -111,49 +112,49 @@ export function ParentDocuments() {
 
     if (!selectedChild) {
         return (
-            <div className="max-w-md mx-auto lg:max-w-3xl p-4">
+            <div className="max-w-md mx-auto lg:max-w-3xl lg:ms-12 lg:me-auto p-4">
                 <div className="bg-card border border-border rounded-3xl p-6 text-center">
-                    <p className="text-muted-foreground">Aucun enfant sélectionné.</p>
+                    <p className="text-muted-foreground">{t('parent.documents.noChild')}</p>
                 </div>
             </div>
         )
     }
 
     return (
-        <div className="max-w-md mx-auto lg:max-w-3xl pb-24 space-y-6 p-4">
+        <div className="max-w-md mx-auto lg:max-w-3xl lg:ms-12 lg:me-auto pb-24 space-y-6 p-4">
             {/* Header */}
             <div className="flex items-center justify-between">
                 <div>
-                    <h1 className="font-bold text-xl">Documents</h1>
+                    <h1 className="font-bold text-xl">{t('parent.documents.title')}</h1>
                     <p className="text-xs text-muted-foreground mt-0.5">{selectedChild.name} · {selectedChild.class}</p>
                 </div>
             </div>
 
             {/* Search */}
             <div className="relative">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500" />
+                <Search className="absolute left-3 rtl:left-auto rtl:right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500" />
                 <Input
-                    placeholder="Rechercher un document..."
+                    placeholder={t('parent.documents.searchPlaceholder')}
                     value={searchQuery}
                     onChange={e => setSearchQuery(e.target.value)}
-                    className="pl-9 h-10 bg-card border-border/50"
+                    className="pl-9 rtl:pl-3 rtl:pr-9 h-10 bg-card border-border/50"
                 />
             </div>
 
             {/* Type filter pills */}
             <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-none">
-                {(['all', 'course', 'exercise', 'exam', 'devoirs', 'correction', 'resource'] as const).map(t => (
+                {(['all', 'course', 'exercise', 'exam', 'devoirs', 'correction', 'resource'] as const).map(tFilter => (
                     <button
-                        key={t}
-                        onClick={() => setTypeFilter(t)}
+                        key={tFilter}
+                        onClick={() => setTypeFilter(tFilter)}
                         className={cn(
                             "shrink-0 px-3 py-1 rounded-lg text-xs font-bold border transition-colors",
-                            typeFilter === t
+                            typeFilter === tFilter
                                 ? "bg-cyan-500/20 text-cyan-400 border-cyan-500/30"
                                 : "bg-card border-border/50 text-muted-foreground hover:text-foreground"
                         )}
                     >
-                        {t === 'all' ? 'Tous' : DOC_TYPE_LABELS[t]}
+                        {tFilter === 'all' ? t('parent.documents.all') : getDocTypeLabel(tFilter)}
                     </button>
                 ))}
             </div>
@@ -167,11 +168,11 @@ export function ParentDocuments() {
                     <Folder className="w-12 h-12 text-muted-foreground mx-auto mb-3 opacity-40" />
                     <p className="text-muted-foreground text-sm">
                         {documents.length === 0
-                            ? "Aucun document disponible pour cette classe."
-                            : "Aucun document ne correspond à votre recherche."}
+                            ? t('parent.documents.emptyClass')
+                            : t('parent.documents.emptySearch')}
                     </p>
                     {documents.length === 0 && (
-                        <p className="text-xs text-muted-foreground mt-2">Les enseignants publieront leurs cours ici.</p>
+                        <p className="text-xs text-muted-foreground mt-2">{t('parent.documents.teacherNotice')}</p>
                     )}
                 </div>
             ) : (
@@ -201,7 +202,7 @@ export function ParentDocuments() {
                                             <div>
                                                 <h3 className="font-bold text-sm text-foreground truncate max-w-[180px]">{doc.name}</h3>
                                                 <p className="text-[10px] text-muted-foreground mt-0.5">
-                                                    <span className={cn("font-bold", typeStyle.text)}>{DOC_TYPE_LABELS[doc.document_type] || doc.document_type}</span>
+                                                    <span className={cn("font-bold", typeStyle.text)}>{getDocTypeLabel(doc.document_type)}</span>
                                                     {doc.academic_year && ` · ${doc.academic_year}`}
                                                 </p>
                                             </div>

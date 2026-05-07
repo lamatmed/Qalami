@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button'
 import { ChevronRight, ChevronLeft, Search, Loader2, X, Users, Phone } from 'lucide-react'
 import { RegistrationData } from '../registration-wizard'
 import { createClient } from '@/utils/supabase/client'
+import { useLanguage } from '@/i18n'
 
 interface StepProps {
     data: RegistrationData
@@ -23,6 +24,7 @@ interface ParentResult {
 }
 
 export function ParentDetails({ data, updateData, onNext, onPrev }: StepProps) {
+    const { t } = useLanguage()
     const { parents } = data
     const [searchTerm, setSearchTerm] = useState('')
     const [searchResults, setSearchResults] = useState<ParentResult[]>([])
@@ -89,8 +91,8 @@ export function ParentDetails({ data, updateData, onNext, onPrev }: StepProps) {
     return (
         <div className="space-y-6">
             <div className="mb-6">
-                <h2 className="text-2xl font-bold text-white mb-2">Contacts Parents</h2>
-                <p className="text-gray-400 text-sm">Étape 2 sur 4 : Sélectionner les parents depuis la liste.</p>
+                <h2 className="text-2xl font-bold text-white mb-2">{t('admin.students.register.parents.title')}</h2>
+                <p className="text-gray-400 text-sm">{t('admin.students.register.parents.subtitle')}</p>
             </div>
 
             {/* Selected Parents */}
@@ -104,7 +106,7 @@ export function ParentDetails({ data, updateData, onNext, onPrev }: StepProps) {
                                 </div>
                                 <div>
                                     <p className="text-white font-medium text-sm">{p.name}</p>
-                                    <p className="text-emerald-500/60 text-xs">{p.slot === 1 ? 'Parent principal' : 'Parent secondaire'}</p>
+                                    <p className="text-emerald-500/60 text-xs">{p.slot === 1 ? t('admin.students.register.parents.primaryParent') : t('admin.students.register.parents.secondaryParent')}</p>
                                 </div>
                             </div>
                             <button onClick={() => removeParent(p.slot)} className="text-gray-500 hover:text-red-400 transition-colors">
@@ -119,12 +121,12 @@ export function ParentDetails({ data, updateData, onNext, onPrev }: StepProps) {
             {selectedParents.length < 2 && (
                 <div className="relative">
                     <p className="text-xs text-gray-400 mb-2 font-medium">
-                        {selectedParents.length === 0 ? 'Rechercher le parent principal' : 'Rechercher le parent secondaire (optionnel)'}
+                        {selectedParents.length === 0 ? t('admin.students.register.parents.searchPrimary') : t('admin.students.register.parents.searchSecondary')}
                     </p>
                     <div className="relative">
                         <Search className="absolute left-3 top-3 h-4 w-4 text-gray-500" />
                         <Input
-                            placeholder="Nom ou numéro de téléphone..."
+                            placeholder={t('admin.students.register.parents.searchPlaceholder')}
                             className="pl-9 bg-[#1A2530] border-white/5"
                             value={searchTerm}
                             onChange={(e) => setSearchTerm(e.target.value)}
@@ -143,7 +145,7 @@ export function ParentDetails({ data, updateData, onNext, onPrev }: StepProps) {
                                     <p className="text-white font-medium text-sm">{parent.full_name}</p>
                                     <div className="flex items-center gap-1 text-gray-500 text-xs mt-0.5">
                                         <Phone className="w-3 h-3" />
-                                        <span>{parent.phone || parent.email || 'Aucun contact'}</span>
+                                        <span>{parent.phone || parent.email || t('admin.students.register.parents.noContact')}</span>
                                     </div>
                                 </button>
                             ))}
@@ -151,7 +153,7 @@ export function ParentDetails({ data, updateData, onNext, onPrev }: StepProps) {
                     )}
 
                     {searchTerm.length >= 2 && !searching && searchResults.length === 0 && (
-                        <p className="text-xs text-gray-500 mt-2">Aucun parent trouvé. Créez d'abord le parent depuis la page Parents.</p>
+                        <p className="text-xs text-gray-500 mt-2">{t('admin.students.register.parents.notFoundHint')}</p>
                     )}
                 </div>
             )}
@@ -162,14 +164,14 @@ export function ParentDetails({ data, updateData, onNext, onPrev }: StepProps) {
                     onClick={onPrev}
                     className="flex-1 bg-transparent border-white/10 text-white h-12 rounded-xl hover:bg-white/5"
                 >
-                    <ChevronLeft className="mr-2 w-4 h-4" /> Retour
+                    <ChevronLeft className="mr-2 w-4 h-4" /> {t('common.back')}
                 </Button>
                 <Button
                     onClick={onNext}
                     disabled={!parents.parent1Id}
                     className="flex-1 bg-emerald-500 hover:bg-emerald-600 text-black font-bold h-12 rounded-xl disabled:opacity-50"
                 >
-                    Suivant <ChevronRight className="ml-2 w-4 h-4" />
+                    {t('common.next')} <ChevronRight className="ml-2 w-4 h-4" />
                 </Button>
             </div>
         </div>

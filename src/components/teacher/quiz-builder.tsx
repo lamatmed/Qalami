@@ -20,13 +20,15 @@ import {
     GripVertical,
     Check,
     Save,
-    ArrowLeft
+    ArrowLeft,
+    ArrowRight
 } from 'lucide-react'
 import { createClient } from '@/utils/supabase/client'
 import { toast } from 'sonner'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { motion, AnimatePresence } from 'framer-motion'
+import { useLanguage } from '@/i18n'
 
 interface Question {
     id: string
@@ -41,6 +43,7 @@ interface QuizBuilderProps {
 
 export function QuizBuilder({ quizId }: QuizBuilderProps) {
     const router = useRouter()
+    const { t, direction } = useLanguage()
     const [loading, setLoading] = useState(false)
     const [saving, setSaving] = useState(false)
 
@@ -106,7 +109,7 @@ export function QuizBuilder({ quizId }: QuizBuilderProps) {
             .single()
 
         if (error || !data) {
-            toast.error('Quiz non trouvé')
+            toast.error(t('teacher.quizzes.builder.notFound'))
             router.push('/teacher/quizzes')
             return
         }
@@ -140,7 +143,7 @@ export function QuizBuilder({ quizId }: QuizBuilderProps) {
 
     const removeQuestion = (id: string) => {
         if (questions.length <= 1) {
-            toast.error('Un quiz doit avoir au moins une question')
+            toast.error(t('teacher.quizzes.builder.minQuestionsError'))
             return
         }
         setQuestions(questions.filter(q => q.id !== id))
@@ -166,11 +169,11 @@ export function QuizBuilder({ quizId }: QuizBuilderProps) {
     const handleSave = async () => {
         // Validation
         if (!title.trim()) {
-            toast.error('Le titre est requis')
+            toast.error(t('teacher.quizzes.builder.titleRequired'))
             return
         }
         if (!classId) {
-            toast.error('Veuillez sélectionner une classe')
+            toast.error(t('teacher.quizzes.builder.classRequired'))
             return
         }
 
@@ -179,7 +182,7 @@ export function QuizBuilder({ quizId }: QuizBuilderProps) {
         )
 
         if (validQuestions.length === 0) {
-            toast.error('Ajoutez au moins une question complète')
+            toast.error(t('teacher.quizzes.builder.completeQuestionError'))
             return
         }
 
@@ -221,92 +224,100 @@ export function QuizBuilder({ quizId }: QuizBuilderProps) {
 
         if (error) {
             console.error('Error saving quiz:', error)
-            toast.error('Erreur lors de la sauvegarde')
+            toast.error(t('teacher.quizzes.builder.saveError'))
             return
         }
 
-        toast.success(quizId ? 'Quiz mis à jour !' : 'Quiz créé !')
+        toast.success(t('teacher.quizzes.builder.saveSuccess'))
         router.push('/teacher/quizzes')
     }
 
     if (loading) {
-        return <div className="p-8 text-center">Chargement...</div>
+        return <div className="p-8 text-center font-bold text-gray-400">{t('teacher.quizzes.builder.loading')}</div>
     }
 
+    const BackIcon = direction === 'rtl' ? ArrowRight : ArrowLeft
+
     return (
-        <div className="max-w-3xl mx-auto space-y-6">
+        <div className="max-w-3xl mx-auto space-y-6" dir={direction}>
             {/* Header */}
             <div className="flex items-center gap-4">
                 <Link href="/teacher/quizzes">
-                    <Button variant="ghost" size="icon">
-                        <ArrowLeft className="w-5 h-5" />
+                    <Button variant="ghost" size="icon" className="h-10 w-10 border border-gray-100 dark:border-white/10 hover:bg-gray-50 rounded-xl">
+                        <BackIcon className="w-5 h-5 text-gray-500" />
                     </Button>
                 </Link>
                 <div className="flex-1">
-                    <h1 className="text-2xl font-bold">
-                        {quizId ? 'Modifier le Quiz' : 'Créer un Quiz'}
+                    <h1 className="text-2xl font-black text-gray-900 dark:text-white">
+                        {quizId ? t('teacher.quizzes.builder.editTitle') : t('teacher.quizzes.builder.createTitle')}
                     </h1>
                 </div>
-                <Button onClick={handleSave} disabled={saving} className="gap-2">
+                <Button onClick={handleSave} disabled={saving} className="gap-2 bg-purple-600 hover:bg-purple-700 text-white rounded-xl shadow-sm">
                     <Save className="w-4 h-4" />
-                    {saving ? 'Enregistrement...' : 'Enregistrer'}
+                    {saving ? t('teacher.quizzes.builder.saving') : t('teacher.quizzes.builder.save')}
                 </Button>
             </div>
 
             {/* Quiz Settings */}
-            <Card>
+            <Card className="border border-gray-100 dark:border-white/5 rounded-2xl bg-white dark:bg-slate-900 shadow-sm">
                 <CardHeader>
-                    <CardTitle>Paramètres du Quiz</CardTitle>
+                    <CardTitle className="text-lg font-bold text-gray-950 dark:text-white">{t('teacher.quizzes.builder.settingsTitle')}</CardTitle>
                 </CardHeader>
-                <CardContent className="space-y-4">
-                    <div className="grid gap-4 sm:grid-cols-2">
+                <CardContent className="space-y-5">
+                    <div className="grid gap-5 sm:grid-cols-2">
                         <div className="sm:col-span-2">
-                            <Label htmlFor="title">Titre *</Label>
+                            <Label htmlFor="title" className="font-bold text-xs text-gray-500 dark:text-gray-400 uppercase tracking-wider">{t('teacher.quizzes.builder.quizTitleLabel')}</Label>
                             <Input
                                 id="title"
                                 value={title}
                                 onChange={(e) => setTitle(e.target.value)}
-                                placeholder="Ex: Quiz de révision - Chapitre 3"
+                                placeholder={t('teacher.quizzes.builder.quizTitlePlaceholder')}
+                                className="rounded-xl border-gray-100 mt-1.5 focus-visible:ring-purple-600 focus-visible:border-purple-600"
                             />
                         </div>
                         <div className="sm:col-span-2">
-                            <Label htmlFor="description">Description</Label>
+                            <Label htmlFor="description" className="font-bold text-xs text-gray-500 dark:text-gray-400 uppercase tracking-wider">{t('teacher.quizzes.builder.descriptionLabel')}</Label>
                             <Textarea
                                 id="description"
                                 value={description}
                                 onChange={(e) => setDescription(e.target.value)}
-                                placeholder="Description optionnelle du quiz..."
-                                rows={2}
+                                placeholder={t('teacher.quizzes.builder.descriptionPlaceholder')}
+                                rows={2.5}
+                                className="rounded-xl border-gray-100 mt-1.5 focus-visible:ring-purple-600 focus-visible:border-purple-600"
                             />
                         </div>
                         <div>
-                            <Label>Classe *</Label>
-                            <Select value={classId} onValueChange={setClassId}>
-                                <SelectTrigger>
-                                    <SelectValue placeholder="Sélectionner une classe" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    {classes.map(c => (
-                                        <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
-                                    ))}
-                                </SelectContent>
-                            </Select>
+                            <Label className="font-bold text-xs text-gray-500 dark:text-gray-400 uppercase tracking-wider">{t('teacher.quizzes.builder.classSelectLabel')}</Label>
+                            <div className="mt-1.5">
+                                <Select value={classId} onValueChange={setClassId}>
+                                    <SelectTrigger className="rounded-xl border-gray-100">
+                                        <SelectValue placeholder={t('teacher.quizzes.builder.classPlaceholder')} />
+                                    </SelectTrigger>
+                                    <SelectContent className="rounded-xl">
+                                        {classes.map(c => (
+                                            <SelectItem key={c.id} value={c.id} className="cursor-pointer">{c.name}</SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
+                            </div>
                         </div>
                         <div>
-                            <Label>Matière</Label>
-                            <Select value={subjectId} onValueChange={setSubjectId}>
-                                <SelectTrigger>
-                                    <SelectValue placeholder="Sélectionner une matière" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    {subjects.map(s => (
-                                        <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>
-                                    ))}
-                                </SelectContent>
-                            </Select>
+                            <Label className="font-bold text-xs text-gray-500 dark:text-gray-400 uppercase tracking-wider">{t('teacher.quizzes.builder.subjectSelectLabel')}</Label>
+                            <div className="mt-1.5">
+                                <Select value={subjectId} onValueChange={setSubjectId}>
+                                    <SelectTrigger className="rounded-xl border-gray-100">
+                                        <SelectValue placeholder={t('teacher.quizzes.builder.subjectPlaceholder')} />
+                                    </SelectTrigger>
+                                    <SelectContent className="rounded-xl">
+                                        {subjects.map(s => (
+                                            <SelectItem key={s.id} value={s.id} className="cursor-pointer">{s.name}</SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
+                            </div>
                         </div>
                         <div>
-                            <Label htmlFor="timeLimit">Durée (minutes)</Label>
+                            <Label htmlFor="timeLimit" className="font-bold text-xs text-gray-500 dark:text-gray-400 uppercase tracking-wider">{t('teacher.quizzes.builder.durationLabel')}</Label>
                             <Input
                                 id="timeLimit"
                                 type="number"
@@ -314,10 +325,11 @@ export function QuizBuilder({ quizId }: QuizBuilderProps) {
                                 max={120}
                                 value={timeLimit}
                                 onChange={(e) => setTimeLimit(Number(e.target.value))}
+                                className="rounded-xl border-gray-100 mt-1.5 focus-visible:ring-purple-600"
                             />
                         </div>
                         <div>
-                            <Label htmlFor="maxAttempts">Tentatives max</Label>
+                            <Label htmlFor="maxAttempts" className="font-bold text-xs text-gray-500 dark:text-gray-400 uppercase tracking-wider">{t('teacher.quizzes.builder.attemptsLabel')}</Label>
                             <Input
                                 id="maxAttempts"
                                 type="number"
@@ -325,20 +337,22 @@ export function QuizBuilder({ quizId }: QuizBuilderProps) {
                                 max={10}
                                 value={maxAttempts}
                                 onChange={(e) => setMaxAttempts(Number(e.target.value))}
+                                className="rounded-xl border-gray-100 mt-1.5 focus-visible:ring-purple-600"
                             />
                         </div>
                     </div>
-                    <div className="flex items-center justify-between pt-2">
+                    <div className="flex items-center justify-between pt-3 border-t border-gray-50 dark:border-white/5">
                         <div>
-                            <Label htmlFor="published">Publier immédiatement</Label>
-                            <p className="text-xs text-muted-foreground">
-                                Les élèves pourront voir et répondre au quiz
+                            <Label htmlFor="published" className="font-bold text-sm text-gray-900 dark:text-white">{t('teacher.quizzes.builder.publishImmediatelyLabel')}</Label>
+                            <p className="text-xs text-muted-foreground mt-0.5">
+                                {t('teacher.quizzes.builder.publishImmediatelyDesc')}
                             </p>
                         </div>
                         <Switch
                             id="published"
                             checked={isPublished}
                             onCheckedChange={setIsPublished}
+                            className="data-[state=checked]:bg-purple-600"
                         />
                     </div>
                 </CardContent>
@@ -347,10 +361,12 @@ export function QuizBuilder({ quizId }: QuizBuilderProps) {
             {/* Questions */}
             <div className="space-y-4">
                 <div className="flex items-center justify-between">
-                    <h2 className="text-lg font-semibold">Questions ({questions.length})</h2>
-                    <Button variant="outline" size="sm" onClick={addQuestion} className="gap-2">
+                    <h2 className="text-lg font-bold text-gray-950 dark:text-white">
+                        {t('teacher.quizzes.builder.questionsTitle', { count: questions.length })}
+                    </h2>
+                    <Button variant="outline" size="sm" onClick={addQuestion} className="gap-2 border-gray-200 text-gray-600 hover:bg-gray-50 rounded-xl font-bold">
                         <Plus className="w-4 h-4" />
-                        Ajouter
+                        {t('teacher.quizzes.builder.addQuestionBtn')}
                     </Button>
                 </div>
 
@@ -361,17 +377,18 @@ export function QuizBuilder({ quizId }: QuizBuilderProps) {
                             initial={{ opacity: 0, y: 20 }}
                             animate={{ opacity: 1, y: 0 }}
                             exit={{ opacity: 0, y: -20 }}
+                            transition={{ duration: 0.2 }}
                         >
-                            <Card className="border-l-4 border-l-primary">
+                            <Card className="border-l-4 border-l-purple-600 border border-gray-100 dark:border-white/5 rounded-2xl bg-white dark:bg-slate-900 shadow-sm">
                                 <CardHeader className="pb-3">
                                     <div className="flex items-center gap-2">
-                                        <GripVertical className="w-4 h-4 text-muted-foreground cursor-grab" />
-                                        <span className="font-bold text-primary">Question {qIndex + 1}</span>
+                                        <GripVertical className="w-4 h-4 text-gray-300 cursor-grab shrink-0" />
+                                        <span className="font-bold text-purple-600 dark:text-purple-400">Question {qIndex + 1}</span>
                                         <div className="flex-1" />
                                         <Button
                                             variant="ghost"
                                             size="icon"
-                                            className="h-8 w-8 text-destructive hover:text-destructive"
+                                            className="h-8 w-8 text-red-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-500/10 rounded-lg"
                                             onClick={() => removeQuestion(q.id)}
                                         >
                                             <Trash2 className="w-4 h-4" />
@@ -380,39 +397,42 @@ export function QuizBuilder({ quizId }: QuizBuilderProps) {
                                 </CardHeader>
                                 <CardContent className="space-y-4">
                                     <div>
-                                        <Label>Énoncé de la question *</Label>
+                                        <Label className="font-bold text-xs text-gray-500 dark:text-gray-400 uppercase tracking-wider">{t('teacher.quizzes.builder.questionLabel')}</Label>
                                         <Textarea
                                             value={q.question}
                                             onChange={(e) => updateQuestion(q.id, 'question', e.target.value)}
-                                            placeholder="Tapez votre question ici..."
+                                            placeholder={t('teacher.quizzes.builder.questionPlaceholder')}
                                             rows={2}
+                                            className="rounded-xl border-gray-100 mt-1.5 focus-visible:ring-purple-600 focus-visible:border-purple-600"
                                         />
                                     </div>
-                                    <div className="space-y-2">
-                                        <Label>Options de réponse *</Label>
-                                        <p className="text-xs text-muted-foreground mb-2">
-                                            Cliquez sur le cercle pour marquer la bonne réponse
+                                    <div className="space-y-3">
+                                        <Label className="font-bold text-xs text-gray-500 dark:text-gray-400 uppercase tracking-wider">{t('teacher.quizzes.builder.optionsLabel')}</Label>
+                                        <p className="text-xs text-muted-foreground leading-none">
+                                            {t('teacher.quizzes.builder.optionsDesc')}
                                         </p>
-                                        {q.options.map((option, oIndex) => (
-                                            <div key={oIndex} className="flex items-center gap-2">
-                                                <button
-                                                    type="button"
-                                                    onClick={() => updateQuestion(q.id, 'correctIndex', oIndex)}
-                                                    className={`w-6 h-6 rounded-full border-2 flex items-center justify-center transition-all ${q.correctIndex === oIndex
-                                                        ? 'border-emerald-500 bg-emerald-500 text-white'
-                                                        : 'border-muted-foreground/30 hover:border-muted-foreground'
-                                                        }`}
-                                                >
-                                                    {q.correctIndex === oIndex && <Check className="w-3 h-3" />}
-                                                </button>
-                                                <Input
-                                                    value={option}
-                                                    onChange={(e) => updateOption(q.id, oIndex, e.target.value)}
-                                                    placeholder={`Option ${oIndex + 1}`}
-                                                    className={q.correctIndex === oIndex ? 'border-emerald-500/50' : ''}
-                                                />
-                                            </div>
-                                        ))}
+                                        <div className="space-y-2 mt-2">
+                                            {q.options.map((option, oIndex) => (
+                                                <div key={oIndex} className="flex items-center gap-3">
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => updateQuestion(q.id, 'correctIndex', oIndex)}
+                                                        className={`w-6 h-6 rounded-full border-2 flex items-center justify-center transition-all shrink-0 ${q.correctIndex === oIndex
+                                                            ? 'border-emerald-500 bg-emerald-500 text-white'
+                                                            : 'border-gray-200 dark:border-white/10 hover:border-purple-600'
+                                                            }`}
+                                                    >
+                                                        {q.correctIndex === oIndex && <Check className="w-3.5 h-3.5 stroke-[3px]" />}
+                                                    </button>
+                                                    <Input
+                                                        value={option}
+                                                        onChange={(e) => updateOption(q.id, oIndex, e.target.value)}
+                                                        placeholder={t('teacher.quizzes.builder.optionPlaceholder', { num: oIndex + 1 })}
+                                                        className={`rounded-xl border-gray-100 focus-visible:ring-purple-600 ${q.correctIndex === oIndex ? 'border-emerald-500/50 focus-visible:ring-emerald-500 focus-visible:border-emerald-500' : ''}`}
+                                                    />
+                                                </div>
+                                            ))}
+                                        </div>
                                     </div>
                                 </CardContent>
                             </Card>
@@ -420,9 +440,9 @@ export function QuizBuilder({ quizId }: QuizBuilderProps) {
                     ))}
                 </AnimatePresence>
 
-                <Button variant="outline" onClick={addQuestion} className="w-full gap-2">
+                <Button variant="outline" onClick={addQuestion} className="w-full gap-2 border-dashed border-2 border-gray-200 dark:border-white/10 hover:border-purple-600 hover:text-purple-600 text-gray-500 font-bold py-5 rounded-2xl">
                     <Plus className="w-4 h-4" />
-                    Ajouter une question
+                    {t('teacher.quizzes.builder.addQuestionBtn')}
                 </Button>
             </div>
         </div>

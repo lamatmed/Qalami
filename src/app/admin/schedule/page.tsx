@@ -28,7 +28,7 @@ export default function SchedulePage() {
     const handlePrint = () => {
         const activeId = viewMode === 'class' ? selectedClassId : selectedTeacherId
         if (!activeId) {
-            toast.error("Veuillez sélectionner une classe ou un enseignant d'abord")
+            toast.error(t('admin.schedule.selectRequired'))
             return
         }
         window.print()
@@ -37,7 +37,7 @@ export default function SchedulePage() {
     const handleExportPDF = async () => {
         const activeId = viewMode === 'class' ? selectedClassId : selectedTeacherId
         if (!activeId) {
-            toast.error("Veuillez sélectionner une classe ou un enseignant d'abord")
+            toast.error(t('admin.schedule.selectRequired'))
             return
         }
         setExporting(true)
@@ -57,9 +57,9 @@ export default function SchedulePage() {
             const pdfHeight = (canvas.height * pdfWidth) / canvas.width
             pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight)
             pdf.save(`emploi-du-temps-${new Date().toISOString().split('T')[0]}.pdf`)
-            toast.success('PDF exporté avec succès')
+            toast.success(t('admin.schedule.exportSuccess'))
         } catch (err) {
-            toast.error("Erreur lors de l'export. Installez les dépendances: npm install html2canvas jspdf")
+            toast.error(t('admin.schedule.exportError'))
         } finally {
             setExporting(false)
         }
@@ -70,10 +70,10 @@ export default function SchedulePage() {
             {/* Actions */}
             <div className="flex flex-wrap justify-end gap-2 print:hidden">
                     <Button variant="outline" onClick={() => setImportOpen(true)}>
-                        <Upload className="w-4 h-4 me-2" /> Importer
+                        <Upload className="w-4 h-4 me-2" /> {t('admin.schedule.import')}
                     </Button>
                     <Button variant="outline" onClick={() => setCopyOpen(true)}>
-                        <Copy className="w-4 h-4 me-2" /> Copier
+                        <Copy className="w-4 h-4 me-2" /> {t('admin.schedule.copy')}
                     </Button>
                     <Button variant="outline" onClick={handlePrint}>
                         <Printer className="w-4 h-4 me-2" /> {t('admin.schedule.print')}
@@ -84,7 +84,7 @@ export default function SchedulePage() {
                         disabled={exporting}
                     >
                         {exporting ? (
-                            <><Loader2 className="w-4 h-4 me-2 animate-spin" /> Export...</>
+                            <><Loader2 className="w-4 h-4 me-2 animate-spin" /> {t('admin.schedule.exporting')}</>
                         ) : (
                             <><Download className="w-4 h-4 me-2" /> {t('admin.schedule.exportPdf')}</>
                         )}
@@ -103,7 +103,7 @@ export default function SchedulePage() {
                     )}
                 >
                     <Users className="w-4 h-4" />
-                    Par classe
+                    {t('admin.schedule.byClass')}
                 </button>
                 <button
                     onClick={() => setViewMode('teacher')}
@@ -115,7 +115,7 @@ export default function SchedulePage() {
                     )}
                 >
                     <GraduationCap className="w-4 h-4" />
-                    Par enseignant
+                    {t('admin.schedule.byTeacher')}
                 </button>
             </div>
 

@@ -713,6 +713,26 @@ html[dir="rtl"] .pl-9 {
   padding-right: 2.25rem !important;
 }
 
+html[dir="rtl"] .pl-10 {
+  padding-left: 0 !important;
+  padding-right: 2.5rem !important;
+}
+
+html[dir="rtl"] .pl-11 {
+  padding-left: 0 !important;
+  padding-right: 2.75rem !important;
+}
+
+html[dir="rtl"] .pl-12 {
+  padding-left: 0 !important;
+  padding-right: 3rem !important;
+}
+
+html[dir="rtl"] .pl-14 {
+  padding-left: 0 !important;
+  padding-right: 3.5rem !important;
+}
+
 html[dir="rtl"] .pr-2 {
   padding-right: 0 !important;
   padding-left: 0.5rem !important;
@@ -731,6 +751,26 @@ html[dir="rtl"] .pr-4 {
 html[dir="rtl"] .pr-6 {
   padding-right: 0 !important;
   padding-left: 1.5rem !important;
+}
+
+html[dir="rtl"] .pr-10 {
+  padding-right: 0 !important;
+  padding-left: 2.5rem !important;
+}
+
+html[dir="rtl"] .pr-11 {
+  padding-right: 0 !important;
+  padding-left: 2.75rem !important;
+}
+
+html[dir="rtl"] .pr-12 {
+  padding-right: 0 !important;
+  padding-left: 3rem !important;
+}
+
+html[dir="rtl"] .pr-14 {
+  padding-right: 0 !important;
+  padding-left: 3.5rem !important;
 }
 
 /* --- POSITION FLIP: left ↔ right --- */

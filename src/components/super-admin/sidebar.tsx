@@ -22,7 +22,7 @@ export function useSuperAdminSidebarItems() {
     return [
         { icon: LayoutDashboard, label: t('superAdmin.sidebar.dashboard'), href: '/super-admin' },
         { icon: Building2, label: t('superAdmin.sidebar.schools'), href: '/super-admin/schools' },
-        { icon: Users, label: t('common.students'), href: '/super-admin/users' },
+        { icon: Users, label: t('superAdmin.sidebar.users'), href: '/super-admin/users' },
         { icon: Settings, label: t('common.settings'), href: '/super-admin/settings' },
     ]
 }

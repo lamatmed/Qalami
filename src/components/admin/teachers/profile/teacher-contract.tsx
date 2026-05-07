@@ -10,8 +10,10 @@ import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
 import { Switch } from '@/components/ui/switch'
 import { DollarSign, Building, CreditCard, Save } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { useLanguage } from '@/i18n'
 
 export function TeacherContract({ teacherId }: { teacherId?: string }) {
+    const { t } = useLanguage()
     const [contractType, setContractType] = useState('fixed') // fixed | hourly
     const [paymentMethod, setPaymentMethod] = useState('bank') // bank | wallet | cash
 
@@ -19,8 +21,8 @@ export function TeacherContract({ teacherId }: { teacherId?: string }) {
         <div className="space-y-6 animate-in fade-in duration-500">
             {/* Header */}
             <div>
-                <h3 className="text-xl font-bold text-white">Contrat & Financier</h3>
-                <p className="text-gray-400 text-sm">Gérez le type de contrat et les informations de paiement.</p>
+                <h3 className="text-xl font-bold text-white">{t('admin.teachers.contract.title')}</h3>
+                <p className="text-gray-400 text-sm">{t('admin.teachers.contract.subtitle')}</p>
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -30,7 +32,7 @@ export function TeacherContract({ teacherId }: { teacherId?: string }) {
                         <div className="bg-emerald-500/10 p-2 rounded-lg text-emerald-500">
                             <DollarSign className="w-5 h-5" />
                         </div>
-                        <h4 className="font-bold text-white">Type de Contrat</h4>
+                        <h4 className="font-bold text-white">{t('admin.teachers.contract.typeTitle')}</h4>
                     </div>
 
                     <RadioGroup value={contractType} onValueChange={setContractType} className="grid grid-cols-2 gap-4">
@@ -44,7 +46,7 @@ export function TeacherContract({ teacherId }: { teacherId?: string }) {
                                 )}
                             >
                                 <Building className="mb-3 h-6 w-6" />
-                                <span className="text-sm font-bold">Salaire Fixe (Mensuel)</span>
+                                <span className="text-sm font-bold">{t('admin.teachers.contract.fixedSalary')}</span>
                             </Label>
                         </div>
                         <div>
@@ -57,7 +59,7 @@ export function TeacherContract({ teacherId }: { teacherId?: string }) {
                                 )}
                             >
                                 <ClockIcon className="mb-3 h-6 w-6" />
-                                <span className="text-sm font-bold">Vacataire (Horaire)</span>
+                                <span className="text-sm font-bold">{t('admin.teachers.contract.hourlySalary')}</span>
                             </Label>
                         </div>
                     </RadioGroup>
@@ -65,7 +67,7 @@ export function TeacherContract({ teacherId }: { teacherId?: string }) {
                     <div className="space-y-4 pt-2">
                         {contractType === 'fixed' ? (
                             <div className="space-y-2">
-                                <Label className="text-xs text-gray-500 uppercase font-bold">Salaire Mensuel de Base (MRU)</Label>
+                                <Label className="text-xs text-gray-500 uppercase font-bold">{t('admin.teachers.contract.fixedSalaryLabel')}</Label>
                                 <div className="relative">
                                     <Input
                                         type="number"
@@ -74,11 +76,11 @@ export function TeacherContract({ teacherId }: { teacherId?: string }) {
                                     />
                                     <span className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-500 text-xs font-bold">MRU</span>
                                 </div>
-                                <p className="text-[10px] text-gray-500">Montant fixe versé chaque mois avant primes.</p>
+                                <p className="text-[10px] text-gray-500">{t('admin.teachers.contract.fixedSalaryDesc')}</p>
                             </div>
                         ) : (
                             <div className="space-y-2">
-                                <Label className="text-xs text-gray-500 uppercase font-bold">Taux Horaire (MRU/h)</Label>
+                                <Label className="text-xs text-gray-500 uppercase font-bold">{t('admin.teachers.contract.hourlySalaryLabel')}</Label>
                                 <div className="relative">
                                     <Input
                                         type="number"
@@ -87,12 +89,12 @@ export function TeacherContract({ teacherId }: { teacherId?: string }) {
                                     />
                                     <span className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-500 text-xs font-bold">MRU / h</span>
                                 </div>
-                                <p className="text-[10px] text-gray-500">Le salaire sera calculé automatiquement : Heures x Taux.</p>
+                                <p className="text-[10px] text-gray-500">{t('admin.teachers.contract.hourlySalaryDesc')}</p>
                             </div>
                         )}
 
                         <div className="flex items-center justify-between pt-2">
-                            <Label className="text-sm font-bold text-gray-300">Cotisation CNSS</Label>
+                            <Label className="text-sm font-bold text-gray-300">{t('admin.teachers.contract.cnss')}</Label>
                             <Switch className="data-[state=checked]:bg-emerald-500" />
                         </div>
                     </div>
@@ -104,20 +106,20 @@ export function TeacherContract({ teacherId }: { teacherId?: string }) {
                         <div className="bg-blue-500/10 p-2 rounded-lg text-blue-500">
                             <CreditCard className="w-5 h-5" />
                         </div>
-                        <h4 className="font-bold text-white">Méthode de Paiement</h4>
+                        <h4 className="font-bold text-white">{t('admin.teachers.contract.paymentMethodTitle')}</h4>
                     </div>
 
                     <div className="space-y-4">
                         <div className="space-y-2">
-                            <Label className="text-xs text-gray-500 uppercase font-bold">Moyen de virement</Label>
+                            <Label className="text-xs text-gray-500 uppercase font-bold">{t('admin.teachers.contract.paymentMethodLabel')}</Label>
                             <Select value={paymentMethod} onValueChange={setPaymentMethod}>
                                 <SelectTrigger className="bg-[#0F1720] border-white/10 h-12 text-white">
                                     <SelectValue />
                                 </SelectTrigger>
                                 <SelectContent className="bg-[#1A2530] border-white/10 text-white">
-                                    <SelectItem value="bank">Virement Bancaire</SelectItem>
-                                    <SelectItem value="wallet">Portefeuille Digital (Bankily, Masrvi...)</SelectItem>
-                                    <SelectItem value="cash">Espèces</SelectItem>
+                                    <SelectItem value="bank">{t('admin.teachers.contract.bankTransfer')}</SelectItem>
+                                    <SelectItem value="wallet">{t('admin.teachers.contract.digitalWallet')}</SelectItem>
+                                    <SelectItem value="cash">{t('admin.teachers.contract.cash')}</SelectItem>
                                 </SelectContent>
                             </Select>
                         </div>
@@ -125,11 +127,11 @@ export function TeacherContract({ teacherId }: { teacherId?: string }) {
                         {paymentMethod === 'bank' && (
                             <div className="space-y-4 animate-in fade-in slide-in-from-top-2">
                                 <div className="space-y-2">
-                                    <Label className="text-xs text-gray-500 uppercase font-bold">Nom de la Banque</Label>
+                                    <Label className="text-xs text-gray-500 uppercase font-bold">{t('admin.teachers.contract.bankName')}</Label>
                                     <Input placeholder="Ex: Banque Populaire de Mauritanie" className="bg-[#0F1720] border-white/10 text-white" />
                                 </div>
                                 <div className="space-y-2">
-                                    <Label className="text-xs text-gray-500 uppercase font-bold">Numéro de Compte / IBAN</Label>
+                                    <Label className="text-xs text-gray-500 uppercase font-bold">{t('admin.teachers.contract.accountNumber')}</Label>
                                     <Input placeholder="MR12 3456 ..." className="bg-[#0F1720] border-white/10 text-white font-mono" />
                                 </div>
                             </div>
@@ -139,22 +141,22 @@ export function TeacherContract({ teacherId }: { teacherId?: string }) {
                             <div className="space-y-4 animate-in fade-in slide-in-from-top-2">
                                 <div className="grid grid-cols-2 gap-4">
                                     <div className="space-y-2">
-                                        <Label className="text-xs text-gray-500 uppercase font-bold">Application</Label>
+                                        <Label className="text-xs text-gray-500 uppercase font-bold">Application / Wallet</Label>
                                         <Select>
                                             <SelectTrigger className="bg-[#0F1720] border-white/10 h-10 text-white">
-                                                <SelectValue placeholder="Choisir..." />
+                                                <SelectValue placeholder={t('admin.teachers.contract.choose')} />
                                             </SelectTrigger>
                                             <SelectContent className="bg-[#1A2530] border-white/10 text-white">
                                                 <SelectItem value="bankily">Bankily</SelectItem>
                                                 <SelectItem value="masrvi">Masrvi</SelectItem>
                                                 <SelectItem value="sedad">Sedad</SelectItem>
                                                 <SelectItem value="click">Click</SelectItem>
-                                                <SelectItem value="other">Autre</SelectItem>
+                                                <SelectItem value="other">{t('admin.teachers.contract.other')}</SelectItem>
                                             </SelectContent>
                                         </Select>
                                     </div>
                                     <div className="space-y-2">
-                                        <Label className="text-xs text-gray-500 uppercase font-bold">Numéro Tél.</Label>
+                                        <Label className="text-xs text-gray-500 uppercase font-bold">{t('admin.teachers.contract.phoneNumber')}</Label>
                                         <Input placeholder="Ex: 36 12 34 56" className="bg-[#0F1720] border-white/10 text-white" />
                                     </div>
                                 </div>
@@ -167,7 +169,7 @@ export function TeacherContract({ teacherId }: { teacherId?: string }) {
             <div className="flex justify-end pt-4">
                 <Button className="bg-emerald-600 hover:bg-emerald-500 text-black font-bold h-12 px-8 shadow-lg shadow-emerald-900/20">
                     <Save className="w-4 h-4 mr-2" />
-                    Enregistrer les modifications
+                    {t('admin.teachers.contract.saveChanges')}
                 </Button>
             </div>
         </div>

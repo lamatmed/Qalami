@@ -5,16 +5,17 @@ import { MessageCircle, Star, AlertTriangle, TrendingUp, Hand, Loader2, School, 
 import { cn } from '@/lib/utils'
 import { createClient } from '@/utils/supabase/client'
 import { toast } from 'sonner'
+import { useLanguage } from '@/i18n'
 
 /* ─── Config ─── */
 
-const CATEGORY_CONFIG: Record<string, { label: string; color: string; bg: string }> = {
-    comportement:  { label: 'Comportement',  color: 'text-red-400',     bg: 'bg-red-500/10' },
-    scolaire:      { label: 'Scolaire',      color: 'text-blue-400',    bg: 'bg-blue-500/10' },
-    assiduite:     { label: 'Assiduité',     color: 'text-amber-400',   bg: 'bg-amber-500/10' },
-    participation: { label: 'Participation', color: 'text-emerald-400', bg: 'bg-emerald-500/10' },
-    devoirs:       { label: 'Devoirs',       color: 'text-purple-400',  bg: 'bg-purple-500/10' },
-    general:       { label: 'Général',       color: 'text-gray-400',    bg: 'bg-gray-500/10' },
+const CATEGORY_CONFIG: Record<string, { labelKey: string; color: string; bg: string }> = {
+    comportement:  { labelKey: 'admin.students.profile.remarksCategoryComportement',  color: 'text-red-400',     bg: 'bg-red-500/10' },
+    scolaire:      { labelKey: 'admin.students.profile.remarksCategoryScolaire',      color: 'text-blue-400',    bg: 'bg-blue-500/10' },
+    assiduite:     { labelKey: 'admin.students.profile.remarksCategoryAssiduite',     color: 'text-amber-400',   bg: 'bg-amber-500/10' },
+    participation: { labelKey: 'admin.students.profile.remarksCategoryParticipation', color: 'text-emerald-400', bg: 'bg-emerald-500/10' },
+    devoirs:       { labelKey: 'admin.students.profile.remarksCategoryDevoirs',       color: 'text-purple-400',  bg: 'bg-purple-500/10' },
+    general:       { labelKey: 'admin.students.profile.remarksCategoryGeneral',       color: 'text-gray-400',    bg: 'bg-gray-500/10' },
 }
 
 const TYPE_CONFIG: Record<string, { icon: any; color: string; bg: string; label: string }> = {
@@ -43,10 +44,11 @@ interface Remark {
 /* ─── Sender Badge ─── */
 
 function SenderBadge({ senderType, teacherName }: { senderType: 'teacher' | 'school' | null; teacherName: string | null }) {
+    const { t } = useLanguage()
     if (senderType === 'school' || !teacherName) {
         return (
             <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-400 border border-emerald-500/25">
-                <School className="w-2.5 h-2.5" /> Établissement
+                <School className="w-2.5 h-2.5" /> {t('admin.students.profile.remarksSchool')}
             </span>
         )
     }
@@ -60,6 +62,7 @@ function SenderBadge({ senderType, teacherName }: { senderType: 'teacher' | 'sch
 /* ─── Main Component ─── */
 
 export function StudentRemarks({ studentId }: { studentId: string }) {
+    const { t } = useLanguage()
     const [remarks, setRemarks]           = useState<Remark[]>([])
     const [loading, setLoading]           = useState(true)
     const [categoryFilter, setCategoryFilter] = useState('')
@@ -179,7 +182,7 @@ export function StudentRemarks({ studentId }: { studentId: string }) {
             <div className="flex justify-between items-center mb-4">
                 <h3 className="font-bold text-white flex items-center gap-2">
                     <MessageCircle className="w-5 h-5 text-gray-400" />
-                    Remarques
+                    {t('admin.students.profile.remarks')}
                     <span className="text-[10px] text-gray-500 bg-white/5 px-2 py-0.5 rounded border border-white/5 font-normal">
                         {remarks.length}
                     </span>
@@ -193,7 +196,9 @@ export function StudentRemarks({ studentId }: { studentId: string }) {
                             : 'bg-emerald-500/15 border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/25'
                     )}
                 >
-                    {showForm ? <><X className="w-3.5 h-3.5" /> Annuler</> : <><PlusCircle className="w-3.5 h-3.5" /> Nouvelle remarque</>}
+                    {showForm
+                        ? <><X className="w-3.5 h-3.5" /> {t('admin.students.profile.remarksCancel')}</>
+                        : <><PlusCircle className="w-3.5 h-3.5" /> {t('admin.students.profile.newRemark')}</>}
                 </button>
             </div>
 
@@ -202,13 +207,13 @@ export function StudentRemarks({ studentId }: { studentId: string }) {
                 <div className="mb-4 bg-[#0F1720] rounded-2xl border border-emerald-500/20 p-4 space-y-3 animate-in fade-in slide-in-from-top-2 duration-200">
                     <div className="flex items-center gap-2 mb-1">
                         <School className="w-4 h-4 text-emerald-400" />
-                        <p className="text-xs font-bold text-emerald-400">Remarque de l'Établissement</p>
+                        <p className="text-xs font-bold text-emerald-400">{t('admin.students.profile.remarksSchoolFormTitle')}</p>
                     </div>
 
                     {/* Type + Category */}
                     <div className="grid grid-cols-2 gap-2">
                         <div>
-                            <label className="text-[10px] text-gray-500 uppercase font-bold mb-1 block">Type</label>
+                            <label className="text-[10px] text-gray-500 uppercase font-bold mb-1 block">{t('admin.students.profile.remarksTypeLabel')}</label>
                             <select
                                 value={formType}
                                 onChange={e => setFormType(e.target.value)}
@@ -220,14 +225,14 @@ export function StudentRemarks({ studentId }: { studentId: string }) {
                             </select>
                         </div>
                         <div>
-                            <label className="text-[10px] text-gray-500 uppercase font-bold mb-1 block">Catégorie</label>
+                            <label className="text-[10px] text-gray-500 uppercase font-bold mb-1 block">{t('admin.students.profile.remarksCategoryLabel')}</label>
                             <select
                                 value={formCategory}
                                 onChange={e => setFormCategory(e.target.value)}
                                 className="w-full bg-[#1A2530] border border-white/10 text-xs text-white rounded-lg px-2 py-1.5 focus:outline-none focus:ring-1 focus:ring-emerald-500/50"
                             >
                                 {Object.entries(CATEGORY_CONFIG).map(([k, v]) => (
-                                    <option key={k} value={k}>{v.label}</option>
+                                    <option key={k} value={k}>{t(v.labelKey)}</option>
                                 ))}
                             </select>
                         </div>
@@ -235,11 +240,11 @@ export function StudentRemarks({ studentId }: { studentId: string }) {
 
                     {/* Message */}
                     <div>
-                        <label className="text-[10px] text-gray-500 uppercase font-bold mb-1 block">Message</label>
+                        <label className="text-[10px] text-gray-500 uppercase font-bold mb-1 block">{t('admin.students.profile.remarksMessageLabel')}</label>
                         <textarea
                             value={formMessage}
                             onChange={e => setFormMessage(e.target.value)}
-                            placeholder="Rédigez votre remarque…"
+                            placeholder={t('admin.students.profile.remarksMessagePlaceholder')}
                             rows={3}
                             className="w-full bg-[#1A2530] border border-white/10 text-sm text-white rounded-xl px-3 py-2 resize-none placeholder:text-gray-600 focus:outline-none focus:ring-1 focus:ring-emerald-500/50"
                         />
@@ -260,7 +265,7 @@ export function StudentRemarks({ studentId }: { studentId: string }) {
                                     visibleToParent ? 'translate-x-4' : 'translate-x-0.5'
                                 )} />
                             </div>
-                            <span className="text-[10px] text-gray-400">Visible par les parents</span>
+                            <span className="text-[10px] text-gray-400">{t('admin.students.profile.remarksVisibleToParents')}</span>
                         </label>
                         <button
                             onClick={handleSend}
@@ -268,7 +273,7 @@ export function StudentRemarks({ studentId }: { studentId: string }) {
                             className="flex items-center gap-1.5 px-4 py-1.5 bg-emerald-500 hover:bg-emerald-400 disabled:opacity-50 disabled:cursor-not-allowed text-black text-xs font-bold rounded-lg transition-colors"
                         >
                             {sending ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Send className="w-3.5 h-3.5" />}
-                            Envoyer
+                            {t('admin.students.profile.remarksSend')}
                         </button>
                     </div>
                 </div>
@@ -284,7 +289,7 @@ export function StudentRemarks({ studentId }: { studentId: string }) {
                             ? 'bg-emerald-500/10 text-emerald-500 border-emerald-500/30'
                             : 'bg-white/5 border-white/10 text-gray-400 hover:text-white'
                     )}
-                >Tout</button>
+                >{t('admin.students.profile.remarksFilterAll')}</button>
                 {Object.entries(CATEGORY_CONFIG).map(([key, cfg]) => (
                     <button
                         key={key}
@@ -295,7 +300,7 @@ export function StudentRemarks({ studentId }: { studentId: string }) {
                                 ? `${cfg.bg} ${cfg.color} border-current`
                                 : 'bg-white/5 border-white/10 text-gray-400 hover:text-white'
                         )}
-                    >{cfg.label}</button>
+                    >{t(cfg.labelKey)}</button>
                 ))}
             </div>
 
@@ -307,7 +312,7 @@ export function StudentRemarks({ studentId }: { studentId: string }) {
                     </div>
                 ) : filteredRemarks.length === 0 ? (
                     <div className="text-center p-12 text-gray-500 text-sm">
-                        {categoryFilter ? 'Aucune remarque dans cette catégorie' : 'Aucune remarque enregistrée'}
+                        {categoryFilter ? t('admin.students.profile.remarksEmptyForCategory') : t('admin.students.profile.remarksEmpty')}
                     </div>
                 ) : (
                     filteredRemarks.map(remark => {
@@ -332,7 +337,7 @@ export function StudentRemarks({ studentId }: { studentId: string }) {
                                                 />
                                                 {catInfo && (
                                                     <span className={cn('text-[10px] font-bold px-1.5 py-0.5 rounded-md', catInfo.bg, catInfo.color)}>
-                                                        {catInfo.label}
+                                                        {t(catInfo.labelKey)}
                                                     </span>
                                                 )}
                                                 {remark.subjectName && (
@@ -348,7 +353,7 @@ export function StudentRemarks({ studentId }: { studentId: string }) {
 
                                         {/* Visibility indicator */}
                                         {!remark.is_visible_to_parent && (
-                                            <p className="text-[10px] text-gray-600 mt-1.5 italic">Non visible par les parents</p>
+                                            <p className="text-[10px] text-gray-600 mt-1.5 italic">{t('admin.students.profile.remarksNotVisibleToParents')}</p>
                                         )}
                                     </div>
                                 </div>

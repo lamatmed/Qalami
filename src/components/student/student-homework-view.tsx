@@ -6,6 +6,7 @@ import { Input } from '@/components/ui/input'
 import { cn } from '@/lib/utils'
 import Link from 'next/link'
 import { useState } from 'react'
+import { useLanguage } from '@/i18n'
 
 interface Homework {
     id: string
@@ -29,6 +30,7 @@ interface Props {
 
 export function StudentHomeworkView({ homework }: Props) {
     const [searchQuery, setSearchQuery] = useState('')
+    const { t } = useLanguage()
 
     const now = new Date()
     const tomorrow = new Date(now)
@@ -55,21 +57,23 @@ export function StudentHomeworkView({ homework }: Props) {
     })
 
     const formatDue = (dateStr: string | null) => {
-        if (!dateStr) return 'Pas de date limite'
+        if (!dateStr) return t('student.homework.noLimit')
         const date = new Date(dateStr)
         const today = new Date()
         today.setHours(0, 0, 0, 0)
         const tomorrow = new Date(today)
         tomorrow.setDate(tomorrow.getDate() + 1)
 
-        if (date < today) return 'En retard'
+        const activeLocale = t('common.locale') === 'ar' ? 'ar-u-ca-gregory' : 'fr-FR'
+
+        if (date < today) return t('student.homework.overdue')
         if (date.toDateString() === today.toDateString()) {
-            return `Aujourd'hui, ${date.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}`
+            return t('student.homework.todayAt', { time: date.toLocaleTimeString(activeLocale, { hour: '2-digit', minute: '2-digit' }) })
         }
         if (date.toDateString() === tomorrow.toDateString()) {
-            return `Demain, ${date.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}`
+            return t('student.homework.tomorrowAt', { time: date.toLocaleTimeString(activeLocale, { hour: '2-digit', minute: '2-digit' }) })
         }
-        return date.toLocaleDateString('fr-FR', { weekday: 'short', day: 'numeric', month: 'short' })
+        return date.toLocaleDateString(activeLocale, { weekday: 'short', day: 'numeric', month: 'short' })
     }
 
     const getSubjectColor = (name: string | undefined) => {
@@ -84,32 +88,32 @@ export function StudentHomeworkView({ homework }: Props) {
     }
 
     return (
-        <div className="max-w-md mx-auto lg:max-w-3xl pb-24 space-y-6 p-4">
+        <div className="max-w-md mx-auto lg:max-w-3xl lg:ms-12 lg:me-auto pb-24 space-y-6 p-4">
             {/* Header */}
             <div className="flex items-center justify-between mb-4">
                 <div className="flex items-center gap-2">
                     <Link href="/student">
-                        <Button variant="ghost" size="icon" className="-ml-2"><ChevronLeft /></Button>
+                        <Button variant="ghost" size="icon" className="-ml-2 rtl:-mr-2"><ChevronLeft className="rtl:rotate-180" /></Button>
                     </Link>
-                    <h1 className="font-bold text-xl">Devoirs et Travaux</h1>
+                    <h1 className="font-bold text-xl">{t('student.homework.title')}</h1>
                 </div>
             </div>
 
             {/* Search */}
             <div className="relative">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500" />
+                <Search className="absolute left-3 rtl:left-auto rtl:right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500" />
                 <Input
-                    placeholder="Rechercher un devoir..."
+                    placeholder={t('student.homework.searchPlaceholder')}
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
-                    className="bg-[#0D1117] border-white/5 pl-9 h-10 text-sm text-white focus-visible:ring-emerald-500/50"
+                    className="bg-[#0D1117] border-white/5 pl-9 rtl:pl-3 rtl:pr-9 h-10 text-sm text-white focus-visible:ring-emerald-500/50"
                 />
             </div>
 
             {homework.length === 0 ? (
                 <div className="text-center py-20 text-gray-500">
                     <BookOpen className="w-12 h-12 mx-auto mb-4 opacity-50" />
-                    <p>Aucun devoir à faire</p>
+                    <p>{t('student.homework.noHomework')}</p>
                 </div>
             ) : (
                 <>
@@ -117,8 +121,8 @@ export function StudentHomeworkView({ homework }: Props) {
                     {urgent.length > 0 && (
                         <div>
                             <div className="flex justify-between items-center mb-4">
-                                <h2 className="font-bold text-lg">Urgent</h2>
-                                <span className="text-[10px] font-bold text-red-500 bg-red-500/10 px-2 py-1 rounded border border-red-500/20">Aujourd'hui / Demain</span>
+                                <h2 className="font-bold text-lg">{t('student.homework.urgent')}</h2>
+                                <span className="text-[10px] font-bold text-red-500 bg-red-500/10 px-2 py-1 rounded border border-red-500/20">{t('student.homework.todayTomorrow')}</span>
                             </div>
 
                             <div className="space-y-4">
@@ -127,7 +131,7 @@ export function StudentHomeworkView({ homework }: Props) {
                                         <div className="flex justify-between items-start mb-3">
                                             <div>
                                                 <span className={cn("text-[10px] font-bold uppercase tracking-wider mb-1 block", getSubjectColor(hw.subject?.name))}>
-                                                    {hw.subject?.name ?? 'Matière'}
+                                                    {hw.subject?.name ?? t('student.homework.subject')}
                                                 </span>
                                                 <h3 className="font-bold text-lg">{hw.title}</h3>
                                             </div>
@@ -143,11 +147,11 @@ export function StudentHomeworkView({ homework }: Props) {
                                         <div className="flex items-center gap-3">
                                             <Link href={`/student/homework/${hw.id}`}>
                                                 <Button size="sm" className="bg-cyan-500 hover:bg-cyan-600 text-black font-bold h-8 rounded-lg gap-2 text-xs px-4">
-                                                    <Upload className="w-3.5 h-3.5" /> Déposer
+                                                    <Upload className="w-3.5 h-3.5" /> {t('student.homework.submit')}
                                                 </Button>
                                             </Link>
                                             <span className="text-[10px] text-red-400 font-medium">
-                                                Échéance: {formatDue(hw.due_date)}
+                                                {t('student.homework.dueDate')} {formatDue(hw.due_date)}
                                             </span>
                                         </div>
                                     </div>
@@ -159,7 +163,7 @@ export function StudentHomeworkView({ homework }: Props) {
                     {/* Later/Completed Section */}
                     {later.length > 0 && (
                         <div className="pt-2">
-                            <h2 className="font-bold text-lg mb-4">{urgent.length > 0 ? 'Plus tard / Complétés' : 'Tous les devoirs'}</h2>
+                            <h2 className="font-bold text-lg mb-4">{urgent.length > 0 ? t('student.homework.laterCompleted') : t('student.homework.allHomework')}</h2>
                             <div className="space-y-4">
                                 {later.map(hw => {
                                     const isSubmitted = !!hw.submission
@@ -173,10 +177,10 @@ export function StudentHomeworkView({ homework }: Props) {
                                             <div className="flex-1">
                                                 <div className="flex justify-between mb-1">
                                                     <span className={cn("text-[10px] font-bold uppercase", getSubjectColor(hw.subject?.name))}>
-                                                        {hw.subject?.name ?? 'Matière'}
+                                                        {hw.subject?.name ?? t('student.homework.subject')}
                                                     </span>
                                                     {isGraded && (
-                                                        <span className="text-[9px] font-bold bg-cyan-500/20 text-cyan-400 px-1.5 py-0.5 rounded">Évalué</span>
+                                                        <span className="text-[9px] font-bold bg-cyan-500/20 text-cyan-400 px-1.5 py-0.5 rounded">{t('student.homework.graded')}</span>
                                                     )}
                                                     {isSubmitted && !isGraded && (
                                                         <CheckCircle2 className="w-4 h-4 text-emerald-500" />
@@ -190,20 +194,20 @@ export function StudentHomeworkView({ homework }: Props) {
                                                 {isGraded ? (
                                                     <div className="flex items-center justify-between">
                                                         <div className="flex flex-col">
-                                                            <span className="text-[8px] text-muted-foreground uppercase">NOTE</span>
+                                                            <span className="text-[8px] text-muted-foreground uppercase">{t('student.homework.note')}</span>
                                                             <span className="text-sm font-bold text-emerald-400">{hw.submission?.grade}/{hw.max_points ?? 20}</span>
                                                         </div>
-                                                        <Button variant="outline" size="sm" className="h-6 text-[10px] border-white/10 bg-white/5">Voir correction</Button>
+                                                        <Button variant="outline" size="sm" className="h-6 text-[10px] border-white/10 bg-white/5">{t('student.homework.viewCorrection')}</Button>
                                                     </div>
                                                 ) : isSubmitted ? (
                                                     <span className="text-[10px] font-bold text-emerald-500 bg-emerald-500/10 px-2 py-0.5 rounded flex items-center gap-1 w-fit">
-                                                        <CheckCircle2 className="w-3 h-3" /> Déposé
+                                                        <CheckCircle2 className="w-3 h-3" /> {t('student.homework.submitted')}
                                                     </span>
                                                 ) : (
                                                     <div className="flex items-center gap-3">
                                                         <Link href={`/student/homework/${hw.id}`}>
                                                             <Button size="sm" variant="secondary" className="h-7 text-[10px] bg-white/10 hover:bg-white/20 gap-1.5">
-                                                                <Upload className="w-3 h-3" /> Déposer
+                                                                <Upload className="w-3 h-3" /> {t('student.homework.submit')}
                                                             </Button>
                                                         </Link>
                                                         <span className="text-[10px] text-gray-500">{formatDue(hw.due_date)}</span>

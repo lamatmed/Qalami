@@ -1,14 +1,17 @@
 'use client'
 
 import { useState } from 'react'
-import { Settings, Globe, Bell, CreditCard, Save, Loader2 } from 'lucide-react'
+import { Settings, Globe, Bell, CreditCard, Save, Loader2, ShieldAlert } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Switch } from '@/components/ui/switch'
 import { toast } from 'sonner'
+import { useLanguage } from '@/i18n'
+import { cn } from '@/lib/utils'
 
 export function PlatformSettings() {
+    const { t, direction } = useLanguage()
     const [saving, setSaving] = useState(false)
     const [settings, setSettings] = useState({
         // General
@@ -36,7 +39,7 @@ export function PlatformSettings() {
         setSaving(true)
         // Simulate saving
         await new Promise(resolve => setTimeout(resolve, 1000))
-        toast.success('Paramètres enregistrés avec succès!')
+        toast.success(t('superAdmin.settings.saveSuccess'))
         setSaving(false)
     }
 
@@ -45,59 +48,71 @@ export function PlatformSettings() {
     }
 
     return (
-        <div className="max-w-4xl space-y-8">
+        <div className="max-w-4xl space-y-8 pb-12 animate-in fade-in duration-500" dir={direction}>
             {/* Header */}
-            <div className="flex items-center justify-between">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
                 <div>
-                    <h1 className="text-3xl font-black text-white">Configuration</h1>
-                    <p className="text-gray-500">Paramètres généraux de la plateforme</p>
+                    <h1 className="text-3xl font-black text-gray-900 dark:text-white tracking-tight">
+                        {t('superAdmin.settings.title')}
+                    </h1>
+                    <p className="text-sm text-gray-500 mt-1">
+                        {t('superAdmin.settings.subtitle')}
+                    </p>
                 </div>
                 <Button
                     onClick={handleSave}
                     disabled={saving}
-                    className="bg-purple-600 hover:bg-purple-500 text-white font-bold rounded-xl"
+                    className="bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white font-black rounded-2xl h-12 shadow-lg shadow-purple-600/20 transition-all duration-300 self-start sm:self-auto px-6"
                 >
                     {saving ? (
                         <>
                             <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                            Enregistrement...
+                            {t('superAdmin.settings.saving')}
                         </>
                     ) : (
                         <>
-                            <Save className="w-4 h-4 mr-2" />
-                            Enregistrer
+                            <Save className={cn("w-4.5 h-4.5", direction === 'rtl' ? 'ml-2' : 'mr-2')} />
+                            {t('superAdmin.settings.save')}
                         </>
                     )}
                 </Button>
             </div>
 
             {/* General Settings */}
-            <div className="bg-slate-800/50 border border-white/5 rounded-2xl p-6 space-y-6">
-                <div className="flex items-center gap-4 pb-4 border-b border-white/5">
-                    <div className="h-12 w-12 rounded-xl bg-purple-500/10 flex items-center justify-center text-purple-500">
+            <div className="bg-white dark:bg-slate-900 border border-gray-100 dark:border-white/5 rounded-3xl p-8 shadow-sm space-y-6">
+                <div className="flex items-center gap-4 pb-4 border-b border-gray-100 dark:border-white/5">
+                    <div className="h-12 w-12 rounded-2xl bg-purple-500/10 flex items-center justify-center text-purple-500 shrink-0">
                         <Globe className="w-6 h-6" />
                     </div>
                     <div>
-                        <h2 className="font-bold text-white">Paramètres généraux</h2>
-                        <p className="text-sm text-gray-500">Configuration de base de la plateforme</p>
+                        <h2 className="font-bold text-gray-900 dark:text-white text-lg">
+                            {t('superAdmin.settings.general.title')}
+                        </h2>
+                        <p className="text-xs text-gray-500 mt-0.5">
+                            {t('superAdmin.settings.general.subtitle')}
+                        </p>
                     </div>
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                     <div className="space-y-2">
-                        <Label className="text-gray-400">Nom de la plateforme</Label>
+                        <Label className="text-gray-600 dark:text-gray-400 font-bold text-xs uppercase tracking-wider">
+                            {t('superAdmin.settings.general.platformName')}
+                        </Label>
                         <Input
                             value={settings.platformName}
                             onChange={(e) => updateSetting('platformName', e.target.value)}
-                            className="bg-slate-900/50 border-white/10 text-white rounded-xl"
+                            className="bg-gray-50/60 dark:bg-slate-950/50 border-gray-200 dark:border-white/10 text-gray-900 dark:text-white rounded-2xl h-12 transition-all focus:bg-white focus:ring-2 focus:ring-purple-500/20"
                         />
                     </div>
                     <div className="space-y-2">
-                        <Label className="text-gray-400">Langue par défaut</Label>
+                        <Label className="text-gray-600 dark:text-gray-400 font-bold text-xs uppercase tracking-wider">
+                            {t('superAdmin.settings.general.defaultLanguage')}
+                        </Label>
                         <select
                             value={settings.defaultLanguage}
                             onChange={(e) => updateSetting('defaultLanguage', e.target.value)}
-                            className="w-full h-10 px-3 rounded-xl bg-slate-900/50 border border-white/10 text-white"
+                            className="w-full h-12 px-4 rounded-2xl bg-gray-50/60 dark:bg-slate-950/50 border border-gray-200 dark:border-white/10 text-gray-900 dark:text-white focus:bg-white focus:ring-2 focus:ring-purple-500/20 transition-all font-semibold outline-none"
                         >
                             <option value="fr">Français</option>
                             <option value="ar">العربية</option>
@@ -105,11 +120,13 @@ export function PlatformSettings() {
                         </select>
                     </div>
                     <div className="space-y-2">
-                        <Label className="text-gray-400">Fuseau horaire</Label>
+                        <Label className="text-gray-600 dark:text-gray-400 font-bold text-xs uppercase tracking-wider">
+                            {t('superAdmin.settings.general.timezone')}
+                        </Label>
                         <select
                             value={settings.timezone}
                             onChange={(e) => updateSetting('timezone', e.target.value)}
-                            className="w-full h-10 px-3 rounded-xl bg-slate-900/50 border border-white/10 text-white"
+                            className="w-full h-12 px-4 rounded-2xl bg-gray-50/60 dark:bg-slate-950/50 border border-gray-200 dark:border-white/10 text-gray-900 dark:text-white focus:bg-white focus:ring-2 focus:ring-purple-500/20 transition-all font-semibold outline-none"
                         >
                             <option value="Africa/Nouakchott">Africa/Nouakchott (GMT+0)</option>
                             <option value="Europe/Paris">Europe/Paris (GMT+1)</option>
@@ -120,24 +137,30 @@ export function PlatformSettings() {
             </div>
 
             {/* Subscription Defaults */}
-            <div className="bg-slate-800/50 border border-white/5 rounded-2xl p-6 space-y-6">
-                <div className="flex items-center gap-4 pb-4 border-b border-white/5">
-                    <div className="h-12 w-12 rounded-xl bg-blue-500/10 flex items-center justify-center text-blue-500">
+            <div className="bg-white dark:bg-slate-900 border border-gray-100 dark:border-white/5 rounded-3xl p-8 shadow-sm space-y-6">
+                <div className="flex items-center gap-4 pb-4 border-b border-gray-100 dark:border-white/5">
+                    <div className="h-12 w-12 rounded-2xl bg-blue-500/10 flex items-center justify-center text-blue-500 shrink-0">
                         <CreditCard className="w-6 h-6" />
                     </div>
                     <div>
-                        <h2 className="font-bold text-white">Abonnements par défaut</h2>
-                        <p className="text-sm text-gray-500">Valeurs par défaut pour les nouvelles écoles</p>
+                        <h2 className="font-bold text-gray-900 dark:text-white text-lg">
+                            {t('superAdmin.settings.subscriptions.title')}
+                        </h2>
+                        <p className="text-xs text-gray-500 mt-0.5">
+                            {t('superAdmin.settings.subscriptions.subtitle')}
+                        </p>
                     </div>
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <div className="space-y-2">
-                        <Label className="text-gray-400">Plan par défaut</Label>
+                        <Label className="text-gray-600 dark:text-gray-400 font-bold text-xs uppercase tracking-wider">
+                            {t('superAdmin.settings.subscriptions.defaultPlan')}
+                        </Label>
                         <select
                             value={settings.defaultPlan}
                             onChange={(e) => updateSetting('defaultPlan', e.target.value)}
-                            className="w-full h-10 px-3 rounded-xl bg-slate-900/50 border border-white/10 text-white"
+                            className="w-full h-12 px-4 rounded-2xl bg-gray-50/60 dark:bg-slate-950/50 border border-gray-200 dark:border-white/10 text-gray-900 dark:text-white focus:bg-white focus:ring-2 focus:ring-purple-500/20 transition-all font-semibold outline-none"
                         >
                             <option value="free">Free</option>
                             <option value="pro">Pro</option>
@@ -145,39 +168,45 @@ export function PlatformSettings() {
                         </select>
                     </div>
                     <div className="space-y-2">
-                        <Label className="text-gray-400">Limite d'élèves par défaut</Label>
+                        <Label className="text-gray-600 dark:text-gray-400 font-bold text-xs uppercase tracking-wider">
+                            {t('superAdmin.settings.subscriptions.defaultLimit')}
+                        </Label>
                         <Input
                             type="number"
                             value={settings.defaultMaxStudents}
                             onChange={(e) => updateSetting('defaultMaxStudents', parseInt(e.target.value) || 100)}
-                            className="bg-slate-900/50 border-white/10 text-white rounded-xl"
+                            className="bg-gray-50/60 dark:bg-slate-950/50 border-gray-200 dark:border-white/10 text-gray-900 dark:text-white rounded-2xl h-12 transition-all focus:bg-white focus:ring-2 focus:ring-purple-500/20"
                         />
                     </div>
                 </div>
             </div>
 
             {/* Notifications */}
-            <div className="bg-slate-800/50 border border-white/5 rounded-2xl p-6 space-y-6">
-                <div className="flex items-center gap-4 pb-4 border-b border-white/5">
-                    <div className="h-12 w-12 rounded-xl bg-amber-500/10 flex items-center justify-center text-amber-500">
+            <div className="bg-white dark:bg-slate-900 border border-gray-100 dark:border-white/5 rounded-3xl p-8 shadow-sm space-y-6">
+                <div className="flex items-center gap-4 pb-4 border-b border-gray-100 dark:border-white/5">
+                    <div className="h-12 w-12 rounded-2xl bg-amber-500/10 flex items-center justify-center text-amber-500 shrink-0">
                         <Bell className="w-6 h-6" />
                     </div>
                     <div>
-                        <h2 className="font-bold text-white">Notifications</h2>
-                        <p className="text-sm text-gray-500">Configuration des alertes et rapports</p>
+                        <h2 className="font-bold text-gray-900 dark:text-white text-lg">
+                            {t('superAdmin.settings.notifications.title')}
+                        </h2>
+                        <p className="text-xs text-gray-500 mt-0.5">
+                            {t('superAdmin.settings.notifications.subtitle')}
+                        </p>
                     </div>
                 </div>
 
-                <div className="space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                     {[
-                        { key: 'emailNotifications', label: 'Notifications par email', description: 'Recevoir les notifications importantes par email' },
-                        { key: 'adminAlerts', label: 'Alertes admin', description: 'Alertes pour les événements critiques de la plateforme' },
-                        { key: 'weeklyReports', label: 'Rapports hebdomadaires', description: 'Recevoir un rapport récapitulatif chaque semaine' },
+                        { key: 'emailNotifications', label: t('superAdmin.settings.notifications.email.title'), description: t('superAdmin.settings.notifications.email.desc') },
+                        { key: 'adminAlerts', label: t('superAdmin.settings.notifications.alerts.title'), description: t('superAdmin.settings.notifications.alerts.desc') },
+                        { key: 'weeklyReports', label: t('superAdmin.settings.notifications.reports.title'), description: t('superAdmin.settings.notifications.reports.desc') },
                     ].map(item => (
-                        <div key={item.key} className="flex items-center justify-between p-4 bg-slate-900/50 rounded-xl">
-                            <div>
-                                <p className="font-medium text-white">{item.label}</p>
-                                <p className="text-sm text-gray-500">{item.description}</p>
+                        <div key={item.key} className="flex items-center justify-between p-5 bg-gray-50/50 dark:bg-slate-950/40 border border-gray-100 dark:border-white/5 rounded-2xl transition-all duration-200 hover:bg-gray-50 dark:hover:bg-white/[0.01]">
+                            <div className="space-y-1 pr-2">
+                                <p className="font-bold text-gray-900 dark:text-white text-sm leading-tight">{item.label}</p>
+                                <p className="text-xs text-gray-400 dark:text-gray-500 leading-normal">{item.description}</p>
                             </div>
                             <Switch
                                 checked={(settings as any)[item.key]}
@@ -189,40 +218,49 @@ export function PlatformSettings() {
             </div>
 
             {/* Feature Flags */}
-            <div className="bg-slate-800/50 border border-white/5 rounded-2xl p-6 space-y-6">
-                <div className="flex items-center gap-4 pb-4 border-b border-white/5">
-                    <div className="h-12 w-12 rounded-xl bg-emerald-500/10 flex items-center justify-center text-emerald-500">
+            <div className="bg-white dark:bg-slate-900 border border-gray-100 dark:border-white/5 rounded-3xl p-8 shadow-sm space-y-6">
+                <div className="flex items-center gap-4 pb-4 border-b border-gray-100 dark:border-white/5">
+                    <div className="h-12 w-12 rounded-2xl bg-emerald-500/10 flex items-center justify-center text-emerald-500 shrink-0">
                         <Settings className="w-6 h-6" />
                     </div>
                     <div>
-                        <h2 className="font-bold text-white">Fonctionnalités</h2>
-                        <p className="text-sm text-gray-500">Activer/désactiver des fonctionnalités de la plateforme</p>
+                        <h2 className="font-bold text-gray-900 dark:text-white text-lg">
+                            {t('superAdmin.settings.features.title')}
+                        </h2>
+                        <p className="text-xs text-gray-500 mt-0.5">
+                            {t('superAdmin.settings.features.subtitle')}
+                        </p>
                     </div>
                 </div>
 
                 <div className="space-y-4">
-                    {[
-                        { key: 'enableRegistration', label: 'Inscription ouverte', description: 'Permettre aux nouvelles écoles de s\'inscrire' },
-                        { key: 'enableParentAccess', label: 'Accès parents', description: 'Activer le portail parents pour toutes les écoles' },
-                        { key: 'enableStudentAccess', label: 'Accès élèves', description: 'Activer le portail élèves pour toutes les écoles' },
-                    ].map(item => (
-                        <div key={item.key} className="flex items-center justify-between p-4 bg-slate-900/50 rounded-xl">
-                            <div>
-                                <p className="font-medium text-white">{item.label}</p>
-                                <p className="text-sm text-gray-500">{item.description}</p>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                        {[
+                            { key: 'enableRegistration', label: t('superAdmin.settings.features.registration.title'), description: t('superAdmin.settings.features.registration.desc') },
+                            { key: 'enableParentAccess', label: t('superAdmin.settings.features.parents.title'), description: t('superAdmin.settings.features.parents.desc') },
+                            { key: 'enableStudentAccess', label: t('superAdmin.settings.features.students.title'), description: t('superAdmin.settings.features.students.desc') },
+                        ].map(item => (
+                            <div key={item.key} className="flex items-center justify-between p-5 bg-gray-50/50 dark:bg-slate-950/40 border border-gray-100 dark:border-white/5 rounded-2xl transition-all duration-200 hover:bg-gray-50 dark:hover:bg-white/[0.01]">
+                                <div className="space-y-1 pr-2">
+                                    <p className="font-bold text-gray-900 dark:text-white text-sm leading-tight">{item.label}</p>
+                                    <p className="text-xs text-gray-400 dark:text-gray-500 leading-normal">{item.description}</p>
+                                </div>
+                                <Switch
+                                    checked={(settings as any)[item.key]}
+                                    onCheckedChange={(checked) => updateSetting(item.key, checked)}
+                                />
                             </div>
-                            <Switch
-                                checked={(settings as any)[item.key]}
-                                onCheckedChange={(checked) => updateSetting(item.key, checked)}
-                            />
-                        </div>
-                    ))}
+                        ))}
+                    </div>
 
-                    {/* Maintenance Mode - Special styling */}
-                    <div className="flex items-center justify-between p-4 bg-red-500/5 border border-red-500/20 rounded-xl">
-                        <div>
-                            <p className="font-medium text-white">Mode maintenance</p>
-                            <p className="text-sm text-red-400">⚠️ Désactive l'accès à toute la plateforme sauf pour les super admins</p>
+                    {/* Maintenance Mode - Special warning styling */}
+                    <div className="flex items-center justify-between p-5 bg-red-50/40 dark:bg-red-500/5 border border-red-100 dark:border-red-500/20 rounded-2xl mt-4">
+                        <div className="space-y-1 flex items-start gap-3">
+                            <ShieldAlert className="w-5 h-5 text-red-600 shrink-0 mt-0.5" />
+                            <div>
+                                <p className="font-bold text-red-600 dark:text-red-400 text-sm">{t('superAdmin.settings.features.maintenance.title')}</p>
+                                <p className="text-xs text-red-500/80 dark:text-red-400/60 leading-normal">{t('superAdmin.settings.features.maintenance.desc')}</p>
+                            </div>
                         </div>
                         <Switch
                             checked={settings.maintenanceMode}

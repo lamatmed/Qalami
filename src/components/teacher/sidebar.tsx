@@ -29,12 +29,12 @@ export function useTeacherSidebarItems() {
 }
 
 export const sidebarItems = [
-    { icon: LayoutDashboard, label: 'Tableau de bord', href: '/teacher' },
-    { icon: GraduationCap, label: 'Mes Classes', href: '/teacher/classes' },
-    { icon: BrainCircuit, label: 'Quiz', href: '/teacher/quizzes' },
-    { icon: Calendar, label: 'Emploi du temps', href: '/teacher/schedule' },
-    { icon: AlertTriangle, label: 'Remarques', href: '/teacher/remarks' },
-    { icon: FileText, label: 'Ressources', href: '/teacher/resources' },
+    { icon: LayoutDashboard, label: 'teacher.sidebar.dashboard', href: '/teacher' },
+    { icon: GraduationCap, label: 'teacher.sidebar.myClasses', href: '/teacher/classes' },
+    { icon: BrainCircuit, label: 'teacher.sidebar.quizzes', href: '/teacher/quizzes' },
+    { icon: Calendar, label: 'teacher.sidebar.schedule', href: '/teacher/schedule' },
+    { icon: AlertTriangle, label: 'teacher.sidebar.attendance', href: '/teacher/remarks' },
+    { icon: FileText, label: 'common.documents', href: '/teacher/resources' },
 ]
 
 export function TeacherSidebar() {

@@ -13,6 +13,7 @@ import { Plus, Loader2, CheckCircle2, Star, Trash2, Calendar, AlertTriangle } fr
 import { cn } from '@/lib/utils'
 import { toast } from 'sonner'
 import { getMySchoolContext } from '@/app/admin/actions'
+import { useLanguage } from '@/i18n'
 
 interface Term { id: string; name: string; is_current: boolean }
 interface AcademicYear {
@@ -31,6 +32,7 @@ const TERM_COLORS: Record<string, string> = {
 }
 
 export function AcademicYearsSettings() {
+    const { t } = useLanguage()
     const [years, setYears] = useState<AcademicYear[]>([])
     const [loading, setLoading] = useState(true)
     const [newYear, setNewYear] = useState('')
@@ -81,7 +83,7 @@ export function AcademicYearsSettings() {
         if (result.error) {
             toast.error(result.error)
         } else {
-            toast.success(`Année ${trimmed} créée avec 3 trimestres`)
+            toast.success(t('admin.settings.academic.createSuccess').replace('{trimmed}', trimmed))
             setNewYear('')
             fetchYears()
         }
@@ -92,16 +94,16 @@ export function AcademicYearsSettings() {
         setSettingId(yearId)
         const result = await setCurrentAcademicYear(yearId)
         if (result.error) toast.error(result.error)
-        else { toast.success('Année active mise à jour'); fetchYears() }
+        else { toast.success(t('admin.settings.academic.updateSuccess')); fetchYears() }
         setSettingId(null)
     }
 
     const handleDelete = async (yearId: string, yearName: string) => {
-        if (!confirm(`Supprimer l'année ${yearName} et ses trimestres ?`)) return
+        if (!confirm(t('admin.settings.academic.confirmDelete').replace('{yearName}', yearName))) return
         setDeletingId(yearId)
         const result = await deleteAcademicYear(yearId)
         if (result.error) toast.error(result.error)
-        else { toast.success('Année supprimée'); fetchYears() }
+        else { toast.success(t('admin.settings.academic.deleteSuccess')); fetchYears() }
         setDeletingId(null)
     }
 
@@ -116,15 +118,15 @@ export function AcademicYearsSettings() {
     return (
         <div className="space-y-8 animate-in fade-in duration-300">
             <div>
-                <h3 className="text-xl font-bold text-white">Années scolaires</h3>
+                <h3 className="text-xl font-bold text-white">{t('admin.settings.academic.title')}</h3>
                 <p className="text-gray-400 text-sm mt-1">
-                    Gérez les années scolaires et leurs trimestres. Chaque année crée automatiquement T1, T2 et T3.
+                    {t('admin.settings.academic.subtitle')}
                 </p>
             </div>
 
             {/* Add new year */}
             <div className="bg-[#1A2530] rounded-2xl border border-white/5 p-5">
-                <h4 className="text-xs font-bold text-emerald-500 uppercase tracking-wider mb-4">Nouvelle année</h4>
+                <h4 className="text-xs font-bold text-emerald-500 uppercase tracking-wider mb-4">{t('admin.settings.academic.newYear')}</h4>
                 <div className="flex gap-3">
                     <div className="flex-1">
                         <Input
@@ -134,11 +136,11 @@ export function AcademicYearsSettings() {
                             onKeyDown={e => e.key === 'Enter' && handleAdd()}
                             className="bg-[#0F1720] border-white/10 text-white placeholder:text-gray-600 font-mono"
                         />
-                        <p className="text-[11px] text-gray-600 mt-1.5">Format : AAAA-AAAA (années consécutives)</p>
+                        <p className="text-[11px] text-gray-600 mt-1.5">{t('admin.settings.academic.formatDesc')}</p>
                     </div>
                     {years.length > 0 && (
                         <Button variant="outline" onClick={suggestYear} className="border-white/10 text-gray-400 hover:text-white shrink-0">
-                            Suggérer
+                            {t('admin.settings.academic.suggest')}
                         </Button>
                     )}
                     <Button
@@ -147,7 +149,7 @@ export function AcademicYearsSettings() {
                         className="bg-emerald-500 hover:bg-emerald-400 text-black font-bold shrink-0"
                     >
                         {adding ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
-                        Créer
+                        {t('admin.settings.academic.create')}
                     </Button>
                 </div>
             </div>
@@ -156,7 +158,7 @@ export function AcademicYearsSettings() {
             <div className="space-y-3">
                 <h4 className="text-xs font-bold text-gray-500 uppercase tracking-wider flex items-center gap-2">
                     <Calendar className="w-3.5 h-3.5" />
-                    {loading ? 'Chargement…' : `${years.length} année${years.length !== 1 ? 's' : ''}`}
+                    {loading ? t('admin.settings.academic.loading') : t(years.length === 1 ? 'admin.settings.academic.yearsCount' : 'admin.settings.academic.yearsCountPlural').replace('{count}', years.length.toString())}
                 </h4>
 
                 {loading ? (
@@ -165,7 +167,7 @@ export function AcademicYearsSettings() {
                     </div>
                 ) : years.length === 0 ? (
                     <div className="text-center py-10 text-gray-500 text-sm bg-[#1A2530] rounded-2xl border border-white/5">
-                        Aucune année scolaire. Créez la première ci-dessus.
+                        {t('admin.settings.academic.noYears')}
                     </div>
                 ) : (
                     <div className="space-y-2">
@@ -192,7 +194,7 @@ export function AcademicYearsSettings() {
                                             <span className="font-bold text-white font-mono">{year.name}</span>
                                             {year.is_current && (
                                                 <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
-                                                    EN COURS
+                                                    {t('admin.settings.academic.current')}
                                                 </span>
                                             )}
                                         </div>
@@ -221,7 +223,7 @@ export function AcademicYearsSettings() {
                                         </span>
                                     ))}
                                     {year.terms.length === 0 && (
-                                        <span className="text-[11px] text-gray-600 italic">Aucun trimestre</span>
+                                        <span className="text-[11px] text-gray-600 italic">{t('admin.settings.academic.noTerms')}</span>
                                     )}
                                 </div>
 
@@ -238,7 +240,7 @@ export function AcademicYearsSettings() {
                                             {settingId === year.id
                                                 ? <Loader2 className="w-3 h-3 animate-spin" />
                                                 : <Star className="w-3 h-3 me-1" />}
-                                            Définir actuel
+                                            {t('admin.settings.academic.setCurrent')}
                                         </Button>
                                     )}
                                     {!year.is_current && (
@@ -256,7 +258,7 @@ export function AcademicYearsSettings() {
                                     )}
                                     {year.is_current && (
                                         <div className="flex items-center gap-1 text-xs text-emerald-500">
-                                            <CheckCircle2 className="w-4 h-4" /> Active
+                                            <CheckCircle2 className="w-4 h-4" /> {t('admin.settings.academic.active')}
                                         </div>
                                     )}
                                 </div>
@@ -268,7 +270,7 @@ export function AcademicYearsSettings() {
 
             <div className="flex items-start gap-2 bg-amber-500/10 border border-amber-500/20 rounded-xl p-3 text-xs text-amber-400">
                 <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" />
-                <span>Pour modifier les dates ou les trimestres en détail, utilisez la page <strong>Trimestres & Années scolaires</strong> dans le menu de navigation.</span>
+                <span>{t('admin.settings.academic.noteDesc')}</span>
             </div>
         </div>
     )

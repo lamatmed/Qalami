@@ -5,6 +5,7 @@ import { CheckCircle2, FileText, UserPlus, Eye } from 'lucide-react'
 import { RegistrationData } from '../registration-wizard'
 import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
+import { useLanguage } from '@/i18n'
 
 interface StepProps {
     data: RegistrationData
@@ -16,10 +17,11 @@ interface StepProps {
 
 export function Confirmation({ data, savedCredentials }: StepProps) {
     const router = useRouter()
+    const { t, language } = useLanguage()
 
-    const displayPin = savedCredentials?.hasPhone ? (savedCredentials.password || '----') : 'Aucun accès (suivi parent)'
+    const displayPin = savedCredentials?.hasPhone ? (savedCredentials.password || '----') : t('admin.students.register.confirmation.noStudentAccess')
     const displayName = savedCredentials?.fullName || `${data.personal.firstName} ${data.personal.lastName}`
-    const displayClass = savedCredentials?.className || data.academic.className || 'Non affecté'
+    const displayClass = savedCredentials?.className || data.academic.className || t('admin.students.register.confirmation.unassigned')
 
     return (
         <div className="text-center py-6 space-y-6">
@@ -30,22 +32,22 @@ export function Confirmation({ data, savedCredentials }: StepProps) {
             </div>
 
             <div>
-                <h2 className="text-3xl font-bold text-white mb-2">Élève inscrit avec succès !</h2>
+                <h2 className="text-3xl font-bold text-white mb-2">{t('admin.students.register.confirmation.successTitle')}</h2>
                 <p className="text-gray-400 max-w-sm mx-auto">
-                    Le dossier de <span className="text-white font-bold">{displayName}</span> a été validé et enregistré dans le système Qalami.
+                    {t('admin.students.register.confirmation.successDescription')} <span className="text-white font-bold">{displayName}</span>.
                 </p>
             </div>
 
             {/* Generated Card */}
             <div className="bg-gradient-to-br from-[#1A2530] to-[#0F1720] border border-white/10 rounded-3xl p-6 max-w-sm mx-auto shadow-2xl relative overflow-hidden text-left">
                 <div className="absolute top-0 right-0 p-2 bg-emerald-500 text-black text-[10px] font-bold rounded-bl-xl">
-                    SESSION 2024-2025
+                    {t('admin.students.register.confirmation.sessionLabel')}
                 </div>
 
                 <div className="flex items-center gap-4 mb-6 mt-2">
                     <div className="h-16 w-16 bg-[#253545] rounded-full"></div>
                     <div>
-                        <p className="text-xs text-gray-500 uppercase tracking-wider">ID Étudiant</p>
+                        <p className="text-xs text-gray-500 uppercase tracking-wider">{t('admin.students.register.confirmation.studentId')}</p>
                         <p className="text-emerald-400 font-mono font-bold">QAL-2024-089</p>
                         <p className="text-emerald-500 font-bold text-sm mt-1">{displayClass}</p>
                     </div>
@@ -54,19 +56,19 @@ export function Confirmation({ data, savedCredentials }: StepProps) {
                 <div className="bg-[#0F1720]/80 p-4 rounded-xl space-y-3 border border-white/5">
                     <div className="flex items-center gap-2 mb-2">
                         <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
-                        <span className="text-xs font-bold text-emerald-500 uppercase">Identifiants Temporaires</span>
+                        <span className="text-xs font-bold text-emerald-500 uppercase">{t('admin.students.register.confirmation.temporaryCredentials')}</span>
                     </div>
                     <div className="flex justify-between text-sm">
-                        <span className="text-gray-500">Nom:</span>
+                        <span className="text-gray-500">{t('common.name')}:</span>
                         <span className="text-emerald-400 font-mono font-bold">{displayName}</span>
                     </div>
                     <div className="flex justify-between text-sm">
-                        <span className="text-gray-500">Code PIN:</span>
+                        <span className="text-gray-500">{t('auth.pinLabel')}:</span>
                         <span className="text-emerald-400 font-mono font-bold">{displayPin}</span>
                     </div>
                 </div>
                 <p className="text-[10px] text-gray-500 mt-4 leading-relaxed">
-                    * Ces identifiants sont valables pour la première connexion uniquement. Recommandez aux parents de les modifier.
+                    {t('admin.students.register.confirmation.credentialsHint')}
                 </p>
             </div>
 
@@ -77,12 +79,13 @@ export function Confirmation({ data, savedCredentials }: StepProps) {
                         // Create a printable receipt
                         const printWindow = window.open('', '_blank', 'width=600,height=800')
                         if (!printWindow) {
-                            toast.error('Impossible d\'ouvrir la fenêtre d\'impression')
+                            toast.error(t('admin.students.register.confirmation.printOpenError'))
                             return
                         }
+                        const locale = language === 'ar' ? 'ar-u-ca-gregory' : 'fr-FR'
                         printWindow.document.write(`
                             <html>
-                            <head><title>Reçu d'inscription - Qalami</title>
+                            <head><title>${t('admin.students.register.confirmation.receiptTitle')} - Qalami</title>
                             <style>
                                 body { font-family: Arial, sans-serif; padding: 40px; max-width: 500px; margin: 0 auto; }
                                 .header { text-align: center; margin-bottom: 30px; }
@@ -100,22 +103,22 @@ export function Confirmation({ data, savedCredentials }: StepProps) {
                             <body>
                                 <div class="header">
                                     <h1>🎓 Qalami</h1>
-                                    <p>Reçu d'inscription - Année scolaire ${new Date().getFullYear() - 1}-${new Date().getFullYear()}</p>
+                                    <p>${t('admin.students.register.confirmation.receiptTitle')} - ${t('admin.students.register.confirmation.schoolYear')} ${new Date().getFullYear() - 1}-${new Date().getFullYear()}</p>
                                 </div>
                                 <div class="card">
-                                    <div class="row"><span class="label">Nom complet</span><span class="value">${data.personal.firstName} ${data.personal.lastName}</span></div>
-                                    <div class="row"><span class="label">Classe</span><span class="value">${data.academic.className || 'Non affecté'}</span></div>
-                                    <div class="row"><span class="label">Frais d'inscription</span><span class="value">${data.academic.registrationFee || '—'} MRU</span></div>
-                                    <div class="row"><span class="label">Date</span><span class="value">${new Date().toLocaleDateString('fr-FR')}</span></div>
+                                    <div class="row"><span class="label">${t('admin.students.register.confirmation.fullName')}</span><span class="value">${data.personal.firstName} ${data.personal.lastName}</span></div>
+                                    <div class="row"><span class="label">${t('admin.students.class')}</span><span class="value">${data.academic.className || t('admin.students.register.confirmation.unassigned')}</span></div>
+                                    <div class="row"><span class="label">${t('admin.students.register.confirmation.registrationFee')}</span><span class="value">${data.academic.registrationFee || '—'} MRU</span></div>
+                                    <div class="row"><span class="label">${t('common.date')}</span><span class="value">${new Date().toLocaleDateString(locale)}</span></div>
                                 </div>
                                 <div class="credentials">
-                                    <h3>🔑 Identifiants (temporaires)</h3>
-                                    <div class="row"><span class="label">Nom</span><span class="value">${data.personal.firstName} ${data.personal.lastName}</span></div>
-                                    <div class="row"><span class="label">Mot de passe</span><span class="value">${savedCredentials?.hasPhone ? (savedCredentials.password || '—') : 'Suivi parent uniquement'}</span></div>
+                                    <h3>🔑 ${t('admin.students.register.confirmation.temporaryCredentials')}</h3>
+                                    <div class="row"><span class="label">${t('common.name')}</span><span class="value">${data.personal.firstName} ${data.personal.lastName}</span></div>
+                                    <div class="row"><span class="label">${t('auth.password')}</span><span class="value">${savedCredentials?.hasPhone ? (savedCredentials.password || '—') : t('admin.students.register.confirmation.parentOnlyFollow')}</span></div>
                                 </div>
                                 <div class="footer">
-                                    <p>* Changez votre mot de passe lors de la première connexion.</p>
-                                    <p>Généré par Qalami - ${new Date().toLocaleString('fr-FR')}</p>
+                                    <p>* ${t('admin.students.register.confirmation.changePasswordHint')}</p>
+                                    <p>${t('admin.students.register.confirmation.generatedBy')} - ${new Date().toLocaleString(locale)}</p>
                                 </div>
                             </body></html>
                         `)
@@ -124,17 +127,17 @@ export function Confirmation({ data, savedCredentials }: StepProps) {
                         setTimeout(() => printWindow.print(), 250)
                     }}
                 >
-                    <FileText className="mr-2 w-4 h-4" /> Imprimer le reçu
+                    <FileText className="mr-2 w-4 h-4" /> {t('admin.students.register.confirmation.printReceipt')}
                 </Button>
                 <Button
                     variant="outline"
                     className="w-full bg-[#1A2530] text-white border-white/5 hover:bg-[#23303d] h-12 rounded-xl"
                     onClick={() => router.push('/admin/students/register')}
                 >
-                    <UserPlus className="mr-2 w-4 h-4" /> Inscrire un autre élève
+                    <UserPlus className="mr-2 w-4 h-4" /> {t('admin.students.register.confirmation.registerAnother')}
                 </Button>
                 <Button variant="ghost" onClick={() => router.push('/admin/students')} className="w-full text-gray-400 hover:text-white">
-                    <Eye className="mr-2 w-4 h-4" /> Voir la liste des élèves
+                    <Eye className="mr-2 w-4 h-4" /> {t('admin.students.register.confirmation.viewStudentsList')}
                 </Button>
             </div>
         </div>

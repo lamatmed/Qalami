@@ -13,6 +13,7 @@ import { Input } from '@/components/ui/input'
 import { Loader2, Check } from 'lucide-react'
 import { toast } from 'sonner'
 import { createClient } from '@/utils/supabase/client'
+import { useLanguage } from '@/i18n'
 
 interface ClassRow {
     id: string
@@ -27,6 +28,7 @@ interface SubjectCoefficientsDialogProps {
 }
 
 export function SubjectCoefficientsDialog({ open, onOpenChange, subject }: SubjectCoefficientsDialogProps) {
+    const { t } = useLanguage()
     const [classes, setClasses] = useState<ClassRow[]>([])
     const [coefficients, setCoefficients] = useState<Record<string, string>>({})
     const [saving, setSaving] = useState<string | null>(null)
@@ -83,7 +85,7 @@ export function SubjectCoefficientsDialog({ open, onOpenChange, subject }: Subje
     const handleSave = async (classId: string) => {
         const val = parseFloat(coefficients[classId] || '1')
         if (isNaN(val) || val < 0.5 || val > 10) {
-            toast.error('Coefficient invalide (0.5 – 10)')
+            toast.error(t('admin.subjects.invalidCoeff'))
             return
         }
         setSaving(classId)
@@ -91,14 +93,14 @@ export function SubjectCoefficientsDialog({ open, onOpenChange, subject }: Subje
         if (result?.error) {
             toast.error(result.error)
         } else {
-            toast.success('Coefficient enregistré')
+            toast.success(t('admin.subjects.coeffSaved'))
         }
         setSaving(null)
     }
 
     // Group classes by level
     const grouped = classes.reduce<Record<string, ClassRow[]>>((acc, cls) => {
-        const key = cls.level_name ?? 'Sans niveau'
+        const key = cls.level_name ?? t('admin.subjects.noLevel')
         if (!acc[key]) acc[key] = []
         acc[key].push(cls)
         return acc
@@ -108,7 +110,7 @@ export function SubjectCoefficientsDialog({ open, onOpenChange, subject }: Subje
         <Dialog open={open} onOpenChange={onOpenChange}>
             <DialogContent className="sm:max-w-[520px] max-h-[80vh] overflow-y-auto">
                 <DialogHeader>
-                    <DialogTitle>Coefficients par classe — {subject.name}</DialogTitle>
+                    <DialogTitle>{t('admin.subjects.coeffTitle', { name: subject.name })}</DialogTitle>
                 </DialogHeader>
 
                 {loading ? (
@@ -117,13 +119,12 @@ export function SubjectCoefficientsDialog({ open, onOpenChange, subject }: Subje
                     </div>
                 ) : classes.length === 0 ? (
                     <p className="text-sm text-muted-foreground text-center py-6">
-                        Aucune classe configurée.
+                        {t('admin.subjects.noClasses')}
                     </p>
                 ) : (
                     <div className="space-y-5 py-2">
                         <p className="text-xs text-muted-foreground">
-                            Définissez le coefficient de <strong>{subject.name}</strong> pour chaque classe.
-                            Les classes sans coefficient utilisent la valeur par défaut (1).
+                            {t('admin.subjects.coeffDesc', { name: subject.name })}
                         </p>
                         {Object.entries(grouped).map(([levelName, levelClasses]) => (
                             <div key={levelName}>

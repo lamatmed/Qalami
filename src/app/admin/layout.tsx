@@ -1,8 +1,13 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { AdminSidebar } from '@/components/admin/sidebar'
 import { AdminMobileNav } from '@/components/admin/admin-mobile-nav'
 import { createClient } from '@/utils/supabase/server'
 import { redirect } from 'next/navigation'
+import Link from 'next/link'
+
 import { NotificationBell } from '@/components/shared/notification-bell'
+import { Brand } from '@/components/shared/brand'
+
 
 export default async function AdminLayout({
     children,
@@ -36,7 +41,7 @@ export default async function AdminLayout({
     }
 
     return (
-        <div className="flex h-screen bg-background theme-admin">
+        <div className="flex h-screen bg-background theme-admin rtl:flex-row-reverse">
 
             {/* Sidebar — desktop only */}
             <div className="hidden lg:block h-full shrink-0">
@@ -46,14 +51,20 @@ export default async function AdminLayout({
             {/* Main content */}
             <main className="flex-1 overflow-y-auto pb-20 lg:pb-0 min-w-0">
 
+                {/* Desktop top bar */}
+                <div className="hidden lg:flex h-14 bg-background border-b border-border px-6 items-center justify-end sticky top-0 z-20">
+                    <NotificationBell />
+                </div>
+
                 {/* Mobile top bar — hidden on desktop */}
                 <div className="lg:hidden h-12 bg-background border-b border-border px-4 flex items-center justify-between sticky top-0 z-20">
-                    <div className="flex items-center gap-2">
+                    <Link href="/admin" className="flex items-center gap-2 hover:opacity-80 transition-opacity">
                         <div className="w-6 h-6 rounded-lg bg-emerald-600 flex items-center justify-center shrink-0">
                             <span className="font-black text-[11px] text-white leading-none">Q</span>
                         </div>
-                        <span className="font-semibold text-sm text-foreground">Qalami</span>
-                    </div>
+                        <span className="font-semibold text-sm text-foreground"><Brand /></span>
+                    </Link>
+
                     <NotificationBell />
                 </div>
 

@@ -16,6 +16,7 @@ import {
 } from 'lucide-react'
 import { motion } from 'framer-motion'
 import { cn } from '@/lib/utils'
+import { useLanguage } from '@/i18n'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -58,8 +59,8 @@ interface EnrolledStudent {
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
-function formatDate(dateStr: string) {
-    return new Date(dateStr).toLocaleDateString('fr-FR', {
+function formatDate(dateStr: string, lang: 'fr' | 'ar') {
+    return new Date(dateStr).toLocaleDateString(lang === 'ar' ? 'ar-MA' : 'fr-FR', {
         weekday: 'short', day: 'numeric', month: 'short',
     })
 }
@@ -113,6 +114,7 @@ function PeriodRow({
     period: ClassPeriod
     enrolledStudents: EnrolledStudent[]
 }) {
+    const { t, language } = useLanguage()
     const [open,    setOpen]    = useState(false)
     const [loading, setLoading] = useState(false)
     const [rows,    setRows]    = useState<{ student_id: string; status: string }[]>([])
@@ -141,9 +143,9 @@ function PeriodRow({
                 {/* Subject + date */}
                 <div className="flex-1 min-w-0">
                     <p className="text-sm font-semibold text-foreground">
-                        {period.subjectName ?? 'Appel général'}
+                        {period.subjectName ?? t('admin.attendance.generalRollCall')}
                     </p>
-                    <p className="text-xs text-muted-foreground mt-0.5">{formatDate(period.date)}</p>
+                    <p className="text-xs text-muted-foreground mt-0.5">{formatDate(period.date, language)}</p>
                 </div>
 
                 {/* Mini chips */}
@@ -186,7 +188,7 @@ function PeriodRow({
                 <div className="bg-accent/20 border-t border-border/50 px-4 py-3">
                     {enrolledStudents.length === 0 ? (
                         <p className="text-xs text-muted-foreground text-center py-2">
-                            Aucun élève inscrit
+                            {t('admin.attendance.noEnrolledStudents')}
                         </p>
                     ) : (
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
@@ -206,7 +208,7 @@ function PeriodRow({
                                                 'text-[10px] font-bold px-1.5 py-0.5 rounded-md shrink-0',
                                                 STATUS_COLORS[status]
                                             )}>
-                                                {STATUS_LABELS[status]}
+                                                {t(`admin.attendance.status.${status}`)}
                                             </span>
                                         )}
                                     </div>
@@ -249,6 +251,7 @@ function ProgressRow({
 // ─── Main component ────────────────────────────────────────────────────────────
 
 export function AttendanceClient() {
+    const { t } = useLanguage()
     const [classOptions,    setClassOptions]    = useState<{ id: string; name: string }[]>([])
     const [selectedClassId, setSelectedClassId] = useState('')
     const [loadingInit,     setLoadingInit]     = useState(true)
@@ -311,7 +314,7 @@ export function AttendanceClient() {
                     onChange={e => setSelectedClassId(e.target.value)}
                     className="w-full sm:w-72 bg-card border border-border/50 rounded-2xl px-4 py-2.5 text-sm text-foreground focus:outline-none focus:border-primary/50 transition-colors"
                 >
-                    <option value="">Sélectionner une classe…</option>
+                    <option value="">{t('admin.attendance.selectClassPlaceholder')}</option>
                     {classOptions.map(c => (
                         <option key={c.id} value={c.id}>{c.name}</option>
                     ))}
@@ -327,9 +330,9 @@ export function AttendanceClient() {
                         <Users className="w-6 h-6 text-primary" />
                     </div>
                     <div className="text-center">
-                        <p className="font-bold text-foreground">Choisissez une classe</p>
+                        <p className="font-bold text-foreground">{t('admin.attendance.chooseClass')}</p>
                         <p className="text-sm text-muted-foreground mt-1">
-                            Sélectionnez une classe pour voir les présences et les statistiques.
+                            {t('admin.attendance.chooseClassDesc')}
                         </p>
                     </div>
                 </motion.div>
@@ -343,13 +346,13 @@ export function AttendanceClient() {
                     <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
                         {([
                             {
-                                label: 'Séances',
+                                label: t('admin.attendance.sessions'),
                                 value: String(totalSessions),
                                 icon: Calendar,
                                 iconColor: 'text-blue-500/10 group-hover:text-blue-500/20',
                             },
                             {
-                                label: 'Présence globale',
+                                label: t('admin.attendance.globalAttendance'),
                                 value: globalRate !== null ? `${globalRate}%` : '—',
                                 icon: BarChart3,
                                 iconColor: globalRate !== null && globalRate >= 80
@@ -358,14 +361,14 @@ export function AttendanceClient() {
                                 warn: globalRate !== null && globalRate < 80,
                             },
                             {
-                                label: 'Meilleure matière',
+                                label: t('admin.attendance.bestSubject'),
                                 value: bestSubject?.subjectName ?? '—',
                                 sub:   bestSubject ? `${bestSubject.rate}%` : undefined,
                                 icon:  TrendingUp,
                                 iconColor: 'text-emerald-500/10 group-hover:text-emerald-500/20',
                             },
                             {
-                                label: 'À surveiller',
+                                label: t('admin.attendance.worstSubject'),
                                 value: worstSubject?.subjectName ?? '—',
                                 sub:   worstSubject ? `${worstSubject.rate}%` : undefined,
                                 icon:  TrendingDown,
@@ -411,16 +414,16 @@ export function AttendanceClient() {
                         {/* ── Left: sessions list ────────────────────────────── */}
                         <motion.div variants={item}>
                             <div className="flex items-center justify-between mb-3">
-                                <h3 className="font-bold text-lg text-foreground">Séances</h3>
+                                <h3 className="font-bold text-lg text-foreground">{t('admin.attendance.sessionsHeader')}</h3>
                                 <span className="text-xs text-muted-foreground">
-                                    {periods.length} séance{periods.length !== 1 ? 's' : ''} · 30 jours
+                                    {t('admin.attendance.sessionsCount', { count: periods.length })}
                                 </span>
                             </div>
                             {periods.length === 0 ? (
                                 <div className="flex flex-col items-center justify-center py-16 gap-3 bg-card rounded-2xl border border-border/50">
                                     <Calendar className="w-8 h-8 text-muted-foreground opacity-30" />
                                     <p className="text-sm text-muted-foreground">
-                                        Aucune séance enregistrée sur 30 jours
+                                        {t('admin.attendance.noSessions30Days')}
                                     </p>
                                 </div>
                             ) : (
@@ -442,13 +445,13 @@ export function AttendanceClient() {
                             {/* Per-subject stats */}
                             <motion.div variants={item}>
                                 <div className="flex items-center justify-between mb-3">
-                                    <h3 className="font-bold text-lg text-foreground">Par matière</h3>
-                                    <span className="text-xs text-muted-foreground">30 jours</span>
+                                    <h3 className="font-bold text-lg text-foreground">{t('admin.attendance.bySubject')}</h3>
+                                    <span className="text-xs text-muted-foreground">{t('admin.attendance.30Days')}</span>
                                 </div>
                                 {subjectStats.length === 0 ? (
                                     <div className="flex flex-col items-center justify-center py-12 gap-2 bg-card rounded-2xl border border-border/50">
                                         <BookOpen className="w-6 h-6 text-muted-foreground opacity-30" />
-                                        <p className="text-xs text-muted-foreground">Aucune donnée par matière</p>
+                                        <p className="text-xs text-muted-foreground">{t('admin.attendance.noSubjectData')}</p>
                                     </div>
                                 ) : (
                                     <div className="bg-card rounded-2xl border border-border/50 overflow-hidden">
@@ -459,7 +462,7 @@ export function AttendanceClient() {
                                                     label={s.subjectName}
                                                     rate={s.rate}
                                                     sublabel={[
-                                                        `${s.sessions} séance${s.sessions !== 1 ? 's' : ''}`,
+                                                        t('admin.attendance.sessionsCountShort', { count: s.sessions }),
                                                         `${s.present}P`,
                                                         s.absent > 0  ? `${s.absent}A`  : null,
                                                         s.late   > 0  ? `${s.late}R`    : null,
@@ -474,13 +477,13 @@ export function AttendanceClient() {
                             {/* Per-student stats */}
                             <motion.div variants={item}>
                                 <div className="flex items-center justify-between mb-3">
-                                    <h3 className="font-bold text-lg text-foreground">Par élève</h3>
-                                    <span className="text-xs text-muted-foreground">30 jours</span>
+                                    <h3 className="font-bold text-lg text-foreground">{t('admin.attendance.byStudent')}</h3>
+                                    <span className="text-xs text-muted-foreground">{t('admin.attendance.30Days')}</span>
                                 </div>
                                 {studentStats.length === 0 ? (
                                     <div className="flex flex-col items-center justify-center py-12 gap-2 bg-card rounded-2xl border border-border/50">
                                         <Users className="w-6 h-6 text-muted-foreground opacity-30" />
-                                        <p className="text-xs text-muted-foreground">Aucune donnée sur les élèves</p>
+                                        <p className="text-xs text-muted-foreground">{t('admin.attendance.noStudentData')}</p>
                                     </div>
                                 ) : (
                                     <div className="bg-card rounded-2xl border border-border/50 overflow-hidden">
@@ -498,7 +501,7 @@ export function AttendanceClient() {
                                                             `${student.present}P`,
                                                             student.absent > 0 ? `${student.absent}A` : null,
                                                             student.late   > 0 ? `${student.late}R`   : null,
-                                                            `${student.total} séances`,
+                                                            t('admin.attendance.sessionsCountShort', { count: student.total }),
                                                         ].filter(Boolean).join(' · ')}
                                                     />
                                                 )

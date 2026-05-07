@@ -7,6 +7,7 @@ import { cn } from '@/lib/utils'
 import { upsertAssignment, removeAssignment } from '@/app/admin/assignments/actions'
 import { toast } from 'sonner'
 import { getMySchoolContext } from '@/app/admin/actions'
+import { useLanguage } from '@/i18n'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -43,6 +44,7 @@ interface DragInfo {
 // ─── Component ────────────────────────────────────────────────────────────────
 
 export function AssignmentMatrix() {
+    const { t } = useLanguage()
     const [teachers,    setTeachers]    = useState<Teacher[]>([])
     const [classes,     setClasses]     = useState<Klass[]>([])
     const [subjects,    setSubjects]    = useState<Subject[]>([])
@@ -89,7 +91,7 @@ export function AssignmentMatrix() {
             setSubjects(subjectsData || [])
             setTeachers((teachersData || []).map((t: any) => ({
                 id: t.id,
-                name: t.full_name || 'Enseignant',
+                name: t.full_name || t('admin.assignments.defaultTeacher'),
             })))
             setAssignments((assignData as any[] || []).map((a: any) => ({
                 id:          a.id,
@@ -174,7 +176,7 @@ export function AssignmentMatrix() {
         })
         setActiveCell(null)
         setTeacherSearch('')
-        toast.success(`${teacher.name} affecté(e)`)
+        toast.success(t('admin.assignments.assignedSuccess', { name: teacher.name }))
         setOperating(false)
     }
 
@@ -186,7 +188,7 @@ export function AssignmentMatrix() {
         } else {
             setAssignments(prev => prev.filter(a => a.id !== assignmentId))
             setActiveCell(null)
-            toast.success('Affectation retirée')
+            toast.success(t('admin.assignments.assignmentRemoved'))
         }
         setOperating(false)
     }
@@ -256,16 +258,16 @@ export function AssignmentMatrix() {
 
             {/* Count hint */}
             <p className="text-sm text-gray-500">
-                {assignments.length} affectation{assignments.length !== 1 ? 's' : ''}
-                {!isEmpty && ' · Cliquer une cellule pour affecter · Glisser pour déplacer'}
+                {t('admin.assignments.assignmentsCount', { count: assignments.length, s: assignments.length !== 1 ? 's' : '' })}
+                {!isEmpty && t('admin.assignments.matrixHint')}
             </p>
 
             {isEmpty ? (
                 <div className="flex flex-col items-center justify-center py-16 text-gray-500 bg-[#1A2530] rounded-3xl border border-white/5">
                     <AlertTriangle className="w-10 h-10 mb-3 opacity-20" />
-                    <p className="font-medium">Aucune donnée</p>
+                    <p className="font-medium">{t('admin.assignments.noData')}</p>
                     <p className="text-sm mt-1 text-gray-600">
-                        {subjects.length === 0 ? 'Créez des matières' : 'Créez des classes'} avant de gérer les affectations.
+                        {subjects.length === 0 ? t('admin.assignments.noSubjectsError') : t('admin.assignments.noClassesError')}
                     </p>
                 </div>
             ) : (
@@ -279,13 +281,13 @@ export function AssignmentMatrix() {
                             {/* Header: class names */}
                             <thead>
                                 <tr>
-                                    <th className="sticky left-0 z-20 bg-[#1A2530] px-4 py-3 text-left text-[10px] font-bold text-gray-600 uppercase tracking-wider border-b border-r border-white/5 min-w-[180px]">
-                                        Matière ╲ Classe
+                                    <th className="sticky left-0 rtl:right-0 rtl:left-auto z-20 bg-[#1A2530] px-4 py-3 text-left rtl:text-right text-[10px] font-bold text-gray-600 uppercase tracking-wider border-b border-r rtl:border-l rtl:border-r-0 border-white/5 min-w-[180px]">
+                                        {t('admin.assignments.subjectClass')}
                                     </th>
                                     {classes.map(cls => (
                                         <th
                                             key={cls.id}
-                                            className="px-3 py-3 text-center text-xs font-bold text-white border-b border-r border-white/5 last:border-r-0 whitespace-nowrap"
+                                            className="px-3 py-3 text-center text-xs font-bold text-white border-b border-r rtl:border-l rtl:border-r-0 border-white/5 last:border-r-0 last:rtl:border-l-0 whitespace-nowrap"
                                             style={{ minWidth: 152 }}
                                         >
                                             {cls.name}
@@ -299,7 +301,7 @@ export function AssignmentMatrix() {
                                 {subjects.map((subject, rowIdx) => (
                                     <tr key={subject.id}>
                                         {/* Sticky subject name */}
-                                        <td className="sticky left-0 z-10 bg-[#1A2530] px-4 py-2 text-sm font-semibold text-gray-300 border-r border-b border-white/5 whitespace-nowrap last:border-b-0">
+                                        <td className="sticky left-0 rtl:right-0 rtl:left-auto z-10 bg-[#1A2530] px-4 py-2 text-sm font-semibold text-gray-300 border-r rtl:border-l rtl:border-r-0 border-b border-white/5 whitespace-nowrap last:border-b-0">
                                             {subject.name}
                                         </td>
 
@@ -315,7 +317,7 @@ export function AssignmentMatrix() {
                                                 <td
                                                     key={cls.id}
                                                     className={cn(
-                                                        "p-1.5 border-r border-b border-white/5 last:border-r-0",
+                                                        "p-1.5 border-r rtl:border-l rtl:border-r-0 border-b border-white/5 last:border-r-0 last:rtl:border-l-0",
                                                         isLastRow && "border-b-0",
                                                         isOver && "bg-emerald-500/5"
                                                     )}
@@ -383,13 +385,13 @@ export function AssignmentMatrix() {
                     <div className="flex items-center gap-5 text-xs text-gray-600 flex-wrap">
                         <div className="flex items-center gap-1.5">
                             <div className="h-3 w-3 rounded bg-emerald-500/20 border border-emerald-500/30" />
-                            Affecté
+                            {t('admin.assignments.assigned')}
                         </div>
                         <div className="flex items-center gap-1.5">
                             <div className="h-3 w-3 rounded bg-white/[0.03] border border-white/10" />
-                            Non affecté
+                            {t('admin.assignments.unassigned')}
                         </div>
-                        <span>· Glisser une cellule verte pour déplacer l'affectation</span>
+                        <span>{t('admin.assignments.dragHint')}</span>
                     </div>
                 </>
             )}
@@ -425,7 +427,7 @@ export function AssignmentMatrix() {
                                     className="w-full text-left px-3 py-2 text-xs rounded-lg text-gray-300 hover:bg-white/5 transition-colors"
                                     onClick={() => setActiveCell(prev => prev ? { ...prev, mode: 'pick' } : null)}
                                 >
-                                    Changer l'enseignant
+                                    {t('admin.assignments.changeTeacher')}
                                 </button>
                                 <button
                                     className="w-full text-left px-3 py-2 text-xs rounded-lg text-red-400 hover:bg-red-500/10 transition-colors flex items-center gap-2"
@@ -436,7 +438,7 @@ export function AssignmentMatrix() {
                                         ? <Loader2 className="w-3 h-3 animate-spin" />
                                         : <X className="w-3 h-3" />
                                     }
-                                    Retirer l'affectation
+                                    {t('admin.assignments.removeAssignment')}
                                 </button>
                             </div>
                         </div>
@@ -465,7 +467,7 @@ export function AssignmentMatrix() {
                                         autoFocus
                                         value={teacherSearch}
                                         onChange={e => setTeacherSearch(e.target.value)}
-                                        placeholder="Rechercher un enseignant…"
+                                        placeholder={t('admin.assignments.searchPlaceholder')}
                                         className="w-full pl-7 pr-2 py-1.5 bg-white/5 border border-white/10 rounded-lg text-xs text-white placeholder:text-gray-600 focus:outline-none focus:border-emerald-500/50"
                                     />
                                 </div>
@@ -473,7 +475,7 @@ export function AssignmentMatrix() {
 
                             <div className="max-h-48 overflow-y-auto">
                                 {filteredTeachers.length === 0 ? (
-                                    <p className="text-xs text-gray-600 text-center py-4">Aucun résultat</p>
+                                    <p className="text-xs text-gray-600 text-center py-4">{t('admin.assignments.noResults')}</p>
                                 ) : filteredTeachers.map(teacher => {
                                     const isCurrentTeacher = activeCell.assignment?.teacherId === teacher.id
                                     return (

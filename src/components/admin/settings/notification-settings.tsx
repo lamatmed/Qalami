@@ -7,6 +7,7 @@ import { Save, Loader2, Bell, BellOff, Mail, Smartphone, Info } from 'lucide-rea
 import { cn } from '@/lib/utils'
 import { toast } from 'sonner'
 import { getMySchoolContext } from '@/app/admin/actions'
+import { useLanguage } from '@/i18n'
 
 // ─── Config ────────────────────────────────────────────────────────────────────
 
@@ -86,6 +87,7 @@ const STORAGE_KEY = 'qalami_notification_settings'
 // ─── Component ─────────────────────────────────────────────────────────────────
 
 export function NotificationSettings() {
+    const { t } = useLanguage()
     const [settings, setSettings] = useState<NotifState>(buildDefault())
     const [saving, setSaving] = useState(false)
     const [schoolId, setSchoolId] = useState<string | null>(null)
@@ -142,7 +144,7 @@ export function NotificationSettings() {
                 .then(() => {})
         }
 
-        toast.success('Préférences de notification sauvegardées')
+        toast.success(t('admin.settings.notifications.saveSuccess'))
         setSaving(false)
     }
 
@@ -153,13 +155,13 @@ export function NotificationSettings() {
         <div className="space-y-8 animate-in fade-in duration-300">
             <div className="flex items-start justify-between gap-4">
                 <div>
-                    <h3 className="text-xl font-bold text-white">Notifications</h3>
+                    <h3 className="text-xl font-bold text-white">{t('admin.settings.notifications.title')}</h3>
                     <p className="text-gray-400 text-sm mt-1">
-                        Configurez quels événements déclenchent une alerte et sur quel canal.
+                        {t('admin.settings.notifications.subtitle')}
                     </p>
                 </div>
                 <div className="text-xs text-gray-500 font-mono shrink-0">
-                    {enabledCount}/{totalCount} actifs
+                    {t('admin.settings.notifications.activeCount').replace('{count}', `${enabledCount}/${totalCount}`)}
                 </div>
             </div>
 
@@ -169,13 +171,13 @@ export function NotificationSettings() {
                     <div className="w-7 h-7 rounded-lg bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center">
                         <Smartphone className="w-3.5 h-3.5 text-indigo-400" />
                     </div>
-                    <span><strong className="text-gray-300">Application</strong> — Notification in-app et push mobile</span>
+                    <span><strong className="text-gray-300">{t('admin.settings.notifications.appChannel')}</strong>{t('admin.settings.notifications.appDesc')}</span>
                 </div>
                 <div className="flex items-center gap-2 text-xs text-gray-400">
                     <div className="w-7 h-7 rounded-lg bg-cyan-500/10 border border-cyan-500/20 flex items-center justify-center">
                         <Mail className="w-3.5 h-3.5 text-cyan-400" />
                     </div>
-                    <span><strong className="text-gray-300">Email</strong> — Envoi automatique par courriel</span>
+                    <span><strong className="text-gray-300">{t('admin.settings.notifications.emailChannel')}</strong>{t('admin.settings.notifications.emailDesc')}</span>
                 </div>
             </div>
 
@@ -190,10 +192,10 @@ export function NotificationSettings() {
                             {/* Category header */}
                             <div className="flex items-center justify-between px-5 py-3 border-b border-white/5 bg-[#0F1720]/50">
                                 <span className={cn("text-xs font-bold uppercase tracking-wider", cat.color)}>
-                                    {cat.label}
+                                    {t('admin.settings.notifications.categories.' + cat.id + '.label')}
                                 </span>
                                 <div className="flex items-center gap-2">
-                                    <span className="text-[10px] text-gray-600 me-1">Tout activer :</span>
+                                    <span className="text-[10px] text-gray-600 me-1">{t('admin.settings.notifications.activateAll')}</span>
                                     <ChannelToggle
                                         active={allApp}
                                         icon={<Smartphone className="w-3 h-3" />}
@@ -237,9 +239,9 @@ export function NotificationSettings() {
 
                                             {/* Label + description */}
                                             <div className="flex-1 min-w-0">
-                                                <p className="text-sm font-medium text-white">{ev.label}</p>
-                                                <p className="text-xs text-gray-500">{ev.desc}</p>
-                                                <p className="text-[10px] text-gray-600 mt-0.5">→ {ev.recipients}</p>
+                                                <p className="text-sm font-medium text-white">{t('admin.settings.notifications.events.' + ev.id + '.label')}</p>
+                                                <p className="text-xs text-gray-500">{t('admin.settings.notifications.events.' + ev.id + '.desc')}</p>
+                                                <p className="text-[10px] text-gray-600 mt-0.5">→ {t('admin.settings.notifications.events.' + ev.id + '.recipients')}</p>
                                             </div>
 
                                             {/* Toggles */}
@@ -272,9 +274,7 @@ export function NotificationSettings() {
             <div className="flex items-start gap-3 bg-[#1A2530] border border-white/5 rounded-xl p-4 text-sm">
                 <Info className="w-4 h-4 shrink-0 mt-0.5 text-gray-500" />
                 <p className="text-xs text-gray-500">
-                    {"Les préférences sont sauvegardées localement et synchronisées avec la table "}
-                    <code className="bg-white/10 px-1 rounded">school_notification_settings</code>
-                    {" si disponible. L'envoi effectif des emails nécessite la configuration d'un service SMTP dans les variables d'environnement."}
+                    {t('admin.settings.notifications.persistenceNote')}
                 </p>
             </div>
 
@@ -285,7 +285,7 @@ export function NotificationSettings() {
                     className="bg-emerald-500 hover:bg-emerald-400 text-black font-bold"
                 >
                     {saving ? <Loader2 className="w-4 h-4 me-2 animate-spin" /> : <Save className="w-4 h-4 me-2" />}
-                    Sauvegarder
+                    {t('admin.settings.notifications.save')}
                 </Button>
             </div>
         </div>

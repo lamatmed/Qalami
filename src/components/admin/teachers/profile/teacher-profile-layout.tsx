@@ -136,8 +136,8 @@ export function TeacherProfileLayout({ id }: { id: string }) {
     if (!teacher) {
         return (
             <div className="text-center py-12 text-muted-foreground">
-                <p>Enseignant introuvable</p>
-                <Button variant="ghost" onClick={() => router.back()} className="mt-4">Retour</Button>
+                <p>{t('admin.teachers.profile.notFound')}</p>
+                <Button variant="ghost" onClick={() => router.back()} className="mt-4">{t('admin.teachers.profile.back')}</Button>
             </div>
         )
     }
@@ -150,8 +150,8 @@ export function TeacherProfileLayout({ id }: { id: string }) {
                 {/* Main Profile Card */}
                 <div className="bg-[#161B22] rounded-2xl border border-white/5 p-6 relative overflow-hidden">
                     <div className="flex justify-between items-start mb-6 relative z-10">
-                        <Button variant="ghost" size="icon" onClick={() => router.back()} className="text-muted-foreground hover:text-foreground -ms-2">
-                            <ArrowLeft className="w-5 h-5" />
+                        <Button variant="ghost" size="icon" onClick={() => router.back()} className="text-muted-foreground hover:text-foreground -ms-2 rtl:-me-2">
+                            <ArrowLeft className="w-5 h-5 rtl:rotate-180" />
                         </Button>
                         <h3 className="font-bold text-foreground mt-2">{t('admin.teachers.teacherProfile') || 'Profil Enseignant'}</h3>
                         <div className="w-9" />
@@ -165,7 +165,7 @@ export function TeacherProfileLayout({ id }: { id: string }) {
                             </div>
                         </div>
                         <h1 className="text-xl font-bold text-foreground">{teacher.full_name}</h1>
-                        <p className="text-primary font-mono text-xs font-bold mt-1 uppercase">Spécialité: {teacher.subject}</p>
+                        <p className="text-primary font-mono text-xs font-bold mt-1 uppercase">{t('admin.teachers.profile.speciality')} {teacher.subject}</p>
                         <div className="mt-2">
                             <StatusBadge status={teacher.status} />
                         </div>
@@ -180,7 +180,7 @@ export function TeacherProfileLayout({ id }: { id: string }) {
                             onClick={() => setStatusDialogOpen(true)}
                         >
                             <ShieldAlert className="w-4 h-4" />
-                            Changer le statut
+                            {t('admin.teachers.profile.changeStatus')}
                         </Button>
                     </div>
 
@@ -195,7 +195,7 @@ export function TeacherProfileLayout({ id }: { id: string }) {
                                     activeTab === tab.id ? "text-primary border-b-2 border-primary" : "text-muted-foreground hover:text-foreground"
                                 )}
                             >
-                                {tab.label}
+                                {t(`admin.teachers.profile.${tab.id}`)}
                             </button>
                         ))}
                     </div>
@@ -210,8 +210,8 @@ export function TeacherProfileLayout({ id }: { id: string }) {
                             <Phone className="w-5 h-5" />
                         </div>
                         <div>
-                            <p className="text-[10px] text-muted-foreground uppercase font-bold">Téléphone</p>
-                            <p className="text-sm text-foreground font-medium ltr-content">{teacher.phone || 'Non renseigné'}</p>
+                            <p className="text-[10px] text-muted-foreground uppercase font-bold">{t('admin.teachers.profile.phone')}</p>
+                            <p className="text-sm text-foreground font-medium ltr-content">{teacher.phone || t('admin.teachers.profile.noPhone')}</p>
                         </div>
                     </div>
 
@@ -220,8 +220,8 @@ export function TeacherProfileLayout({ id }: { id: string }) {
                             <Mail className="w-5 h-5" />
                         </div>
                         <div>
-                            <p className="text-[10px] text-muted-foreground uppercase font-bold">Email</p>
-                            <p className="text-sm text-foreground font-medium">{teacher.email || 'Non renseigné'}</p>
+                            <p className="text-[10px] text-muted-foreground uppercase font-bold">{t('admin.teachers.profile.email')}</p>
+                            <p className="text-sm text-foreground font-medium">{teacher.email || t('admin.teachers.profile.noEmail')}</p>
                         </div>
                     </div>
                 </div>
@@ -232,11 +232,11 @@ export function TeacherProfileLayout({ id }: { id: string }) {
                         <h4 className="text-3xl font-bold text-foreground mb-1">
                             {teacher.weeklyHours > 0 ? `${teacher.weeklyHours}h` : '—'}
                         </h4>
-                        <p className="text-xs text-muted-foreground font-medium uppercase">Volume Hebdo</p>
+                        <p className="text-xs text-muted-foreground font-medium uppercase">{t('admin.teachers.profile.weeklyVolume')}</p>
                     </div>
                     <div className="bg-[#161B22] rounded-2xl border border-white/5 p-5 text-center">
                         <h4 className="text-3xl font-bold text-foreground mb-1">{teacher.classCount}</h4>
-                        <p className="text-xs text-muted-foreground font-medium uppercase">{t('common.classes')}</p>
+                        <p className="text-xs text-muted-foreground font-medium uppercase">{t('admin.teachers.profile.classesLabel')}</p>
                     </div>
                 </div>
             </div>

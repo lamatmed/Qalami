@@ -18,16 +18,7 @@ import { ChangeEnrollmentStatus } from '@/components/admin/students/change-enrol
 import { AssignClassDialog } from '@/components/admin/students/assign-class-dialog'
 import { createClient } from '@/utils/supabase/client'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
-
-const tabs = [
-    { id: 'grades',     label: 'Notes' },
-    { id: 'attendance', label: 'Absences' },
-    { id: 'schedule',   label: 'Emploi du temps' },
-    { id: 'payments',   label: 'Paiements' },
-    { id: 'remarks',    label: 'Remarques' },
-    { id: 'documents',  label: 'Documents' },
-    { id: 'history',    label: 'Historique' },
-]
+import { useLanguage } from '@/i18n'
 
 interface StudentProfile {
     full_name: string
@@ -47,6 +38,7 @@ interface StudentProfile {
 }
 
 export function StudentProfileLayout({ id }: { id: string }) {
+    const { t, language } = useLanguage()
     const router = useRouter()
     const [activeTab, setActiveTab] = useState('grades')
     const [student, setStudent] = useState<StudentProfile | null>(null)
@@ -54,6 +46,15 @@ export function StudentProfileLayout({ id }: { id: string }) {
     const [statusDialogOpen, setStatusDialogOpen] = useState(false)
     const [enrollmentDialogOpen, setEnrollmentDialogOpen] = useState(false)
     const [assignClassOpen, setAssignClassOpen] = useState(false)
+    const tabs = [
+        { id: 'grades', label: t('student.grades.title') },
+        { id: 'attendance', label: t('teacher.attendance.title') },
+        { id: 'schedule', label: t('common.schedule') },
+        { id: 'payments', label: t('parent.finances.title') },
+        { id: 'remarks', label: t('admin.students.profile.remarks') },
+        { id: 'documents', label: t('common.documents') },
+        { id: 'history', label: t('admin.students.profile.history') },
+    ]
 
     useEffect(() => {
         async function fetchStudent() {
@@ -94,7 +95,7 @@ export function StudentProfileLayout({ id }: { id: string }) {
 
                 const firstEnrollment = enrollments?.[0]
                 setStudent({
-                    full_name: profile.full_name || 'Élève',
+                    full_name: profile.full_name || t('common.student'),
                     status: (profile as any).status || 'active',
                     date_of_birth: (profile as any).date_of_birth || null,
                     gender: (profile as any).gender || null,
@@ -102,7 +103,7 @@ export function StudentProfileLayout({ id }: { id: string }) {
                     national_id: (profile as any).national_id || null,
                     address: (profile as any).address || null,
                     avatar_url: profile.avatar_url || null,
-                    className: firstEnrollment?.classes?.name || 'Non assigné',
+                    className: firstEnrollment?.classes?.name || '',
                     enrollmentId: firstEnrollment?.id || null,
                     enrollmentStatus: firstEnrollment?.status || null,
                     academicYear: (firstEnrollment?.academic_years as any)?.name || null,
@@ -117,12 +118,12 @@ export function StudentProfileLayout({ id }: { id: string }) {
 
     const formatDate = (dateStr: string | null) => {
         if (!dateStr) return '—'
-        return new Date(dateStr).toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric' })
+        return new Date(dateStr).toLocaleDateString(language === 'ar' ? 'ar-u-ca-gregory' : 'fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric' })
     }
 
     const genderLabel = (g: string | null) => {
-        if (g === 'male') return 'Masculin'
-        if (g === 'female') return 'Féminin'
+        if (g === 'male') return t('common.male')
+        if (g === 'female') return t('common.female')
         return '—'
     }
 
@@ -148,12 +149,12 @@ export function StudentProfileLayout({ id }: { id: string }) {
                         <Button variant="ghost" size="icon" onClick={() => router.back()} className="text-gray-400 hover:text-white -ml-2">
                             <ArrowLeft className="w-5 h-5" />
                         </Button>
-                        <h3 className="font-bold text-white mt-2">Dossier Étudiant</h3>
+                        <h3 className="font-bold text-white mt-2">{t('admin.students.profile.studentFile')}</h3>
                         <Button
                             variant="ghost"
                             size="icon"
                             className="text-gray-400 hover:text-orange-400 -mr-2"
-                            title="Changer le statut"
+                            title={t('admin.students.changeStatus')}
                             onClick={() => setStatusDialogOpen(true)}
                         >
                             <ShieldAlert className="w-5 h-5" />
@@ -172,12 +173,12 @@ export function StudentProfileLayout({ id }: { id: string }) {
                         <button
                             className="text-gray-400 text-sm mt-1 hover:text-emerald-400 transition-colors flex items-center gap-1.5 group"
                             onClick={() => setAssignClassOpen(true)}
-                            title="Assigner ou changer de classe"
+                            title={t('admin.students.assignToClass')}
                         >
-                            Classe : <span className={cn(
+                            {t('admin.students.class')} : <span className={cn(
                                 "font-medium",
-                                student?.className === 'Non assigné' ? "text-amber-400 group-hover:text-emerald-400" : "text-white group-hover:text-emerald-400"
-                            )}>{student?.className}</span>
+                                !student?.className ? "text-amber-400 group-hover:text-emerald-400" : "text-white group-hover:text-emerald-400"
+                            )}>{student?.className || t('admin.students.unassigned')}</span>
                         </button>
                         {student?.academicYear && (
                             <div className="mt-2 flex items-center gap-2">
@@ -194,7 +195,7 @@ export function StudentProfileLayout({ id }: { id: string }) {
                                         className="text-[10px] text-gray-500 hover:text-emerald-400 underline transition-colors"
                                         onClick={() => setEnrollmentDialogOpen(true)}
                                     >
-                                        Statut
+                                        {t('common.status')}
                                     </button>
                                 )}
                             </div>
@@ -220,14 +221,14 @@ export function StudentProfileLayout({ id }: { id: string }) {
 
                 {/* Personal Info Widget */}
                 <div className="bg-[#1A2530] rounded-3xl border border-white/5 p-6 space-y-3">
-                    <h4 className="text-sm font-bold text-white mb-4">Informations Personnelles</h4>
+                    <h4 className="text-sm font-bold text-white mb-4">{t('admin.students.profile.personalInfo')}</h4>
 
                     <div className="bg-[#0F1720] p-3 rounded-xl flex items-center gap-4 border border-white/5">
                         <div className="h-10 w-10 bg-emerald-500/10 rounded-lg flex items-center justify-center text-emerald-500 shrink-0">
                             <Calendar className="w-5 h-5" />
                         </div>
                         <div className="min-w-0">
-                            <p className="text-[10px] text-gray-500 uppercase font-bold">Date et Lieu de Naissance</p>
+                            <p className="text-[10px] text-gray-500 uppercase font-bold">{t('admin.students.profile.birthDatePlace')}</p>
                             <p className="text-sm text-white font-medium truncate">
                                 {formatDate(student?.date_of_birth ?? null)}
                                 {student?.place_of_birth ? ` — ${student.place_of_birth}` : ''}
@@ -240,7 +241,7 @@ export function StudentProfileLayout({ id }: { id: string }) {
                             <User className="w-5 h-5" />
                         </div>
                         <div>
-                            <p className="text-[10px] text-gray-500 uppercase font-bold">Genre</p>
+                            <p className="text-[10px] text-gray-500 uppercase font-bold">{t('admin.students.register.personal.gender')}</p>
                             <p className="text-sm text-white font-medium">{genderLabel(student?.gender ?? null)}</p>
                         </div>
                     </div>
@@ -263,7 +264,7 @@ export function StudentProfileLayout({ id }: { id: string }) {
                                 <Home className="w-5 h-5" />
                             </div>
                             <div className="min-w-0">
-                                <p className="text-[10px] text-gray-500 uppercase font-bold">Adresse</p>
+                                <p className="text-[10px] text-gray-500 uppercase font-bold">{t('common.address')}</p>
                                 <p className="text-sm text-white font-medium truncate">{student.address}</p>
                             </div>
                         </div>
@@ -273,7 +274,7 @@ export function StudentProfileLayout({ id }: { id: string }) {
                 {/* Emergency Contact */}
                 {(student?.parentName || student?.parentPhone) && (
                     <div className="bg-[#1A2530] rounded-3xl border border-white/5 p-6">
-                        <h4 className="text-sm font-bold text-white mb-4">Contact d'urgence</h4>
+                        <h4 className="text-sm font-bold text-white mb-4">{t('admin.students.profile.emergencyContact')}</h4>
                         <div className="bg-[#0F1720] p-4 rounded-2xl flex items-center justify-between border border-white/5">
                             <div className="flex items-center gap-3">
                                 <div className="h-10 w-10 bg-emerald-500/10 rounded-full flex items-center justify-center text-emerald-500 border border-emerald-500/20">
@@ -281,7 +282,7 @@ export function StudentProfileLayout({ id }: { id: string }) {
                                 </div>
                                 <div>
                                     <p className="text-sm font-bold text-white">{student?.parentName || '—'}</p>
-                                    <p className="text-[10px] text-gray-500">Parent / Tuteur</p>
+                                    <p className="text-[10px] text-gray-500">{t('admin.students.profile.parentGuardian')}</p>
                                 </div>
                             </div>
                             {student?.parentPhone && (

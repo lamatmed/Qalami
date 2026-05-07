@@ -4,6 +4,7 @@ import { useState, useEffect, useMemo } from 'react'
 import { createClient } from '@/utils/supabase/client'
 import { XCircle, Clock, CheckCircle2, AlertCircle, Loader2, FileText, StickyNote } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { useLanguage } from '@/i18n'
 
 interface AttendanceRecord {
     id: string
@@ -49,6 +50,7 @@ const STATUS_CONFIG = {
 type FilterType = 'all' | 'absent' | 'justified' | 'late'
 
 export function StudentAttendance({ studentId }: { studentId: string }) {
+    const { t, language } = useLanguage()
     const [records, setRecords] = useState<AttendanceRecord[]>([])
     const [loading, setLoading] = useState(true)
     const [filter, setFilter] = useState<FilterType>('all')
@@ -107,33 +109,33 @@ export function StudentAttendance({ studentId }: { studentId: string }) {
                 <div className="bg-[#1A2530] rounded-2xl border border-red-500/20 p-4 text-center">
                     <XCircle className="w-5 h-5 text-red-400 mx-auto mb-2" />
                     <p className="text-2xl font-black text-red-400">{stats.absent}</p>
-                    <p className="text-[10px] text-gray-500 font-bold uppercase mt-1">Injustifiées</p>
+                    <p className="text-[10px] text-gray-500 font-bold uppercase mt-1">{t('admin.students.profile.unjustified')}</p>
                 </div>
                 <div className="bg-[#1A2530] rounded-2xl border border-amber-500/20 p-4 text-center">
                     <CheckCircle2 className="w-5 h-5 text-amber-400 mx-auto mb-2" />
                     <p className="text-2xl font-black text-amber-400">{stats.justified}</p>
-                    <p className="text-[10px] text-gray-500 font-bold uppercase mt-1">Justifiées</p>
+                    <p className="text-[10px] text-gray-500 font-bold uppercase mt-1">{t('admin.students.profile.justified')}</p>
                 </div>
                 <div className="bg-[#1A2530] rounded-2xl border border-blue-500/20 p-4 text-center">
                     <Clock className="w-5 h-5 text-blue-400 mx-auto mb-2" />
                     <p className="text-2xl font-black text-blue-400">{stats.late}</p>
-                    <p className="text-[10px] text-gray-500 font-bold uppercase mt-1">Retards</p>
+                    <p className="text-[10px] text-gray-500 font-bold uppercase mt-1">{t('admin.students.profile.latePlural')}</p>
                 </div>
             </div>
 
             {/* Total banner */}
             <div className="bg-[#1A2530] rounded-2xl border border-white/5 px-5 py-3 flex items-center justify-between">
-                <p className="text-sm text-gray-400">Total des absences &amp; retards</p>
-                <p className="text-lg font-black text-white">{stats.total} <span className="text-xs text-gray-500 font-normal">événement{stats.total !== 1 ? 's' : ''}</span></p>
+                <p className="text-sm text-gray-400">{t('admin.students.profile.totalAbsencesLate')}</p>
+                <p className="text-lg font-black text-white">{stats.total} <span className="text-xs text-gray-500 font-normal">{t('admin.students.profile.events')}</span></p>
             </div>
 
             {/* Filters */}
             <div className="flex gap-2 flex-wrap">
                 {([
-                    { key: 'all',       label: 'Tous',         count: stats.total },
-                    { key: 'absent',    label: 'Injustifiées', count: stats.absent },
-                    { key: 'justified', label: 'Justifiées',   count: stats.justified },
-                    { key: 'late',      label: 'Retards',      count: stats.late },
+                    { key: 'all',       label: t('common.all'), count: stats.total },
+                    { key: 'absent',    label: t('admin.students.profile.unjustified'), count: stats.absent },
+                    { key: 'justified', label: t('admin.students.profile.justified'),   count: stats.justified },
+                    { key: 'late',      label: t('admin.students.profile.latePlural'),  count: stats.late },
                 ] as { key: FilterType; label: string; count: number }[]).map(f => (
                     <button
                         key={f.key}
@@ -154,7 +156,7 @@ export function StudentAttendance({ studentId }: { studentId: string }) {
             {filtered.length === 0 ? (
                 <div className="text-center py-16 bg-[#1A2530] rounded-3xl border border-white/5">
                     <CheckCircle2 className="w-10 h-10 text-emerald-500/30 mx-auto mb-3" />
-                    <p className="text-gray-500 font-medium">Aucun événement pour ce filtre</p>
+                    <p className="text-gray-500 font-medium">{t('admin.students.profile.noEventForFilter')}</p>
                 </div>
             ) : (
                 <div className="bg-[#1A2530] rounded-3xl border border-white/5 overflow-hidden">
@@ -174,17 +176,17 @@ export function StudentAttendance({ studentId }: { studentId: string }) {
                                         <div className="flex items-center justify-between gap-2">
                                             <p className={cn("text-sm font-bold", cfg.color)}>{cfg.label}</p>
                                             <p className="text-xs text-gray-600 shrink-0">
-                                                {new Date(record.date).toLocaleDateString('fr-FR', { weekday: 'short', day: '2-digit', month: 'short' })}
+                                                {new Date(record.date).toLocaleDateString(language === 'ar' ? 'ar-u-ca-gregory' : 'fr-FR', { weekday: 'short', day: '2-digit', month: 'short' })}
                                             </p>
                                         </div>
                                         {record.subjects?.name && (
                                             <p className="text-xs text-gray-500 mt-0.5">
-                                                Matière : <span className="text-gray-400">{record.subjects.name}</span>
+                                                {t('common.subjects')} : <span className="text-gray-400">{record.subjects.name}</span>
                                             </p>
                                         )}
                                         {record.recorder?.full_name && (
                                             <p className="text-xs text-gray-600 mt-0.5">
-                                                Enregistré par : {record.recorder.full_name}
+                                                {t('admin.students.profile.recordedBy')} : {record.recorder.full_name}
                                             </p>
                                         )}
                                         {record.justification_note && (
@@ -204,8 +206,8 @@ export function StudentAttendance({ studentId }: { studentId: string }) {
             {records.length === 0 && (
                 <div className="text-center py-16 bg-[#1A2530] rounded-3xl border border-white/5">
                     <FileText className="w-10 h-10 text-emerald-500/20 mx-auto mb-3" />
-                    <p className="text-gray-500 font-medium">Aucune absence enregistrée</p>
-                    <p className="text-xs text-gray-600 mt-1">L'assiduité de cet élève est parfaite.</p>
+                    <p className="text-gray-500 font-medium">{t('admin.students.profile.noAbsence')}</p>
+                    <p className="text-xs text-gray-600 mt-1">{t('admin.students.profile.perfectAttendance')}</p>
                 </div>
             )}
         </div>

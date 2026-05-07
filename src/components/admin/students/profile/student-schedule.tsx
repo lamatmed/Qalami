@@ -4,6 +4,7 @@ import { useState, useEffect, useMemo } from 'react'
 import { createClient } from '@/utils/supabase/client'
 import { Loader2, CalendarDays } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { useLanguage } from '@/i18n'
 
 interface ScheduleEntry {
     id: string
@@ -41,6 +42,7 @@ function formatTime(t: string) {
 }
 
 export function StudentSchedule({ studentId }: { studentId: string }) {
+    const { t, language } = useLanguage()
     const [schedule, setSchedule] = useState<ScheduleEntry[]>([])
     const [loading, setLoading] = useState(true)
     const [selectedDay, setSelectedDay] = useState<number>(() => {
@@ -111,8 +113,8 @@ export function StudentSchedule({ studentId }: { studentId: string }) {
     if (schedule.length === 0) return (
         <div className="text-center py-20 bg-[#1A2530] rounded-3xl border border-white/5">
             <CalendarDays className="w-10 h-10 text-gray-600 mx-auto mb-3" />
-            <p className="text-gray-500 font-medium">Aucun emploi du temps disponible</p>
-            <p className="text-xs text-gray-600 mt-1">L'élève n'a pas de classe active assignée.</p>
+            <p className="text-gray-500 font-medium">{t('admin.students.profile.noSchedule')}</p>
+            <p className="text-xs text-gray-600 mt-1">{t('admin.students.profile.noActiveClass')}</p>
         </div>
     )
 
@@ -123,11 +125,11 @@ export function StudentSchedule({ studentId }: { studentId: string }) {
             <div className="grid grid-cols-2 gap-3">
                 <div className="bg-[#1A2530] rounded-2xl border border-white/5 p-4 text-center">
                     <p className="text-2xl font-black text-white">{schedule.length}</p>
-                    <p className="text-[10px] text-gray-500 font-bold uppercase mt-1">Séances / semaine</p>
+                    <p className="text-[10px] text-gray-500 font-bold uppercase mt-1">{t('admin.students.profile.sessionsPerWeek')}</p>
                 </div>
                 <div className="bg-[#1A2530] rounded-2xl border border-white/5 p-4 text-center">
                     <p className="text-2xl font-black text-white">{activeDays.length}</p>
-                    <p className="text-[10px] text-gray-500 font-bold uppercase mt-1">Jours de cours</p>
+                    <p className="text-[10px] text-gray-500 font-bold uppercase mt-1">{t('admin.students.profile.classDays')}</p>
                 </div>
             </div>
 
@@ -148,7 +150,7 @@ export function StudentSchedule({ studentId }: { studentId: string }) {
                         >
                             <p className="text-xs font-bold">{day.short}</p>
                             <p className={cn("text-[10px] mt-0.5", selectedDay === day.index ? "text-emerald-600" : "text-gray-600")}>
-                                {count} cours
+                                {count} {t('admin.students.profile.courses')}
                             </p>
                         </button>
                     )
@@ -161,15 +163,15 @@ export function StudentSchedule({ studentId }: { studentId: string }) {
                     <p className="text-sm font-bold text-white">
                         {DAYS.find(d => d.index === selectedDay)?.label}
                     </p>
-                    <p className="text-xs text-gray-500">{daySchedule.length} séance{daySchedule.length !== 1 ? 's' : ''}</p>
+                    <p className="text-xs text-gray-500">{daySchedule.length} {t('admin.students.profile.sessions')}</p>
                 </div>
 
                 {daySchedule.length === 0 ? (
-                    <div className="text-center py-10 text-gray-600 text-sm">Pas de cours ce jour</div>
+                    <div className="text-center py-10 text-gray-600 text-sm">{t('admin.students.profile.noCourseThisDay')}</div>
                 ) : (
                     <div className="divide-y divide-white/5">
                         {daySchedule.map(entry => {
-                            const subjectName = entry.subjects?.name ?? 'Matière'
+                            const subjectName = entry.subjects?.name ?? t('common.subjects')
                             const color = subjectColors.get(subjectName) ?? SUBJECT_COLORS[0]
                             return (
                                 <div key={entry.id} className="flex items-center gap-4 px-5 py-4 hover:bg-[#0F1720] transition-colors">
@@ -188,7 +190,7 @@ export function StudentSchedule({ studentId }: { studentId: string }) {
                                                 <p className="text-[11px] opacity-70">{entry.teacher.full_name}</p>
                                             )}
                                             {entry.room && (
-                                                <p className="text-[11px] opacity-60">Salle {entry.room}</p>
+                                                <p className="text-[11px] opacity-60">{t('admin.schedule.room')} {entry.room}</p>
                                             )}
                                         </div>
                                     </div>
@@ -201,7 +203,7 @@ export function StudentSchedule({ studentId }: { studentId: string }) {
 
             {/* All subjects legend */}
             <div className="bg-[#1A2530] rounded-2xl border border-white/5 p-4">
-                <p className="text-[10px] font-bold text-gray-500 uppercase tracking-wider mb-3">Matières</p>
+                <p className="text-[10px] font-bold text-gray-500 uppercase tracking-wider mb-3">{t('common.subjects')}</p>
                 <div className="flex flex-wrap gap-2">
                     {Array.from(subjectColors.entries()).map(([name, color]) => (
                         <span key={name} className={cn("text-xs font-medium px-2.5 py-1 rounded-lg border", color)}>
