@@ -20,7 +20,7 @@ export default async function InvitePage({ params }: InvitePageProps) {
                 <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-purple-200/20 rounded-full blur-3xl" />
             </div>
 
-            <div className="relative z-11 w-full max-w-md">
+            <div className="relative z-10 w-full max-w-md">
                 <InviteCompletionForm
                     token={token}
                     invitation={result.invitation || undefined}
