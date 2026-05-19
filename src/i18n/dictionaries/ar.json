@@ -427,6 +427,20 @@
       "reason": "السبب",
       "reasonPlaceholder": "مثال: إجازة مرضية، عقوبة تأديبية، نهاية عقد...",
       "reasonHint": "سيتم حفظ هذا السبب في سجل الحساب.",
+      "assignClassDialog": {
+        "title": "تعيين إلى قسم",
+        "chooseClassFor": "اختر القسم لـ {name}.",
+        "updateWarning": "سيتم تحديث التسجيل الحالي إلى القسم الجديد.",
+        "classLabel": "القسم",
+        "loadingClasses": "جاري تحميل الأقسام...",
+        "noClassAvailable": "لا توجد أقسام متاحة.",
+        "selectPlaceholder": "اختر قسمًا",
+        "cancel": "إلغاء",
+        "changeClass": "تغيير القسم",
+        "assign": "تعيين",
+        "selectError": "يرجى اختيار قسم",
+        "successMessage": "تم تعيين {name} بنجاح إلى {className}"
+      },
       "register": {
         "pageTitle": "تسجيل جديد",
         "steps": {
@@ -699,6 +713,18 @@
       "tempPasswordPlaceholder": "مثال: Prof2024",
       "tempPasswordHint": "سيتم تسليم كلمة المرور هذه للمعلم عند أول تسجيل دخول.",
       "saveTeacher": "حفظ المعلم",
+      "personalInfoStep": {
+        "enterPhoneToStart": "أدخل رقم الهاتف للبدء",
+        "verify": "تحقق",
+        "edit": "تعديل",
+        "invalidPhoneError": "يرجى إدخال رقم هاتف صالح",
+        "technicalError": "خطأ فني أثناء التحقق",
+        "numberAlreadyExistsError": "هذا الرقم مرتبط بحساب بالفعل. لا يمكن استخدامه كمعلم.",
+        "newAccountAlert": "حساب جديد! يرجى إكمال الملف التعريفي أدناه.",
+        "existingAccountLabel": "حساب موجود",
+        "existingAccountDesc": "هذا المعلم مسجل بالفعل في Qalami. اضغط على إنهاء لإلحاقه بمدرستك. سيظل مسجلاً في مؤسساته الأخرى ولكن سيصبح مرئيًا ونشطًا في دليلك المحلي.",
+        "finish": "إنهاء"
+      },
       "profile": {
         "schedule": "جدول الحصص",
         "classes": "الفصول",

@@ -5,7 +5,7 @@ import { Globe } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 interface LanguageSwitcherProps {
-    variant?: 'icon' | 'full' | 'compact'
+    variant?: 'icon' | 'full' | 'compact' | 'tabs'
     className?: string
 }
 
@@ -50,6 +50,35 @@ export function LanguageSwitcher({ variant = 'compact', className }: LanguageSwi
                     {language === 'fr' ? 'AR' : 'FR'}
                 </span>
             </button>
+        )
+    }
+
+    if (variant === 'tabs') {
+        return (
+            <div className={cn("flex items-center gap-1 bg-white/5 p-1 rounded-xl border border-white/5", className)}>
+                <button
+                    onClick={() => setLanguage('fr')}
+                    className={cn(
+                        "px-3 py-1.5 rounded-lg text-xs font-semibold transition-all duration-200",
+                        language === 'fr'
+                            ? "bg-primary text-primary-foreground shadow-sm"
+                            : "text-muted-foreground hover:text-white hover:bg-white/5"
+                    )}
+                >
+                    FR
+                </button>
+                <button
+                    onClick={() => setLanguage('ar')}
+                    className={cn(
+                        "px-3 py-1.5 rounded-lg text-xs font-semibold transition-all duration-200",
+                        language === 'ar'
+                            ? "bg-primary text-primary-foreground shadow-sm"
+                            : "text-muted-foreground hover:text-white hover:bg-white/5"
+                    )}
+                >
+                    AR
+                </button>
+            </div>
         )
     }
 

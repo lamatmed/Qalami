@@ -6,6 +6,7 @@ import { Label } from '@/components/ui/label'
 import { Button } from '@/components/ui/button'
 import { Camera, User, Phone, Mail, Briefcase, KeyRound, Loader2, UserPlus, AlertTriangle } from 'lucide-react'
 import { useLanguage } from '@/i18n'
+import { cn } from '@/lib/utils'
 
 interface PersonalInfoStepProps {
     data: any
@@ -15,7 +16,7 @@ interface PersonalInfoStepProps {
 }
 
 export function PersonalInfoStep({ data, onUpdate, onNext, isSubmitting }: PersonalInfoStepProps) {
-    const { t } = useLanguage()
+    const { t, direction } = useLanguage()
     
     // Track internal pieces to build full phone string
     const [countryCode, setCountryCode] = useState('+222')
@@ -65,7 +66,7 @@ export function PersonalInfoStep({ data, onUpdate, onNext, isSubmitting }: Perso
         setValidationError('')
         const raw = localNumber.trim().replace(/[^\d\s]/g, '')
         if (raw.length < 4) {
-            setValidationError("Veuillez saisir un numéro de téléphone valide")
+            setValidationError(t('admin.teachers.personalInfoStep.invalidPhoneError'))
             return
         }
         setCheckingPhone(true)
@@ -76,7 +77,7 @@ export function PersonalInfoStep({ data, onUpdate, onNext, isSubmitting }: Perso
 
             if (res.exists) {
                 if (res.role !== 'teacher') {
-                    setValidationError(`Ce numéro est déjà rattaché à un compte. Impossible de l'utiliser comme enseignant.`)
+                    setValidationError(t('admin.teachers.personalInfoStep.numberAlreadyExistsError'))
                     setIsPhoneVerified(false)
                 } else {
                     setFoundExistingUser(res)
@@ -89,24 +90,24 @@ export function PersonalInfoStep({ data, onUpdate, onNext, isSubmitting }: Perso
                 onUpdate({ ...data, phone: combined })
             }
         } catch (err) {
-            setValidationError("Erreur technique lors de la vérification")
+            setValidationError(t('admin.teachers.personalInfoStep.technicalError'))
         } finally {
             setCheckingPhone(false)
         }
     }
 
     return (
-        <div className="space-y-6">
+        <div className="space-y-6" dir={direction}>
             {/* Phone input always visible at top */}
             <div className="space-y-2">
-                <Label className="text-gray-300 font-medium">{t('admin.teachers.phone')}</Label>
+                <Label className={cn("text-gray-300 font-medium block w-full", direction === 'rtl' ? 'text-right' : 'text-left')}>{t('admin.teachers.phone')}</Label>
                 <div className="relative flex items-center">
-                    <div className="absolute left-1 z-10">
+                    <div className={cn("absolute z-10", direction === 'rtl' ? 'right-1' : 'left-1')}>
                         <select
-                            value={countryCode}
-                            onChange={(e) => { setCountryCode(e.target.value); setIsPhoneVerified(false); }}
-                            disabled={isPhoneVerified}
-                            className="bg-transparent text-gray-300 text-xs font-bold pl-2 pr-1 py-1.5 focus:outline-none appearance-none border-r border-white/10 cursor-pointer hover:text-white transition-colors disabled:opacity-50"
+                             value={countryCode}
+                             onChange={(e) => { setCountryCode(e.target.value); setIsPhoneVerified(false); }}
+                             disabled={isPhoneVerified}
+                             className={cn("bg-transparent text-gray-300 text-xs font-bold pl-2 pr-1 py-1.5 focus:outline-none appearance-none cursor-pointer hover:text-white transition-colors disabled:opacity-50", direction === 'rtl' ? 'border-l border-white/10' : 'border-r border-white/10')}
                         >
                             {COMMON_COUNTRIES.map(c => (
                                 <option key={c.code} value={c.code} className="bg-[#1A2530] text-white">{c.label}</option>
@@ -115,31 +116,32 @@ export function PersonalInfoStep({ data, onUpdate, onNext, isSubmitting }: Perso
                     </div>
                     <Input
                         placeholder={t('admin.teachers.phonePlaceholder')}
-                        className="pl-20 pr-24 bg-[#0F1720] border-white/10 text-white focus:ring-emerald-500/50 tracking-wide h-12 disabled:opacity-70"
+                        className={cn("bg-[#0F1720] border-white/10 text-white focus:ring-emerald-500/50 tracking-wide h-12 disabled:opacity-70", direction === 'rtl' ? 'pr-20 pl-24 text-right' : 'pl-20 pr-24 text-left')}
                         value={localNumber}
                         onChange={(e) => { setLocalNumber(e.target.value.replace(/[^\d\s]/g, '')); setIsPhoneVerified(false); }}
                         disabled={isPhoneVerified}
+                        dir={direction}
                     />
                     {!isPhoneVerified && (
                         <Button 
                             onClick={handleCheckPhone}
                             disabled={checkingPhone || !localNumber.trim()}
-                            className="absolute right-1 bg-emerald-500 hover:bg-emerald-600 text-black font-bold text-xs h-10 px-3"
+                            className={cn("absolute bg-emerald-500 hover:bg-emerald-600 text-black font-bold text-xs h-10 px-3", direction === 'rtl' ? 'left-1' : 'right-1')}
                         >
-                            {checkingPhone ? <Loader2 className="w-4 h-4 animate-spin" /> : "Vérifier"}
+                            {checkingPhone ? <Loader2 className="w-4 h-4 animate-spin" /> : t('admin.teachers.personalInfoStep.verify')}
                         </Button>
                     )}
                     {isPhoneVerified && (
                         <button 
                             onClick={() => { setIsPhoneVerified(false); setFoundExistingUser(null); }}
-                            className="absolute right-3 text-emerald-500 hover:text-white transition-colors flex items-center gap-1 text-xs border border-emerald-500/20 bg-emerald-500/5 px-2 py-1 rounded-md"
+                            className={cn("absolute text-emerald-500 hover:text-white transition-colors flex items-center gap-1 text-xs border border-emerald-500/20 bg-emerald-500/5 px-2 py-1 rounded-md", direction === 'rtl' ? 'left-3' : 'right-3')}
                         >
-                            <KeyRound className="w-3 h-3" /> Modifier
+                            <KeyRound className="w-3 h-3" /> {t('admin.teachers.personalInfoStep.edit')}
                         </button>
                     )}
                 </div>
                 {validationError && (
-                    <div className="flex items-start gap-2 p-3 bg-red-500/10 border border-red-500/20 text-red-400 text-xs rounded-lg mt-2 animate-in slide-in-from-top-1 duration-200">
+                    <div className={cn("flex items-start gap-2 p-3 bg-red-500/10 border border-red-500/20 text-red-400 text-xs rounded-lg mt-2 animate-in slide-in-from-top-1 duration-200", direction === 'rtl' ? 'flex-row-reverse text-right' : 'flex-row text-left')}>
                         <AlertTriangle className="w-4 h-4 shrink-0" />
                         <span>{validationError}</span>
                     </div>
@@ -149,26 +151,24 @@ export function PersonalInfoStep({ data, onUpdate, onNext, isSubmitting }: Perso
             {!isPhoneVerified && !checkingPhone && !validationError && (
                 <div className="py-8 text-center bg-white/5 rounded-xl border border-dashed border-white/10">
                     <Phone className="w-8 h-8 text-gray-500 mx-auto mb-2 opacity-50" />
-                    <p className="text-gray-400 text-sm">Entrez le numéro de téléphone pour commencer</p>
+                    <p className="text-gray-400 text-sm">{t('admin.teachers.personalInfoStep.enterPhoneToStart')}</p>
                 </div>
             )}
 
             {/* CASE A: Existing Teacher Found */}
             {isPhoneVerified && foundExistingUser && (
                 <div className="bg-emerald-500/10 border border-emerald-500/20 rounded-2xl p-6 space-y-4 animate-in slide-in-from-top-4 duration-300">
-                    <div className="flex items-center gap-4">
-                        <div className="h-14 w-14 rounded-full bg-emerald-500/20 flex items-center justify-center text-emerald-500">
+                    <div className={cn("flex items-center gap-4", direction === 'rtl' ? 'flex-row-reverse text-right' : 'flex-row text-left')}>
+                        <div className="h-14 w-14 rounded-full bg-emerald-500/20 flex items-center justify-center text-emerald-500 shrink-0">
                             <User className="w-7 h-7" />
                         </div>
                         <div>
-                            <div className="bg-emerald-500/20 text-emerald-400 text-[10px] uppercase tracking-wider font-bold px-2 py-0.5 rounded inline-block mb-1">Compte existant</div>
+                            <div className="bg-emerald-500/20 text-emerald-400 text-[10px] uppercase tracking-wider font-bold px-2 py-0.5 rounded inline-block mb-1">{t('admin.teachers.personalInfoStep.existingAccountLabel')}</div>
                             <h3 className="text-xl font-bold text-white">{foundExistingUser.fullName}</h3>
                         </div>
                     </div>
-                    <p className="text-gray-400 text-sm border-t border-white/5 pt-4">
-                        Cet enseignant est déjà inscrit sur Qalami. Cliquez sur Terminer pour 
-                        <strong> l'attacher à votre école </strong>. Il restera dans ses autres établissements 
-                        mais deviendra visible et opérationnel dans votre annuaire local.
+                    <p className={cn("text-gray-400 text-sm border-t border-white/5 pt-4", direction === 'rtl' ? 'text-right' : 'text-left')}>
+                        {t('admin.teachers.personalInfoStep.existingAccountDesc')}
                     </p>
                     <div className="pt-2">
                         <Button 
@@ -179,7 +179,7 @@ export function PersonalInfoStep({ data, onUpdate, onNext, isSubmitting }: Perso
                             {isSubmitting ? (
                                 <Loader2 className="w-5 h-5 animate-spin" />
                             ) : (
-                                <><UserPlus className="w-5 h-5 mr-2" /> Terminer</>
+                                <><UserPlus className={cn("w-5 h-5", direction === 'rtl' ? 'ml-2' : 'mr-2')} /> {t('admin.teachers.personalInfoStep.finish')}</>
                             )}
                         </Button>
                     </div>
@@ -189,8 +189,8 @@ export function PersonalInfoStep({ data, onUpdate, onNext, isSubmitting }: Perso
             {/* CASE B: Complete details for NEW teacher */}
             {isPhoneVerified && !foundExistingUser && (
                 <div className="space-y-6 animate-in slide-in-from-top-8 duration-500">
-                    <div className="bg-blue-500/10 border border-blue-500/20 text-blue-400 text-sm p-3 rounded-xl flex items-center gap-2">
-                        <User className="w-4 h-4" /> Nouveau compte ! Complétez le profil ci-dessous.
+                    <div className={cn("bg-blue-500/10 border border-blue-500/20 text-blue-400 text-sm p-3 rounded-xl flex items-center gap-2", direction === 'rtl' ? 'flex-row-reverse text-right' : 'flex-row text-left')}>
+                        <User className="w-4 h-4 shrink-0" /> {t('admin.teachers.personalInfoStep.newAccountAlert')}
                     </div>
 
                     {/* Photo Upload */}
@@ -212,54 +212,58 @@ export function PersonalInfoStep({ data, onUpdate, onNext, isSubmitting }: Perso
 
                     <div className="space-y-4">
                         <div className="space-y-2">
-                            <Label className="text-gray-300">{t('admin.teachers.fullName')}</Label>
+                            <Label className={cn("text-gray-300 block w-full", direction === 'rtl' ? 'text-right' : 'text-left')}>{t('admin.teachers.fullName')}</Label>
                             <div className="relative">
-                                <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500" />
+                                <User className={cn("absolute top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500", direction === 'rtl' ? 'right-3' : 'left-3')} />
                                 <Input
                                     placeholder={t('admin.teachers.fullNamePlaceholder')}
-                                    className="pl-10 bg-[#0F1720] border-white/10 text-white focus:ring-emerald-500/50"
+                                    className={cn("bg-[#0F1720] border-white/10 text-white focus:ring-emerald-500/50", direction === 'rtl' ? 'pr-10 pl-3 text-right' : 'pl-10 pr-3 text-left')}
                                     defaultValue={data.name}
                                     onChange={(e) => onUpdate({ ...data, name: e.target.value })}
+                                    dir={direction}
                                 />
                             </div>
                         </div>
 
                         <div className="space-y-2">
-                            <Label className="text-gray-300">{t('admin.teachers.email')}</Label>
+                            <Label className={cn("text-gray-300 block w-full", direction === 'rtl' ? 'text-right' : 'text-left')}>{t('admin.teachers.email')}</Label>
                             <div className="relative">
-                                <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500" />
+                                <Mail className={cn("absolute top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500", direction === 'rtl' ? 'right-3' : 'left-3')} />
                                 <Input
                                     placeholder={t('admin.teachers.emailPlaceholder')}
-                                    className="pl-10 bg-[#0F1720] border-white/10 text-white focus:ring-emerald-500/50"
+                                    className={cn("bg-[#0F1720] border-white/10 text-white focus:ring-emerald-500/50", direction === 'rtl' ? 'pr-10 pl-3 text-right' : 'pl-10 pr-3 text-left')}
                                     defaultValue={data.email}
                                     onChange={(e) => onUpdate({ ...data, email: e.target.value })}
+                                    dir={direction}
                                 />
                             </div>
                         </div>
 
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                             <div className="space-y-2">
-                                <Label className="text-gray-300">{t('admin.teachers.nni')}</Label>
+                                <Label className={cn("text-gray-300 block w-full", direction === 'rtl' ? 'text-right' : 'text-left')}>{t('admin.teachers.nni')}</Label>
                                 <div className="relative">
-                                    <Briefcase className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500" />
+                                    <Briefcase className={cn("absolute top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500", direction === 'rtl' ? 'right-3' : 'left-3')} />
                                     <Input
                                         placeholder={t('admin.teachers.nniPlaceholder')}
-                                        className="pl-10 bg-[#0F1720] border-white/10 text-white focus:ring-emerald-500/50"
+                                        className={cn("bg-[#0F1720] border-white/10 text-white focus:ring-emerald-500/50", direction === 'rtl' ? 'pr-10 pl-3 text-right' : 'pl-10 pr-3 text-left')}
                                         defaultValue={data.nni}
                                         onChange={(e) => onUpdate({ ...data, nni: e.target.value })}
+                                        dir={direction}
                                     />
                                 </div>
                             </div>
 
                             <div className="space-y-2">
-                                <Label className="text-gray-300">{t('admin.teachers.tempPassword')}</Label>
+                                <Label className={cn("text-gray-300 block w-full", direction === 'rtl' ? 'text-right' : 'text-left')}>{t('admin.teachers.tempPassword')}</Label>
                                 <div className="relative">
-                                    <KeyRound className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500" />
+                                    <KeyRound className={cn("absolute top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500", direction === 'rtl' ? 'right-3' : 'left-3')} />
                                     <Input
                                         placeholder={t('admin.teachers.tempPasswordPlaceholder')}
-                                        className="pl-10 bg-[#0F1720] border-white/10 text-white focus:ring-emerald-500/50"
+                                        className={cn("bg-[#0F1720] border-white/10 text-white focus:ring-emerald-500/50", direction === 'rtl' ? 'pr-10 pl-3 text-right' : 'pl-10 pr-3 text-left')}
                                         defaultValue={data.password}
                                         onChange={(e) => onUpdate({ ...data, password: e.target.value })}
+                                        dir={direction}
                                     />
                                 </div>
                             </div>
@@ -275,7 +279,7 @@ export function PersonalInfoStep({ data, onUpdate, onNext, isSubmitting }: Perso
                             {isSubmitting ? (
                                 <Loader2 className="w-5 h-5 animate-spin" />
                             ) : (
-                                <><UserPlus className="w-5 h-5 mr-2" /> {t('admin.teachers.saveTeacher')}</>
+                                <><UserPlus className={cn("w-5 h-5", direction === 'rtl' ? 'ml-2' : 'mr-2')} /> {t('admin.teachers.saveTeacher')}</>
                             )}
                         </Button>
                     </div>

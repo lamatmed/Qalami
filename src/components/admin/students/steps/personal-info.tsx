@@ -177,7 +177,7 @@ export function PersonalInfo({ data, updateData, onNext }: StepProps) {
             </div>
 
             <div className="space-y-4">
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div className="space-y-2">
                         <Label>{t('admin.students.register.personal.firstName')}</Label>
                         <div className="relative">
@@ -221,7 +221,7 @@ export function PersonalInfo({ data, updateData, onNext }: StepProps) {
                                 {formatDisplayDate() || <span>{t('admin.students.register.personal.chooseDate')}</span>}
                             </Button>
                         </PopoverTrigger>
-                        <PopoverContent className="w-80 p-4 bg-white dark:bg-[#0F1720] border-gray-200 dark:border-white/10" align="start">
+                        <PopoverContent className="w-[280px] sm:w-80 p-4 bg-white dark:bg-[#0F1720] border-gray-200 dark:border-white/10" align="start">
                             <div className="space-y-3">
                                 <p className="text-xs text-gray-500 font-bold uppercase mb-2">{t('admin.students.register.personal.selectDate')}</p>
 

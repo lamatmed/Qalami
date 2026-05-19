@@ -136,23 +136,23 @@ export function RegistrationWizard() {
         <div className="max-w-2xl mx-auto" dir={langDirection}>
             {/* Progress Header */}
             <div className="mb-8">
-                <div className="flex justify-between items-center mb-4 px-2" dir={langDirection}>
+                <div className="relative flex justify-between items-center mb-4 px-2" dir={langDirection}>
                                 {steps.map((step) => (
                         <div key={step.id} className="flex flex-col items-center relative z-10 group cursor-default">
-                            <div className={`w-10 h-10 rounded-full flex items-center justify-center font-bold text-sm transition-all duration-300 ${currentStep > step.id ? 'bg-emerald-500 text-black' :
+                            <div className={`w-9 h-9 sm:w-10 sm:h-10 rounded-full flex items-center justify-center font-bold text-xs sm:text-sm transition-all duration-300 ${currentStep > step.id ? 'bg-emerald-500 text-black' :
                                 currentStep === step.id ? 'bg-emerald-500 text-black shadow-lg shadow-emerald-500/30 ring-4 ring-emerald-500/20' :
                                     'bg-gray-100 dark:bg-[#1A2530] text-gray-500 border border-gray-200 dark:border-white/5'
                                 }`}>
-                                {currentStep > step.id ? <Check className="w-5 h-5" /> : step.id}
+                                {currentStep > step.id ? <Check className="w-4 h-4 sm:w-5 sm:h-5" /> : step.id}
                             </div>
-                            <span className={`text-xs mt-2 font-medium transition-colors duration-300 ${currentStep >= step.id ? 'text-gray-900 dark:text-white' : 'text-gray-400 dark:text-gray-600'
+                            <span className={`text-[10px] sm:text-xs mt-2 font-medium text-center max-w-[65px] sm:max-w-[100px] truncate transition-colors duration-300 ${currentStep >= step.id ? 'text-gray-900 dark:text-white' : 'text-gray-400 dark:text-gray-600'
                                 }`}>
                                 {t(`admin.students.register.steps.${step.id}`)}
                             </span>
                         </div>
                     ))}
                     {/* Progress Bar Background */}
-                    <div className="absolute top-5 left-0 w-full h-[2px] bg-gray-200 dark:bg-[#1A2530] -z-0 hidden sm:block" />
+                    <div className="absolute top-[18px] sm:top-5 left-4 right-4 h-[2px] bg-gray-200 dark:bg-[#1A2530] -z-0 hidden sm:block" />
                 </div>
             </div>
 

@@ -42,6 +42,7 @@ import {
 import { createClient } from '@/utils/supabase/client'
 import { useLanguage } from '@/i18n'
 import { LanguageSwitcher } from '@/components/shared/language-switcher'
+import { ThemeToggle } from '@/components/shared/theme-toggle'
 import { getMySchoolContext } from '@/app/admin/actions'
 
 
@@ -81,9 +82,12 @@ export const sidebarItems = [
     { icon: ClipboardList, label: 'admin.sidebar.assignments', href: '/admin/assignments' },
     { icon: Clock, label: 'admin.sidebar.schedule', href: '/admin/schedule' },
     { icon: CalendarRange, label: 'admin.sidebar.terms', href: '/admin/terms' },
+    { icon: ClipboardCheck, label: 'admin.sidebar.attendance', href: '/admin/attendance' },
+    { icon: ScrollText, label: 'admin.sidebar.reports', href: '/admin/reports' },
     { icon: DollarSign, label: 'admin.sidebar.accounting', href: '/admin/finance' },
     { icon: CreditCard, label: 'admin.sidebar.tuition', href: '/admin/finance/tuition' },
     { icon: Wallet, label: 'admin.sidebar.payroll', href: '/admin/finance/payroll' },
+    { icon: ShieldCheck, label: 'admin.sidebar.users', href: '/admin/users' },
     { icon: FileText, label: 'admin.sidebar.archives', href: '/admin/documents' },
     { icon: Settings, label: 'admin.sidebar.settings', href: '/admin/settings' },
 ]
@@ -574,9 +578,15 @@ export function AdminSidebar() {
                         </div>
                     )}
                     
-                    {!isCollapsed && (
-                        <div className="pt-1 pb-2 animate-in fade-in duration-300">
+                    {!isCollapsed ? (
+                        <div className="pt-1 pb-2 animate-in fade-in duration-300 space-y-1">
                             <LanguageSwitcher variant="full" />
+                            <ThemeToggle variant="full" />
+                        </div>
+                    ) : (
+                        <div className="pb-2 flex flex-col items-center gap-1">
+                            <LanguageSwitcher variant="icon" />
+                            <ThemeToggle variant="icon" />
                         </div>
                     )}
                 </div>

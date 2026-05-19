@@ -10,6 +10,7 @@ import { ChevronLeft, GraduationCap, DollarSign, Loader2, Layers } from 'lucide-
 import { RegistrationData } from '../registration-wizard'
 import { createClient } from '@/utils/supabase/client'
 import { useLanguage } from '@/i18n'
+import { cn } from '@/lib/utils'
 
 interface StepProps {
     data: RegistrationData

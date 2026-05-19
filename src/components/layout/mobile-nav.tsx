@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useRef } from 'react'
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import { cn } from '@/lib/utils'
@@ -14,7 +14,7 @@ import {
     SheetTrigger,
 } from "@/components/ui/sheet"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
-import { LogOut } from 'lucide-react'
+import { LogOut, CalendarRange, ChevronUp, ChevronDown } from 'lucide-react'
 import { createClient } from '@/utils/supabase/client'
 import { ThemeToggle } from '@/components/shared/theme-toggle'
 import { useLanguage } from '@/i18n'
@@ -24,6 +24,7 @@ interface NavItem {
     icon: LucideIcon
     label: string
     href: string
+    badge?: number
 }
 
 interface MobileNavProps {
@@ -33,13 +34,25 @@ interface MobileNavProps {
         role: string
         avatar?: string
     }
+    academicContext?: {
+        year: string | null
+        term: string | null
+        schoolName: string | null
+        schoolLogo: string | null
+        unassignedStudents: number
+    }
 }
 
-export function MobileNav({ items, user }: MobileNavProps) {
+export function MobileNav({ items, user, academicContext }: MobileNavProps) {
     const pathname = usePathname()
     const router = useRouter()
-    const { t } = useLanguage()
+    const { t, direction } = useLanguage()
     const [sheetOpen, setSheetOpen] = useState(false)
+    const gridScrollRef = useRef<HTMLDivElement>(null)
+
+    const scrollGrid = (dir: 'up' | 'down') => {
+        gridScrollRef.current?.scrollBy({ top: dir === 'down' ? 160 : -160, behavior: 'smooth' })
+    }
 
     const handleLogout = async () => {
         setSheetOpen(false)
@@ -78,11 +91,16 @@ export function MobileNav({ items, user }: MobileNavProps) {
                                 animate={isActive ? { scale: 1.2, y: -4 } : { scale: 1, y: 0 }}
                                 transition={{ type: "spring", stiffness: 400, damping: 25 }}
                                 className={cn(
-                                    "p-2 rounded-full transition-all duration-300",
+                                    "p-2 rounded-full transition-all duration-300 relative",
                                     isActive ? "bg-primary text-primary-foreground shadow-[0_0_20px_rgba(var(--primary),0.6)]" : "text-muted-foreground hover:text-white"
                                 )}
                             >
                                 <item.icon className="h-5 w-5 stroke-[2px]" />
+                                {item.badge != null && item.badge > 0 && (
+                                    <span className="absolute -top-1 -right-1 min-w-[18px] h-[18px] px-1 rounded-full text-[9px] font-bold flex items-center justify-center bg-emerald-500 text-white shadow-sm">
+                                        {item.badge > 99 ? '99+' : item.badge}
+                                    </span>
+                                )}
                             </motion.div>
 
                             {isActive && (
@@ -101,63 +119,116 @@ export function MobileNav({ items, user }: MobileNavProps) {
                     <Sheet open={sheetOpen} onOpenChange={setSheetOpen}>
                         <SheetTrigger asChild>
                             <button suppressHydrationWarning className="relative flex flex-col items-center justify-center z-10 outline-none">
-                                <div className="p-2 rounded-full text-muted-foreground hover:text-white transition-colors">
+                                <div className="p-2 rounded-full text-muted-foreground hover:text-white transition-colors relative">
                                     <MoreHorizontal className="h-5 w-5 stroke-[2px]" />
+                                    {overflowItems.some(item => item.badge != null && item.badge > 0) && (
+                                        <span className="absolute top-1.5 right-1.5 flex h-2 w-2">
+                                            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                                            <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+                                        </span>
+                                    )}
                                 </div>
                             </button>
                         </SheetTrigger>
-                        <SheetContent side="bottom" className="h-[85vh] rounded-t-[2.5rem] bg-black/95 backdrop-blur-xl border-white/10 p-6">
-                            <SheetHeader className="pb-6 mb-4 border-b border-white/5">
-                                {user ? (
-                                    <div className="flex items-center gap-4">
-                                        <Avatar className="h-16 w-16 border-2 border-white/10 shadow-xl">
-                                            <AvatarImage src={user.avatar} />
-                                            <AvatarFallback className="text-lg bg-primary/20 text-primary font-bold">{user.name.substring(0, 2).toUpperCase()}</AvatarFallback>
-                                        </Avatar>
-                                        <div className="text-left">
-                                            <SheetTitle className="text-2xl font-bold">{user.name}</SheetTitle>
-                                            <p className="text-sm text-muted-foreground">{user.role}</p>
+                        <SheetContent side="bottom" className="h-[85vh] rounded-t-[2.5rem] bg-black/95 backdrop-blur-xl border-white/10 !p-0 overflow-hidden" dir={direction}>
+                            <div className="h-full flex flex-col">
+
+                                {/* Fixed Header */}
+                                <div className="shrink-0 px-6 pt-5">
+                                    <SheetHeader className="pb-3 mb-2 border-b border-white/5">
+                                        {user ? (
+                                            <div className={cn("flex items-center gap-3", direction === 'rtl' ? 'flex-row-reverse text-right' : 'flex-row text-left')}>
+                                                <Avatar className="h-10 w-10 border-2 border-white/10 shadow-xl shrink-0">
+                                                    <AvatarImage src={user.avatar} />
+                                                    <AvatarFallback className="text-sm bg-primary/20 text-primary font-bold">{user.name.substring(0, 2).toUpperCase()}</AvatarFallback>
+                                                </Avatar>
+                                                <div className={cn("min-w-0", direction === 'rtl' ? 'text-right' : 'text-left')}>
+                                                    <SheetTitle className="text-base font-bold truncate">{user.name}</SheetTitle>
+                                                    <p className="text-[11px] text-muted-foreground capitalize">{user.role}</p>
+                                                </div>
+                                            </div>
+                                        ) : (
+                                            <SheetTitle className={direction === 'rtl' ? 'text-right' : 'text-left'}>{t('common.menu')}</SheetTitle>
+                                        )}
+                                    </SheetHeader>
+
+                                    {/* Academic context year/term pill */}
+                                    {academicContext && (academicContext.year || academicContext.schoolName) && (
+                                        <div className="mb-2 animate-in fade-in duration-300">
+                                            <div className={cn(
+                                                "flex items-center gap-2 px-3 py-1.5 rounded-xl border text-[11px] font-medium bg-card/30 border-white/5 text-gray-300",
+                                                direction === 'rtl' ? 'flex-row-reverse text-right' : 'flex-row text-left'
+                                            )}>
+                                                <CalendarRange className="w-3.5 h-3.5 shrink-0 text-emerald-500" />
+                                                <span className="truncate flex-1">
+                                                    {academicContext.schoolName || t('common.appName')}{academicContext.year ? ` — ${academicContext.year}` : ''}{academicContext.term ? ` (${academicContext.term})` : ''}
+                                                </span>
+                                            </div>
+                                        </div>
+                                    )}
+                                </div>
+
+                                {/* Scrollable nav grid with arrow controls */}
+                                <div className="flex flex-col flex-1 min-h-0">
+                                    {/* Up arrow */}
+                                    <button
+                                        onClick={() => scrollGrid('up')}
+                                        className="shrink-0 flex items-center justify-center py-1.5 text-white/25 hover:text-white/60 transition-colors active:scale-90"
+                                    >
+                                        <ChevronUp className="h-5 w-5" />
+                                    </button>
+
+                                    {/* Grid */}
+                                    <div ref={gridScrollRef} className="flex-1 min-h-0 overflow-y-auto px-6 scrollbar-hide">
+                                        <div className="grid grid-cols-3 gap-2.5 py-1">
+                                            {overflowItems.map((item) => (
+                                                <button
+                                                    key={item.label}
+                                                    onClick={() => handleNavClick(item.href)}
+                                                    className="bg-card/30 border border-white/5 py-3 px-2 rounded-2xl flex flex-col items-center justify-center gap-2 hover:bg-card hover:border-white/20 transition-all group"
+                                                >
+                                                    <div className="h-9 w-9 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center group-hover:bg-primary/20 transition-colors relative">
+                                                        <item.icon className="h-[18px] w-[18px] text-muted-foreground group-hover:text-primary transition-colors" />
+                                                        {item.badge != null && item.badge > 0 && (
+                                                            <span className="absolute -top-1.5 -right-1.5 min-w-[16px] h-[16px] px-0.5 rounded-full text-[9px] font-bold flex items-center justify-center bg-emerald-500 text-white shadow-md">
+                                                                {item.badge > 99 ? '99+' : item.badge}
+                                                            </span>
+                                                        )}
+                                                    </div>
+                                                    <span className="font-medium text-[11px] text-gray-300 group-hover:text-white text-center leading-tight w-full truncate px-1">{t(item.label)}</span>
+                                                </button>
+                                            ))}
                                         </div>
                                     </div>
-                                ) : (
-                                    <SheetTitle>{t('common.menu')}</SheetTitle>
-                                )}
-                            </SheetHeader>
 
-                            <div className="flex-1 overflow-y-auto grid grid-cols-2 gap-4 pb-4">
-                                {overflowItems.map((item, i) => (
+                                    {/* Down arrow */}
                                     <button
-                                        key={item.label}
-                                        onClick={() => handleNavClick(item.href)}
-                                        className="bg-card/30 border border-white/5 p-4 rounded-3xl flex flex-col items-center justify-center gap-3 aspect-[1.4] hover:bg-card hover:border-white/20 transition-all group"
+                                        onClick={() => scrollGrid('down')}
+                                        className="shrink-0 flex items-center justify-center py-1.5 text-white/25 hover:text-white/60 transition-colors active:scale-90"
                                     >
-                                        <div className="h-12 w-12 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center group-hover:bg-primary/20 group-hover:text-primary transition-colors">
-                                            <item.icon className="h-6 w-6 text-muted-foreground group-hover:text-primary transition-colors" />
-                                        </div>
-                                        <span className="font-medium text-sm text-gray-300 group-hover:text-white">{t(item.label)}</span>
+                                        <ChevronDown className="h-5 w-5" />
                                     </button>
-                                ))}
-                            </div>
-
-                            <div className="pt-4 mt-auto space-y-3">
-                                {/* Language Switcher */}
-                                <div className="flex items-center justify-between px-4 py-3 rounded-2xl border border-white/5 bg-card/30">
-                                    <span className="text-sm font-medium text-gray-300">{t('common.language')}</span>
-                                    <LanguageSwitcher variant="compact" />
                                 </div>
 
-                                {/* Theme Toggle */}
-                                <div className="flex items-center justify-between px-4 py-3 rounded-2xl border border-white/5 bg-card/30">
-                                    <span className="text-sm font-medium text-gray-300">{t('common.theme')}</span>
-                                    <ThemeToggle />
-                                </div>
+                                {/* Fixed Footer */}
+                                <div className="shrink-0 px-6 pb-5 pt-2 border-t border-white/5 space-y-2">
+                                    {/* Language + Theme row */}
+                                    <div className="flex items-center gap-2">
+                                        <div className="flex-1 flex items-center justify-between px-4 py-2.5 rounded-2xl border border-white/5 bg-card/30">
+                                            <span className="text-sm font-medium text-gray-300">{t('common.language')}</span>
+                                            <LanguageSwitcher variant="tabs" />
+                                        </div>
+                                        <div className="flex items-center justify-center px-3 py-2.5 rounded-2xl border border-white/5 bg-card/30">
+                                            <ThemeToggle variant="icon" />
+                                        </div>
+                                    </div>
 
-                                {/* Logout Button */}
-                                <button onClick={handleLogout} className="w-full h-14 rounded-2xl border border-red-500/20 bg-red-500/10 text-red-500 font-bold flex items-center justify-center gap-2 hover:bg-red-500/20 transition-colors">
-                                    <LogOut className="w-5 h-5" />
-                                    {t('common.logout')}
-                                </button>
-                                <p className="text-center text-[10px] text-muted-foreground mt-4">Version 2.4.0 (Build 20240501)</p>
+                                    {/* Logout Button */}
+                                    <button onClick={handleLogout} className="w-full h-11 rounded-2xl border border-red-500/20 bg-red-500/10 text-red-500 font-bold flex items-center justify-center gap-2 hover:bg-red-500/20 transition-colors">
+                                        <LogOut className="w-5 h-5" />
+                                        {t('common.logout')}
+                                    </button>
+                                </div>
                             </div>
                         </SheetContent>
                     </Sheet>

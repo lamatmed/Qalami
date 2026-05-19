@@ -4,6 +4,7 @@ import { AdminMobileNav } from '@/components/admin/admin-mobile-nav'
 import { createClient } from '@/utils/supabase/server'
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
+import { cn } from '@/lib/utils'
 
 import { NotificationBell } from '@/components/shared/notification-bell'
 import { Brand } from '@/components/shared/brand'
@@ -21,7 +22,7 @@ export default async function AdminLayout({
 
     const { data: profile } = await supabase
         .from('profiles')
-        .select('role, full_name, avatar_url, first_login')
+        .select('role, full_name, avatar_url, first_login, school_id')
         .eq('id', user.id)
         .single()
 
@@ -32,6 +33,63 @@ export default async function AdminLayout({
     // First-login redirect for school_staff
     if (profile?.role === 'school_staff' && (profile as any)?.first_login === true) {
         redirect('/staff-first-login')
+    }
+
+    let schoolLogo: string | null = null
+    let schoolName: string | null = null
+    let yearName: string | null = null
+    let termName: string | null = null
+    let staffPermissions: string[] | null = null
+    let unassignedStudents = 0
+
+    if (profile?.school_id) {
+        const [
+            schoolSettingsRes,
+            yearDataRes,
+            termDataRes,
+            permsRes,
+            allStudentsRes,
+            enrolledRes,
+        ] = await Promise.all([
+            supabase.from('school_settings').select('name, logo_url').eq('school_id', profile.school_id).maybeSingle(),
+            supabase.from('academic_years').select('name').eq('school_id', profile.school_id).eq('is_current', true).maybeSingle(),
+            supabase.from('terms').select('name').eq('school_id', profile.school_id).eq('is_current', true).maybeSingle(),
+            profile.role === 'school_staff'
+                ? supabase.from('staff_permissions').select('permissions').eq('user_id', user.id).maybeSingle()
+                : Promise.resolve({ data: null }),
+            supabase.from('profiles').select('id').eq('school_id', profile.school_id).eq('role', 'student').eq('status', 'active'),
+            supabase.from('enrollments').select('student_id').eq('school_id', profile.school_id).eq('status', 'active'),
+        ])
+
+        const schoolSettings = schoolSettingsRes?.data
+        schoolName = schoolSettings?.name || null
+        schoolLogo = schoolSettings?.logo_url || null
+
+        if (!schoolLogo) {
+            const { data: schoolRow } = await supabase
+                .from('schools')
+                .select('name, logo_url')
+                .eq('id', profile.school_id)
+                .maybeSingle()
+            schoolLogo = schoolRow?.logo_url || null
+            if (!schoolName) schoolName = schoolRow?.name || null
+        }
+
+        yearName = yearDataRes?.data?.name || null
+        termName = termDataRes?.data?.name || null
+        staffPermissions = permsRes?.data?.permissions || null
+
+        const enrolledSet = new Set((enrolledRes?.data || []).map((e: any) => e.student_id))
+        unassignedStudents = (allStudentsRes?.data || []).filter((s: any) => !enrolledSet.has(s.id)).length
+    }
+
+    const academicContext = {
+        year: yearName,
+        term: termName,
+        schoolName,
+        schoolLogo,
+        permissions: staffPermissions,
+        unassignedStudents,
     }
 
     const formattedUser = {
@@ -59,8 +117,15 @@ export default async function AdminLayout({
                 {/* Mobile top bar — hidden on desktop */}
                 <div className="lg:hidden h-12 bg-background border-b border-border px-4 flex items-center justify-between sticky top-0 z-20">
                     <Link href="/admin" className="flex items-center gap-2 hover:opacity-80 transition-opacity">
-                        <div className="w-6 h-6 rounded-lg bg-emerald-600 flex items-center justify-center shrink-0">
-                            <span className="font-black text-[11px] text-white leading-none">Q</span>
+                        <div className={cn(
+                            "w-6 h-6 rounded-lg flex items-center justify-center shrink-0 shadow-sm overflow-hidden border border-border/50",
+                            !schoolLogo && "bg-emerald-600"
+                        )}>
+                            {schoolLogo ? (
+                                <img src={schoolLogo} alt="Logo" className="w-full h-full object-cover" />
+                            ) : (
+                                <span className="font-black text-[11px] text-white leading-none">Q</span>
+                            )}
                         </div>
                         <span className="font-semibold text-sm text-foreground"><Brand /></span>
                     </Link>
@@ -74,7 +139,7 @@ export default async function AdminLayout({
                 </div>
             </main>
 
-            <AdminMobileNav user={formattedUser} />
+            <AdminMobileNav user={formattedUser} academicContext={academicContext} />
         </div>
     )
 }

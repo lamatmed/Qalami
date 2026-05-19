@@ -7,6 +7,7 @@ import { ChevronRight, ChevronLeft, Search, Loader2, X, Users, Phone } from 'luc
 import { RegistrationData } from '../registration-wizard'
 import { useLanguage } from '@/i18n'
 import { searchSchoolParents } from '@/app/admin/actions'
+import { cn } from '@/lib/utils'
 
 interface StepProps {
     data: RegistrationData

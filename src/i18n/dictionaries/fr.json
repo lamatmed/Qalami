@@ -427,6 +427,20 @@
       "reason": "Motif",
       "reasonPlaceholder": "Ex: Congé maladie, sanction disciplinaire, fin de contrat...",
       "reasonHint": "Ce motif sera enregistré dans l'historique du compte.",
+      "assignClassDialog": {
+        "title": "Assigner à une classe",
+        "chooseClassFor": "Choisissez la classe pour {name}.",
+        "updateWarning": "L'inscription actuelle sera mise à jour vers la nouvelle classe.",
+        "classLabel": "Classe",
+        "loadingClasses": "Chargement des classes…",
+        "noClassAvailable": "Aucune classe disponible.",
+        "selectPlaceholder": "Sélectionner une classe",
+        "cancel": "Annuler",
+        "changeClass": "Changer de classe",
+        "assign": "Assigner",
+        "selectError": "Veuillez sélectionner une classe",
+        "successMessage": "{name} assigné(e) à {className}"
+      },
       "register": {
         "pageTitle": "Nouvelle inscription",
         "steps": {
@@ -699,6 +713,18 @@
       "tempPasswordPlaceholder": "ex. Prof2024",
       "tempPasswordHint": "Ce mot de passe sera communiqué à l'enseignant pour la première connexion.",
       "saveTeacher": "Enregistrer l'enseignant",
+      "personalInfoStep": {
+        "enterPhoneToStart": "Entrez le numéro de téléphone pour commencer",
+        "verify": "Vérifier",
+        "edit": "Modifier",
+        "invalidPhoneError": "Veuillez saisir un numéro de téléphone valide",
+        "technicalError": "Erreur technique lors de la vérification",
+        "numberAlreadyExistsError": "Ce numéro est déjà rattaché à un compte. Impossible de l'utiliser comme enseignant.",
+        "newAccountAlert": "Nouveau compte ! Complétez le profil ci-dessous.",
+        "existingAccountLabel": "Compte existant",
+        "existingAccountDesc": "Cet enseignant est déjà inscrit sur Qalami. Cliquez sur Terminer pour l'attacher à votre école. Il restera dans ses autres établissements mais deviendra visible et opérationnel dans votre annuaire local.",
+        "finish": "Terminer"
+      },
       "profile": {
         "schedule": "Emploi du temps",
         "classes": "Classes",
