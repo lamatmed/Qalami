@@ -17,6 +17,7 @@ import {
 import { createClient } from '@/utils/supabase/client'
 import { useLanguage } from '@/i18n'
 import { LanguageSwitcher } from '@/components/shared/language-switcher'
+import { ThemeToggle } from '@/components/shared/theme-toggle'
 import { useState, useEffect } from 'react'
 
 export function useSuperAdminSidebarItems() {
@@ -40,12 +41,9 @@ export function SuperAdminSidebar() {
     const [isCollapsed, setIsCollapsed] = useState(false)
     const [mounted, setMounted] = useState(false)
 
-    // Hydrate collapsed state on mount
     useEffect(() => {
         const saved = localStorage.getItem('qalami_superadmin_sidebar_collapsed')
-        if (saved === 'true') {
-            setIsCollapsed(true)
-        }
+        if (saved === 'true') setIsCollapsed(true)
         setMounted(true)
     }, [])
 
@@ -206,9 +204,15 @@ export function SuperAdminSidebar() {
                     })}
                 </div>
                 
-                {!isCollapsed && (
-                    <div className="pt-6 border-t border-slate-100 dark:border-white/5 mt-6 animate-in fade-in duration-500">
+                {!isCollapsed ? (
+                    <div className="pt-6 border-t border-slate-100 dark:border-white/5 mt-6 animate-in fade-in duration-500 space-y-2">
                         <LanguageSwitcher variant="full" className="w-full bg-slate-50/50 hover:bg-slate-100 dark:bg-white/5 dark:hover:bg-white/[0.08] border border-slate-150 dark:border-white/5 rounded-xl shadow-sm transition-all duration-300 font-bold py-2.5 text-xs" />
+                        <ThemeToggle variant="full" />
+                    </div>
+                ) : (
+                    <div className="pb-2 flex flex-col items-center gap-1 mt-4 border-t border-slate-100 dark:border-white/5 pt-4">
+                        <LanguageSwitcher variant="icon" />
+                        <ThemeToggle variant="icon" />
                     </div>
                 )}
             </nav>

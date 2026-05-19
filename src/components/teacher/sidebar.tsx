@@ -17,6 +17,7 @@ import {
 import { createClient } from '@/utils/supabase/client'
 import { useLanguage } from '@/i18n'
 import { LanguageSwitcher } from '@/components/shared/language-switcher'
+import { ThemeToggle } from '@/components/shared/theme-toggle'
 
 export function useTeacherSidebarItems() {
     const { t } = useLanguage()
@@ -121,9 +122,15 @@ export function TeacherSidebar({ isCollapsed = false, onToggle }: { isCollapsed?
                     )
                 })}
                 
-                {!isCollapsed && (
-                    <div className="pt-4 border-t border-slate-50 dark:border-white/5 mt-4">
+                {!isCollapsed ? (
+                    <div className="pt-4 border-t border-slate-50 dark:border-white/5 mt-4 space-y-2">
                         <LanguageSwitcher variant="full" className="text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-white/5 font-bold" />
+                        <ThemeToggle variant="full" />
+                    </div>
+                ) : (
+                    <div className="pt-4 border-t border-slate-50 dark:border-white/5 mt-4 flex flex-col items-center gap-1">
+                        <LanguageSwitcher variant="icon" />
+                        <ThemeToggle variant="icon" />
                     </div>
                 )}
             </nav>
