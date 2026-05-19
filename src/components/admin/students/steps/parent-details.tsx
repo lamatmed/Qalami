@@ -5,8 +5,8 @@ import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { ChevronRight, ChevronLeft, Search, Loader2, X, Users, Phone } from 'lucide-react'
 import { RegistrationData } from '../registration-wizard'
-import { createClient } from '@/utils/supabase/client'
 import { useLanguage } from '@/i18n'
+import { searchSchoolParents } from '@/app/admin/actions'
 
 interface StepProps {
     data: RegistrationData
@@ -23,8 +23,16 @@ interface ParentResult {
     email: string | null
 }
 
+function normalizeArabicDigits(str: string): string {
+    const arabicDigits = /[٠-٩]/g;
+    const persianDigits = /[۰-۹]/g;
+    return str
+        .replace(arabicDigits, (d) => String(d.charCodeAt(0) - 1632))
+        .replace(persianDigits, (d) => String(d.charCodeAt(0) - 1776));
+}
+
 export function ParentDetails({ data, updateData, onNext, onPrev }: StepProps) {
-    const { t } = useLanguage()
+    const { t, direction } = useLanguage()
     const { parents } = data
     const [searchTerm, setSearchTerm] = useState('')
     const [searchResults, setSearchResults] = useState<ParentResult[]>([])
@@ -37,27 +45,15 @@ export function ParentDetails({ data, updateData, onNext, onPrev }: StepProps) {
         }
         const timer = setTimeout(async () => {
             setSearching(true)
-            const supabase = createClient()
-
-            const { data: { user } } = await supabase.auth.getUser()
-            if (!user) { setSearching(false); return }
-
-            const { data: profile } = await supabase
-                .from('profiles')
-                .select('school_id')
-                .eq('id', user.id)
-                .single()
-
-            const { data: results } = await supabase
-                .from('profiles')
-                .select('id, full_name, phone, email')
-                .eq('role', 'parent')
-                .eq('school_id', profile?.school_id)
-                .or(`full_name.ilike.%${searchTerm}%,phone.ilike.%${searchTerm}%`)
-                .limit(10)
-
-            setSearchResults(results || [])
-            setSearching(false)
+            try {
+                const results = await searchSchoolParents(searchTerm)
+                setSearchResults(results)
+            } catch (err) {
+                console.error(err)
+                setSearchResults([])
+            } finally {
+                setSearching(false)
+            }
         }, 300)
         return () => clearTimeout(timer)
     }, [searchTerm])
@@ -91,7 +87,7 @@ export function ParentDetails({ data, updateData, onNext, onPrev }: StepProps) {
     return (
         <div className="space-y-6">
             <div className="mb-6">
-                <h2 className="text-2xl font-bold text-white mb-2">{t('admin.students.register.parents.title')}</h2>
+                <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">{t('admin.students.register.parents.title')}</h2>
                 <p className="text-gray-400 text-sm">{t('admin.students.register.parents.subtitle')}</p>
             </div>
 
@@ -104,7 +100,7 @@ export function ParentDetails({ data, updateData, onNext, onPrev }: StepProps) {
                                 <div className="w-8 h-8 rounded-full bg-emerald-500/20 flex items-center justify-center">
                                     <Users className="w-4 h-4 text-emerald-500" />
                                 </div>
-                                <div>
+                                <div className={direction === 'rtl' ? 'text-right' : 'text-left'}>
                                     <p className="text-white font-medium text-sm">{p.name}</p>
                                     <p className="text-emerald-500/60 text-xs">{p.slot === 1 ? t('admin.students.register.parents.primaryParent') : t('admin.students.register.parents.secondaryParent')}</p>
                                 </div>
@@ -124,14 +120,15 @@ export function ParentDetails({ data, updateData, onNext, onPrev }: StepProps) {
                         {selectedParents.length === 0 ? t('admin.students.register.parents.searchPrimary') : t('admin.students.register.parents.searchSecondary')}
                     </p>
                     <div className="relative">
-                        <Search className="absolute left-3 top-3 h-4 w-4 text-gray-500" />
+                        <Search className={cn("absolute top-3 h-4 w-4 text-gray-500", direction === 'rtl' ? 'right-3' : 'left-3')} />
                         <Input
                             placeholder={t('admin.students.register.parents.searchPlaceholder')}
-                            className="pl-9 bg-[#1A2530] border-white/5"
+                            className={cn("bg-[#1A2530] border-white/5", direction === 'rtl' ? 'pr-9 pl-3 text-right placeholder:text-right' : 'pl-9 pr-3 text-left placeholder:text-left')}
                             value={searchTerm}
-                            onChange={(e) => setSearchTerm(e.target.value)}
+                            onChange={(e) => setSearchTerm(normalizeArabicDigits(e.target.value))}
+                            dir={direction}
                         />
-                        {searching && <Loader2 className="absolute right-3 top-3 h-4 w-4 text-gray-400 animate-spin" />}
+                        {searching && <Loader2 className={cn("absolute top-3 h-4 w-4 text-gray-400 animate-spin", direction === 'rtl' ? 'left-3' : 'right-3')} />}
                     </div>
 
                     {searchResults.length > 0 && (
@@ -140,10 +137,10 @@ export function ParentDetails({ data, updateData, onNext, onPrev }: StepProps) {
                                 <button
                                     key={parent.id}
                                     onClick={() => selectParent(parent)}
-                                    className="w-full text-left px-4 py-3 hover:bg-white/5 transition-colors border-b border-white/5 last:border-b-0"
+                                    className={cn("w-full px-4 py-3 hover:bg-white/5 transition-colors border-b border-white/5 last:border-b-0", direction === 'rtl' ? 'text-right' : 'text-left')}
                                 >
                                     <p className="text-white font-medium text-sm">{parent.full_name}</p>
-                                    <div className="flex items-center gap-1 text-gray-500 text-xs mt-0.5">
+                                    <div className={cn("flex items-center gap-1 text-gray-500 text-xs mt-0.5", direction === 'rtl' && "flex-row-reverse")}>
                                         <Phone className="w-3 h-3" />
                                         <span>{parent.phone || parent.email || t('admin.students.register.parents.noContact')}</span>
                                     </div>
@@ -164,14 +161,14 @@ export function ParentDetails({ data, updateData, onNext, onPrev }: StepProps) {
                     onClick={onPrev}
                     className="flex-1 bg-transparent border-white/10 text-white h-12 rounded-xl hover:bg-white/5"
                 >
-                    <ChevronLeft className="mr-2 w-4 h-4" /> {t('common.back')}
+                    <ChevronLeft className={cn("mr-2 w-4 h-4", direction === 'rtl' && "rotate-180")} /> {t('common.back')}
                 </Button>
                 <Button
                     onClick={onNext}
                     disabled={!parents.parent1Id}
                     className="flex-1 bg-emerald-500 hover:bg-emerald-600 text-black font-bold h-12 rounded-xl disabled:opacity-50"
                 >
-                    {t('common.next')} <ChevronRight className="ml-2 w-4 h-4" />
+                    {t('common.next')} <ChevronRight className={cn("ml-2 w-4 h-4", direction === 'rtl' && "rotate-180")} />
                 </Button>
             </div>
         </div>

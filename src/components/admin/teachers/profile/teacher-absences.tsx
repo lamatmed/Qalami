@@ -5,6 +5,7 @@ import { createClient } from '@/utils/supabase/client'
 import { XCircle, Clock, CheckCircle2, RefreshCw, Loader2, CalendarDays, StickyNote } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useLanguage } from '@/i18n'
+import { getMySchoolContext } from '@/app/admin/actions'
 
 interface AbsenceRecord {
     id: string
@@ -29,6 +30,9 @@ export function TeacherAbsences({ teacherId }: { teacherId: string }) {
     useEffect(() => {
         async function load() {
             const supabase = createClient()
+            const ctx = await getMySchoolContext()
+            const currentSchoolId = ctx?.school_id
+
             const { data, error } = await supabase
                 .from('teacher_attendance' as any)
                 .select(`
@@ -37,6 +41,7 @@ export function TeacherAbsences({ teacherId }: { teacherId: string }) {
                     recorder:profiles!teacher_attendance_recorded_by_fkey ( full_name )
                 `)
                 .eq('teacher_id', teacherId)
+                .eq('school_id', currentSchoolId)
                 .neq('status', 'present')
                 .order('date', { ascending: false })
 

@@ -4,10 +4,12 @@ import { useState, useEffect, useTransition } from 'react'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Button } from '@/components/ui/button'
-import { Building2, Mail, Phone, MapPin, Upload, Loader2, CheckCircle2 } from 'lucide-react'
+import { Building2, Mail, Phone, MapPin, Upload, Loader2, CheckCircle2, KeyRound, Eye, EyeOff, ShieldCheck } from 'lucide-react'
 import { createClient } from '@/utils/supabase/client'
 import { toast } from 'sonner'
 import { useLanguage } from '@/i18n'
+import { updateCurrentUserPassword, updateSchoolIdentityAction } from '@/app/admin/settings/actions'
+import { cn } from '@/lib/utils'
 
 interface SchoolSettings {
     id?: string
@@ -37,12 +39,16 @@ export function SchoolIdentity() {
         logo_url: ''
     })
 
+    const [passwords, setPasswords] = useState({ new: '', confirm: '' })
+    const [showNewPass, setShowNewPass] = useState(false)
+    const [showConfirmPass, setShowConfirmPass] = useState(false)
+    const [isUpdatingPass, setIsUpdatingPass] = useState(false)
+
     // Fetch existing settings on mount
     useEffect(() => {
         async function fetchSettings() {
             setIsLoading(true)
             try {
-                // Get user's school_id from their profile
                 const { data: { user } } = await supabase.auth.getUser()
                 if (!user) return
 
@@ -58,18 +64,36 @@ export function SchoolIdentity() {
                     return
                 }
 
-                // Fetch school settings
-                const { data: existingSettings, error } = await supabase
-                    .from('school_settings')
-                    .select('*')
-                    .eq('school_id', profile.school_id)
-                    .single()
+                // Parallel fetch primary school info and settings overrides
+                const [settingsResponse, schoolResponse] = await Promise.all([
+                    supabase.from('school_settings').select('*').eq('school_id', profile.school_id).maybeSingle(),
+                    supabase.from('schools').select('*').eq('id', profile.school_id).maybeSingle()
+                ])
+
+                const existingSettings = settingsResponse.data
+                const coreSchool = schoolResponse.data
 
                 if (existingSettings) {
-                    setSettings(existingSettings)
+                    setSettings({
+                        ...existingSettings,
+                        // Fallback fields to Core info if they aren't specifically overridden yet
+                        name: existingSettings.name || coreSchool?.name || '',
+                        email: existingSettings.email || coreSchool?.email || '',
+                        phone: existingSettings.phone || coreSchool?.phone || '',
+                        address: existingSettings.address || coreSchool?.address || '',
+                        logo_url: existingSettings.logo_url || coreSchool?.logo_url || ''
+                    })
                 } else {
-                    // If no settings, initialize with school_id
-                    setSettings(prev => ({ ...prev, school_id: profile.school_id }))
+                    // Populate initial form with the core school creation defaults
+                    setSettings({
+                        school_id: profile.school_id,
+                        name: coreSchool?.name || '',
+                        slogan: '',
+                        address: coreSchool?.address || '',
+                        phone: coreSchool?.phone || '',
+                        email: coreSchool?.email || '',
+                        logo_url: coreSchool?.logo_url || ''
+                    })
                 }
             } catch (error) {
                 console.error('Error fetching settings:', error)
@@ -83,30 +107,98 @@ export function SchoolIdentity() {
     const handleSave = () => {
         startTransition(async () => {
             try {
-                const { error } = await supabase
-                    .from('school_settings')
-                    .upsert({
-                        school_id: settings.school_id,
-                        name: settings.name,
-                        slogan: settings.slogan,
-                        address: settings.address,
-                        phone: settings.phone,
-                        email: settings.email,
-                        logo_url: settings.logo_url
-                    }, {
-                        onConflict: 'school_id'
-                    })
+                const response = await updateSchoolIdentityAction({
+                    school_id: settings.school_id,
+                    name: settings.name,
+                    slogan: settings.slogan,
+                    address: settings.address,
+                    email: settings.email,
+                    logo_url: settings.logo_url
+                })
 
-                if (error) throw error
+                if (response.error) throw new Error(response.error)
 
                 setIsSaved(true)
                 toast.success(t('admin.settings.identity.saveSuccess'))
                 setTimeout(() => setIsSaved(false), 2000)
-            } catch (error) {
+            } catch (error: any) {
                 console.error('Error saving settings:', error)
-                toast.error(t('admin.settings.identity.saveError'))
+                toast.error(error.message || t('admin.settings.identity.saveError'))
             }
         })
+    }
+
+    const handlePasswordUpdate = async (e: React.FormEvent) => {
+        e.preventDefault()
+        
+        if (!passwords.new) {
+            toast.error("Veuillez saisir un nouveau mot de passe.")
+            return
+        }
+
+        if (passwords.new !== passwords.confirm) {
+            toast.error("Les mots de passe ne correspondent pas.")
+            return
+        }
+
+        setIsUpdatingPass(true)
+        try {
+            const response = await updateCurrentUserPassword(passwords.new)
+            if (response.error) {
+                toast.error(response.error)
+            } else {
+                toast.success("Le mot de passe a été mis à jour avec succès !")
+                setPasswords({ new: '', confirm: '' })
+            }
+        } catch (err) {
+            toast.error("Une erreur inattendue est survenue.")
+        } finally {
+            setIsUpdatingPass(false)
+        }
+    }
+
+    const [isUploading, setIsUploading] = useState(false)
+
+    const handleLogoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0]
+        if (!file) return
+
+        if (!settings.school_id) {
+            toast.error("School ID is missing. Cannot upload logo.")
+            return
+        }
+
+        setIsUploading(true)
+        const loadingToastId = toast.loading("Téléchargement du logo...")
+
+        try {
+            // 1. Create standard browser form and append required context
+            const fd = new FormData()
+            fd.append('file', file)
+            fd.append('schoolId', settings.school_id)
+
+            // 2. POST to secure internal backend bridge bypassing user scope denial
+            const response = await fetch('/api/admin/upload-logo', {
+                method: 'POST',
+                body: fd
+            })
+
+            const result = await response.json()
+
+            if (!response.ok || result.error) {
+                throw new Error(result.error || "Erreur serveur lors du téléchargement")
+            }
+
+            // 3. Extract Public URL provided securely by backend response
+            setSettings(prev => ({ ...prev, logo_url: result.publicUrl }))
+            
+            toast.success("Logo téléchargé avec succès !", { id: loadingToastId })
+        } catch (error: any) {
+            console.error('Error uploading image:', error)
+            toast.error("Erreur lors du téléchargement du logo.", { id: loadingToastId })
+        } finally {
+            setIsUploading(false)
+        }
     }
 
     if (isLoading) {
@@ -127,9 +219,19 @@ export function SchoolIdentity() {
 
             {/* Logo Upload */}
             <div className="flex items-center gap-6 p-6 bg-[#1A2530] rounded-2xl border border-white/5">
-                <div className="h-24 w-24 bg-[#0F1720] rounded-2xl flex items-center justify-center border-2 border-dashed border-gray-600 group hover:border-emerald-500 transition-colors cursor-pointer overflow-hidden">
-                    {settings.logo_url ? (
-                        <img src={settings.logo_url} alt="Logo" className="w-full h-full object-cover" />
+                <div 
+                    onClick={() => document.getElementById('logo-input')?.click()}
+                    className="h-24 w-24 bg-[#0F1720] rounded-2xl flex items-center justify-center border-2 border-dashed border-gray-600 group hover:border-emerald-500 transition-all cursor-pointer overflow-hidden relative"
+                >
+                    {isUploading ? (
+                        <Loader2 className="w-6 h-6 text-emerald-500 animate-spin" />
+                    ) : settings.logo_url ? (
+                        <>
+                            <img src={settings.logo_url} alt="Logo" className="w-full h-full object-cover group-hover:opacity-50 transition-opacity" />
+                            <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                                <Upload className="w-6 h-6 text-white" />
+                            </div>
+                        </>
                     ) : (
                         <Upload className="w-8 h-8 text-gray-500 group-hover:text-emerald-500" />
                     )}
@@ -137,7 +239,24 @@ export function SchoolIdentity() {
                 <div>
                     <h4 className="font-bold text-white">{t('admin.settings.identity.logoTitle')}</h4>
                     <p className="text-xs text-gray-500 mb-3">{t('admin.settings.identity.logoDesc')}</p>
-                    <Button variant="outline" size="sm" className="border-emerald-500/20 text-emerald-500 hover:bg-emerald-500/10">
+                    
+                    <input 
+                        id="logo-input" 
+                        type="file" 
+                        accept="image/*" 
+                        className="hidden" 
+                        onChange={handleLogoUpload}
+                        disabled={isUploading}
+                    />
+
+                    <Button 
+                        variant="outline" 
+                        size="sm" 
+                        disabled={isUploading}
+                        onClick={() => document.getElementById('logo-input')?.click()}
+                        className="border-emerald-500/20 text-emerald-500 hover:bg-emerald-500/10"
+                    >
+                        {isUploading ? <Loader2 className="w-3 h-3 mr-1.5 animate-spin" /> : null}
                         {t('admin.settings.identity.modifyLogo')}
                     </Button>
                 </div>
@@ -189,9 +308,10 @@ export function SchoolIdentity() {
                             <Phone className="absolute left-3 top-3 h-4 w-4 text-gray-500" />
                             <Input
                                 value={settings.phone}
-                                onChange={(e) => setSettings(prev => ({ ...prev, phone: e.target.value }))}
+                                disabled={true}
+                                readOnly={true}
                                 placeholder="+222 XX XX XX XX"
-                                className="pl-9 bg-[#1A2530] border-white/5"
+                                className="pl-9 bg-[#1A2530]/40 border-white/5 text-gray-400 cursor-not-allowed select-none"
                             />
                         </div>
                     </div>
@@ -225,6 +345,83 @@ export function SchoolIdentity() {
                         t('admin.settings.identity.saveChanges')
                     )}
                 </Button>
+            </div>
+
+            {/* Security Password Block */}
+            <div className="mt-12 pt-8 border-t border-white/5 space-y-6">
+                <div>
+                    <h3 className="text-xl font-bold text-white flex items-center gap-2">
+                        <ShieldCheck className="w-5 h-5 text-emerald-500" />
+                        Sécurité du Compte
+                    </h3>
+                    <p className="text-gray-400 text-sm">Modifier le mot de passe de votre accès administrateur.</p>
+                </div>
+
+                <form onSubmit={handlePasswordUpdate} className="bg-[#1A2530] border border-white/5 rounded-2xl p-6 max-w-2xl space-y-5">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                        <div className="space-y-2">
+                            <Label className="text-gray-300">Nouveau mot de passe</Label>
+                            <div className="relative">
+                                <KeyRound className="absolute left-3 top-3 h-4 w-4 text-gray-500" />
+                                <Input
+                                    type={showNewPass ? "text" : "password"}
+                                    value={passwords.new}
+                                    onChange={(e) => setPasswords(prev => ({ ...prev, new: e.target.value }))}
+                                    placeholder="••••••"
+                                    className="pl-9 pr-10 bg-[#0F1720] border-white/5 text-white"
+                                />
+                                <button
+                                    type="button"
+                                    onClick={() => setShowNewPass(!showNewPass)}
+                                    className="absolute right-3 top-3 text-gray-500 hover:text-emerald-500 transition-colors"
+                                >
+                                    {showNewPass ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                                </button>
+                            </div>
+                        </div>
+
+                        <div className="space-y-2">
+                            <Label className="text-gray-300">Confirmer mot de passe</Label>
+                            <div className="relative">
+                                <KeyRound className="absolute left-3 top-3 h-4 w-4 text-gray-500" />
+                                <Input
+                                    type={showConfirmPass ? "text" : "password"}
+                                    value={passwords.confirm}
+                                    onChange={(e) => setPasswords(prev => ({ ...prev, confirm: e.target.value }))}
+                                    placeholder="••••••"
+                                    className="pl-9 pr-10 bg-[#0F1720] border-white/5 text-white"
+                                />
+                                <button
+                                    type="button"
+                                    onClick={() => setShowConfirmPass(!showConfirmPass)}
+                                    className="absolute right-3 top-3 text-gray-500 hover:text-emerald-500 transition-colors"
+                                >
+                                    {showConfirmPass ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div className="flex justify-end pt-2">
+                        <Button
+                            type="submit"
+                            disabled={isUpdatingPass || !passwords.new}
+                            className={cn(
+                                "font-bold gap-2 transition-all duration-300",
+                                passwords.new && passwords.new === passwords.confirm
+                                    ? "bg-emerald-500 hover:bg-emerald-600 text-black shadow-lg shadow-emerald-500/20"
+                                    : "bg-white/10 hover:bg-white/20 text-gray-300"
+                            )}
+                        >
+                            {isUpdatingPass ? (
+                                <Loader2 className="h-4 w-4 animate-spin" />
+                            ) : (
+                                <KeyRound className="h-4 w-4" />
+                            )}
+                            Mettre à jour le mot de passe
+                        </Button>
+                    </div>
+                </form>
             </div>
         </div>
     )

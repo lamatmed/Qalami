@@ -49,7 +49,7 @@ export function TransactionLedger() {
                 .from('transactions')
                 .select('*')
                 .eq('school_id', profile.school_id)
-                .order('transaction_date', { ascending: false })
+                .order('created_at', { ascending: false })
                 .limit(50)
 
             if (error) throw error
@@ -85,9 +85,15 @@ export function TransactionLedger() {
             tuition: t('admin.finance.tuition'),
             salary: t('admin.finance.salaries'),
             maintenance: t('admin.finance.maintenance'),
-            transport: 'Transport',
+            transport: t('admin.finance.transport'),
             supplies: t('admin.accounting.supplies'),
-            other: t('admin.finance.others')
+            other: t('admin.finance.others'),
+            // Direct automated mapping for payment categories
+            inscription: "Inscription",
+            scolarite: "Scolarité",
+            cantine: "Cantine",
+            bus: "Transport",
+            activites: "Activités"
         }
         return labels[cat ?? ''] ?? cat ?? 'N/A'
     }
@@ -159,7 +165,7 @@ export function TransactionLedger() {
                     <table className="w-full text-left text-sm">
                         <thead className="bg-[#0D1117] text-gray-500 uppercase font-bold text-xs tracking-wider">
                             <tr>
-                                <th className="px-6 py-4">Transaction</th>
+                                <th className="px-6 py-4">{t('admin.finance.transaction')}</th>
                                 <th className="px-6 py-4">{t('admin.accounting.category')}</th>
                                 <th className="px-6 py-4">{t('common.date')}</th>
                                 <th className="px-6 py-4">{t('common.status')}</th>

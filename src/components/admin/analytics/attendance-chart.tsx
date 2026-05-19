@@ -55,10 +55,10 @@ export function AttendanceChart() {
                     const startOfDay = new Date(day); startOfDay.setHours(0, 0, 0, 0)
                     const endOfDay = new Date(day); endOfDay.setHours(23, 59, 59, 999)
 
-                    let query = supabase.from('attendance').select('status')
-                        .eq('school_id', schoolId)
-                        .gte('date', startOfDay.toISOString())
-                        .lte('date', endOfDay.toISOString())
+                    let query = supabase.from('attendance').select('status, classes!inner(school_id)')
+                        .eq('classes.school_id', schoolId)
+                        .gte('date', startOfDay.toISOString().split('T')[0])
+                        .lte('date', endOfDay.toISOString().split('T')[0])
 
                     if (selectedSubject !== 'all') query = query.eq('subject_id', selectedSubject)
 

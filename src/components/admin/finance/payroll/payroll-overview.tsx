@@ -64,49 +64,85 @@ export function PayrollOverview({ onSelectTeacher }: { onSelectTeacher: (teacher
                     return
                 }
 
-                // Fetch payroll with employee details - use simple join
-                const { data, error } = await supabase
-                    .from('payroll')
+                // 1. Fetch active contracts WITH their linked profile information
+                const { data: contractData, error: contractErr } = await supabase
+                    .from('contracts')
                     .select(`
-                        *,
-                        profiles (id, full_name)
+                        employee_id,
+                        position,
+                        monthly_salary,
+                        profiles (
+                            id,
+                            full_name,
+                            role
+                        )
                     `)
                     .eq('school_id', profile.school_id)
-                    .order('created_at', { ascending: false })
+                    .eq('status', 'active')
 
-                if (error) {
+                if (contractErr) {
+                    console.error('Payroll contracts load error:', contractErr)
                     setLoading(false)
                     return
                 }
 
-                // Also fetch contracts for positions
-                const { data: contracts } = await supabase
-                    .from('contracts')
-                    .select('employee_id, position')
+                // 2. Fetch standard payroll ledger records for CURRENT month and year WITH profiles
+                const queryMonth = new Date().getMonth() + 1
+                const queryYear = new Date().getFullYear()
+
+                const { data: payrollEntries, error: payrollErr } = await supabase
+                    .from('payroll')
+                    .select(`
+                        *,
+                        profiles (
+                            id,
+                            full_name,
+                            role
+                        )
+                    `)
                     .eq('school_id', profile.school_id)
+                    .eq('month', queryMonth)
+                    .eq('year', queryYear)
 
-                const positionMap = new Map((contracts || []).map(c => [c.employee_id, c.position]))
+                if (payrollErr) {
+                    console.error('Payroll ledger load error:', payrollErr)
+                }
 
-                const processedData: PayrollEmployee[] = (data || []).map(payroll => {
-                    const fullName = (payroll.profiles as any)?.full_name || 'Employé'
+                // 3. Merge the datasets based on employee_id
+                const employeeIds = new Set([
+                    ...(contractData || []).map(c => c.employee_id),
+                    ...(payrollEntries || []).map(p => p.employee_id)
+                ])
+
+                const processedData: PayrollEmployee[] = Array.from(employeeIds).map(empId => {
+                    const contract = (contractData || []).find(c => c.employee_id === empId)
+                    const payroll = (payrollEntries || []).find(p => p.employee_id === empId)
+
+                    // Pull profile info from whichever row loaded it relationally
+                    const profileObj = (contract?.profiles || payroll?.profiles) as any
+                    const fullName = profileObj?.full_name || 'Employé'
                     const initials = fullName.split(' ').map((n: string) => n[0]).join('').toUpperCase().slice(0, 2)
+                    
+                    const defaultSalary = contract ? (parseFloat(contract.monthly_salary) || 0) : 0
+                    const defaultPosition = contract?.position || (profileObj?.role === 'teacher' ? 'Enseignant' : 'Employé')
 
                     return {
-                        id: payroll.id,
-                        employeeId: payroll.employee_id,
+                        id: payroll?.id || empId,
+                        employeeId: empId,
                         employeeName: fullName,
-                        position: positionMap.get(payroll.employee_id) || 'Enseignant',
-                        status: payroll.status,
-                        baseSalary: parseFloat(payroll.base_salary) || 0,
-                        bonuses: parseFloat(payroll.bonuses) || 0,
-                        deductions: parseFloat(payroll.deductions) || 0,
-                        netSalary: parseFloat(payroll.net_salary) || 0,
+                        position: defaultPosition,
+                        status: (payroll?.status as 'pending'|'paid'|'cancelled') || 'pending',
+                        baseSalary: payroll ? (parseFloat(payroll.base_salary) || 0) : defaultSalary,
+                        bonuses: payroll ? (parseFloat(payroll.bonuses) || 0) : 0,
+                        deductions: payroll ? (parseFloat(payroll.deductions) || 0) : 0,
+                        netSalary: payroll ? (parseFloat(payroll.net_salary) || 0) : defaultSalary,
                         initials
                     }
                 })
 
                 setEmployees(processedData)
             } catch (err) {
+                console.error('Payroll unexpected error:', err)
             } finally {
                 setLoading(false)
             }

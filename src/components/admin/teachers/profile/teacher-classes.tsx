@@ -8,6 +8,7 @@ import { createClient } from '@/utils/supabase/client'
 import { Skeleton } from '@/components/ui/skeleton'
 import { useRouter } from 'next/navigation'
 import { useLanguage } from '@/i18n'
+import { getMySchoolContext } from '@/app/admin/actions'
 
 interface TeacherClass {
     id: string
@@ -28,15 +29,19 @@ export function TeacherClasses({ teacherId }: { teacherId: string }) {
             setLoading(true)
             const supabase = createClient()
 
-            // Get teacher assignments (class + subject)
+            const ctx = await getMySchoolContext()
+            const currentSchoolId = ctx?.school_id
+
+            // Get teacher assignments restricted to this school
             const { data: assignments, error } = await supabase
                 .from('teacher_assignments')
                 .select(`
                     class_id,
                     subject:subject_id ( name ),
-                    classes:class_id ( id, name )
+                    classes:class_id!inner ( id, name, school_id )
                 `)
                 .eq('teacher_id', teacherId)
+                .eq('classes.school_id', currentSchoolId)
 
             if (error) {
                 console.error('Error fetching teacher classes:', error?.message, error?.code, error?.details, error?.hint)

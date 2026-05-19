@@ -15,6 +15,7 @@ import { TeacherEvaluations } from './teacher-evaluations'
 import { TeacherClassAverages } from './teacher-class-averages'
 import { TeacherRemarksList } from './teacher-remarks-list'
 import { createClient } from '@/utils/supabase/client'
+import { getMySchoolContext, secureFetchProfiles } from '@/app/admin/actions'
 import { Skeleton } from '@/components/ui/skeleton'
 import { useLanguage } from '@/i18n'
 import { StatusBadge } from '@/components/admin/shared/status-badge'
@@ -58,27 +59,30 @@ export function TeacherProfileLayout({ id }: { id: string }) {
             const supabase = createClient()
 
             // Fetch teacher profile
-            const { data: profile, error } = await supabase
-                .from('profiles')
-                .select('id, full_name, email, phone, avatar_url, status')
-                .eq('id', id)
-                .single()
+            // Fetch teacher profile securely via server action bypassing client-side RLS
+            const profiles = await secureFetchProfiles([id], 'id, full_name, email, phone, avatar_url, status')
+            const profile = profiles?.[0] || null
 
-            if (error || !profile) {
+            if (!profile) {
                 setLoading(false)
                 return
             }
 
-            // Batch: assignments + schedule for weekly hours
+            const ctx = await getMySchoolContext()
+            const currentSchoolId = ctx?.school_id
+
+            // Batch: assignments + schedule for weekly hours (strictly scoped to current school)
             const [{ data: assignments }, { data: scheduleSlots }] = await Promise.all([
                 supabase
                     .from('teacher_assignments')
-                    .select('subject_id, subjects(name), class_id')
-                    .eq('teacher_id', id),
+                    .select('subject_id, subjects(name), class_id, classes!inner(school_id)')
+                    .eq('teacher_id', id)
+                    .eq('classes.school_id', currentSchoolId),
                 supabase
                     .from('schedule')
-                    .select('start_time, end_time')
-                    .eq('teacher_id', id),
+                    .select('start_time, end_time, classes!inner(school_id)')
+                    .eq('teacher_id', id)
+                    .eq('classes.school_id', currentSchoolId),
             ])
 
             const subjectNames = [...new Set(

@@ -5,6 +5,7 @@ import { Loader2, FileText, TrendingUp, BookOpen } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { createClient } from '@/utils/supabase/client'
 import { useLanguage } from '@/i18n'
+import { getMySchoolContext } from '@/app/admin/actions'
 
 interface Assignment {
     subjectId: string
@@ -41,10 +42,14 @@ export function TeacherEvaluations({ teacherId }: { teacherId: string }) {
         const fetch = async () => {
             const supabase = createClient()
 
+            const ctx = await getMySchoolContext()
+            const currentSchoolId = ctx?.school_id
+
             const { data: assignData } = await supabase
                 .from('teacher_assignments')
-                .select('subject_id, class_id, subjects(name), classes(name)')
+                .select('subject_id, class_id, subjects(name), classes!inner(name, school_id)')
                 .eq('teacher_id', teacherId)
+                .eq('classes.school_id', currentSchoolId)
 
             if (!assignData?.length) { setLoading(false); return }
 

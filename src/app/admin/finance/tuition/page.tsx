@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useCallback } from 'react'
 import { createClient } from '@/utils/supabase/client'
-import { Loader2, Search, Download, AlertCircle, CheckCircle, Clock, TrendingUp, Users, CreditCard } from 'lucide-react'
+import { Loader2, Search, Download, AlertCircle, CheckCircle, Clock, TrendingUp, Users, CreditCard, Bell, Calendar } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { Input } from '@/components/ui/input'
 import {
@@ -15,6 +15,7 @@ import {
 import { Button } from '@/components/ui/button'
 import { toast } from 'sonner'
 import { useLanguage } from '@/i18n'
+import { notifyLateParentAction } from '@/app/admin/actions'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -51,6 +52,25 @@ export default function TuitionPage() {
     const [filterClass, setFilterClass] = useState('all')
     const [classes, setClasses] = useState<{ id: string; name: string }[]>([])
     const [currentAcademicYear, setCurrentAcademicYear] = useState<string | null>(null)
+    
+    const [activeTab, setActiveTab] = useState<'all' | 'late'>('all')
+    const [notifyingIds, setNotifyingIds] = useState<Record<string, boolean>>({})
+
+    const handleNotify = async (studentId: string, overdueCount: number, totalOwed: number, studentName: string) => {
+        setNotifyingIds(prev => ({ ...prev, [studentId]: true }))
+        try {
+            const res = await notifyLateParentAction(studentId, overdueCount, totalOwed)
+            if (res.error) {
+                toast.error(res.error)
+            } else {
+                toast.success(`Rappel envoyé avec succès aux parents de ${studentName} !`)
+            }
+        } catch (err: any) {
+            toast.error(err.message || "Erreur lors de l'envoi de la notification")
+        } finally {
+            setNotifyingIds(prev => ({ ...prev, [studentId]: false }))
+        }
+    }
 
     const fetchData = useCallback(async () => {
         setLoading(true)
@@ -86,14 +106,19 @@ export default function TuitionPage() {
         const { data: paymentsData, error } = await supabase
             .from('payments')
             .select(`
-                id, student_id, payment_type, amount, amount_paid,
-                status, due_date, paid_at, academic_year_id,
+                id, student_id, payment_type, amount,
+                payment_status, due_date, paid_at, academic_year_id,
                 profiles!payments_student_id_fkey(full_name)
             `)
             .eq('school_id', profile.school_id)
-            .order('due_date', { ascending: true })
+            .order('created_at', { ascending: false })
 
-        if (error) { toast.error(t('admin.tuition.loadError')); setLoading(false); return }
+        if (error) {
+            console.error("Tuition load error:", error)
+            toast.error(t('admin.tuition.loadError') || "Erreur de chargement des paiements")
+            setLoading(false)
+            return
+        }
 
         // Fetch active enrollments to get class names
         const { data: enrollments } = await supabase
@@ -107,19 +132,23 @@ export default function TuitionPage() {
             enrollmentMap[e.student_id] = e.classes?.name ?? null
         })
 
-        const rows: PaymentRow[] = (paymentsData || []).map((p: any) => ({
-            id: p.id,
-            student_id: p.student_id,
-            student_name: p.profiles?.full_name ?? '—',
-            class_name: enrollmentMap[p.student_id] ?? null,
-            payment_type: p.payment_type ?? 'scolarite',
-            amount: Number(p.amount) || 0,
-            amount_paid: Number(p.amount_paid) || 0,
-            status: p.status ?? 'pending',
-            due_date: p.due_date,
-            paid_at: p.paid_at,
-            academic_year_id: p.academic_year_id,
-        }))
+        const rows: PaymentRow[] = (paymentsData || []).map((p: any) => {
+            const isPaid = p.payment_status === 'paid'
+            const numericAmt = Number(p.amount) || 0
+            return {
+                id: p.id,
+                student_id: p.student_id,
+                student_name: p.profiles?.full_name ?? '—',
+                class_name: enrollmentMap[p.student_id] ?? null,
+                payment_type: p.payment_type ?? 'scolarite',
+                amount: numericAmt,
+                amount_paid: isPaid ? numericAmt : 0,
+                status: p.payment_status ?? 'pending',
+                due_date: p.due_date,
+                paid_at: p.paid_at,
+                academic_year_id: p.academic_year_id,
+            }
+        })
 
         setPayments(rows)
         setLoading(false)
@@ -138,10 +167,54 @@ export default function TuitionPage() {
         return matchSearch && matchStatus && matchType && matchClass
     })
 
+    // ── Compute Late Students Grouped ──────────────────────────────────────────
+    const todayStr = new Date().toISOString().split('T')[0]
+    const lateStudentsMap: Record<string, {
+        studentId: string,
+        studentName: string,
+        className: string | null,
+        totalOwed: number,
+        monthsLate: number,
+        oldestDueDate: string | null
+    }> = {}
+
+    payments.forEach(p => {
+        // A payment is late if status is not 'paid' AND (it's explicitly 'overdue' OR the due_date has passed)
+        const isLate = p.status !== 'paid' && (p.status === 'overdue' || (p.due_date && p.due_date < todayStr))
+        if (isLate) {
+            if (!lateStudentsMap[p.student_id]) {
+                lateStudentsMap[p.student_id] = {
+                    studentId: p.student_id,
+                    studentName: p.student_name,
+                    className: p.class_name,
+                    totalOwed: 0,
+                    monthsLate: 0,
+                    oldestDueDate: p.due_date
+                }
+            }
+            const record = lateStudentsMap[p.student_id]
+            record.totalOwed += p.amount
+            record.monthsLate += 1
+            if (p.due_date && (!record.oldestDueDate || p.due_date < record.oldestDueDate)) {
+                record.oldestDueDate = p.due_date
+            }
+        }
+    })
+
+    const lateStudentsList = Object.values(lateStudentsMap)
+        .sort((a, b) => b.monthsLate - a.monthsLate)
+        .filter(s => {
+            if (search === '') return true
+            return s.studentName.toLowerCase().includes(search.toLowerCase()) || 
+                   (s.className ?? '').toLowerCase().includes(search.toLowerCase())
+        })
+
     // ── Stats ─────────────────────────────────────────────────────────────────
+    const overduePayments = payments.filter(p => p.status !== 'paid' && (p.status === 'overdue' || (p.due_date && p.due_date < todayStr)))
+    
     const totalExpected = payments.reduce((s, p) => s + p.amount, 0)
     const totalReceived = payments.reduce((s, p) => s + p.amount_paid, 0)
-    const totalOverdue = payments.filter(p => p.status === 'overdue').reduce((s, p) => s + (p.amount - p.amount_paid), 0)
+    const totalOverdue = overduePayments.reduce((s, p) => s + (p.amount - p.amount_paid), 0)
     const totalStudents = new Set(payments.map(p => p.student_id)).size
     const recoveryRate = totalExpected > 0 ? Math.round((totalReceived / totalExpected) * 100) : 0
 
@@ -211,7 +284,7 @@ export default function TuitionPage() {
                     icon={AlertCircle}
                     color="text-red-400"
                     bg="bg-red-500/10 border-red-500/20"
-                    sub={t('admin.tuition.overdueSub', { count: payments.filter(p => p.status === 'overdue').length })}
+                    sub={t('admin.tuition.overdueSub', { count: overduePayments.length })}
                 />
                 <StatCard
                     label={t('admin.tuition.concernedStudents')}
@@ -241,142 +314,266 @@ export default function TuitionPage() {
                 </div>
             </div>
 
-            {/* Filters */}
+            {/* Tabs Navigation */}
+            <div className="flex border-b border-white/5 gap-6">
+                <button
+                    onClick={() => setActiveTab('all')}
+                    className={cn(
+                        "pb-3 text-sm font-bold transition-all relative px-1 outline-none",
+                        activeTab === 'all' ? "text-emerald-400 border-b-2 border-emerald-400" : "text-gray-400 hover:text-gray-300"
+                    )}
+                >
+                    Toutes les Échéances ({filtered.length})
+                </button>
+                <button
+                    onClick={() => setActiveTab('late')}
+                    className={cn(
+                        "pb-3 text-sm font-bold transition-all relative px-1 flex items-center gap-2 outline-none",
+                        activeTab === 'late' ? "text-amber-400 border-b-2 border-amber-400" : "text-gray-400 hover:text-gray-300"
+                    )}
+                >
+                    <AlertCircle className={cn("w-4 h-4", activeTab === 'late' ? "text-amber-400" : "text-amber-500/60")} />
+                    Retardataires ({lateStudentsList.length})
+                </button>
+            </div>
+
+            {/* Filters Row */}
             <div className="flex flex-col sm:flex-row gap-3">
                 <div className="relative flex-1">
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500" />
                     <Input
-                        placeholder={t('admin.tuition.searchPlaceholder')}
+                        placeholder={activeTab === 'all' ? t('admin.tuition.searchPlaceholder') : "Rechercher un élève en retard..."}
                         value={search}
                         onChange={e => setSearch(e.target.value)}
                         className="pl-9 bg-[#1A2530] border-white/10 text-white placeholder:text-gray-500"
                     />
                 </div>
-                <Select value={filterStatus} onValueChange={setFilterStatus}>
-                    <SelectTrigger className="w-44 bg-[#1A2530] border-white/10 text-white">
-                        <SelectValue placeholder={t('admin.tuition.filters.status')} />
-                    </SelectTrigger>
-                    <SelectContent>
-                        <SelectItem value="all">{t('admin.tuition.filters.allStatus')}</SelectItem>
-                        <SelectItem value="paid">{t('admin.tuition.status.paid')}</SelectItem>
-                        <SelectItem value="partial">{t('admin.tuition.status.partial')}</SelectItem>
-                        <SelectItem value="pending">{t('admin.tuition.status.pending')}</SelectItem>
-                        <SelectItem value="overdue">{t('admin.tuition.status.overdue')}</SelectItem>
-                    </SelectContent>
-                </Select>
-                <Select value={filterType} onValueChange={setFilterType}>
-                    <SelectTrigger className="w-44 bg-[#1A2530] border-white/10 text-white">
-                        <SelectValue placeholder={t('admin.tuition.filters.type')} />
-                    </SelectTrigger>
-                    <SelectContent>
-                        <SelectItem value="all">{t('admin.tuition.filters.allTypes')}</SelectItem>
-                        <SelectItem value="scolarite">{t('admin.tuition.paymentTypes.scolarite')}</SelectItem>
-                        <SelectItem value="bus">{t('admin.tuition.paymentTypes.bus')}</SelectItem>
-                        <SelectItem value="cantine">{t('admin.tuition.paymentTypes.cantine')}</SelectItem>
-                        <SelectItem value="activites">{t('admin.tuition.paymentTypes.activites')}</SelectItem>
-                    </SelectContent>
-                </Select>
-                <Select value={filterClass} onValueChange={setFilterClass}>
-                    <SelectTrigger className="w-44 bg-[#1A2530] border-white/10 text-white">
-                        <SelectValue placeholder={t('admin.tuition.filters.class')} />
-                    </SelectTrigger>
-                    <SelectContent>
-                        <SelectItem value="all">{t('admin.tuition.filters.allClasses')}</SelectItem>
-                        {classes.map(c => (
-                            <SelectItem key={c.id} value={c.name}>{c.name}</SelectItem>
-                        ))}
-                    </SelectContent>
-                </Select>
+
+                {activeTab === 'all' && (
+                    <>
+                        <Select value={filterStatus} onValueChange={setFilterStatus}>
+                            <SelectTrigger className="w-44 bg-[#1A2530] border-white/10 text-white">
+                                <SelectValue placeholder={t('admin.tuition.filters.status')} />
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="all">{t('admin.tuition.filters.allStatus')}</SelectItem>
+                                <SelectItem value="paid">{t('admin.tuition.status.paid')}</SelectItem>
+                                <SelectItem value="partial">{t('admin.tuition.status.partial')}</SelectItem>
+                                <SelectItem value="pending">{t('admin.tuition.status.pending')}</SelectItem>
+                                <SelectItem value="overdue">{t('admin.tuition.status.overdue')}</SelectItem>
+                            </SelectContent>
+                        </Select>
+                        <Select value={filterType} onValueChange={setFilterType}>
+                            <SelectTrigger className="w-44 bg-[#1A2530] border-white/10 text-white">
+                                <SelectValue placeholder={t('admin.tuition.filters.type')} />
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="all">{t('admin.tuition.filters.allTypes')}</SelectItem>
+                                <SelectItem value="scolarite">{t('admin.tuition.paymentTypes.scolarite')}</SelectItem>
+                                <SelectItem value="bus">{t('admin.tuition.paymentTypes.bus')}</SelectItem>
+                                <SelectItem value="cantine">{t('admin.tuition.paymentTypes.cantine')}</SelectItem>
+                                <SelectItem value="activites">{t('admin.tuition.paymentTypes.activites')}</SelectItem>
+                            </SelectContent>
+                        </Select>
+                        <Select value={filterClass} onValueChange={setFilterClass}>
+                            <SelectTrigger className="w-44 bg-[#1A2530] border-white/10 text-white">
+                                <SelectValue placeholder={t('admin.tuition.filters.class')} />
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="all">{t('admin.tuition.filters.allClasses')}</SelectItem>
+                                {classes.map(c => (
+                                    <SelectItem key={c.id} value={c.name}>{c.name}</SelectItem>
+                                ))}
+                            </SelectContent>
+                        </Select>
+                    </>
+                )}
             </div>
 
-            {/* Table */}
-            <div className="bg-[#1A2530] rounded-3xl border border-white/5 overflow-hidden">
-                <div className="px-6 py-4 border-b border-white/5 flex items-center justify-between">
-                    <h3 className="text-xs font-bold text-gray-500 uppercase tracking-wider">
-                        {t('admin.tuition.recordsCount', { count: filtered.length })}
-                    </h3>
-                </div>
+            {/* Main Table Content */}
+            <div className="bg-[#1A2530] rounded-3xl border border-white/5 overflow-hidden shadow-sm">
+                {activeTab === 'all' ? (
+                    <>
+                        <div className="px-6 py-4 border-b border-white/5 flex items-center justify-between">
+                            <h3 className="text-xs font-bold text-gray-500 uppercase tracking-wider">
+                                {t('admin.tuition.recordsCount', { count: filtered.length })}
+                            </h3>
+                        </div>
 
-                {filtered.length === 0 ? (
-                    <div className="text-center py-16 text-gray-500 text-sm">
-                        {t('admin.tuition.noPaymentFound')}
-                    </div>
-                ) : (
-                    <div className="overflow-x-auto">
-                        <table className="w-full text-sm">
-                            <thead>
-                                <tr className="border-b border-white/5">
-                                    <th className="text-left px-6 py-3 text-[11px] font-semibold text-gray-500 uppercase tracking-wider">{t('admin.tuition.table.student')}</th>
-                                    <th className="text-left px-4 py-3 text-[11px] font-semibold text-gray-500 uppercase tracking-wider">{t('admin.tuition.table.class')}</th>
-                                    <th className="text-left px-4 py-3 text-[11px] font-semibold text-gray-500 uppercase tracking-wider">{t('admin.tuition.table.type')}</th>
-                                    <th className="text-right px-4 py-3 text-[11px] font-semibold text-gray-500 uppercase tracking-wider">{t('admin.tuition.table.amount')}</th>
-                                    <th className="text-right px-4 py-3 text-[11px] font-semibold text-gray-500 uppercase tracking-wider">{t('admin.tuition.table.paid')}</th>
-                                    <th className="text-right px-4 py-3 text-[11px] font-semibold text-gray-500 uppercase tracking-wider">{t('admin.tuition.table.remaining')}</th>
-                                    <th className="text-center px-4 py-3 text-[11px] font-semibold text-gray-500 uppercase tracking-wider">{t('admin.tuition.table.status')}</th>
-                                    <th className="text-left px-4 py-3 text-[11px] font-semibold text-gray-500 uppercase tracking-wider">{t('admin.tuition.table.dueDate')}</th>
-                                </tr>
-                            </thead>
-                            <tbody className="divide-y divide-white/5">
-                                {filtered.map(p => {
-                                    const remaining = p.amount - p.amount_paid
-                                    const statusCfg = STATUS_CONFIG[p.status] ?? STATUS_CONFIG.pending
-                                    const StatusIcon = statusCfg.icon
-                                    return (
-                                        <tr key={p.id} className="hover:bg-white/[0.02] transition-colors group">
-                                            <td className="px-6 py-3">
-                                                <div className="flex items-center gap-3">
-                                                    <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-emerald-500/20 to-cyan-500/20 flex items-center justify-center text-emerald-500 font-bold text-xs shrink-0">
-                                                        {p.student_name.split(' ').map(w => w[0]).join('').substring(0, 2).toUpperCase()}
-                                                    </div>
-                                                    <span className="font-medium text-white text-sm">{p.student_name}</span>
-                                                </div>
-                                            </td>
-                                            <td className="px-4 py-3">
-                                                {p.class_name ? (
-                                                    <span className="text-xs bg-white/5 text-gray-300 px-2 py-1 rounded-lg border border-white/5">
-                                                        {p.class_name}
-                                                    </span>
-                                                ) : (
-                                                    <span className="text-xs text-gray-600">—</span>
-                                                )}
-                                            </td>
-                                            <td className="px-4 py-3 text-gray-400 text-xs">
-                                                {t(`admin.tuition.paymentTypes.${p.payment_type}`)}
-                                            </td>
-                                            <td className="px-4 py-3 text-right font-mono text-white text-sm">
-                                                {p.amount.toLocaleString('fr-FR')}
-                                                <span className="text-[10px] text-gray-500 ml-1">MRU</span>
-                                            </td>
-                                            <td className="px-4 py-3 text-right font-mono text-emerald-400 text-sm">
-                                                {p.amount_paid.toLocaleString('fr-FR')}
-                                                <span className="text-[10px] text-gray-500 ml-1">MRU</span>
-                                            </td>
-                                            <td className="px-4 py-3 text-right font-mono text-sm">
-                                                <span className={remaining > 0 ? 'text-red-400' : 'text-gray-600'}>
-                                                    {remaining > 0 ? remaining.toLocaleString('fr-FR') : '—'}
-                                                    {remaining > 0 && <span className="text-[10px] text-gray-500 ml-1">MRU</span>}
-                                                </span>
-                                            </td>
-                                            <td className="px-4 py-3 text-center">
-                                                <span className={cn(
-                                                    "inline-flex items-center gap-1 text-[11px] font-semibold px-2 py-1 rounded-full border",
-                                                    statusCfg.color
-                                                )}>
-                                                    <StatusIcon className="w-3 h-3" />
-                                                    {t(`admin.tuition.status.${p.status}`)}
-                                                </span>
-                                            </td>
-                                            <td className="px-4 py-3 text-xs text-gray-500">
-                                                {p.due_date
-                                                    ? new Date(p.due_date).toLocaleDateString('fr-FR')
-                                                    : '—'}
-                                            </td>
+                        {filtered.length === 0 ? (
+                            <div className="text-center py-16 text-gray-500 text-sm">
+                                {t('admin.tuition.noPaymentFound')}
+                            </div>
+                        ) : (
+                            <div className="overflow-x-auto">
+                                <table className="w-full text-sm">
+                                    <thead>
+                                        <tr className="border-b border-white/5">
+                                            <th className="text-left px-6 py-3 text-[11px] font-semibold text-gray-500 uppercase tracking-wider">{t('admin.tuition.table.student')}</th>
+                                            <th className="text-left px-4 py-3 text-[11px] font-semibold text-gray-500 uppercase tracking-wider">{t('admin.tuition.table.class')}</th>
+                                            <th className="text-left px-4 py-3 text-[11px] font-semibold text-gray-500 uppercase tracking-wider">{t('admin.tuition.table.type')}</th>
+                                            <th className="text-right px-4 py-3 text-[11px] font-semibold text-gray-500 uppercase tracking-wider">{t('admin.tuition.table.amount')}</th>
+                                            <th className="text-right px-4 py-3 text-[11px] font-semibold text-gray-500 uppercase tracking-wider">{t('admin.tuition.table.paid')}</th>
+                                            <th className="text-right px-4 py-3 text-[11px] font-semibold text-gray-500 uppercase tracking-wider">{t('admin.tuition.table.remaining')}</th>
+                                            <th className="text-center px-4 py-3 text-[11px] font-semibold text-gray-500 uppercase tracking-wider">{t('admin.tuition.table.status')}</th>
+                                            <th className="text-left px-4 py-3 text-[11px] font-semibold text-gray-500 uppercase tracking-wider">{t('admin.tuition.table.dueDate')}</th>
                                         </tr>
-                                    )
-                                })}
-                            </tbody>
-                        </table>
-                    </div>
+                                    </thead>
+                                    <tbody className="divide-y divide-white/5">
+                                        {filtered.map(p => {
+                                            const remaining = p.amount - p.amount_paid
+                                            const statusCfg = STATUS_CONFIG[p.status] ?? STATUS_CONFIG.pending
+                                            const StatusIcon = statusCfg.icon
+                                            return (
+                                                <tr key={p.id} className="hover:bg-white/[0.02] transition-colors group">
+                                                    <td className="px-6 py-3">
+                                                        <div className="flex items-center gap-3">
+                                                            <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-emerald-500/20 to-cyan-500/20 flex items-center justify-center text-emerald-500 font-bold text-xs shrink-0">
+                                                                {p.student_name.split(' ').map(w => w[0]).join('').substring(0, 2).toUpperCase()}
+                                                            </div>
+                                                            <span className="font-medium text-white text-sm">{p.student_name}</span>
+                                                        </div>
+                                                    </td>
+                                                    <td className="px-4 py-3">
+                                                        {p.class_name ? (
+                                                            <span className="text-xs bg-white/5 text-gray-300 px-2 py-1 rounded-lg border border-white/5">
+                                                                {p.class_name}
+                                                            </span>
+                                                        ) : (
+                                                            <span className="text-xs text-gray-600">—</span>
+                                                        )}
+                                                    </td>
+                                                    <td className="px-4 py-3 text-gray-400 text-xs">
+                                                        {t(`admin.tuition.paymentTypes.${p.payment_type}`)}
+                                                    </td>
+                                                    <td className="px-4 py-3 text-right font-mono text-white text-sm">
+                                                        {p.amount.toLocaleString('fr-FR')}
+                                                        <span className="text-[10px] text-gray-500 ml-1">MRU</span>
+                                                    </td>
+                                                    <td className="px-4 py-3 text-right font-mono text-emerald-400 text-sm">
+                                                        {p.amount_paid.toLocaleString('fr-FR')}
+                                                        <span className="text-[10px] text-gray-500 ml-1">MRU</span>
+                                                    </td>
+                                                    <td className="px-4 py-3 text-right font-mono text-sm">
+                                                        <span className={remaining > 0 ? 'text-red-400' : 'text-gray-600'}>
+                                                            {remaining > 0 ? remaining.toLocaleString('fr-FR') : '—'}
+                                                            {remaining > 0 && <span className="text-[10px] text-gray-500 ml-1">MRU</span>}
+                                                        </span>
+                                                    </td>
+                                                    <td className="px-4 py-3 text-center">
+                                                        <span className={cn(
+                                                            "inline-flex items-center gap-1 text-[11px] font-semibold px-2 py-1 rounded-full border",
+                                                            statusCfg.color
+                                                        )}>
+                                                            <StatusIcon className="w-3 h-3" />
+                                                            {t(`admin.tuition.status.${p.status}`)}
+                                                        </span>
+                                                    </td>
+                                                    <td className="px-4 py-3 text-xs text-gray-500">
+                                                        {p.due_date
+                                                            ? new Date(p.due_date).toLocaleDateString('fr-FR')
+                                                            : '—'}
+                                                    </td>
+                                                </tr>
+                                            )
+                                        })}
+                                    </tbody>
+                                </table>
+                            </div>
+                        )}
+                    </>
+                ) : (
+                    <>
+                        <div className="px-6 py-4 border-b border-white/5 flex items-center justify-between bg-amber-500/5">
+                            <h3 className="text-xs font-bold text-amber-400 uppercase tracking-wider flex items-center gap-2">
+                                <AlertCircle className="w-3.5 h-3.5" />
+                                {lateStudentsList.length} {lateStudentsList.length > 1 ? "Élèves en défaut de paiement" : "Élève en défaut de paiement"}
+                            </h3>
+                        </div>
+
+                        {lateStudentsList.length === 0 ? (
+                            <div className="text-center py-16 text-gray-500 text-sm">
+                                Aucun élève n'est en retard de paiement. Félicitations ! 🎉
+                            </div>
+                        ) : (
+                            <div className="overflow-x-auto">
+                                <table className="w-full text-sm">
+                                    <thead>
+                                        <tr className="border-b border-white/5">
+                                            <th className="text-left px-6 py-3 text-[11px] font-semibold text-gray-500 uppercase tracking-wider">Élève</th>
+                                            <th className="text-left px-4 py-3 text-[11px] font-semibold text-gray-500 uppercase tracking-wider">Classe</th>
+                                            <th className="text-center px-4 py-3 text-[11px] font-semibold text-gray-500 uppercase tracking-wider">Durée Retard</th>
+                                            <th className="text-right px-4 py-3 text-[11px] font-semibold text-gray-500 uppercase tracking-wider">Dette Totale</th>
+                                            <th className="text-left px-4 py-3 text-[11px] font-semibold text-gray-500 uppercase tracking-wider">Plus Ancien</th>
+                                            <th className="text-center px-6 py-3 text-[11px] font-semibold text-gray-500 uppercase tracking-wider">Actions</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody className="divide-y divide-white/5">
+                                        {lateStudentsList.map(s => {
+                                            const isNotifying = notifyingIds[s.studentId]
+                                            return (
+                                                <tr key={s.studentId} className="hover:bg-white/[0.02] transition-colors group">
+                                                    <td className="px-6 py-4">
+                                                        <div className="flex items-center gap-3">
+                                                            <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-amber-500/20 to-red-500/20 flex items-center justify-center text-amber-500 font-bold text-xs shrink-0">
+                                                                {s.studentName.split(' ').map(w => w[0]).join('').substring(0, 2).toUpperCase()}
+                                                            </div>
+                                                            <span className="font-semibold text-white text-sm">{s.studentName}</span>
+                                                        </div>
+                                                    </td>
+                                                    <td className="px-4 py-4">
+                                                        {s.className ? (
+                                                            <span className="text-xs bg-white/5 text-gray-300 px-2 py-1 rounded-lg border border-white/5">
+                                                                {s.className}
+                                                            </span>
+                                                        ) : (
+                                                            <span className="text-xs text-gray-600">—</span>
+                                                        )}
+                                                    </td>
+                                                    <td className="px-4 py-4 text-center">
+                                                        <span className="inline-flex items-center gap-1 bg-red-500/10 text-red-400 text-xs font-bold px-2.5 py-1 rounded-full border border-red-500/20">
+                                                            {s.monthsLate} {s.monthsLate > 1 ? 'mois' : 'mois'}
+                                                        </span>
+                                                    </td>
+                                                    <td className="px-4 py-4 text-right font-mono text-amber-400 font-black text-sm">
+                                                        {s.totalOwed.toLocaleString('fr-FR')}
+                                                        <span className="text-[10px] text-gray-500 ml-1 font-normal">MRU</span>
+                                                    </td>
+                                                    <td className="px-4 py-4 text-xs text-gray-500">
+                                                        {s.oldestDueDate ? (
+                                                            <span className="flex items-center gap-1 text-red-400/70">
+                                                                <Calendar className="w-3 h-3" />
+                                                                {new Date(s.oldestDueDate).toLocaleDateString('fr-FR', { month: 'short', year: 'numeric' })}
+                                                            </span>
+                                                        ) : '—'}
+                                                    </td>
+                                                    <td className="px-6 py-4 text-center">
+                                                        <Button
+                                                            variant="ghost"
+                                                            size="sm"
+                                                            disabled={isNotifying}
+                                                            onClick={() => handleNotify(s.studentId, s.monthsLate, s.totalOwed, s.studentName)}
+                                                            className={cn(
+                                                                "bg-amber-500/5 hover:bg-amber-500 text-amber-400 hover:text-black text-xs font-bold border border-amber-500/10 hover:border-amber-500 h-8 px-3 transition-all flex items-center gap-2 mx-auto rounded-xl",
+                                                                isNotifying && "opacity-50 cursor-not-allowed"
+                                                            )}
+                                                        >
+                                                            {isNotifying ? (
+                                                                <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                                                            ) : (
+                                                                <Bell className="w-3.5 h-3.5" />
+                                                            )}
+                                                            Envoyer Rappel
+                                                        </Button>
+                                                    </td>
+                                                </tr>
+                                            )
+                                        })}
+                                    </tbody>
+                                </table>
+                            </div>
+                        )}
+                    </>
                 )}
             </div>
         </div>

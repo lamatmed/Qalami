@@ -1,5 +1,9 @@
 import { createClient } from '@/utils/supabase/server'
+import { createAdminClient } from '@/utils/supabase/admin'
 import { ClassDetails } from '@/components/teacher/class-details'
+import { redirect } from 'next/navigation'
+
+export const dynamic = 'force-dynamic'
 
 interface PageProps {
     params: Promise<{ classId: string }>
@@ -7,26 +11,35 @@ interface PageProps {
 
 export default async function ClassDetailsPage({ params }: PageProps) {
     const supabase = await createClient()
+    
+    // Ensure authentication
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) redirect('/login')
+
     const resolvedParams = await params
     const classId = resolvedParams.classId
 
-    // Parallel fetch: Class Info, Students
+    const adminClient = createAdminClient()
+
+    // Parallel fetch via adminClient: Bypasses RLS to allow viewing cross-school classes
     const [
         { data: classInfo, error: classError },
         { data: enrollments, error: enrollmentError }
     ] = await Promise.all([
-        supabase.from('classes').select('name').eq('id', classId).single(),
-        supabase.from('enrollments')
+        adminClient.from('classes').select('name').eq('id', classId).single(),
+        adminClient.from('enrollments')
             .select(`
                 id,
                 student_id,
                 profiles!enrollments_student_id_fkey (
                     id,
                     full_name,
-                    avatar_url
+                    avatar_url,
+                    national_id
                 )
             `)
             .eq('class_id', classId)
+            .eq('status', 'active')
     ])
 
     if (classError) {
@@ -41,6 +54,7 @@ export default async function ClassDetailsPage({ params }: PageProps) {
         id: e.profiles?.id || e.student_id,
         full_name: e.profiles?.full_name || 'Élève',
         avatar_url: e.profiles?.avatar_url || null,
+        national_id: e.profiles?.national_id || null,
     }))
 
     return (
@@ -53,4 +67,3 @@ export default async function ClassDetailsPage({ params }: PageProps) {
         </div>
     )
 }
-

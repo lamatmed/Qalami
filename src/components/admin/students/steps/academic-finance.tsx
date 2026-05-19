@@ -6,7 +6,7 @@ import { Label } from '@/components/ui/label'
 import { Button } from '@/components/ui/button'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Switch } from '@/components/ui/switch'
-import { ChevronLeft, GraduationCap, DollarSign, Loader2 } from 'lucide-react'
+import { ChevronLeft, GraduationCap, DollarSign, Loader2, Layers } from 'lucide-react'
 import { RegistrationData } from '../registration-wizard'
 import { createClient } from '@/utils/supabase/client'
 import { useLanguage } from '@/i18n'
@@ -23,6 +23,7 @@ interface LevelOption {
     id: string
     name_fr: string
     order: number
+    cycle?: string | null
 }
 
 interface ClassOption {
@@ -42,14 +43,30 @@ function getAcademicYearOptions(): string[] {
     ]
 }
 
+function normalizeArabicDigits(str: string): string {
+    const arabicDigits = /[٠-٩]/g;
+    const persianDigits = /[۰-۹]/g;
+    return str
+        .replace(arabicDigits, (d) => String(d.charCodeAt(0) - 1632))
+        .replace(persianDigits, (d) => String(d.charCodeAt(0) - 1776));
+}
+
+function cleanNumber(val: string): number {
+    const normalized = normalizeArabicDigits(val);
+    const cleaned = normalized.replace(/\D/g, '');
+    return cleaned ? Number(cleaned) : 0;
+}
+
 export function AcademicFinance({ data, updateData, onNext, onPrev }: StepProps) {
-    const { t } = useLanguage()
+    const { t, direction, language } = useLanguage()
     const { academic } = data
     const [levels, setLevels] = useState<LevelOption[]>([])
     const [classes, setClasses] = useState<ClassOption[]>([])
+    const [cycleConfigs, setCycleConfigs] = useState<any[]>([])
     const [loading, setLoading] = useState(true)
     const academicYearOptions = getAcademicYearOptions()
 
+    // 1. Load Context & Reference Configs
     useEffect(() => {
         async function fetchData() {
             const supabase = createClient()
@@ -64,10 +81,11 @@ export function AcademicFinance({ data, updateData, onNext, onPrev }: StepProps)
 
             if (!profile?.school_id) return
 
+            // A. Load levels & classes
             const [{ data: levelData }, { data: classData }] = await Promise.all([
                 supabase
                     .from('levels')
-                    .select('id, name_fr, order')
+                    .select('id, name_fr, order, cycle')
                     .eq('school_id', profile.school_id)
                     .order('order'),
                 supabase
@@ -77,20 +95,72 @@ export function AcademicFinance({ data, updateData, onNext, onPrev }: StepProps)
                     .order('name'),
             ])
 
-            if (levelData) setLevels(levelData)
+            // B. Load active cycle configurations for auto-filling
+            const { data: activeYear } = await supabase
+                .from('academic_years')
+                .select('id')
+                .eq('school_id', profile.school_id)
+                .eq('is_current', true)
+                .maybeSingle()
+
+            if (activeYear) {
+                const { data: configs } = await supabase
+                    .from('cycle_fees_config')
+                    .select('*')
+                    .eq('school_id', profile.school_id)
+                    .eq('academic_year_id', activeYear.id)
+                if (configs) setCycleConfigs(configs)
+            }
+
+            const classList = classData || []
+            if (levelData) {
+                const activeLevels = levelData.filter(lvl => 
+                    classList.some(c => c.level_id === lvl.id)
+                )
+                setLevels(activeLevels)
+            }
             if (classData) setClasses(classData)
             setLoading(false)
         }
         fetchData()
     }, [])
 
+    // 2. Real-time dynamic calculation of yearly total
+    useEffect(() => {
+        const annualTotal = (academic.registrationFee || 0) + ((academic.monthlyTuition || 0) * 9)
+        if (academic.tuitionFee !== annualTotal) {
+            updateData('academic', { tuitionFee: annualTotal })
+        }
+    }, [academic.registrationFee, academic.monthlyTuition])
+
     const handleChange = (field: string, value: any) => {
         updateData('academic', { [field]: value })
     }
 
     const handleLevelChange = (levelId: string) => {
-        const level = levels.find(l => l.id === levelId)
-        updateData('academic', { level: level?.name_fr || levelId, levelId, className: '', classId: '' })
+        const selectedLevel = levels.find(l => l.id === levelId)
+        const levelCycle = selectedLevel?.cycle
+
+        // If a configured price exists for this educational cycle, auto-fill registration and monthly tuition!
+        let targetRegFee = academic.registrationFee
+        let targetMonthly = academic.monthlyTuition
+
+        if (levelCycle) {
+            const config = cycleConfigs.find(c => c.cycle === levelCycle)
+            if (config) {
+                targetRegFee = config.default_registration_fee || 0
+                targetMonthly = config.default_monthly_tuition || 0
+            }
+        }
+
+        updateData('academic', { 
+            level: selectedLevel?.name_fr || levelId, 
+            levelId, 
+            className: '', 
+            classId: '',
+            registrationFee: targetRegFee,
+            monthlyTuition: targetMonthly
+        })
     }
 
     // Filter classes by selected levelId
@@ -101,22 +171,22 @@ export function AcademicFinance({ data, updateData, onNext, onPrev }: StepProps)
     return (
         <div className="space-y-6">
             <div className="mb-6">
-                <h2 className="text-2xl font-bold text-white mb-2">{t('admin.students.register.academic.title')}</h2>
+                <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">{t('admin.students.register.academic.title')}</h2>
                 <p className="text-gray-400 text-sm">{t('admin.students.register.academic.subtitle')}</p>
             </div>
 
             <div className="space-y-6">
-                {/* Academic */}
+                {/* Academic Section */}
                 <div className="space-y-4">
                     <div className="flex items-center gap-2 mb-2">
                         <GraduationCap className="w-5 h-5 text-emerald-500" />
-                        <h3 className="font-bold text-white">{t('admin.students.register.academic.assignmentTitle')}</h3>
+                        <h3 className="font-bold text-gray-900 dark:text-white">{t('admin.students.register.academic.assignmentTitle')}</h3>
                     </div>
 
                     <div className="space-y-2 mb-4">
                         <Label>{t('admin.students.register.academic.academicYear')}</Label>
                         <Select onValueChange={(val) => handleChange('academicYear', val)} value={academic.academicYear}>
-                            <SelectTrigger className="bg-[#1A2530] border-white/5 h-11">
+                            <SelectTrigger className="bg-[#1A2530] border-white/5 h-11" dir={direction}>
                                 <SelectValue placeholder={t('admin.students.register.academic.chooseYear')} />
                             </SelectTrigger>
                             <SelectContent className="bg-[#1A2530] border-white/5 text-white">
@@ -131,7 +201,7 @@ export function AcademicFinance({ data, updateData, onNext, onPrev }: StepProps)
                         <div className="space-y-2">
                             <Label>{t('admin.students.register.academic.studyLevel')}</Label>
                             <Select onValueChange={handleLevelChange} value={academic.levelId || undefined}>
-                                <SelectTrigger className="bg-[#1A2530] border-white/5 h-11">
+                                <SelectTrigger className="bg-[#1A2530] border-white/5 h-11" dir={direction}>
                                     <SelectValue placeholder={t('admin.students.register.academic.chooseLevel')} />
                                 </SelectTrigger>
                                 <SelectContent className="bg-[#1A2530] border-white/5 text-white">
@@ -157,7 +227,7 @@ export function AcademicFinance({ data, updateData, onNext, onPrev }: StepProps)
                                 value={academic.className || undefined}
                                 disabled={!academic.levelId}
                             >
-                                <SelectTrigger className="bg-[#1A2530] border-white/5 h-11 disabled:opacity-50">
+                                <SelectTrigger className="bg-[#1A2530] border-white/5 h-11 disabled:opacity-50" dir={direction}>
                                     <SelectValue placeholder={!academic.levelId ? t('admin.students.register.academic.chooseLevelFirst') : t('admin.students.register.academic.chooseClass')} />
                                 </SelectTrigger>
                                 <SelectContent className="bg-[#1A2530] border-white/5 text-white">
@@ -178,34 +248,104 @@ export function AcademicFinance({ data, updateData, onNext, onPrev }: StepProps)
                     </div>
                 </div>
 
-                {/* Finance */}
-                <div className="bg-[#1A2530]/50 p-5 rounded-2xl border border-white/5 space-y-4">
-                    <div className="flex items-center gap-2 mb-2">
-                        <DollarSign className="w-5 h-5 text-emerald-500" />
-                        <h3 className="font-bold text-white">{t('admin.students.register.academic.financeTitle')}</h3>
+                {/* Finance Section */}
+                <div className="bg-[#1A2530]/50 p-5 rounded-2xl border border-white/5 space-y-5">
+                    <div className="flex items-center justify-between mb-2">
+                        <div className="flex items-center gap-2">
+                            <DollarSign className="w-5 h-5 text-emerald-500" />
+                            <h3 className="font-bold text-gray-900 dark:text-white">{t('admin.students.register.academic.financeTitle')}</h3>
+                        </div>
+                        {academic.levelId && (
+                            <div className="text-[10px] font-bold bg-emerald-500/10 text-emerald-400 px-2.5 py-1 rounded-full border border-emerald-500/10 flex items-center gap-1">
+                                <Layers className="w-3 h-3" /> {t('admin.students.register.academic.autoPricing')}
+                            </div>
+                        )}
                     </div>
 
-                    <div className="space-y-2">
-                        <Label>{t('admin.students.register.academic.registrationFee')}</Label>
-                        <Input
-                            type="number"
-                            value={academic.registrationFee}
-                            onChange={(e) => handleChange('registrationFee', Number(e.target.value))}
-                            className="bg-[#0F1720] border-white/5 font-mono text-emerald-500 font-bold"
-                        />
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                            <Label className="text-xs font-semibold text-gray-400">{t('admin.students.register.academic.registrationFee')}</Label>
+                            <div className="relative">
+                                <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500" />
+                                <Input
+                                    type="number"
+                                    value={academic.registrationFee}
+                                    onChange={(e) => handleChange('registrationFee', cleanNumber(e.target.value))}
+                                    className="bg-[#0F1720] border-white/5 pl-9 font-mono text-emerald-500 font-bold h-11 focus:border-emerald-500/30"
+                                    style={{ textAlign: 'left', direction: 'ltr' }}
+                                    dir="ltr"
+                                />
+                            </div>
+                        </div>
+
+                        <div className="space-y-2">
+                            <Label className="text-xs font-semibold text-gray-400">{t('admin.students.register.academic.monthlyTuitionLabel')}</Label>
+                            <div className="relative">
+                                <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500" />
+                                <Input
+                                    type="number"
+                                    value={academic.monthlyTuition}
+                                    onChange={(e) => handleChange('monthlyTuition', cleanNumber(e.target.value))}
+                                    className="bg-[#0F1720] border-white/5 pl-9 font-mono text-emerald-500 font-bold h-11 focus:border-emerald-500/30"
+                                    style={{ textAlign: 'left', direction: 'ltr' }}
+                                    dir="ltr"
+                                />
+                            </div>
+                        </div>
                     </div>
 
-                    <div className="flex items-center justify-between bg-[#0F1720] p-3 rounded-xl border border-white/5">
-                        <span className="text-sm text-gray-300">{t('admin.students.register.academic.markPaidNow')}</span>
-                        <Switch
-                            checked={academic.isPaid}
-                            onCheckedChange={(checked) => handleChange('isPaid', checked)}
-                        />
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div className="flex items-center justify-between bg-[#0F1720] p-3.5 rounded-xl border border-white/5">
+                            <div className="space-y-0.5">
+                                <p className="text-sm font-semibold text-gray-200">{t('admin.students.register.academic.markPaidNow')}</p>
+                                <p className="text-[10px] text-gray-500">{t('admin.students.register.academic.markPaidNowHint')}</p>
+                            </div>
+                            <Switch
+                                checked={academic.isPaid}
+                                onCheckedChange={(checked) => handleChange('isPaid', checked)}
+                            />
+                        </div>
+
+                        <div className="space-y-2 flex flex-col justify-center bg-[#0F1720] p-3.5 rounded-xl border border-white/5">
+                            <Label className="text-xs font-semibold text-gray-400 flex justify-between">
+                                <span>{t('admin.students.register.academic.advanceMonthsLabel')}</span>
+                                <span className="text-emerald-400 font-bold">{(academic.advanceMonths || 0)} {t('admin.students.register.academic.monthsUnit')}</span>
+                            </Label>
+                            <div className="flex gap-2 items-center mt-1">
+                                <Input
+                                    type="number"
+                                    min="0"
+                                    max="10"
+                                    placeholder={language === 'ar' ? 'مثال: 1' : 'Ex: 1'}
+                                    value={academic.advanceMonths === 0 ? '' : academic.advanceMonths}
+                                    onChange={(e) => {
+                                        const val = Math.min(10, Math.max(0, cleanNumber(e.target.value)))
+                                        handleChange('advanceMonths', val)
+                                    }}
+                                    className="bg-[#161B22] border-white/5 font-mono h-9 text-emerald-400 font-bold w-full focus:border-emerald-500/30 text-center"
+                                    style={{ textAlign: 'left', direction: 'ltr' }}
+                                    dir="ltr"
+                                />
+                            </div>
+                        </div>
                     </div>
 
-                    <div className="bg-emerald-500/10 p-3 rounded-xl border border-emerald-500/20 text-center">
-                        <p className="text-xs text-emerald-400 font-bold uppercase tracking-wider mb-1">{t('admin.students.register.academic.estimatedAnnualTotal')}</p>
-                        <p className="text-2xl font-black text-emerald-500">{academic.tuitionFee.toLocaleString()} MRU</p>
+                    {/* Cash Breakdown Indicator */}
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div className="bg-emerald-500/10 p-4 rounded-xl border border-emerald-500/20 flex flex-col justify-center relative overflow-hidden group">
+                            <div className="absolute -right-6 -top-6 w-12 h-12 rounded-full bg-emerald-500/5 blur-md group-hover:bg-emerald-500/10 transition-all" />
+                            <p className="text-[10px] text-emerald-400 font-bold uppercase tracking-wider mb-1 relative z-10">{t('admin.students.register.academic.amountToCollectToday')}</p>
+                            <p className="text-2xl font-black text-emerald-400 relative z-10">
+                                {((academic.isPaid ? academic.registrationFee : 0) + (academic.monthlyTuition * (academic.advanceMonths || 0))).toLocaleString(language === 'ar' ? 'ar-u-ca-gregory' : 'fr-FR')} <span className="text-xs font-bold">{language === 'ar' ? 'أوقية' : 'MRU'}</span>
+                            </p>
+                        </div>
+
+                        <div className="bg-white/[0.02] p-4 rounded-xl border border-white/5 flex flex-col justify-center text-center">
+                            <p className="text-[10px] text-gray-500 font-bold uppercase tracking-wider mb-1">{t('admin.students.register.academic.estimatedAnnualTotal')}</p>
+                            <p className="text-xl font-black text-gray-300">
+                                {academic.tuitionFee.toLocaleString(language === 'ar' ? 'ar-u-ca-gregory' : 'fr-FR')} <span className="text-xs font-bold">{language === 'ar' ? 'أوقية' : 'MRU'}</span>
+                            </p>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -214,13 +354,13 @@ export function AcademicFinance({ data, updateData, onNext, onPrev }: StepProps)
                 <Button
                     variant="outline"
                     onClick={onPrev}
-                    className="flex-1 bg-transparent border-white/10 text-white h-12 rounded-xl hover:bg-white/5"
+                    className="flex-1 bg-transparent border-white/10 text-white h-12 rounded-xl hover:bg-white/5 transition-all font-semibold"
                 >
-                    <ChevronLeft className="mr-2 w-4 h-4" /> {t('common.back')}
+                    <ChevronLeft className={cn("mr-2 w-4 h-4", direction === 'rtl' && "rotate-180")} /> {t('common.back')}
                 </Button>
                 <Button
                     onClick={onNext}
-                    className="flex-1 bg-emerald-500 hover:bg-emerald-600 text-black font-bold h-12 rounded-xl"
+                    className="flex-1 bg-emerald-500 hover:bg-emerald-600 text-black font-extrabold h-12 rounded-xl shadow-md hover:shadow-emerald-500/10 transition-all"
                 >
                     {t('admin.students.register.academic.confirmRegistration')}
                 </Button>

@@ -35,6 +35,7 @@ interface Student {
     academicYear: string | null
     initials: string
     email: string
+    nationalId: string | null
 }
 
 interface ClassOption {
@@ -164,7 +165,7 @@ export function StudentDirectory() {
                 .order('name'),
             supabase
                 .from('profiles')
-                .select('id, full_name, email, status, gender')
+                .select('id, full_name, email, status, gender, national_id')
                 .eq('role', 'student')
                 .eq('school_id', adminProfile.school_id)
                 .order('full_name'),
@@ -217,6 +218,7 @@ export function StudentDirectory() {
                     : parts[0].slice(0, 2)
                 ).toUpperCase(),
                 email: p.email || '',
+                nationalId: p.national_id ?? null,
             }
         })
 
@@ -238,7 +240,11 @@ export function StudentDirectory() {
     const filteredStudents = useMemo(() => students.filter(s => {
         if (searchTerm) {
             const q = searchTerm.toLowerCase()
-            if (!s.name.toLowerCase().includes(q) && !s.className.toLowerCase().includes(q)) return false
+            const matchesName = s.name.toLowerCase().includes(q)
+            const matchesClass = s.className.toLowerCase().includes(q)
+            const matchesNNI = s.nationalId ? s.nationalId.toLowerCase().includes(q) : false
+            
+            if (!matchesName && !matchesClass && !matchesNNI) return false
         }
         if (selectedClass !== 'all' && s.classId !== selectedClass) return false
         if (selectedStatus !== 'all' && s.status !== selectedStatus) return false
@@ -497,10 +503,11 @@ export function StudentDirectory() {
                                     </div>
                                     <div className="min-w-0 flex-1">
                                         <p className="font-semibold text-sm text-white group-hover:text-emerald-400 transition-colors truncate">{student.name}</p>
-                                        <p className="text-xs text-gray-500 truncate">
-                                            {student.className || t('admin.students.unassigned')}
-                                            {student.gender && genderLabel(student.gender) && <> · {t(genderLabel(student.gender) as string)}</>}
-                                            {student.paymentStatus === 'overdue' && <span className="text-red-400 ml-1">· {t('common.overdue')}</span>}
+                                        <p className="text-xs text-gray-500 truncate flex flex-wrap gap-x-1">
+                                            <span>{student.className || t('admin.students.unassigned')}</span>
+                                            {student.gender && genderLabel(student.gender) && <><span>·</span> <span>{t(genderLabel(student.gender) as string)}</span></>}
+                                            {student.nationalId && <><span>·</span> <span className="font-mono bg-white/5 px-1 rounded text-[10px]">{student.nationalId}</span></>}
+                                            {student.paymentStatus === 'overdue' && <><span>·</span> <span className="text-red-400">{t('common.overdue')}</span></>}
                                         </p>
                                     </div>
                                     <StatusBadge status={student.status} />

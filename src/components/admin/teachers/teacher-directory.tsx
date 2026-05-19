@@ -12,7 +12,7 @@ import Link from 'next/link'
 import { cn } from '@/lib/utils'
 import { createClient } from '@/utils/supabase/client'
 import { useLanguage } from '@/i18n'
-import { getMySchoolContext } from '@/app/admin/actions'
+import { getMySchoolContext, getSchoolLinkedProfileIds, secureFetchProfiles } from '@/app/admin/actions'
 
 interface Teacher {
     id: string
@@ -25,6 +25,7 @@ interface Teacher {
     email: string | null
     avatar: string | null
     hasAssignment: boolean
+    nationalId?: string | null
 }
 
 function parseMinutes(t: string): number {
@@ -55,26 +56,46 @@ export function TeacherDirectory() {
             const adminProfile = { school_id: ctx.school_id }
             const supabase = createClient()
 
-            const { data: profiles } = await supabase
+            // ─── DISCOVERY 1: Teachers assigned explicitly to this school
+            const { data: directProfiles } = await supabase
                 .from('profiles')
-                .select('id, full_name, phone, email, avatar_url, status')
+                .select('id')
                 .eq('role', 'teacher')
                 .eq('school_id', adminProfile.school_id)
-                .order('full_name')
 
-            if (!profiles?.length) { setLoading(false); return }
+            // ─── DISCOVERY 2: Teachers holding active assignments within this school's classes
+            const { data: assignedRows } = await supabase
+                .from('teacher_assignments')
+                .select('teacher_id, classes:classes!inner(school_id)')
+                .eq('classes.school_id', adminProfile.school_id)
+
+            // ─── DISCOVERY 3: Teachers linked explicitly to this school via profile_schools
+            const schoolLinkIds = await getSchoolLinkedProfileIds(adminProfile.school_id, 'teacher')
+
+            // Aggregated Union
+            const directIds = (directProfiles || []).map(p => p.id)
+            const assignedIds = (assignedRows || []).map((r: any) => r.teacher_id)
+            const allTeacherIds = Array.from(new Set([...directIds, ...assignedIds, ...schoolLinkIds]))
+
+            if (!allTeacherIds.length) { setLoading(false); return }
+
+            // Hydrate complete profiles securely
+            const profiles = await secureFetchProfiles(allTeacherIds, '*')
+            if (!profiles || profiles.length === 0) { setLoading(false); return }
             const ids = profiles.map(p => p.id)
 
-            // Batch fetch — 2 queries instead of N+1
+            // Batch fetch — strictly restricted to current school scope
             const [{ data: scheduleRows }, { data: assignRows }] = await Promise.all([
                 supabase
                     .from('schedule')
-                    .select('teacher_id, start_time, end_time')
-                    .in('teacher_id', ids),
+                    .select('teacher_id, start_time, end_time, classes!inner(school_id)')
+                    .in('teacher_id', ids)
+                    .eq('classes.school_id', adminProfile.school_id),
                 supabase
                     .from('teacher_assignments')
-                    .select('teacher_id, subject_id, class_id, subjects(name), classes(name)')
-                    .in('teacher_id', ids),
+                    .select('teacher_id, subject_id, class_id, subjects(name), classes!inner(name, school_id)')
+                    .in('teacher_id', ids)
+                    .eq('classes.school_id', adminProfile.school_id),
             ])
 
             // Index by teacher
@@ -115,6 +136,7 @@ export function TeacherDirectory() {
                     email: p.email,
                     avatar: p.avatar_url || `https://api.dicebear.com/7.x/avataaars/svg?seed=${p.full_name}`,
                     hasAssignment: assigns.length > 0,
+                    nationalId: (p as any).national_id || null,
                 }
             })
 
@@ -131,7 +153,12 @@ export function TeacherDirectory() {
     }, [teachers])
 
     const filtered = useMemo(() => teachers.filter(tc => {
-        if (searchTerm && !tc.name.toLowerCase().includes(searchTerm.toLowerCase())) return false
+        if (searchTerm) {
+            const term = searchTerm.toLowerCase()
+            const matchesName = tc.name.toLowerCase().includes(term)
+            const matchesNNI = tc.nationalId ? tc.nationalId.toLowerCase().includes(term) : false
+            if (!matchesName && !matchesNNI) return false
+        }
         if (statusFilter !== 'all' && tc.status !== statusFilter) return false
         if (subjectFilter !== 'all' && !tc.subjects.includes(subjectFilter)) return false
         return true

@@ -4,8 +4,6 @@ import { useState, useRef } from 'react'
 import { ScheduleView } from '@/components/admin/schedule/schedule-view'
 import { ClassSelector } from '@/components/admin/schedule/class-selector'
 import { TeacherSelector } from '@/components/admin/schedule/teacher-selector'
-import { CopyScheduleDialog } from '@/components/admin/schedule/copy-schedule-dialog'
-import { ImportScheduleDialog } from '@/components/admin/schedule/import-schedule-dialog'
 import { Button } from '@/components/ui/button'
 import { Download, Printer, Loader2, Copy, Upload, Users, GraduationCap } from 'lucide-react'
 import { useLanguage } from '@/i18n'
@@ -20,8 +18,6 @@ export default function SchedulePage() {
     const [selectedClassId, setSelectedClassId] = useState('')
     const [selectedTeacherId, setSelectedTeacherId] = useState('')
     const [refreshKey, setRefreshKey]           = useState(0)
-    const [copyOpen, setCopyOpen]               = useState(false)
-    const [importOpen, setImportOpen]           = useState(false)
     const [exporting, setExporting]             = useState(false)
     const scheduleRef = useRef<HTMLDivElement>(null)
 
@@ -69,12 +65,6 @@ export default function SchedulePage() {
         <div className="h-full flex flex-col space-y-6">
             {/* Actions */}
             <div className="flex flex-wrap justify-end gap-2 print:hidden">
-                    <Button variant="outline" onClick={() => setImportOpen(true)}>
-                        <Upload className="w-4 h-4 me-2" /> {t('admin.schedule.import')}
-                    </Button>
-                    <Button variant="outline" onClick={() => setCopyOpen(true)}>
-                        <Copy className="w-4 h-4 me-2" /> {t('admin.schedule.copy')}
-                    </Button>
                     <Button variant="outline" onClick={handlePrint}>
                         <Printer className="w-4 h-4 me-2" /> {t('admin.schedule.print')}
                     </Button>
@@ -144,17 +134,6 @@ export default function SchedulePage() {
                 />
             </div>
 
-            {/* Dialogs */}
-            <CopyScheduleDialog
-                open={copyOpen}
-                onClose={() => setCopyOpen(false)}
-                onSuccess={() => { setCopyOpen(false); setRefreshKey(k => k + 1) }}
-            />
-            <ImportScheduleDialog
-                open={importOpen}
-                onClose={() => setImportOpen(false)}
-                onSuccess={() => { setImportOpen(false); setRefreshKey(k => k + 1) }}
-            />
         </div>
     )
 }

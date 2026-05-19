@@ -18,7 +18,9 @@ import {
     GraduationCap,
     Edit3,
     Save,
-    Plus
+    Plus,
+    Edit2,
+    Trash2
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -31,11 +33,24 @@ import Link from 'next/link'
 import { cn } from '@/lib/utils'
 import { createClient } from '@/utils/supabase/client'
 import { toast } from 'sonner'
+import { useLanguage } from '@/i18n'
+import { 
+    loadGradesAction, 
+    loadScheduleAction, 
+    loadAttendanceHistoryAction, 
+    loadTeacherSubjectsAction, 
+    saveAttendanceAction, 
+    saveGradesAction,
+    loadActiveSessionAttendanceAction,
+    updateGradeAction,
+    deleteGradeAction
+} from '@/app/teacher/classes/[classId]/actions'
 
 interface Student {
     id: string
     full_name: string
     avatar_url?: string
+    national_id?: string | null
 }
 
 interface Grade {
@@ -49,6 +64,7 @@ interface Grade {
     teacher_id: string | null
     term_id: string | null
     created_at: string | null
+    subject_name?: string
 }
 
 interface ScheduleSlot {
@@ -68,15 +84,22 @@ interface ClassDetailsProps {
 
 type AttendanceStatus = 'present' | 'late' | 'absent'
 
-const DAYS = ['Dimanche', 'Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi']
-const EXAM_TYPES = [
-    { value: 'control', label: 'Contrôle' },
-    { value: 'homework', label: 'Devoir' },
-    { value: 'exam', label: 'Examen' },
-    { value: 'oral', label: 'Oral' },
-]
-
 export function ClassDetails({ classId, className, students }: ClassDetailsProps) {
+    const { t, direction } = useLanguage()
+    const DAYS = [
+        t('teacher.classes.details.days.0') || 'Dimanche',
+        t('teacher.classes.details.days.1') || 'Lundi',
+        t('teacher.classes.details.days.2') || 'Mardi',
+        t('teacher.classes.details.days.3') || 'Mercredi',
+        t('teacher.classes.details.days.4') || 'Jeudi',
+        t('teacher.classes.details.days.5') || 'Vendredi',
+        t('teacher.classes.details.days.6') || 'Samedi',
+    ]
+    const EXAM_TYPES = [
+        { value: 'devoir', label: t('teacher.classes.details.devoir') || 'Devoir' },
+        { value: 'examen', label: t('teacher.classes.details.examen') || 'Examen' },
+    ]
+
     const supabase = createClient()
     const [isPending, startTransition] = useTransition()
     const [searchQuery, setSearchQuery] = useState('')
@@ -88,13 +111,20 @@ export function ClassDetails({ classId, className, students }: ClassDetailsProps
     const [grades, setGrades] = useState<Grade[]>([])
     const [loadingGrades, setLoadingGrades] = useState(false)
     const [selectedExamType, setSelectedExamType] = useState<string>('all')
-    const [editingGrade, setEditingGrade] = useState<{ studentId: string; value: string } | null>(null)
+    const [editingGradeId, setEditingGradeId] = useState<string | null>(null)
+    const [editValue, setEditValue] = useState<string>('')
     const [addingGrade, setAddingGrade] = useState(false)
-    const [newGrade, setNewGrade] = useState({ examType: 'control', subjectId: '', grades: {} as Record<string, string> })
+    const [newGrade, setNewGrade] = useState({ 
+        examType: 'devoir', 
+        subjectId: '', 
+        grades: {} as Record<string, string>, 
+        bonuses: {} as Record<string, string> 
+    })
 
     // State for teacher's subjects in this class
     const [teacherSubjects, setTeacherSubjects] = useState<{ id: string; name: string }[]>([])
     const [currentTermId, setCurrentTermId] = useState<string | null>(null)
+    const [currentTerm, setCurrentTerm] = useState<{ id: string; name: string; label_fr: string } | null>(null)
 
     // State for Planning tab
     const [schedule, setSchedule] = useState<ScheduleSlot[]>([])
@@ -105,7 +135,8 @@ export function ClassDetails({ classId, className, students }: ClassDetailsProps
     const [loadingStats, setLoadingStats] = useState(false)
 
     const filteredStudents = students.filter(s =>
-        s.full_name.toLowerCase().includes(searchQuery.toLowerCase())
+        s.full_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        (s.national_id && s.national_id.toLowerCase().includes(searchQuery.toLowerCase()))
     )
 
     const stats = {
@@ -121,14 +152,8 @@ export function ClassDetails({ classId, className, students }: ClassDetailsProps
     const loadGrades = async () => {
         setLoadingGrades(true)
         try {
-            const { data, error } = await supabase
-                .from('grades')
-                .select('*')
-                .eq('class_id', classId)
-                .order('created_at', { ascending: false })
-
-            if (error) throw error
-            setGrades(data || [])
+            const data = await loadGradesAction(classId)
+            setGrades(data)
         } catch (error) {
             console.error('Error loading grades:', error)
         } finally {
@@ -140,25 +165,8 @@ export function ClassDetails({ classId, className, students }: ClassDetailsProps
     const loadSchedule = async () => {
         setLoadingSchedule(true)
         try {
-            const { data, error } = await supabase
-                .from('schedule')
-                .select(`
-                    id,
-                    day_of_week,
-                    start_time,
-                    end_time,
-                    room,
-                    subjects:subject_id(name)
-                `)
-                .eq('class_id', classId)
-                .order('day_of_week')
-                .order('start_time')
-
-            if (error) throw error
-            setSchedule((data || []).map((s: any) => ({
-                ...s,
-                subject: s.subjects
-            })))
+            const data = await loadScheduleAction(classId)
+            setSchedule(data)
         } catch (error) {
             console.error('Error loading schedule:', error)
         } finally {
@@ -170,15 +178,8 @@ export function ClassDetails({ classId, className, students }: ClassDetailsProps
     const loadAttendanceHistory = async () => {
         setLoadingStats(true)
         try {
-            const { data, error } = await supabase
-                .from('attendance')
-                .select('*')
-                .eq('class_id', classId)
-                .order('date', { ascending: false })
-                .limit(100)
-
-            if (error) throw error
-            setAttendanceHistory(data || [])
+            const data = await loadAttendanceHistoryAction(classId)
+            setAttendanceHistory(data)
         } catch (error) {
             console.error('Error loading attendance history:', error)
         } finally {
@@ -189,48 +190,35 @@ export function ClassDetails({ classId, className, students }: ClassDetailsProps
     // Load teacher's subjects for this class + current term
     const loadTeacherSubjects = async () => {
         try {
-            const { data: { user } } = await supabase.auth.getUser()
-            if (!user) return
-
-            // Fetch current term and teacher subjects in parallel
-            const [assignResult, termResult] = await Promise.all([
-                supabase
-                    .from('teacher_assignments')
-                    .select('subject_id')
-                    .eq('teacher_id', user.id)
-                    .eq('class_id', classId),
-                supabase
-                    .from('terms')
-                    .select('id')
-                    .eq('is_current', true)
-                    .single(),
-            ])
-
-            if (assignResult.error) throw assignResult.error
-
-            // Store current term ID (null if none set)
-            setCurrentTermId(termResult.data?.id ?? null)
-
-            const subjectIds = (assignResult.data || []).map(a => a.subject_id).filter(Boolean)
-
-            if (subjectIds.length === 0) {
-                setTeacherSubjects([])
-                return
-            }
-
-            const { data: subjectsData, error: subjectsError } = await supabase
-                .from('subjects')
-                .select('id, name')
-                .in('id', subjectIds)
-
-            if (subjectsError) throw subjectsError
-
-            setTeacherSubjects(subjectsData || [])
-            if (subjectsData && subjectsData.length > 0) {
-                setNewGrade(prev => ({ ...prev, subjectId: subjectsData[0].id }))
+            const result = await loadTeacherSubjectsAction(classId)
+            
+            setCurrentTermId(result.termId)
+            setCurrentTerm((result as any).currentTerm || null)
+            setTeacherSubjects(result.subjects || [])
+            
+            if (result.subjects && result.subjects.length > 0) {
+                setNewGrade(prev => ({ ...prev, subjectId: result.subjects[0].id }))
             }
         } catch (error) {
             console.error('Error loading teacher subjects:', error)
+        }
+    }
+
+    // Fetch and hydrate already stored attendance for today's active session
+    const loadActiveAttendance = async () => {
+        try {
+            const activeRecords = await loadActiveSessionAttendanceAction(classId)
+            if (activeRecords && activeRecords.length > 0) {
+                setAttendance(prev => {
+                    const next = { ...prev }
+                    activeRecords.forEach((r: any) => {
+                        next[r.student_id] = r.status as AttendanceStatus
+                    })
+                    return next
+                })
+            }
+        } catch (error) {
+            console.error('Error loading active session attendance:', error)
         }
     }
 
@@ -239,7 +227,15 @@ export function ClassDetails({ classId, className, students }: ClassDetailsProps
         loadSchedule()
         loadAttendanceHistory()
         loadTeacherSubjects()
+        loadActiveAttendance()
     }, [classId])
+
+    // Synchronize the grade insertion form with the top filter selection
+    useEffect(() => {
+        if (selectedExamType !== 'all') {
+            setNewGrade(prev => ({ ...prev, examType: selectedExamType }))
+        }
+    }, [selectedExamType])
 
     const toggleStatus = (studentId: string, status: AttendanceStatus) => {
         setAttendance(prev => ({ ...prev, [studentId]: status }))
@@ -248,32 +244,28 @@ export function ClassDetails({ classId, className, students }: ClassDetailsProps
     const handleSaveAttendance = () => {
         startTransition(async () => {
             try {
-                const { data: { user } } = await supabase.auth.getUser()
-                if (!user) throw new Error('Not authenticated')
-
                 const today = new Date().toISOString().split('T')[0]
 
                 const records = Object.entries(attendance).map(([studentId, status]) => ({
                     student_id: studentId,
                     class_id: classId,
-                    recorded_by: user.id,
                     date: today,
                     status: status,
                 }))
 
-                const { error } = await supabase
-                    .from('attendance')
-                    .upsert(records, {
-                        onConflict: 'student_id,class_id,date'
-                    })
+                const res = await saveAttendanceAction(records)
 
-                if (error) throw error
+                if (res && !res.success) {
+                    toast.error(res.error || t('teacher.classes.details.saveError') || 'Erreur lors de l\'enregistrement', { duration: 6000 })
+                    return
+                }
 
-                toast.success(`Présences enregistrées pour ${records.length} élèves`)
+                toast.success(t('teacher.classes.details.attendanceSaved')?.replace('{count}', records.length.toString()) || `Présences enregistrées pour ${records.length} élèves`)
                 loadAttendanceHistory()
             } catch (error) {
                 console.error('Error saving attendance:', error)
-                toast.error('Erreur lors de l\'enregistrement')
+                const msg = error instanceof Error ? error.message : (t('teacher.classes.details.saveError') || 'Erreur lors de l\'enregistrement')
+                toast.error(msg, { duration: 5000 }) // Extra visibility for validation failures
             }
         })
     }
@@ -281,58 +273,145 @@ export function ClassDetails({ classId, className, students }: ClassDetailsProps
     // Save new grades
     const handleSaveNewGrades = async () => {
         try {
-            const { data: { user } } = await supabase.auth.getUser()
-            if (!user) throw new Error('Not authenticated')
-
-            const gradesToInsert = Object.entries(newGrade.grades)
-                .filter(([_, val]) => val && !isNaN(parseFloat(val)))
-                .map(([studentId, val]) => ({
+            const gradesToInsert: any[] = []
+            
+            for (const [studentId, baseStr] of Object.entries(newGrade.grades)) {
+                if (!baseStr || isNaN(parseFloat(baseStr))) continue
+                
+                const baseVal = parseFloat(baseStr)
+                const bonusStr = (newGrade.bonuses as Record<string, string>)?.[studentId] || '0'
+                const bonusVal = isNaN(parseFloat(bonusStr)) ? 0 : parseFloat(bonusStr)
+                
+                const totalVal = baseVal + bonusVal
+                
+                if (totalVal > 20) {
+                    const studentName = students.find(s => s.id === studentId)?.full_name || 'L\'élève'
+                    toast.error(t('teacher.classes.details.maxGradeError')?.replace('{name}', studentName).replace('{val}', totalVal.toFixed(1)) || `Attention : La note totale de ${studentName} ne peut pas dépasser 20/20 (Actuellement : ${totalVal.toFixed(1)})`, { duration: 5000 })
+                    return
+                }
+                
+                gradesToInsert.push({
                     student_id: studentId,
                     class_id: classId,
                     subject_id: newGrade.subjectId,
-                    value: parseFloat(val),
+                    value: totalVal,
                     max_value: 20,
                     assessment_type: newGrade.examType,
-                    teacher_id: user.id,
                     term_id: currentTermId,
-                }))
+                })
+            }
 
             if (!newGrade.subjectId) {
-                toast.error('Veuillez sélectionner une matière')
+                toast.error(t('teacher.classes.details.selectSubjectError') || 'Veuillez sélectionner une matière')
                 return
+            }
+
+            // Real-time UI Validation: Max 1 Exam ('examen') per student/subject/term
+            if (newGrade.examType === 'examen') {
+                const existingExamStudentIds = grades
+                    .filter(g => g.term_id === currentTermId && g.subject_id === newGrade.subjectId && g.assessment_type === 'examen')
+                    .map(g => g.student_id)
+
+                const studentIdsWithViolations = gradesToInsert
+                    .filter(g => existingExamStudentIds.includes(g.student_id))
+                    .map(g => g.student_id)
+
+                if (studentIdsWithViolations.length > 0) {
+                    const violatedNames = studentIdsWithViolations
+                        .map(id => students.find(s => s.id === id)?.full_name)
+                        .filter(Boolean)
+                        .join(', ')
+                    toast.error((t('teacher.classes.details.examDuplicatePolicyError') || "Politique scolaire : L'examen a déjà été saisi pour ce trimestre dans cette matière pour : {names}").replace('{names}', violatedNames), { duration: 7000 })
+                    return
+                }
             }
 
             if (gradesToInsert.length === 0) {
-                toast.error('Veuillez saisir au moins une note')
+                toast.error(t('teacher.classes.details.emptyGradesError') || 'Veuillez saisir au moins une note')
                 return
             }
 
-            const { error } = await supabase.from('grades').insert(gradesToInsert)
-            if (error) throw error
+            const res = await saveGradesAction(gradesToInsert)
 
-            toast.success(`${gradesToInsert.length} notes enregistrées`)
+            if (res && !res.success) {
+                toast.error(res.error || t('teacher.classes.details.saveError') || 'Erreur lors de l\'enregistrement', { duration: 5000 })
+                return
+            }
+
+            toast.success(t('teacher.classes.details.gradesSavedSuccess')?.replace('{count}', gradesToInsert.length.toString()) || `${gradesToInsert.length} notes enregistrées`)
             setAddingGrade(false)
-            setNewGrade({ examType: 'control', subjectId: teacherSubjects[0]?.id || '', grades: {} })
+            setNewGrade({ examType: 'devoir', subjectId: teacherSubjects[0]?.id || '', grades: {}, bonuses: {} })
             loadGrades()
         } catch (error) {
             console.error('Error saving grades:', error)
-            toast.error('Erreur lors de l\'enregistrement')
+            const msg = error instanceof Error ? error.message : (t('teacher.classes.details.saveError') || 'Erreur lors de l\'enregistrement')
+            toast.error(msg)
         }
     }
 
-    // Calculate student averages
-    const getStudentAverage = (studentId: string) => {
-        const studentGrades = grades.filter(g => g.student_id === studentId)
-        if (studentGrades.length === 0) return null
-        const sum = studentGrades.reduce((acc, g) => acc + g.value, 0)
-        return (sum / studentGrades.length).toFixed(1)
+    // Handle updating an existing grade value
+    const handleUpdateGrade = async (gradeId: string) => {
+        const newVal = parseFloat(editValue)
+        if (isNaN(newVal) || newVal < 0 || newVal > 20) {
+            toast.error(t('teacher.classes.details.invalidGradeRangeError') || "La note doit être un nombre valide compris entre 0 et 20")
+            return
+        }
+
+        try {
+            const res = await updateGradeAction(gradeId, newVal)
+            if (res && !res.success) {
+                toast.error(res.error || t('teacher.classes.details.editError') || "Erreur lors de la modification")
+                return
+            }
+            toast.success(t('teacher.classes.details.gradeUpdatedSuccess') || "Note modifiée avec succès")
+            setEditingGradeId(null)
+            loadGrades()
+        } catch (error) {
+            console.error('Error updating grade:', error)
+            toast.error(t('teacher.classes.details.techEditError') || "Erreur technique lors de la modification")
+        }
     }
 
-    // Get class average
+    // Handle deleting a grade
+    const handleDeleteGrade = async (gradeId: string) => {
+        if (!confirm(t('teacher.classes.details.confirmDeleteGrade') || "Voulez-vous vraiment supprimer cette note ? Cette action est irréversible.")) {
+            return
+        }
+
+        try {
+            const res = await deleteGradeAction(gradeId)
+            if (res && !res.success) {
+                toast.error(res.error || t('teacher.classes.details.deleteError') || "Erreur lors de la suppression")
+                return
+            }
+            toast.success(t('teacher.classes.details.gradeDeletedSuccess') || "Note supprimée définitivement")
+            loadGrades()
+        } catch (error) {
+            console.error('Error deleting grade:', error)
+            toast.error(t('teacher.classes.details.techDeleteError') || "Erreur technique lors de la suppression")
+        }
+    }
+
+    // Calculate student averages filtered by current active term
+    const getStudentAverage = (studentId: string) => {
+        const termGrades = currentTermId 
+            ? grades.filter(g => g.student_id === studentId && g.term_id === currentTermId)
+            : grades.filter(g => g.student_id === studentId)
+
+        if (termGrades.length === 0) return null
+        const sum = termGrades.reduce((acc, g) => acc + g.value, 0)
+        return (sum / termGrades.length).toFixed(1)
+    }
+
+    // Get class average filtered by current active term
     const getClassAverage = () => {
-        if (grades.length === 0) return null
-        const sum = grades.reduce((acc, g) => acc + g.value, 0)
-        return (sum / grades.length).toFixed(1)
+        const termGrades = currentTermId 
+            ? grades.filter(g => g.term_id === currentTermId)
+            : grades
+
+        if (termGrades.length === 0) return null
+        const sum = termGrades.reduce((acc, g) => acc + g.value, 0)
+        return (sum / termGrades.length).toFixed(1)
     }
 
     // Group schedule by day
@@ -352,7 +431,7 @@ export function ClassDetails({ classId, className, students }: ClassDetailsProps
             <div className="flex items-center justify-between">
                 <Link href="/teacher/classes">
                     <Button variant="ghost" size="icon" className="rounded-full">
-                        <ArrowLeft className="w-6 h-6" />
+                        <ArrowLeft className={cn("w-6 h-6", direction === 'rtl' && "rotate-180")} />
                     </Button>
                 </Link>
                 <div className="text-center">
@@ -360,7 +439,7 @@ export function ClassDetails({ classId, className, students }: ClassDetailsProps
                     <p className="text-xs text-muted-foreground">2025-2026</p>
                 </div>
                 <Button variant="ghost" className="text-primary text-sm font-medium">
-                    Modifier
+                    {t('common.edit') || 'Modifier'}
                 </Button>
             </div>
 
@@ -368,24 +447,30 @@ export function ClassDetails({ classId, className, students }: ClassDetailsProps
             <div className="grid grid-cols-2 gap-4">
                 <div className="bg-card border border-border/50 rounded-2xl p-6 flex flex-col items-center justify-center text-center">
                     <span className="text-3xl font-bold text-white">{students.length}</span>
-                    <span className="text-[10px] uppercase text-muted-foreground mt-1 tracking-wider">Élèves</span>
+                    <span className="text-[10px] uppercase text-muted-foreground mt-1 tracking-wider">{t('common.students') || 'Élèves'}</span>
                 </div>
                 <div className="bg-card border border-border/50 rounded-2xl p-6 flex flex-col items-center justify-center text-center">
                     <span className="text-3xl font-bold text-emerald-500">{attendancePercentage}%</span>
-                    <span className="text-[10px] uppercase text-muted-foreground mt-1 tracking-wider">Présence</span>
+                    <span className="text-[10px] uppercase text-muted-foreground mt-1 tracking-wider">{t('common.attendance') || 'Présence'}</span>
                 </div>
             </div>
 
             {/* Tabs */}
             <Tabs defaultValue="eleves" className="w-full">
                 <TabsList className="w-full bg-transparent border-b border-white/10 p-0 justify-between h-auto rounded-none">
-                    {['Élèves', 'Notes', 'Stats', 'Présences', 'Planning'].map((tab) => (
+                    {[
+                        { value: 'eleves', label: t('common.students') || 'Élèves' },
+                        { value: 'notes', label: t('teacher.classes.details.notes') || 'Notes' },
+                        { value: 'stats', label: t('teacher.classes.details.stats') || 'Stats' },
+                        { value: 'presences', label: t('common.attendance') || 'Présences' },
+                        { value: 'planning', label: t('common.schedule') || 'Planning' }
+                    ].map((tab) => (
                         <TabsTrigger
-                            key={tab}
-                            value={tab.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "")}
+                            key={tab.value}
+                            value={tab.value}
                             className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:text-primary pb-3 px-1 text-xs uppercase bg-transparent"
                         >
-                            {tab}
+                            {tab.label}
                         </TabsTrigger>
                     ))}
                 </TabsList>
@@ -396,7 +481,7 @@ export function ClassDetails({ classId, className, students }: ClassDetailsProps
                     <div className="relative">
                         <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                         <Input
-                            placeholder="Rechercher un élève..."
+                            placeholder={t('teacher.classes.details.searchPlaceholder') || "Rechercher un élève..."}
                             className="pl-10 h-12 rounded-xl bg-card border-border/50"
                             value={searchQuery}
                             onChange={(e) => setSearchQuery(e.target.value)}
@@ -417,9 +502,12 @@ export function ClassDetails({ classId, className, students }: ClassDetailsProps
                                         </Avatar>
                                     </div>
                                     <div>
-                                        <h3 className="font-semibold text-sm text-gray-200">{student.full_name}</h3>
+                                        <h3 className="font-semibold text-sm text-gray-200">
+                                            {student.full_name}
+                                            {student.national_id && <span className="text-[10px] ml-2 text-slate-950 dark:text-white font-black font-mono bg-black/5 dark:bg-white/10 px-1.5 py-0.5 rounded">({student.national_id})</span>}
+                                        </h3>
                                         <p className="text-[10px] text-muted-foreground">
-                                            Moyenne: {getStudentAverage(student.id) || 'N/A'}
+                                            {t('teacher.classes.details.average') || 'Moyenne'}: {getStudentAverage(student.id) || 'N/A'}
                                         </p>
                                     </div>
                                 </div>
@@ -439,14 +527,25 @@ export function ClassDetails({ classId, className, students }: ClassDetailsProps
 
                 {/* Content: Notes */}
                 <TabsContent value="notes" className="space-y-4 mt-6">
+                    {/* Search */}
+                    <div className="relative">
+                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                        <Input
+                            placeholder={t('teacher.classes.details.searchPlaceholder') || "Rechercher un élève..."}
+                            className="pl-10 h-12 rounded-xl bg-card border-border/50"
+                            value={searchQuery}
+                            onChange={(e) => setSearchQuery(e.target.value)}
+                        />
+                    </div>
+
                     {/* Header with actions */}
                     <div className="flex items-center justify-between">
                         <Select value={selectedExamType} onValueChange={setSelectedExamType}>
                             <SelectTrigger className="w-40 bg-card border-border/50">
-                                <SelectValue placeholder="Type" />
+                                <SelectValue placeholder={t('common.type') || "Type"} />
                             </SelectTrigger>
                             <SelectContent>
-                                <SelectItem value="all">Tous les types</SelectItem>
+                                <SelectItem value="all">{t('teacher.classes.details.allTypes') || "Tous les types"}</SelectItem>
                                 {EXAM_TYPES.map(type => (
                                     <SelectItem key={type.value} value={type.value}>{type.label}</SelectItem>
                                 ))}
@@ -458,9 +557,17 @@ export function ClassDetails({ classId, className, students }: ClassDetailsProps
                             className="gap-2"
                         >
                             <Plus className="w-4 h-4" />
-                            Nouvelle Note
+                            {t('teacher.classes.details.newGrade') || "Nouvelle Note"}
                         </Button>
                     </div>
+
+                    {/* Current Term Badge */}
+                    {currentTerm && (
+                        <div className="flex items-center gap-2 bg-amber-500/10 border border-amber-500/20 px-4 py-2.5 rounded-xl text-amber-500 text-xs sm:text-sm font-medium">
+                            <Award className="w-4 h-4 shrink-0 animate-pulse" />
+                            <span>{t('teacher.classes.details.activePeriod') || "Période Active"} : <strong className="font-bold">{direction === 'rtl' ? (currentTerm.label_ar || currentTerm.name) : (currentTerm.label_fr || currentTerm.name)}</strong></span>
+                        </div>
+                    )}
 
                     {/* Class average card */}
                     <div className="bg-gradient-to-r from-primary/20 to-primary/5 border border-primary/30 rounded-xl p-4">
@@ -470,13 +577,13 @@ export function ClassDetails({ classId, className, students }: ClassDetailsProps
                                     <GraduationCap className="w-5 h-5 text-primary" />
                                 </div>
                                 <div>
-                                    <p className="text-sm text-muted-foreground">Moyenne de classe</p>
+                                    <p className="text-sm text-muted-foreground">{t('teacher.classes.details.classAverage') || "Moyenne de classe"}</p>
                                     <p className="text-2xl font-bold">{getClassAverage() || 'N/A'}/20</p>
                                 </div>
                             </div>
                             <div className="text-right text-sm text-muted-foreground">
-                                <p>{grades.length} notes</p>
-                                <p>{students.length} élèves</p>
+                                <p>{t('teacher.classes.details.notesCount')?.replace('{count}', grades.length.toString()) || `${grades.length} notes`}</p>
+                                 <p>{t('teacher.classes.details.studentsCount')?.replace('{count}', students.length.toString()) || `${students.length} élèves`}</p>
                             </div>
                         </div>
                     </div>
@@ -487,54 +594,77 @@ export function ClassDetails({ classId, className, students }: ClassDetailsProps
                             <CardHeader className="pb-3">
                                 <CardTitle className="text-sm flex items-center gap-2">
                                     <Edit3 className="w-4 h-4" />
-                                    Saisie des notes
+                                    {t('teacher.classes.details.gradeEntry') || "Saisie des notes"}
                                 </CardTitle>
                             </CardHeader>
                             <CardContent className="space-y-4">
                                 <div className="grid grid-cols-2 gap-2">
-                                    <Select
-                                        value={newGrade.subjectId}
-                                        onValueChange={(v) => setNewGrade(prev => ({ ...prev, subjectId: v }))}
-                                    >
-                                        <SelectTrigger className="bg-background">
-                                            <SelectValue placeholder="Matière" />
-                                        </SelectTrigger>
-                                        <SelectContent>
-                                            {teacherSubjects.map(subject => (
-                                                <SelectItem key={subject.id} value={subject.id}>{subject.name}</SelectItem>
-                                            ))}
-                                        </SelectContent>
-                                    </Select>
-                                    <Select
-                                        value={newGrade.examType}
-                                        onValueChange={(v) => setNewGrade(prev => ({ ...prev, examType: v }))}
-                                    >
-                                        <SelectTrigger className="bg-background">
-                                            <SelectValue />
-                                        </SelectTrigger>
-                                        <SelectContent>
-                                            {EXAM_TYPES.map(type => (
-                                                <SelectItem key={type.value} value={type.value}>{type.label}</SelectItem>
-                                            ))}
-                                        </SelectContent>
-                                    </Select>
+                                    <div className={selectedExamType === 'all' ? 'col-span-1' : 'col-span-2'}>
+                                        <Select
+                                            value={newGrade.subjectId}
+                                            onValueChange={(v) => setNewGrade(prev => ({ ...prev, subjectId: v }))}
+                                        >
+                                            <SelectTrigger className="bg-background w-full">
+                                                <SelectValue placeholder={t('teacher.classes.details.subject') || "Matière"} />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                                {teacherSubjects.map(subject => (
+                                                    <SelectItem key={subject.id} value={subject.id}>{subject.name}</SelectItem>
+                                                ))}
+                                            </SelectContent>
+                                        </Select>
+                                    </div>
+                                    
+                                    {selectedExamType === 'all' && (
+                                        <div className="col-span-1">
+                                            <Select
+                                                value={newGrade.examType}
+                                                onValueChange={(v) => setNewGrade(prev => ({ ...prev, examType: v }))}
+                                            >
+                                                <SelectTrigger className="bg-background w-full">
+                                                    <SelectValue />
+                                                </SelectTrigger>
+                                                <SelectContent>
+                                                    {EXAM_TYPES.map(type => (
+                                                        <SelectItem key={type.value} value={type.value}>{type.label}</SelectItem>
+                                                    ))}
+                                                </SelectContent>
+                                            </Select>
+                                        </div>
+                                    )}
                                 </div>
 
-                                <div className="space-y-2 max-h-60 overflow-y-auto">
-                                    {students.map(student => (
-                                        <div key={student.id} className="flex items-center gap-3">
-                                            <span className="text-sm flex-1 truncate">{student.full_name}</span>
+                                <div className="space-y-2 max-h-60 overflow-y-auto pr-1">
+                                    {filteredStudents.map(student => (
+                                        <div key={student.id} className="flex items-center gap-2 border-b border-border/20 pb-1 last:border-0">
+                                            <span className="text-xs sm:text-sm flex-1 truncate text-muted-foreground font-medium">
+                                                {student.full_name} {student.national_id && <span className="text-[10px] text-slate-950 dark:text-white font-bold font-mono bg-black/5 dark:bg-white/10 px-1.5 py-0.5 rounded ml-1.5">({student.national_id})</span>}
+                                            </span>
                                             <Input
                                                 type="number"
                                                 min="0"
                                                 max="20"
                                                 step="0.5"
-                                                placeholder="/20"
-                                                className="w-20 h-8 text-center"
+                                                placeholder={t('teacher.classes.details.grade') || "Note"}
+                                                className="w-[70px] h-8 text-center text-xs sm:text-sm"
                                                 value={newGrade.grades[student.id] || ''}
                                                 onChange={(e) => setNewGrade(prev => ({
                                                     ...prev,
                                                     grades: { ...prev.grades, [student.id]: e.target.value }
+                                                }))}
+                                            />
+                                            <span className="text-muted-foreground text-xs">+</span>
+                                            <Input
+                                                type="number"
+                                                min="0"
+                                                max="20"
+                                                step="0.5"
+                                                placeholder={t('teacher.classes.details.bonus') || "Bonus"}
+                                                className="w-[70px] h-8 text-center text-xs sm:text-sm bg-amber-500/5 border-amber-500/20 placeholder:text-amber-500/40 text-amber-500 focus-visible:ring-amber-500"
+                                                value={(newGrade.bonuses as Record<string, string>)?.[student.id] || ''}
+                                                onChange={(e) => setNewGrade(prev => ({
+                                                    ...prev,
+                                                    bonuses: { ...prev.bonuses as Record<string, string>, [student.id]: e.target.value }
                                                 }))}
                                             />
                                         </div>
@@ -543,11 +673,11 @@ export function ClassDetails({ classId, className, students }: ClassDetailsProps
 
                                 <div className="flex gap-2">
                                     <Button variant="outline" className="flex-1" onClick={() => setAddingGrade(false)}>
-                                        Annuler
+                                        {t('common.cancel')}
                                     </Button>
                                     <Button className="flex-1 gap-2" onClick={handleSaveNewGrades}>
                                         <Save className="w-4 h-4" />
-                                        Enregistrer
+                                        {t('common.save')}
                                     </Button>
                                 </div>
                             </CardContent>
@@ -561,9 +691,10 @@ export function ClassDetails({ classId, className, students }: ClassDetailsProps
                         </div>
                     ) : (
                         <div className="space-y-3">
-                            {students.map(student => {
+                            {filteredStudents.map(student => {
                                 const studentGrades = grades
                                     .filter(g => g.student_id === student.id)
+                                    .filter(g => !currentTermId || g.term_id === currentTermId)
                                     .filter(g => selectedExamType === 'all' || g.assessment_type === selectedExamType)
                                 const avg = getStudentAverage(student.id)
 
@@ -574,7 +705,9 @@ export function ClassDetails({ classId, className, students }: ClassDetailsProps
                                                 <Avatar className="h-8 w-8">
                                                     <AvatarFallback>{student.full_name.substring(0, 2)}</AvatarFallback>
                                                 </Avatar>
-                                                <span className="font-medium text-sm">{student.full_name}</span>
+                                                <span className="font-medium text-sm">
+                                                    {student.full_name} {student.national_id && <span className="text-[10px] text-slate-950 dark:text-white font-bold font-mono bg-black/5 dark:bg-white/10 px-1.5 py-0.5 rounded ml-1.5">({student.national_id})</span>}
+                                                </span>
                                             </div>
                                             <div className={cn(
                                                 "px-2 py-1 rounded-lg text-sm font-bold",
@@ -587,19 +720,81 @@ export function ClassDetails({ classId, className, students }: ClassDetailsProps
                                         {studentGrades.length > 0 ? (
                                             <div className="flex flex-wrap gap-2">
                                                 {studentGrades.map(g => (
-                                                    <span
-                                                        key={g.id}
-                                                        className={cn(
-                                                            "text-xs px-2 py-1 rounded-md",
-                                                            g.value >= 10 ? "bg-emerald-500/10 text-emerald-400" : "bg-red-500/10 text-red-400"
-                                                        )}
-                                                    >
-                                                        {g.assessment_type}: {g.value}/20
-                                                    </span>
+                                                    editingGradeId === g.id ? (
+                                                        <div key={g.id} className="flex items-center gap-1 bg-muted border border-border pl-2 pr-1 py-0.5 rounded-lg animate-in zoom-in-95 duration-100">
+                                                            <span className="text-xs font-semibold shrink-0 capitalize text-muted-foreground">
+                                                                {g.subject_name ? `${g.subject_name} (${g.assessment_type}):` : `${g.assessment_type}:`}
+                                                            </span>
+                                                            <Input
+                                                                type="number"
+                                                                min="0"
+                                                                max="20"
+                                                                step="0.5"
+                                                                className="w-[60px] h-6 text-xs px-1 text-center bg-background border-border/60 font-bold"
+                                                                value={editValue}
+                                                                onChange={(e) => setEditValue(e.target.value)}
+                                                                autoFocus
+                                                            />
+                                                            <Button 
+                                                                size="icon" 
+                                                                variant="ghost" 
+                                                                className="h-6 w-6 text-emerald-500 hover:text-emerald-400 hover:bg-emerald-500/10"
+                                                                onClick={() => handleUpdateGrade(g.id)}
+                                                            >
+                                                                <Check className="h-3.5 w-3.5" />
+                                                            </Button>
+                                                            <Button 
+                                                                size="icon" 
+                                                                variant="ghost" 
+                                                                className="h-6 w-6 text-red-500 hover:text-red-400 hover:bg-red-500/10"
+                                                                onClick={() => handleDeleteGrade(g.id)}
+                                                            >
+                                                                <Trash2 className="h-3.5 w-3.5" />
+                                                            </Button>
+                                                            <Button 
+                                                                size="icon" 
+                                                                variant="ghost" 
+                                                                className="h-6 w-6 text-muted-foreground hover:bg-muted-foreground/10"
+                                                                onClick={() => setEditingGradeId(null)}
+                                                            >
+                                                                <X className="h-3.5 w-3.5" />
+                                                            </Button>
+                                                        </div>
+                                                    ) : (
+                                                        <div
+                                                            key={g.id}
+                                                            className={cn(
+                                                                "group flex items-center gap-1.5 text-xs pl-2.5 pr-1.5 py-1 rounded-lg border transition-all duration-150 cursor-default shadow-sm",
+                                                                g.value >= 10 
+                                                                    ? "bg-emerald-500/5 text-emerald-600 dark:text-emerald-400 border-emerald-500/20 hover:bg-emerald-500/10 hover:border-emerald-500/40" 
+                                                                    : "bg-red-500/5 text-red-600 dark:text-red-400 border-red-500/20 hover:bg-red-500/10 hover:border-red-500/40"
+                                                            )}
+                                                        >
+                                                            <span className="font-medium capitalize flex items-center flex-wrap gap-x-1.5">
+                                                                {g.subject_name && (
+                                                                    <span className="text-primary dark:text-primary/90 font-bold border-r border-border/30 pr-1.5 text-[10px] sm:text-xs uppercase tracking-wider shrink-0">
+                                                                        {g.subject_name}
+                                                                    </span>
+                                                                )}
+                                                                <span className="opacity-90 shrink-0">{g.assessment_type === 'devoir' ? (t('teacher.classes.details.devoir')?.toLowerCase() || 'devoir') : (t('teacher.classes.details.examen')?.toLowerCase() || 'examen')} :</span>
+                                                                <strong className="font-extrabold text-foreground shrink-0">{g.value}/20</strong>
+                                                            </span>
+                                                            <button
+                                                                className="opacity-0 group-hover:opacity-100 hover:scale-110 transition-all p-0.5 rounded text-muted-foreground hover:text-primary ml-1 hover:bg-primary/10"
+                                                                title={t('teacher.classes.details.editOrDeleteGrade') || "Modifier ou Supprimer la note"}
+                                                                onClick={() => {
+                                                                    setEditingGradeId(g.id)
+                                                                    setEditValue(g.value.toString())
+                                                                }}
+                                                            >
+                                                                <Edit2 className="h-2.5 w-2.5" />
+                                                            </button>
+                                                        </div>
+                                                    )
                                                 ))}
                                             </div>
                                         ) : (
-                                            <p className="text-xs text-muted-foreground">Aucune note</p>
+                                            <p className="text-xs text-muted-foreground">{t('teacher.classes.details.noGrades') || "Aucune note"}</p>
                                         )}
                                     </div>
                                 )
@@ -626,7 +821,7 @@ export function ClassDetails({ classId, className, students }: ClassDetailsProps
                                             </div>
                                             <div>
                                                 <p className="text-2xl font-bold">{students.length}</p>
-                                                <p className="text-xs text-muted-foreground">Élèves</p>
+                                                <p className="text-xs text-muted-foreground">{t('common.students') || 'Élèves'}</p>
                                             </div>
                                         </div>
                                     </CardContent>
@@ -640,7 +835,7 @@ export function ClassDetails({ classId, className, students }: ClassDetailsProps
                                             </div>
                                             <div>
                                                 <p className="text-2xl font-bold">{getClassAverage() || 'N/A'}</p>
-                                                <p className="text-xs text-muted-foreground">Moyenne</p>
+                                                <p className="text-xs text-muted-foreground">{t('teacher.classes.details.averageClass') || 'Moyenne'}</p>
                                             </div>
                                         </div>
                                     </CardContent>
@@ -654,7 +849,7 @@ export function ClassDetails({ classId, className, students }: ClassDetailsProps
                                             </div>
                                             <div>
                                                 <p className="text-2xl font-bold">{grades.length}</p>
-                                                <p className="text-xs text-muted-foreground">Notes</p>
+                                                <p className="text-xs text-muted-foreground">{t('teacher.classes.details.notes') || 'Notes'}</p>
                                             </div>
                                         </div>
                                     </CardContent>
@@ -668,7 +863,7 @@ export function ClassDetails({ classId, className, students }: ClassDetailsProps
                                             </div>
                                             <div>
                                                 <p className="text-2xl font-bold">{attendanceHistory.length}</p>
-                                                <p className="text-xs text-muted-foreground">Présences</p>
+                                                <p className="text-xs text-muted-foreground">{t('common.attendance') || 'Présences'}</p>
                                             </div>
                                         </div>
                                     </CardContent>
@@ -678,7 +873,7 @@ export function ClassDetails({ classId, className, students }: ClassDetailsProps
                             {/* Attendance Stats */}
                             <Card className="bg-card border-border/50">
                                 <CardHeader className="pb-2">
-                                    <CardTitle className="text-sm">Taux de présence</CardTitle>
+                                    <CardTitle className="text-sm">{t('teacher.classes.details.attendanceRate') || 'Taux de présence'}</CardTitle>
                                 </CardHeader>
                                 <CardContent className="space-y-4">
                                     {(() => {
@@ -691,21 +886,21 @@ export function ClassDetails({ classId, className, students }: ClassDetailsProps
                                             <>
                                                 <div className="space-y-2">
                                                     <div className="flex justify-between text-sm">
-                                                        <span className="text-emerald-500">Présents</span>
+                                                        <span className="text-emerald-500">{t('teacher.classes.details.presentCount') || 'Présents'}</span>
                                                         <span>{Math.round((presentCount / total) * 100)}%</span>
                                                     </div>
                                                     <Progress value={(presentCount / total) * 100} className="h-2 bg-muted" />
                                                 </div>
                                                 <div className="space-y-2">
                                                     <div className="flex justify-between text-sm">
-                                                        <span className="text-amber-500">Retards</span>
+                                                        <span className="text-amber-500">{t('teacher.classes.details.lateCount') || 'Retards'}</span>
                                                         <span>{Math.round((lateCount / total) * 100)}%</span>
                                                     </div>
                                                     <Progress value={(lateCount / total) * 100} className="h-2 bg-muted [&>div]:bg-amber-500" />
                                                 </div>
                                                 <div className="space-y-2">
                                                     <div className="flex justify-between text-sm">
-                                                        <span className="text-red-500">Absents</span>
+                                                        <span className="text-red-500">{t('teacher.classes.details.absentCount') || 'Absents'}</span>
                                                         <span>{Math.round((absentCount / total) * 100)}%</span>
                                                     </div>
                                                     <Progress value={(absentCount / total) * 100} className="h-2 bg-muted [&>div]:bg-red-500" />
@@ -719,7 +914,7 @@ export function ClassDetails({ classId, className, students }: ClassDetailsProps
                             {/* Grade Distribution */}
                             <Card className="bg-card border-border/50">
                                 <CardHeader className="pb-2">
-                                    <CardTitle className="text-sm">Répartition des notes</CardTitle>
+                                    <CardTitle className="text-sm">{t('teacher.classes.details.gradeDistribution') || 'Répartition des notes'}</CardTitle>
                                 </CardHeader>
                                 <CardContent>
                                     {(() => {
@@ -732,7 +927,7 @@ export function ClassDetails({ classId, className, students }: ClassDetailsProps
                                         return (
                                             <div className="space-y-3">
                                                 <div className="flex items-center gap-3">
-                                                    <span className="text-xs w-24 text-muted-foreground">Excellent (16+)</span>
+                                                    <span className="text-xs w-24 text-muted-foreground">{t('teacher.classes.details.gradeExcellent') || 'Excellent (16+)'}</span>
                                                     <div className="flex-1 bg-muted rounded-full h-4 overflow-hidden">
                                                         <div
                                                             className="h-full bg-emerald-500 rounded-full transition-all"
@@ -742,7 +937,7 @@ export function ClassDetails({ classId, className, students }: ClassDetailsProps
                                                     <span className="text-xs font-medium w-8">{excellent}</span>
                                                 </div>
                                                 <div className="flex items-center gap-3">
-                                                    <span className="text-xs w-24 text-muted-foreground">Bien (12-16)</span>
+                                                    <span className="text-xs w-24 text-muted-foreground">{t('teacher.classes.details.gradeGood') || 'Bien (12-16)'}</span>
                                                     <div className="flex-1 bg-muted rounded-full h-4 overflow-hidden">
                                                         <div
                                                             className="h-full bg-blue-500 rounded-full transition-all"
@@ -752,7 +947,7 @@ export function ClassDetails({ classId, className, students }: ClassDetailsProps
                                                     <span className="text-xs font-medium w-8">{good}</span>
                                                 </div>
                                                 <div className="flex items-center gap-3">
-                                                    <span className="text-xs w-24 text-muted-foreground">Passable (10-12)</span>
+                                                    <span className="text-xs w-24 text-muted-foreground">{t('teacher.classes.details.gradeAverage') || 'Passable (10-12)'}</span>
                                                     <div className="flex-1 bg-muted rounded-full h-4 overflow-hidden">
                                                         <div
                                                             className="h-full bg-amber-500 rounded-full transition-all"
@@ -762,7 +957,7 @@ export function ClassDetails({ classId, className, students }: ClassDetailsProps
                                                     <span className="text-xs font-medium w-8">{average}</span>
                                                 </div>
                                                 <div className="flex items-center gap-3">
-                                                    <span className="text-xs w-24 text-muted-foreground">Insuffisant (&lt;10)</span>
+                                                    <span className="text-xs w-24 text-muted-foreground">{t('teacher.classes.details.gradeInsufficient') || 'Insuffisant (<10)'}</span>
                                                     <div className="flex-1 bg-muted rounded-full h-4 overflow-hidden">
                                                         <div
                                                             className="h-full bg-red-500 rounded-full transition-all"
@@ -782,13 +977,24 @@ export function ClassDetails({ classId, className, students }: ClassDetailsProps
 
                 {/* Content: Présences */}
                 <TabsContent value="presences" className="space-y-4 mt-6">
+                    {/* Search */}
+                    <div className="relative">
+                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                        <Input
+                            placeholder={t('teacher.classes.details.searchPlaceholder') || "Rechercher un élève..."}
+                            className="pl-10 h-12 rounded-xl bg-card border-border/50"
+                            value={searchQuery}
+                            onChange={(e) => setSearchQuery(e.target.value)}
+                        />
+                    </div>
+
                     <div className="p-4 bg-emerald-500/10 border border-emerald-500/20 rounded-xl mb-4 flex items-center justify-between">
                         <div className="flex items-center gap-2 text-emerald-500">
                             <CheckCircle2 className="w-5 h-5" />
                             <div>
-                                <span className="font-medium">Appel du jour</span>
+                                <span className="font-medium">{t('teacher.classes.details.dailyAttendance') || 'Appel du jour'}</span>
                                 <span className="text-xs ml-2 text-emerald-400">
-                                    {stats.present} présents • {stats.late} retards • {stats.absent} absents
+                                    {stats.present} {t('teacher.classes.details.presentCount')?.toLowerCase() || 'présents'} • {stats.late} {t('teacher.classes.details.lateCount')?.toLowerCase() || 'retards'} • {stats.absent} {t('teacher.classes.details.absentCount')?.toLowerCase() || 'absents'}
                                 </span>
                             </div>
                         </div>
@@ -799,7 +1005,7 @@ export function ClassDetails({ classId, className, students }: ClassDetailsProps
                             className="bg-emerald-500 hover:bg-emerald-600 text-black font-semibold rounded-lg gap-2"
                         >
                             {isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
-                            Valider
+                            {t('teacher.classes.details.validate') || 'Valider'}
                         </Button>
                     </div>
 
@@ -812,7 +1018,9 @@ export function ClassDetails({ classId, className, students }: ClassDetailsProps
                                         <Avatar className="h-9 w-9">
                                             <AvatarFallback>{student.full_name.substring(0, 2)}</AvatarFallback>
                                         </Avatar>
-                                        <span className="text-sm font-medium">{student.full_name}</span>
+                                        <span className="text-sm font-medium">
+                                            {student.full_name} {student.national_id && <span className="text-[10px] text-slate-950 dark:text-white font-bold font-mono bg-black/5 dark:bg-white/10 px-1.5 py-0.5 rounded ml-1.5">({student.national_id})</span>}
+                                        </span>
                                     </div>
 
                                     <div className="flex items-center gap-1 bg-black/40 p-1 rounded-lg">
@@ -848,7 +1056,7 @@ export function ClassDetails({ classId, className, students }: ClassDetailsProps
                     ) : scheduleByDay.length === 0 ? (
                         <Card className="p-8 text-center border-dashed">
                             <Calendar className="w-12 h-12 mx-auto text-muted-foreground mb-4" />
-                            <p className="text-muted-foreground">Aucun cours programmé pour cette classe</p>
+                            <p className="text-muted-foreground">{t('teacher.classes.details.noSchedule') || 'Aucun cours programmé pour cette classe'}</p>
                         </Card>
                     ) : (
                         <div className="space-y-4">
@@ -871,9 +1079,9 @@ export function ClassDetails({ classId, className, students }: ClassDetailsProps
                                                     <p className="text-xs text-muted-foreground">{formatTime(slot.end_time)}</p>
                                                 </div>
                                                 <div className="flex-1">
-                                                    <p className="font-medium text-sm">{slot.subject?.name || 'Matière'}</p>
+                                                    <p className="font-medium text-sm">{slot.subject?.name || t('teacher.classes.details.subject') || 'Matière'}</p>
                                                     {slot.room && (
-                                                        <p className="text-xs text-muted-foreground">Salle {slot.room}</p>
+                                                        <p className="text-xs text-muted-foreground">{t('teacher.classes.details.room')?.replace('{room}', slot.room) || `Salle ${slot.room}`}</p>
                                                     )}
                                                 </div>
                                                 <div className="px-2 py-1 bg-primary/10 rounded text-xs text-primary">
@@ -881,7 +1089,7 @@ export function ClassDetails({ classId, className, students }: ClassDetailsProps
                                                         const start = slot.start_time.split(':').map(Number)
                                                         const end = slot.end_time.split(':').map(Number)
                                                         const duration = (end[0] * 60 + end[1]) - (start[0] * 60 + start[1])
-                                                        return `${duration}min`
+                                                        return t('teacher.classes.details.minutes')?.replace('{count}', duration.toString()) || `${duration}min`
                                                     })()}
                                                 </div>
                                             </div>

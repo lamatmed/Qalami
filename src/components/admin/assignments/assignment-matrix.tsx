@@ -6,12 +6,12 @@ import { Plus, X, Loader2, Search, GripVertical, AlertTriangle, UserCheck } from
 import { cn } from '@/lib/utils'
 import { upsertAssignment, removeAssignment } from '@/app/admin/assignments/actions'
 import { toast } from 'sonner'
-import { getMySchoolContext } from '@/app/admin/actions'
+import { getMySchoolContext, getSchoolLinkedProfileIds, secureFetchProfiles } from '@/app/admin/actions'
 import { useLanguage } from '@/i18n'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
-interface Teacher { id: string; name: string }
+interface Teacher { id: string; name: string; phone?: string }
 interface Klass   { id: string; name: string }
 interface Subject { id: string; name: string }
 
@@ -19,6 +19,7 @@ interface Assignment {
     id: string
     teacherId: string
     teacherName: string
+    teacherPhone?: string
     classId: string
     subjectId: string
 }
@@ -70,20 +71,46 @@ export function AssignmentMatrix() {
             const [
                 { data: classesData },
                 { data: subjectsData },
-                { data: teachersData },
             ] = await Promise.all([
                 supabase.from('classes').select('id, name').eq('school_id', schoolId).order('name'),
                 supabase.from('subjects').select('id, name').eq('school_id', schoolId).order('name'),
-                supabase.from('profiles').select('id, full_name')
-                    .eq('role', 'teacher').eq('school_id', schoolId).order('full_name'),
             ])
 
             const classIds = (classesData || []).map((c: any) => c.id)
 
+            // ── SMART TEACHER DISCOVERY ─────────────────────────────────────
+            // Step A: Direct school association
+            const { data: directT } = await supabase.from('profiles')
+                .select('id')
+                .eq('role', 'teacher').eq('school_id', schoolId)
+
+            // Step B: Assignment linkage
+            let assignedIds: string[] = []
+            if (classIds.length > 0) {
+                const { data: existingAssignments } = await supabase
+                    .from('teacher_assignments')
+                    .select('teacher_id')
+                    .in('class_id', classIds)
+                assignedIds = (existingAssignments || []).map((a: any) => a.teacher_id)
+            }
+
+            // Step C: profile_schools linkage
+            const schoolLinkedIds = await getSchoolLinkedProfileIds(schoolId, 'teacher')
+
+            const uniqueTeacherIds = Array.from(new Set([
+                ...(directT || []).map(p => p.id),
+                ...assignedIds,
+                ...schoolLinkedIds
+            ]))
+
+            // Hydrate complete teacher list securely
+            const teachersData = await secureFetchProfiles(uniqueTeacherIds, 'id, full_name, phone')
+
+            // Hydrate assignments fully
             const { data: assignData } = classIds.length > 0
                 ? await supabase
                     .from('teacher_assignments')
-                    .select('id, teacher_id, class_id, subject_id, profiles:teacher_id(full_name)')
+                    .select('id, teacher_id, class_id, subject_id, profiles:teacher_id(full_name, phone)')
                     .in('class_id', classIds)
                 : { data: [] }
 
@@ -92,11 +119,13 @@ export function AssignmentMatrix() {
             setTeachers((teachersData || []).map((t: any) => ({
                 id: t.id,
                 name: t.full_name || t('admin.assignments.defaultTeacher'),
+                phone: t.phone
             })))
             setAssignments((assignData as any[] || []).map((a: any) => ({
                 id:          a.id,
                 teacherId:   a.teacher_id,
                 teacherName: (a.profiles as any)?.full_name || '—',
+                teacherPhone: (a.profiles as any)?.phone,
                 classId:     a.class_id,
                 subjectId:   a.subject_id,
             })))
@@ -141,8 +170,31 @@ export function AssignmentMatrix() {
     const filteredTeachers = useMemo(() => {
         if (!teacherSearch) return teachers
         const q = teacherSearch.toLowerCase()
-        return teachers.filter(t => t.name.toLowerCase().includes(q))
+        return teachers.filter(t => 
+            t.name.toLowerCase().includes(q) || 
+            (t.phone && t.phone.includes(q))
+        )
     }, [teachers, teacherSearch])
+
+    // ── Smart Global Discovery on search ──────────────────────────────────────
+    useEffect(() => {
+        const raw = teacherSearch.trim()
+        // Triggers if term looks like phone number AND no matches found locally
+        if (raw.length >= 4 && /^\+?\d+$/.test(raw) && filteredTeachers.length === 0) {
+            const timer = setTimeout(async () => {
+                const { checkUserByPhone } = await import('@/app/auth/actions')
+                const res = await checkUserByPhone(raw)
+                if (res.exists && res.role === 'teacher') {
+                    // Found teacher globally! Does he exist in our current state array?
+                    setTeachers(prev => {
+                        if (prev.some(t => t.id === res.id)) return prev
+                        return [...prev, { id: res.id!, name: res.fullName!, phone: raw }]
+                    })
+                }
+            }, 500)
+            return () => clearTimeout(timer)
+        }
+    }, [teacherSearch, filteredTeachers.length])
 
     // ── Operations ────────────────────────────────────────────────────────────
 
@@ -164,6 +216,7 @@ export function AssignmentMatrix() {
             id: result.id!,
             teacherId,
             teacherName: teacher.name,
+            teacherPhone: teacher.phone,
             classId,
             subjectId,
         }
@@ -237,8 +290,8 @@ export function AssignmentMatrix() {
         const top = spaceBelow > POPOVER_H
             ? activeCell.rect.bottom + 6
             : activeCell.rect.top - POPOVER_H - 6
-        const left = Math.min(activeCell.rect.left, window.innerWidth - 220)
-        return { position: 'fixed' as const, top, left, zIndex: 1000, width: 212 }
+        const left = Math.min(activeCell.rect.left, window.innerWidth - 250)
+        return { position: 'fixed' as const, top, left, zIndex: 1000, width: 240 }
     })() : null
 
     // ─────────────────────────────────────────────────────────────────────────
@@ -421,7 +474,12 @@ export function AssignmentMatrix() {
                                     <X className="w-3.5 h-3.5" />
                                 </button>
                             </div>
-                            <p className="text-sm font-bold text-white">{activeCell.assignment.teacherName}</p>
+                            <div>
+                                <p className="text-sm font-bold text-white">{activeCell.assignment.teacherName}</p>
+                                {activeCell.assignment.teacherPhone && (
+                                    <p className="text-xs text-gray-400 mt-0.5">{activeCell.assignment.teacherPhone}</p>
+                                )}
+                            </div>
                             <div className="pt-2 space-y-0.5 border-t border-white/5">
                                 <button
                                     className="w-full text-left px-3 py-2 text-xs rounded-lg text-gray-300 hover:bg-white/5 transition-colors"
@@ -495,10 +553,17 @@ export function AssignmentMatrix() {
                                                 activeCell.assignment?.id
                                             )}
                                         >
-                                            {isCurrentTeacher && (
-                                                <span className="mr-1">✓</span>
-                                            )}
-                                            {teacher.name}
+                                            <div className="flex items-center gap-2">
+                                                {isCurrentTeacher && (
+                                                    <span className="shrink-0">✓</span>
+                                                )}
+                                                <div className="flex flex-col overflow-hidden">
+                                                    <span className="truncate font-medium text-white">{teacher.name}</span>
+                                                    {teacher.phone && (
+                                                        <span className="text-[10px] text-gray-500">{teacher.phone}</span>
+                                                    )}
+                                                </div>
+                                            </div>
                                         </button>
                                     )
                                 })}

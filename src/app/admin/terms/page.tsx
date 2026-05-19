@@ -46,7 +46,7 @@ import { cn } from '@/lib/utils'
 
 interface Term {
     id: string
-    academic_year_id: string
+    academic_year_id: string | null
     name: 'T1' | 'T2' | 'T3'
     label_fr: string
     label_ar: string
@@ -117,6 +117,7 @@ export default function TermsPage() {
     const [years, setYears] = useState<AcademicYear[]>([])
     const [loading, setLoading] = useState(true)
     const [error, setError] = useState(false)
+    const [loadErrorMessage, setLoadErrorMessage] = useState<string | null>(null)
 
     const [showNewYear, setShowNewYear] = useState(false)
     const [newYear, setNewYear] = useState('')
@@ -141,19 +142,50 @@ export default function TermsPage() {
         if (!context) return
         setLoading(true)
         setError(false)
+        setLoadErrorMessage(null)
         const supabase = createClient()
         try {
-            const { data, error: fetchError } = await supabase
-                .from('academic_years')
-                .select('*, terms!academic_year_id(*)')
-                .eq('school_id', context.school_id)
-                .order('name', { ascending: false })
-            if (fetchError) throw fetchError
-            setYears((data || []).map(yr => ({
+            const [{ data: yrsData, error: yErr }, { data: tmsData, error: tErr }] = await Promise.all([
+                supabase
+                    .from('academic_years')
+                    .select('id, school_id, name, start_date, end_date, is_current, created_at')
+                    .eq('school_id', context.school_id)
+                    .order('name', { ascending: false }),
+                supabase
+                    .from('terms')
+                    .select(
+                        'id, school_id, academic_year_id, name, label_fr, label_ar, start_date, end_date, is_current, conseil_date, bulletin_date, created_at',
+                    )
+                    .eq('school_id', context.school_id),
+            ])
+
+            if (yErr) throw yErr
+            if (tErr) throw tErr
+
+            const termsByYear = new Map<string, Term[]>()
+            for (const term of tmsData || []) {
+                const row = term as Term
+                const yId = row.academic_year_id
+                if (!yId) continue
+                const list = termsByYear.get(yId) || []
+                list.push(row)
+                termsByYear.set(yId, list)
+            }
+
+            setYears((yrsData || []).map((yr: any) => ({
                 ...yr,
-                terms: (yr.terms || []).sort((a: Term, b: Term) => a.name.localeCompare(b.name)),
+                terms: (termsByYear.get(yr.id) || []).sort((a: Term, b: Term) =>
+                    a.name.localeCompare(b.name)),
             })))
-        } catch { setError(true) }
+        } catch (e: unknown) {
+            const msg =
+                e && typeof e === 'object' && 'message' in e
+                    ? String((e as { message: unknown }).message)
+                    : null
+            setLoadErrorMessage(msg)
+            setError(true)
+            console.error('[admin/terms] fetchData', e)
+        }
         finally { setLoading(false) }
     }, [context])
 
@@ -206,7 +238,10 @@ export default function TermsPage() {
         if (!editTerm) return
         setSaving(true)
         const r = await updateTerm(editTerm.term.id, {
-            ...editData,
+            label_fr:      editData.label_fr,
+            label_ar:      editData.label_ar,
+            start_date:    editData.start_date,
+            end_date:      editData.end_date,
             conseil_date:  editData.conseil_date  || null,
             bulletin_date: editData.bulletin_date || null,
         })
@@ -259,6 +294,21 @@ export default function TermsPage() {
             ) : ctxError || error ? (
                 <div className="flex flex-col items-center justify-center h-64 gap-4">
                     <p className="text-gray-400">{t('admin.terms.loadingError')}</p>
+                    {loadErrorMessage && (
+                        <p className="text-xs text-red-400/90 max-w-lg text-center break-words px-2">
+                            {loadErrorMessage}
+                        </p>
+                    )}
+                    {loadErrorMessage?.includes('academic_year') && loadErrorMessage?.includes('terms') && (
+                        <p className="text-xs text-gray-500 max-w-lg text-center px-4">
+                            La base attend encore une colonne texte <code className="text-gray-400">academic_year</code>
+                            {' '}sur <code className="text-gray-400">terms</code>, alors que le schéma moderne utilise surtout{' '}
+                            <code className="text-gray-400">academic_year_id</code>. Exécutez{' '}
+                            <strong>une fois</strong> dans le SQL Editor Supabase le fichier{' '}
+                            <code className="text-gray-400">supabase/migrations/20260515120000_terms_academic_year_text_column.sql</code>
+                            {' '}(il ajoute <code className="text-gray-400">academic_year</code> et remplit depuis les années), puis rechargez la page.
+                        </p>
+                    )}
                     <Button variant="outline" onClick={fetchData} className="gap-2">
                         <RefreshCw className="w-4 h-4" /> {t('admin.terms.retry')}
                     </Button>

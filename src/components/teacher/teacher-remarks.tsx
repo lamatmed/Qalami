@@ -14,6 +14,7 @@ import { useTeacher } from '@/context/teacher-context'
 import { createClient } from '@/utils/supabase/client'
 import { toast } from 'sonner'
 import { useLanguage } from '@/i18n'
+import { getTeacherAssignmentsAction, getClassStudentsAction, createRemarkAction } from '@/app/teacher/actions'
 
 const REMARK_CATEGORIES = [
     { value: 'comportement', color: 'text-red-400',     bg: 'bg-red-500/10' },
@@ -28,6 +29,7 @@ interface Student {
     id: string
     name: string
     avatar?: string
+    nationalId?: string | null
 }
 
 interface SubjectOption {
@@ -66,6 +68,7 @@ export function TeacherRemarks() {
     const [isPending, startTransition] = useTransition()
 
     const [selectedClass, setSelectedClass] = useState<string | null>(null)
+    const [allClasses, setAllClasses] = useState<{ id: string; name: string; schoolId: string }[]>([])
     const [students, setStudents] = useState<Student[]>([])
     const [selectedStudent, setSelectedStudent] = useState<Student | null>(null)
     const [selectedType, setSelectedType] = useState<FeedbackType | null>(null)
@@ -80,27 +83,68 @@ export function TeacherRemarks() {
     const [categoryFilter, setCategoryFilter] = useState('')
     const [subjectFilter, setSubjectFilter] = useState('')
 
-    // Fetch subjects for this teacher
-    useEffect(() => {
-        async function fetchSubjects() {
-            if (!teacherId || !schoolId) return
-            const supabase = createClient()
-            const { data } = await supabase
-                .from('teacher_assignments')
-                .select('subjects!teacher_assignments_subject_id_fkey(id, name)')
-                .eq('teacher_id', teacherId)
-            const seen = new Set<string>()
-            const list: SubjectOption[] = []
-            for (const a of data || []) {
-                const s = (a.subjects as any)
-                if (s?.id && !seen.has(s.id)) { seen.add(s.id); list.push({ id: s.id, name: s.name }) }
-            }
-            setSubjects(list)
-        }
-        if (!loading) fetchSubjects()
-    }, [teacherId, schoolId, loading])
+    const [classSubjectsMap, setClassSubjectsMap] = useState<Record<string, SubjectOption[]>>({})
 
-    // Fetch students when class is selected
+    // Fetch assignments (classes with schools, and subjects) for this teacher bypassing RLS
+    useEffect(() => {
+        async function fetchTeacherAssignments() {
+            if (!teacherId) return
+            try {
+                const assignments = await getTeacherAssignmentsAction(teacherId)
+                
+                const classMap = new Map<string, { id: string; name: string; schoolId: string }>()
+                const classToSubjects: Record<string, Map<string, SubjectOption>> = {}
+
+                assignments?.forEach(a => {
+                    const cls = a.classes as any
+                    const subj = a.subjects as any
+                    
+                    if (cls?.id) {
+                        const schoolName = cls.schools?.name ? ` (${cls.schools.name})` : ''
+                        classMap.set(cls.id, { 
+                            id: cls.id, 
+                            name: `${cls.name}${schoolName}`,
+                            schoolId: cls.school_id
+                        })
+
+                        if (!classToSubjects[cls.id]) {
+                            classToSubjects[cls.id] = new Map()
+                        }
+
+                        if (subj?.id && subj?.name) {
+                            // Normalize by removing all spaces and accents to ensure robust deduplication
+                            const normalizedName = subj.name.normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/\s+/g, "").toLowerCase()
+                            if (!classToSubjects[cls.id].has(normalizedName)) {
+                                classToSubjects[cls.id].set(normalizedName, { id: subj.id, name: subj.name.trim() })
+                            }
+                        }
+                    }
+                })
+
+                setAllClasses(Array.from(classMap.values()))
+                
+                const finalClassSubjectsMap: Record<string, SubjectOption[]> = {}
+                const globalSubjectsMap = new Map<string, SubjectOption>()
+
+                Object.keys(classToSubjects).forEach(classId => {
+                    finalClassSubjectsMap[classId] = Array.from(classToSubjects[classId].values())
+                    finalClassSubjectsMap[classId].forEach(subj => {
+                        const normalizedName = subj.name.normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/\s+/g, "").toLowerCase()
+                        if (!globalSubjectsMap.has(normalizedName)) {
+                            globalSubjectsMap.set(normalizedName, subj)
+                        }
+                    })
+                })
+                setClassSubjectsMap(finalClassSubjectsMap)
+                setSubjects(Array.from(globalSubjectsMap.values()))
+            } catch (err) {
+                console.error('Error fetching assignments in remarks:', err)
+            }
+        }
+        if (!loading) fetchTeacherAssignments()
+    }, [teacherId, loading])
+
+    // Fetch students when class is selected using Server Action to bypass RLS
     useEffect(() => {
         async function fetchStudents() {
             if (!selectedClass) {
@@ -109,35 +153,18 @@ export function TeacherRemarks() {
             }
 
             setLoadingStudents(true)
-            const supabase = createClient()
 
             try {
-                const { data: enrollments, error } = await supabase
-                    .from('enrollments')
-                    .select(`
-                        student_id,
-                        profiles!enrollments_student_id_fkey (
-                            id,
-                            full_name,
-                            avatar_url
-                        )
-                    `)
-                    .eq('class_id', selectedClass)
-                    .eq('status', 'active')
-
-                if (error) {
-                    console.error('Error fetching students:', error)
-                    setStudents([])
-                    return
-                }
+                const enrollments = await getClassStudentsAction(selectedClass)
 
                 if (enrollments && enrollments.length > 0) {
-                    const studentList: Student[] = enrollments.map(e => {
-                        const profile = e.profiles as { id?: string, full_name?: string, avatar_url?: string }
+                    const studentList: Student[] = enrollments.map((e: any) => {
+                        const profile = e.profiles as { id?: string, full_name?: string, avatar_url?: string, national_id?: string | null }
                         return {
                             id: profile?.id || e.student_id,
                             name: profile?.full_name || 'Élève',
-                            avatar: profile?.avatar_url || undefined
+                            avatar: profile?.avatar_url || undefined,
+                            nationalId: profile?.national_id || null
                         }
                     })
                     setStudents(studentList)
@@ -145,7 +172,7 @@ export function TeacherRemarks() {
                     setStudents([])
                 }
             } catch (err) {
-                console.error('Error:', err)
+                console.error('Error fetching students in remarks:', err)
                 setStudents([])
             }
 
@@ -212,76 +239,77 @@ export function TeacherRemarks() {
     }, [teacherId, loading])
 
     const handleSubmit = async () => {
-        if (!selectedStudent || !selectedType || !message.trim() || !teacherId || !selectedClass || !schoolId) {
+        const activeClass = allClasses.find(c => c.id === selectedClass)
+        const activeSchoolId = activeClass?.schoolId || schoolId
+
+        if (!selectedStudent || !selectedType || !message.trim() || !teacherId || !selectedClass || !activeSchoolId) {
             toast.error(t('teacher.remarks.fillAllFields'))
             return
         }
 
         startTransition(async () => {
-            const supabase = createClient()
-
-            const { error } = await supabase
-                .from('remarks')
-                .insert({
-                    school_id: schoolId,
+            try {
+                await createRemarkAction({
+                    school_id: activeSchoolId,
                     teacher_id: teacherId,
                     student_id: selectedStudent.id,
                     class_id: selectedClass,
                     type: selectedType.type,
-                    category: selectedCategory,
-                    subject_id: selectedSubject || null,
+                    subject_id: (selectedSubject && selectedSubject !== 'none') ? selectedSubject : null,
                     message: message.trim(),
                     sender_type: 'teacher',
                     is_visible_to_parent: true
                 })
 
-            if (error) {
+                toast.success(t('teacher.remarks.sendSuccess'))
+
+                // Reset form
+                setMessage('')
+                setSelectedType(null)
+                setSelectedStudent(null)
+                setSelectedCategory('general')
+                setSelectedSubject('')
+
+                // Refresh recent remarks
+                const supabase = createClient()
+                const { data: remarks } = await supabase
+                    .from('remarks')
+                    .select(`
+                        id,
+                        type,
+                        message,
+                        created_at,
+                        profiles!remarks_student_id_fkey (full_name),
+                        subjects!remarks_subject_id_fkey (name)
+                    `)
+                    .eq('teacher_id', teacherId)
+                    .order('created_at', { ascending: false })
+                    .limit(20)
+
+                if (remarks) {
+                    const formatted: RecentRemark[] = remarks.map(r => ({
+                        id: r.id,
+                        studentName: (r.profiles as { full_name?: string })?.full_name || 'Élève',
+                        type: r.type,
+                        category: (r as any).category || null,
+                        subjectName: (r.subjects as any)?.name || null,
+                        message: r.message.length > 60 ? r.message.slice(0, 60) + '...' : r.message,
+                        createdAt: r.created_at
+                    }))
+                    setRecentRemarks(formatted)
+                }
+            } catch (error: any) {
                 console.error('Error inserting remark:', error)
-                toast.error(t('teacher.remarks.sendError'))
-                return
-            }
-
-            toast.success(t('teacher.remarks.sendSuccess'))
-
-            // Reset form
-            setMessage('')
-            setSelectedType(null)
-            setSelectedStudent(null)
-            setSelectedCategory('general')
-            setSelectedSubject('')
-
-            // Refresh recent remarks
-            const { data: remarks } = await supabase
-                .from('remarks')
-                .select(`
-                    id,
-                    type,
-                    message,
-                    created_at,
-                    profiles!remarks_student_id_fkey (full_name),
-                    subjects!remarks_subject_id_fkey (name)
-                `)
-                .eq('teacher_id', teacherId)
-                .order('created_at', { ascending: false })
-                .limit(20)
-
-            if (remarks) {
-                const formatted: RecentRemark[] = remarks.map(r => ({
-                    id: r.id,
-                    studentName: (r.profiles as { full_name?: string })?.full_name || 'Élève',
-                    type: r.type,
-                    category: (r as any).category || null,
-                    subjectName: (r.subjects as any)?.name || null,
-                    message: r.message.length > 60 ? r.message.slice(0, 60) + '...' : r.message,
-                    createdAt: r.created_at
-                }))
-                setRecentRemarks(formatted)
+                toast.error(`${t('teacher.remarks.sendError')}: ${error.message || ''}`)
             }
         })
     }
 
     const filteredStudents = searchQuery
-        ? students.filter(s => s.name.toLowerCase().includes(searchQuery.toLowerCase()))
+        ? students.filter(s => 
+            s.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+            (s.nationalId && s.nationalId.toLowerCase().includes(searchQuery.toLowerCase()))
+        )
         : students
 
     const formatTimeAgo = (dateStr: string) => {
@@ -331,7 +359,7 @@ export function TeacherRemarks() {
             <div className="mb-6">
                 <h2 className="text-xs font-bold text-muted-foreground mb-3 uppercase tracking-wider">{t('teacher.remarks.selectClass')}</h2>
                 <div className="flex flex-wrap gap-2">
-                    {classes.map(c => (
+                    {allClasses.map(c => (
                         <Button
                             key={c.id}
                             variant={selectedClass === c.id ? "default" : "outline"}
@@ -387,7 +415,8 @@ export function TeacherRemarks() {
                                         <AvatarImage src={student.avatar} />
                                         <AvatarFallback className="text-[10px]">{student.name.slice(0, 2).toUpperCase()}</AvatarFallback>
                                     </Avatar>
-                                    {student.name.split(' ')[0]}
+                                    <span className="truncate max-w-[120px] sm:max-w-none">{student.name}</span>
+                                    {student.nationalId && <span className="text-[10px] text-slate-950 dark:text-white font-bold font-mono shrink-0 bg-black/5 dark:bg-white/10 px-1.5 py-0.5 rounded">({student.nationalId})</span>}
                                 </Button>
                             ))}
                         </div>
@@ -452,7 +481,7 @@ export function TeacherRemarks() {
             )}
 
             {/* Step 3c: Subject (optional) */}
-            {selectedType && subjects.length > 0 && (
+            {selectedType && selectedClass && (classSubjectsMap[selectedClass] || []).length > 0 && (
                 <motion.div
                     initial={{ opacity: 0, y: 10 }}
                     animate={{ opacity: 1, y: 0 }}
@@ -463,13 +492,11 @@ export function TeacherRemarks() {
                     </h2>
                     <Select value={selectedSubject} onValueChange={setSelectedSubject}>
                         <SelectTrigger className="rounded-xl bg-card border-border">
-                            <SelectTrigger asChild>
-                                <SelectValue placeholder={t('teacher.remarks.noSubjectLinked')} />
-                            </SelectTrigger>
+                            <SelectValue placeholder={t('teacher.remarks.noSubjectLinked')} />
                         </SelectTrigger>
                         <SelectContent className="bg-card border-border">
-                            <SelectItem value="">{t('teacher.remarks.noSubject')}</SelectItem>
-                            {subjects.map(s => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}
+                            <SelectItem value="none">{t('teacher.remarks.noSubject')}</SelectItem>
+                            {(classSubjectsMap[selectedClass] || []).map(s => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}
                         </SelectContent>
                     </Select>
                 </motion.div>
@@ -490,7 +517,9 @@ export function TeacherRemarks() {
                                 <AvatarFallback>{selectedStudent.name.slice(0, 2).toUpperCase()}</AvatarFallback>
                             </Avatar>
                             <div>
-                                <p className="text-sm font-bold text-gray-900 dark:text-white">{selectedStudent.name}</p>
+                                <p className="text-sm font-bold text-gray-900 dark:text-white">
+                                    {selectedStudent.name} {selectedStudent.nationalId && <span className="text-[10px] text-slate-950 dark:text-white font-black font-mono bg-black/5 dark:bg-white/10 px-1.5 py-0.5 rounded ml-2 inline-block">({selectedStudent.nationalId})</span>}
+                                </p>
                                 <p className={cn("text-[10px] font-semibold", selectedType.color)}>{t(`teacher.remarks.types.${selectedType.type}`)}</p>
                             </div>
                         </div>
@@ -555,7 +584,7 @@ export function TeacherRemarks() {
                                 <SelectValue placeholder={t('teacher.remarks.filterBySubject')} />
                             </SelectTrigger>
                             <SelectContent className="bg-card border-border">
-                                <SelectItem value="">{t('teacher.remarks.allSubjects')}</SelectItem>
+                                <SelectItem value="all">{t('teacher.remarks.allSubjects')}</SelectItem>
                                 {subjects.map(s => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}
                             </SelectContent>
                         </Select>
@@ -574,7 +603,7 @@ export function TeacherRemarks() {
                     <div className="space-y-2">
                         {recentRemarks
                             .filter(r => !categoryFilter || r.category === categoryFilter)
-                            .filter(r => !subjectFilter || r.subjectName === subjects.find(s => s.id === subjectFilter)?.name)
+                            .filter(r => !subjectFilter || subjectFilter === 'all' || r.subjectName === subjects.find(s => s.id === subjectFilter)?.name)
                             .map(remark => {
                                 const typeInfo = getTypeInfo(remark.type)
                                 const catInfo = REMARK_CATEGORIES.find(c => c.value === remark.category)

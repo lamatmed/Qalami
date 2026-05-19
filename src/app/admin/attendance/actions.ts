@@ -2,6 +2,7 @@
 'use server'
 
 import { getActionContext as getSchoolAndUser } from '@/lib/auth-action'
+import { createClient } from '@/utils/supabase/server'
 
 // ─── Classes ──────────────────────────────────────────────────────────────────
 
@@ -49,7 +50,6 @@ export async function getEnrolledStudents(classId: string) {
         .select('student_id, profiles!enrollments_student_id_fkey(id, full_name, avatar_url)')
         .eq('class_id', classId)
         .eq('school_id', schoolId)
-        .eq('status', 'active')
         .order('student_id')
 
     return (data ?? []).map((e: any) => ({
@@ -219,40 +219,65 @@ export async function getAttendanceHistory(limit = 30) {
 
 // ─── Today's overview: which classes have/haven't done attendance ──────────────
 
-export async function getTodayOverview() {
-    const ctx = await getSchoolAndUser()
-    if (!ctx) return { classes: [], absentees: [], totalPresent: 0, totalAbsent: 0 }
+export async function getTodayOverview(todayStr?: string) {
+    const ctx = await getSchoolAndUser(['admin', 'super_admin', 'school_staff', 'teacher', 'parent'])
+    if (!ctx) return { classes: [], absentees: [], totalPresent: 0, totalAbsent: 0, schoolGlobalRate: null }
 
     const { supabase, schoolId } = ctx
-    const today = new Date().toISOString().split('T')[0]
 
-    const [{ data: classes }, { data: periods }] = await Promise.all([
-        supabase.from('classes').select('id, name').eq('school_id', schoolId).order('name'),
-        supabase
-            .from('attendance_periods')
-            .select('id, class_id, status')
-            .eq('school_id', schoolId)
-            .eq('date', today),
-    ])
-
-    const periodByClass = new Map<string, { id: string; status: string }>()
-    ;(periods ?? []).forEach((p: any) => {
-        periodByClass.set(p.class_id, { id: p.id, status: p.status })
-    })
-
-    const periodIds = (periods ?? []).map((p: any) => p.id)
-
-    let attendanceRows: any[] = []
-    if (periodIds.length > 0) {
-        const { data } = await supabase
-            .from('attendance')
-            .select('student_id, status, class_id, profiles!attendance_student_id_fkey(full_name)')
-            .in('period_id', periodIds)
-            .eq('school_id', schoolId)
-        attendanceRows = data ?? []
+    // Dynamic user-based localized today string or safe server-fallback
+    let today = todayStr
+    if (!today) {
+        const now = new Date()
+        today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`
     }
 
-    // Stats per class
+    const { data: classes } = await supabase
+        .from('classes')
+        .select('id, name')
+        .eq('school_id', schoolId)
+        .order('name')
+
+    const classIds = (classes ?? []).map((c: any) => c.id)
+    if (classIds.length === 0) {
+        return { classes: [], absentees: [], totalPresent: 0, totalAbsent: 0, schoolGlobalRate: null }
+    }
+
+    // Use Class IDs to scope attendance universally (since attendance table lacks school_id column)
+    const [{ data: todayRows }, { data: allRows }] = await Promise.all([
+        // Today's attendance
+        supabase
+            .from('attendance')
+            .select('student_id, status, class_id, profiles!attendance_student_id_fkey(full_name)')
+            .in('class_id', classIds)
+            .eq('date', today),
+        // Global cumulative history for rate calculations & last activity timestamps
+        supabase
+            .from('attendance')
+            .select('class_id, date, status')
+            .in('class_id', classIds)
+    ])
+
+    // Compute Global Aggregate Stats and Track Latest Date Per Class in a single loop
+    let globalCount = 0
+    let globalPres = 0
+    const latestDateByClass = new Map<string, string>()
+
+    ;(allRows ?? []).forEach((r: any) => {
+        globalCount++
+        if (r.status === 'present' || r.status === 'late') globalPres++
+
+        const curr = latestDateByClass.get(r.class_id)
+        if (!curr || r.date > curr) {
+            latestDateByClass.set(r.class_id, r.date)
+        }
+    })
+
+    const schoolGlobalRate = globalCount > 0 ? Math.round((globalPres / globalCount) * 100) : null
+
+    const attendanceRows = todayRows ?? []
+
+    // Stats per class for today
     const statsByClass = new Map<string, { present: number; absent: number; late: number; excused: number }>()
     attendanceRows.forEach((row: any) => {
         if (!statsByClass.has(row.class_id)) {
@@ -263,19 +288,21 @@ export async function getTodayOverview() {
     })
 
     const classesWithStatus = (classes ?? []).map((c: any) => {
-        const period = periodByClass.get(c.id)
+        const hasToday = statsByClass.has(c.id)
         const stats = statsByClass.get(c.id) ?? null
+        const lastDate = latestDateByClass.get(c.id) ?? null
         return {
             id: c.id,
             name: c.name,
             level: null,
-            hasDoneAttendance: !!period,
-            periodStatus: period?.status ?? null,
+            hasDoneAttendance: hasToday,
+            lastAttendanceDate: lastDate,
+            periodStatus: hasToday ? 'closed' : null,
             stats,
         }
     })
 
-    // Absentees today across all classes
+    // Absentees today
     const absentees = attendanceRows
         .filter((r: any) => r.status === 'absent')
         .map((r: any) => ({
@@ -286,9 +313,15 @@ export async function getTodayOverview() {
         }))
 
     const totalPresent = attendanceRows.filter((r: any) => r.status === 'present' || r.status === 'late').length
-    const totalAbsent = attendanceRows.filter((r: any) => r.status === 'absent').length
+    const totalAbsent  = attendanceRows.filter((r: any) => r.status === 'absent').length
 
-    return { classes: classesWithStatus, absentees, totalPresent, totalAbsent }
+    return {
+        classes: classesWithStatus,
+        absentees,
+        totalPresent,
+        totalAbsent,
+        schoolGlobalRate
+    }
 }
 
 // ─── Chronic absentees (students above threshold in N days) ────────────────────
@@ -333,117 +366,124 @@ export async function getChronicAbsentees(threshold = 3, days = 30) {
 
 // ─── Periods for a specific class (for sessions list) ─────────────────────────
 
-export async function getClassPeriods(classId: string, days = 30) {
+export async function getClassPeriods(classId: string) {
     const ctx = await getSchoolAndUser()
     if (!ctx) return []
 
     const { supabase, schoolId } = ctx
 
-    const since = new Date()
-    since.setDate(since.getDate() - days)
-    const sinceStr = since.toISOString().split('T')[0]
-
+    // First try attendance_periods
     const { data: periods } = await supabase
         .from('attendance_periods')
         .select('id, date, status, created_at, subjects(id, name)')
         .eq('school_id', schoolId)
         .eq('class_id', classId)
-        .gte('date', sinceStr)
         .order('date', { ascending: false })
         .order('created_at', { ascending: false })
 
-    if (!periods || periods.length === 0) return []
+    if (periods && periods.length > 0) {
+        const periodIds = periods.map((p: any) => p.id)
+        const { data: rows } = await supabase
+            .from('attendance')
+            .select('period_id, status')
+            .in('period_id', periodIds)
 
-    const periodIds = periods.map((p: any) => p.id)
+        const statsMap = new Map<string, Record<string, number>>()
+        ;(rows ?? []).forEach((row: any) => {
+            if (!statsMap.has(row.period_id)) {
+                statsMap.set(row.period_id, { present: 0, absent: 0, late: 0, excused: 0 })
+            }
+            const s = statsMap.get(row.period_id)!
+            s[row.status] = (s[row.status] ?? 0) + 1
+        })
 
+        return periods.map((p: any) => ({
+            id: p.id,
+            date: p.date,
+            status: p.status,
+            subjectId: (p.subjects as any)?.id ?? null,
+            subjectName: (p.subjects as any)?.name ?? null,
+            stats: statsMap.get(p.id) ?? { present: 0, absent: 0, late: 0, excused: 0 },
+        }))
+    }
+
+    // Fallback: build sessions from attendance table grouped by date
     const { data: rows } = await supabase
         .from('attendance')
-        .select('period_id, status')
-        .in('period_id', periodIds)
+        .select('date, status, subject_id, subjects(id, name)')
+        .eq('school_id', schoolId)
+        .eq('class_id', classId)
+        .order('date', { ascending: false })
 
-    const statsMap = new Map<string, Record<string, number>>()
-    ;(rows ?? []).forEach((row: any) => {
-        if (!statsMap.has(row.period_id)) {
-            statsMap.set(row.period_id, { present: 0, absent: 0, late: 0, excused: 0 })
+    if (!rows || rows.length === 0) return []
+
+    const dateMap = new Map<string, {
+        date: string
+        subjectId: string | null
+        subjectName: string | null
+        stats: Record<string, number>
+    }>()
+
+    rows.forEach((row: any) => {
+        const key = row.date
+        if (!dateMap.has(key)) {
+            dateMap.set(key, {
+                date: row.date,
+                subjectId: row.subject_id ?? null,
+                subjectName: (row.subjects as any)?.name ?? null,
+                stats: { present: 0, absent: 0, late: 0, excused: 0 },
+            })
         }
-        const s = statsMap.get(row.period_id)!
-        s[row.status] = (s[row.status] ?? 0) + 1
+        const entry = dateMap.get(key)!
+        entry.stats[row.status] = (entry.stats[row.status] ?? 0) + 1
     })
 
-    return periods.map((p: any) => ({
-        id: p.id,
-        date: p.date,
-        status: p.status,
-        subjectId: (p.subjects as any)?.id ?? null,
-        subjectName: (p.subjects as any)?.name ?? null,
-        stats: statsMap.get(p.id) ?? { present: 0, absent: 0, late: 0, excused: 0 },
+    return Array.from(dateMap.values()).map((entry, idx) => ({
+        id: `virtual-${entry.date}-${idx}`,
+        date: entry.date,
+        status: 'closed',
+        subjectId: entry.subjectId,
+        subjectName: entry.subjectName,
+        stats: entry.stats,
     }))
 }
 
 // ─── Per-subject attendance stats for a class ─────────────────────────────────
 
-export async function getSubjectStatsForClass(classId: string, days = 30) {
+export async function getSubjectStatsForClass(classId: string) {
     const ctx = await getSchoolAndUser()
     if (!ctx) return []
 
     const { supabase, schoolId } = ctx
 
-    const since = new Date()
-    since.setDate(since.getDate() - days)
-    const sinceStr = since.toISOString().split('T')[0]
-
-    const { data: periods } = await supabase
-        .from('attendance_periods')
-        .select('id, subject_id, subjects(name)')
+    // Direct fallback: read from attendance table (works even without attendance_periods)
+    const { data: attRows } = await supabase
+        .from('attendance')
+        .select('status, subject_id, subjects(name)')
         .eq('school_id', schoolId)
         .eq('class_id', classId)
-        .gte('date', sinceStr)
 
-    if (!periods || periods.length === 0) return []
-
-    const periodIds = periods.map((p: any) => p.id)
-
-    const { data: rows } = await supabase
-        .from('attendance')
-        .select('period_id, status')
-        .in('period_id', periodIds)
-
-    // Map periodId → subject
-    const periodSubjectMap = new Map<string, { subjectId: string | null; subjectName: string }>()
-    periods.forEach((p: any) => {
-        periodSubjectMap.set(p.id, {
-            subjectId: p.subject_id ?? null,
-            subjectName: (p.subjects as any)?.name ?? 'Sans matière',
-        })
-    })
+    if (!attRows || attRows.length === 0) return []
 
     // Accumulate per subject
     const subjectMap = new Map<string, {
         subjectId: string | null
         subjectName: string
-        sessionIds: Set<string>
+        sessionDates: Set<string>
         present: number; absent: number; late: number; excused: number
     }>()
 
-    periods.forEach((p: any) => {
-        const key = p.subject_id ?? '__none__'
+    attRows.forEach((row: any) => {
+        const key = row.subject_id ?? '__none__'
         if (!subjectMap.has(key)) {
             subjectMap.set(key, {
-                subjectId: p.subject_id ?? null,
-                subjectName: (p.subjects as any)?.name ?? 'Sans matière',
-                sessionIds: new Set(),
+                subjectId: row.subject_id ?? null,
+                subjectName: (row.subjects as any)?.name ?? 'Sans matière',
+                sessionDates: new Set(),
                 present: 0, absent: 0, late: 0, excused: 0,
             })
         }
-        subjectMap.get(key)!.sessionIds.add(p.id)
-    })
-
-    ;(rows ?? []).forEach((row: any) => {
-        const sub = periodSubjectMap.get(row.period_id)
-        if (!sub) return
-        const key = sub.subjectId ?? '__none__'
-        const s = subjectMap.get(key)
-        if (!s) return
+        const s = subjectMap.get(key)!
         s[row.status as 'present' | 'absent' | 'late' | 'excused'] =
             (s[row.status as 'present' | 'absent' | 'late' | 'excused'] ?? 0) + 1
     })
@@ -455,7 +495,7 @@ export async function getSubjectStatsForClass(classId: string, days = 30) {
             return {
                 subjectId: s.subjectId,
                 subjectName: s.subjectName,
-                sessions: s.sessionIds.size,
+                sessions: s.sessionDates.size,
                 present: s.present,
                 absent: s.absent,
                 late: s.late,
@@ -464,12 +504,7 @@ export async function getSubjectStatsForClass(classId: string, days = 30) {
                 rate,
             }
         })
-        .sort((a, b) => {
-            if (a.rate === null && b.rate === null) return 0
-            if (a.rate === null) return 1
-            if (b.rate === null) return -1
-            return a.rate - b.rate
-        })
+        .sort((a, b) => (b.rate ?? 0) - (a.rate ?? 0))
 }
 
 // ─── Missing attendance details for a class ───────────────────────────────────
@@ -544,27 +579,25 @@ export async function getMissingAttendanceDetails(classId: string) {
 
 // ─── Class attendance stats (for reports tab) ─────────────────────────────────
 
-export async function getClassAttendanceStats(classId: string, days = 30) {
+export async function getClassAttendanceStats(classId: string) {
     const ctx = await getSchoolAndUser()
     if (!ctx) return []
 
     const { supabase, schoolId } = ctx
 
-    const since = new Date()
-    since.setDate(since.getDate() - days)
-    const sinceStr = since.toISOString().split('T')[0]
+    const [enrollmentsRes, attendanceRes] = await Promise.all([
+        supabase
+            .from('enrollments')
+            .select('student_id, profiles!enrollments_student_id_fkey(id, full_name)')
+            .eq('class_id', classId)
+            .eq('school_id', schoolId),
+        supabase
+            .from('attendance')
+            .select('student_id, status')
+            .eq('school_id', schoolId)
+            .eq('class_id', classId)
+    ])
 
-    const { data } = await supabase
-        .from('attendance')
-        .select('student_id, status, justified, date, profiles!attendance_student_id_fkey(full_name)')
-        .eq('school_id', schoolId)
-        .eq('class_id', classId)
-        .gte('date', sinceStr)
-        .order('date', { ascending: false })
-
-    if (!data || data.length === 0) return []
-
-    // Group by student
     const studentMap = new Map<string, {
         id: string
         name: string
@@ -575,20 +608,226 @@ export async function getClassAttendanceStats(classId: string, days = 30) {
         total: number
     }>()
 
-    data.forEach((row: any) => {
-        const sid = row.student_id
-        if (!studentMap.has(sid)) {
-            studentMap.set(sid, {
-                id: sid,
-                name: row.profiles?.full_name ?? '—',
-                present: 0, absent: 0, late: 0, excused: 0, total: 0,
-            })
+    ;(enrollmentsRes.data ?? []).forEach((row: any) => {
+        studentMap.set(row.student_id, {
+            id: row.student_id,
+            name: row.profiles?.full_name ?? '—',
+            present: 0, absent: 0, late: 0, excused: 0, total: 0,
+        })
+    })
+
+    ;(attendanceRes.data ?? []).forEach((row: any) => {
+        const s = studentMap.get(row.student_id)
+        if (s) {
+            const statusKey = row.status as 'present' | 'absent' | 'late' | 'excused'
+            if (statusKey in s) {
+                s[statusKey]++
+            }
+            s.total++
         }
-        const s = studentMap.get(sid)!
-        s[row.status as keyof typeof s]++
-        s.total++
     })
 
     return Array.from(studentMap.values())
         .sort((a, b) => a.name.localeCompare(b.name))
+}
+
+export async function getClassAttendanceDetails(classId: string) {
+    try {
+        const ctx = await getSchoolAndUser(['admin', 'super_admin', 'school_staff', 'teacher', 'parent'])
+        if (!ctx) return { periods: [], subjectStats: [], enrolled: [], stats: [] }
+
+        const { supabase, schoolId } = ctx
+
+        // 1. Fetch Class Periods
+        const { data: periods } = await supabase
+            .from('attendance_periods')
+            .select('id, date, status, created_at, subjects(id, name)')
+            .eq('school_id', schoolId)
+            .eq('class_id', classId)
+            .order('date', { ascending: false })
+            .order('created_at', { ascending: false })
+
+        let builtPeriods: any[] = []
+        if (periods && periods.length > 0) {
+            const periodIds = periods.map((p: any) => p.id)
+            const { data: rows } = await supabase
+                .from('attendance')
+                .select('period_id, status')
+                .in('period_id', periodIds)
+
+            const statsMap = new Map<string, Record<string, number>>()
+            ;(rows ?? []).forEach((row: any) => {
+                if (!statsMap.has(row.period_id)) {
+                    statsMap.set(row.period_id, { present: 0, absent: 0, late: 0, excused: 0 })
+                }
+                const s = statsMap.get(row.period_id)!
+                s[row.status] = (s[row.status] ?? 0) + 1
+            })
+
+            builtPeriods = periods.map((p: any) => ({
+                id: p.id,
+                date: p.date,
+                status: p.status,
+                subjectId: (p.subjects as any)?.id ?? null,
+                subjectName: (p.subjects as any)?.name ?? null,
+                stats: statsMap.get(p.id) ?? { present: 0, absent: 0, late: 0, excused: 0 },
+            }))
+        } else {
+            const { data: rows } = await supabase
+                .from('attendance')
+                .select('date, status, subject_id, subjects(id, name)')
+                .eq('class_id', classId)
+                .order('date', { ascending: false })
+
+            if (rows && rows.length > 0) {
+                const dateMap = new Map<string, {
+                    date: string
+                    subjectId: string | null
+                    subjectName: string | null
+                    stats: Record<string, number>
+                }>()
+
+                rows.forEach((row: any) => {
+                    const key = row.date
+                    if (!dateMap.has(key)) {
+                        dateMap.set(key, {
+                            date: row.date,
+                            subjectId: row.subject_id ?? null,
+                            subjectName: (row.subjects as any)?.name ?? null,
+                            stats: { present: 0, absent: 0, late: 0, excused: 0 },
+                        })
+                    }
+                    const entry = dateMap.get(key)!
+                    entry.stats[row.status] = (entry.stats[row.status] ?? 0) + 1
+                })
+
+                builtPeriods = Array.from(dateMap.values()).map((entry, idx) => ({
+                    id: `virtual-${entry.date}-${idx}`,
+                    date: entry.date,
+                    status: 'closed',
+                    subjectId: entry.subjectId,
+                    subjectName: entry.subjectName,
+                    stats: entry.stats,
+                }))
+            }
+        }
+
+        // 2. Fetch Subject Stats
+        const { data: attRows } = await supabase
+            .from('attendance')
+            .select('status, subject_id, subjects(name)')
+            .eq('class_id', classId)
+
+        let builtSubjectStats: any[] = []
+        if (attRows && attRows.length > 0) {
+            const subjectMap = new Map<string, {
+                subjectId: string | null
+                subjectName: string
+                sessionDates: Set<string>
+                present: number; absent: number; late: number; excused: number
+            }>()
+
+            attRows.forEach((row: any) => {
+                const key = row.subject_id ?? '__none__'
+                if (!subjectMap.has(key)) {
+                    subjectMap.set(key, {
+                        subjectId: row.subject_id ?? null,
+                        subjectName: (row.subjects as any)?.name ?? 'Sans matière',
+                        sessionDates: new Set(),
+                        present: 0, absent: 0, late: 0, excused: 0,
+                    })
+                }
+                const s = subjectMap.get(key)!
+                s[row.status as 'present' | 'absent' | 'late' | 'excused'] =
+                    (s[row.status as 'present' | 'absent' | 'late' | 'excused'] ?? 0) + 1
+            })
+
+            builtSubjectStats = Array.from(subjectMap.values())
+                .map(s => {
+                    const total = s.present + s.absent + s.late + s.excused
+                    const rate = total > 0 ? Math.round(((s.present + s.late) / total) * 100) : null
+                    return {
+                        subjectId: s.subjectId,
+                        subjectName: s.subjectName,
+                        sessions: s.sessionDates.size,
+                        present: s.present,
+                        absent: s.absent,
+                        late: s.late,
+                        excused: s.excused,
+                        total,
+                        rate,
+                    }
+                })
+                .sort((a, b) => (b.rate ?? 0) - (a.rate ?? 0))
+        }
+
+        // 3. Fetch Enrolled Students
+        const { data: enrollData } = await supabase
+            .from('enrollments')
+            .select('student_id, profiles!enrollments_student_id_fkey(id, full_name, avatar_url)')
+            .eq('school_id', schoolId)
+            .eq('class_id', classId)
+            .order('student_id')
+
+        const builtEnrolled = (enrollData ?? []).map((e: any) => ({
+            id: e.student_id,
+            full_name: e.profiles?.full_name ?? '—',
+            avatar_url: e.profiles?.avatar_url ?? null,
+        }))
+
+        // 4. Fetch Student Stats
+        const { data: attStatsRows } = await supabase
+            .from('attendance')
+            .select('student_id, status, profiles!attendance_student_id_fkey(id, full_name)')
+            .eq('class_id', classId)
+
+        const studentMap = new Map<string, {
+            id: string
+            name: string
+            present: number
+            absent: number
+            late: number
+            excused: number
+            total: number
+        }>()
+
+        builtEnrolled.forEach(e => {
+            studentMap.set(e.id, {
+                id: e.id,
+                name: e.full_name,
+                present: 0, absent: 0, late: 0, excused: 0, total: 0,
+            })
+        })
+
+        ;(attStatsRows ?? []).forEach((row: any) => {
+            if (!studentMap.has(row.student_id)) {
+                const studentName = (row.profiles as any)?.full_name ?? '—'
+                studentMap.set(row.student_id, {
+                    id: row.student_id,
+                    name: studentName,
+                    present: 0, absent: 0, late: 0, excused: 0, total: 0,
+                })
+            }
+            const s = studentMap.get(row.student_id)!
+            const statusKey = row.status as 'present' | 'absent' | 'late' | 'excused'
+            if (statusKey in s) {
+                s[statusKey]++
+            }
+            s.total++
+        })
+
+        const builtStats = Array.from(studentMap.values())
+            .sort((a, b) => a.name.localeCompare(b.name))
+
+        return {
+            periods: builtPeriods,
+            subjectStats: builtSubjectStats,
+            enrolled: builtEnrolled,
+            stats: builtStats,
+        }
+
+    } catch (e) {
+        console.error('getClassAttendanceDetails server error:', e)
+        return { periods: [], subjectStats: [], enrolled: [], stats: [] }
+    }
 }

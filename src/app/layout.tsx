@@ -26,6 +26,11 @@ export const metadata: Metadata = {
   title: "Qalami - Gestion Scolaire",
   description: "Plateforme de gestion scolaire pour la Mauritanie",
   manifest: "/manifest.json",
+  icons: {
+    icon: "/web-app-manifest-192x192.png",
+    shortcut: "/web-app-manifest-192x192.png",
+    apple: "/web-app-manifest-192x192.png",
+  },
 };
 
 export const viewport: Viewport = {

@@ -2,6 +2,93 @@
 
 import { getActionContext } from '@/lib/auth-action'
 import { revalidatePath } from 'next/cache'
+import { createAdminClient } from '@/utils/supabase/admin'
+
+export interface ScheduleTeacherOption {
+    id: string
+    full_name: string
+    subjects: string[]
+    phone: string | null
+}
+
+function teacherDisplayName(fullName: string | null | undefined, email: string | null | undefined): string {
+    const n = (fullName ?? '').trim()
+    if (n) return n
+    const e = (email ?? '').trim()
+    if (e) return e.includes('@') ? e.split('@')[0]! : e
+    return 'Enseignant'
+}
+
+/** Liste des enseignants pour /admin/schedule (vue par enseignant) — union admin, hors RLS client. */
+export async function fetchTeachersForSchedule(): Promise<{
+    teachers: ScheduleTeacherOption[]
+    error?: string
+}> {
+    const ctx = await getActionContext()
+    if (!ctx) return { teachers: [], error: 'Non authentifié' }
+
+    const { schoolId } = ctx
+    const admin = createAdminClient()
+
+    const [{ data: directT }, { data: assignedRows }, { data: schoolLinks }] = await Promise.all([
+        admin.from('profiles').select('id').eq('school_id', schoolId).eq('role', 'teacher'),
+        admin
+            .from('teacher_assignments')
+            .select('teacher_id, classes!inner(school_id)')
+            .eq('classes.school_id', schoolId),
+        admin.from('profile_schools').select('profile_id').eq('school_id', schoolId).eq('role', 'teacher'),
+    ])
+
+    const allTeacherIds = [
+        ...new Set([
+            ...(directT || []).map(p => p.id),
+            ...(assignedRows || []).map((r: { teacher_id: string }) => r.teacher_id),
+            ...(schoolLinks || []).map(r => r.profile_id),
+        ]),
+    ]
+
+    if (allTeacherIds.length === 0) return { teachers: [] }
+
+    // Pas de .eq('role','teacher') ici : les IDs viennent déjà des affectations / liens école ;
+    // certains profils peuvent avoir un rôle applicatif différent tout en enseignant.
+    const [{ data: profiles }, { data: assignData }] = await Promise.all([
+        admin
+            .from('profiles')
+            .select('id, full_name, email, phone')
+            .in('id', allTeacherIds)
+            .order('full_name'),
+        admin
+            .from('teacher_assignments')
+            .select('teacher_id, subjects(name)')
+            .in('teacher_id', allTeacherIds),
+    ])
+
+    const subjectsByTeacher = new Map<string, string[]>()
+    ;(assignData || []).forEach((a: { teacher_id: string; subjects?: { name?: string } | null }) => {
+        const name = a.subjects?.name
+        if (!name) return
+        const list = subjectsByTeacher.get(a.teacher_id) || []
+        if (!list.includes(name)) list.push(name)
+        subjectsByTeacher.set(a.teacher_id, list)
+    })
+
+    const byId = new Map((profiles || []).map(p => [p.id, p]))
+    const teachers: ScheduleTeacherOption[] = allTeacherIds
+        .map(id => {
+            const p = byId.get(id)
+            if (!p) return null
+            return {
+                id: p.id,
+                full_name: teacherDisplayName(p.full_name, p.email),
+                subjects: subjectsByTeacher.get(p.id) || [],
+                phone: p.phone || null,
+            }
+        })
+        .filter((x): x is ScheduleTeacherOption => x !== null)
+        .sort((a, b) => a.full_name.localeCompare(b.full_name, 'fr', { sensitivity: 'base' }))
+
+    return { teachers }
+}
 
 function padTime(t: string): string {
     const trimmed = t.trim()
@@ -112,4 +199,115 @@ export async function importSchedule(rows: ImportRow[]) {
 
     revalidatePath('/admin/schedule')
     return { success: true, count: toInsert.length, errors }
+}
+
+export interface ScheduleFetchInput {
+    classId?: string
+    teacherId?: string
+    startStr: string
+    endStr: string
+}
+
+export async function fetchScheduleForAdmin(input: ScheduleFetchInput) {
+    const ctx = await getActionContext()
+    if (!ctx) return { error: 'Non authentifié' }
+    const { schoolId } = ctx
+    const admin = createAdminClient()
+
+    let query = admin
+        .from('schedule')
+        .select(`
+            id, day_of_week, start_time, end_time, room, session_type,
+            teacher_id, class_id, school_id, is_recurring, event_date,
+            subjects!schedule_subject_id_fkey(name),
+            profiles!schedule_teacher_id_fkey(full_name, email, phone),
+            classes!schedule_class_id_fkey(name),
+            schools!schedule_school_id_fkey(name)
+        `)
+        .or(`is_recurring.eq.true,and(event_date.gte.${input.startStr},event_date.lt.${input.endStr})`)
+
+    if (input.classId) {
+        query = query.eq('school_id', schoolId).eq('class_id', input.classId)
+    } else if (input.teacherId) {
+        // For teacher view, fetch across all schools to show complete unavailability
+        query = query.eq('teacher_id', input.teacherId)
+    } else {
+        query = query.eq('school_id', schoolId)
+    }
+
+    const { data, error } = await query.order('day_of_week', { ascending: true })
+    if (error) {
+        console.error('Error fetching schedule via admin client:', error.message)
+        return { error: error.message }
+    }
+
+    // Extract teacher IDs that appear in the current view's schedule to check conflicts across all schools
+    const teacherIds = [...new Set((data || []).map(slot => slot.teacher_id).filter(Boolean))]
+
+    let allSlots: any[] = []
+    if (teacherIds.length > 0) {
+        const { data: fetchedSlots } = await admin
+            .from('schedule')
+            .select('teacher_id, day_of_week, start_time')
+            .in('teacher_id', teacherIds)
+            .or(`is_recurring.eq.true,and(event_date.gte.${input.startStr},event_date.lt.${input.endStr})`)
+        allSlots = fetchedSlots || []
+    }
+
+    return {
+        schedule: data || [],
+        allSlots: allSlots || [],
+        currentSchoolId: schoolId
+    }
+}
+
+export interface OccupiedTeacherInfo {
+    teacherId: string
+    schoolId: string
+    schoolName: string
+    className: string
+    isRecurring: boolean
+    eventDate: string | null
+}
+
+export async function fetchOccupiedTeachersForSlot(input: {
+    dayIndex: number
+    startTime: string
+    endTime: string
+}): Promise<{ occupied: OccupiedTeacherInfo[], error?: string }> {
+    const ctx = await getActionContext()
+    if (!ctx) return { occupied: [], error: 'Non authentifié' }
+
+    const admin = createAdminClient()
+
+    // Find any schedule overlapping the provided time slot across all schools
+    const { data, error } = await admin
+        .from('schedule')
+        .select(`
+            teacher_id,
+            school_id,
+            is_recurring,
+            event_date,
+            schools!schedule_school_id_fkey(name),
+            classes!schedule_class_id_fkey(name)
+        `)
+        .eq('day_of_week', input.dayIndex)
+        .lt('start_time', input.endTime)
+        .gt('end_time', input.startTime)
+
+    if (error) {
+        console.error('Error fetching occupied teachers:', error.message)
+        return { occupied: [], error: error.message }
+    }
+
+    const occupied: OccupiedTeacherInfo[] = (data || []).map((row: any) => ({
+        teacherId: row.teacher_id,
+        schoolId: row.school_id,
+        schoolName: row.schools?.name || 'Autre école',
+        className: row.classes?.name || 'Autre classe',
+        isRecurring: !!row.is_recurring,
+        eventDate: row.event_date,
+    }))
+
+    return { occupied }
 }

@@ -50,3 +50,87 @@ export async function deleteStaffMember(profileId: string) {
 
     return { error: null }
 }
+
+export async function updateCurrentUserPassword(newPassword: string) {
+    if (!newPassword || newPassword.length < 4) {
+        return { error: 'Le mot de passe doit comporter au moins 4 caractères.' }
+    }
+
+    const supabase = await createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return { error: 'Non authentifié' }
+
+    const { error } = await supabase.auth.updateUser({ password: newPassword })
+    
+    if (error) {
+        return { error: error.message }
+    }
+    
+    return { success: true }
+}
+
+export async function updateSchoolIdentityAction(data: {
+    school_id: string
+    name: string
+    slogan: string
+    address: string
+    email: string
+    logo_url?: string
+}) {
+    const supabase = await createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return { error: 'Non authentifié' }
+
+    // Verify ownership of this school
+    const { data: profile } = await supabase
+        .from('profiles')
+        .select('school_id, role')
+        .eq('id', user.id)
+        .single()
+
+    if (!profile || profile.school_id !== data.school_id) {
+        return { error: 'Accès non autorisé pour cette école.' }
+    }
+    
+    // Restrict to admins only
+    if (profile.role !== 'admin' && profile.role !== 'super_admin') {
+        return { error: 'Permission de modification refusée.' }
+    }
+
+    const admin = createAdminClient()
+
+    // 1. Update Core Schools table (Ensures global super-admin views are synced)
+    const { error: coreError } = await admin
+        .from('schools')
+        .update({
+            name: data.name,
+            email: data.email,
+            address: data.address,
+            logo_url: data.logo_url || null
+        })
+        .eq('id', data.school_id)
+
+    if (coreError) {
+        console.error('Failed to update core schools:', coreError)
+        return { error: `Erreur table schools: ${coreError.message}` }
+    }
+
+    // 2. Upsert School Settings overrides table
+    const { error: settingsError } = await admin
+        .from('school_settings')
+        .upsert({
+            school_id: data.school_id,
+            name: data.name,
+            slogan: data.slogan,
+            address: data.address,
+            email: data.email,
+            logo_url: data.logo_url
+        }, { onConflict: 'school_id' })
+
+    if (settingsError) {
+        console.error('Failed to update school_settings:', settingsError)
+        return { error: `Erreur table school_settings: ${settingsError.message}` }
+    }
+
+    return { success: true }
+}

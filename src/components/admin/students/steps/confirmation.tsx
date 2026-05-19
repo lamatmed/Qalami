@@ -6,6 +6,7 @@ import { RegistrationData } from '../registration-wizard'
 import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
 import { useLanguage } from '@/i18n'
+import { cn } from '@/lib/utils'
 
 interface StepProps {
     data: RegistrationData
@@ -17,14 +18,14 @@ interface StepProps {
 
 export function Confirmation({ data, savedCredentials }: StepProps) {
     const router = useRouter()
-    const { t, language } = useLanguage()
+    const { t, language, direction } = useLanguage()
 
     const displayPin = savedCredentials?.hasPhone ? (savedCredentials.password || '----') : t('admin.students.register.confirmation.noStudentAccess')
     const displayName = savedCredentials?.fullName || `${data.personal.firstName} ${data.personal.lastName}`
     const displayClass = savedCredentials?.className || data.academic.className || t('admin.students.register.confirmation.unassigned')
 
     return (
-        <div className="text-center py-6 space-y-6">
+        <div className="text-center py-6 space-y-6" dir={direction}>
             <div className="flex justify-center">
                 <div className="h-24 w-24 bg-emerald-500 rounded-full flex items-center justify-center shadow-[0_0_30px_rgba(16,185,129,0.4)] animate-in zoom-in duration-500">
                     <CheckCircle2 className="w-12 h-12 text-black" />
@@ -39,8 +40,8 @@ export function Confirmation({ data, savedCredentials }: StepProps) {
             </div>
 
             {/* Generated Card */}
-            <div className="bg-gradient-to-br from-[#1A2530] to-[#0F1720] border border-white/10 rounded-3xl p-6 max-w-sm mx-auto shadow-2xl relative overflow-hidden text-left">
-                <div className="absolute top-0 right-0 p-2 bg-emerald-500 text-black text-[10px] font-bold rounded-bl-xl">
+            <div className={cn("bg-gradient-to-br from-[#1A2530] to-[#0F1720] border border-white/10 rounded-3xl p-6 max-w-sm mx-auto shadow-2xl relative overflow-hidden", direction === 'rtl' ? 'text-right' : 'text-left')} dir={direction}>
+                <div className={cn("absolute top-0 p-2 bg-emerald-500 text-black text-[10px] font-bold", direction === 'rtl' ? 'left-0 rounded-br-xl' : 'right-0 rounded-bl-xl')}>
                     {t('admin.students.register.confirmation.sessionLabel')}
                 </div>
 
@@ -132,7 +133,7 @@ export function Confirmation({ data, savedCredentials }: StepProps) {
                 <Button
                     variant="outline"
                     className="w-full bg-[#1A2530] text-white border-white/5 hover:bg-[#23303d] h-12 rounded-xl"
-                    onClick={() => router.push('/admin/students/register')}
+                    onClick={() => { window.location.href = '/admin/students/register' }}
                 >
                     <UserPlus className="mr-2 w-4 h-4" /> {t('admin.students.register.confirmation.registerAnother')}
                 </Button>

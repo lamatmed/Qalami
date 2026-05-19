@@ -4,6 +4,14 @@ import { Button } from '@/components/ui/button'
 // Forced level reload trigger comment
 import { Plus, GraduationCap, Settings, Loader2, X, ChevronDown, Trash2, AlertTriangle } from 'lucide-react'
 import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import {
+    Dialog,
+    DialogContent,
+    DialogHeader,
+    DialogTitle,
+    DialogFooter,
+} from '@/components/ui/dialog'
 import Link from 'next/link'
 import { cn } from '@/lib/utils'
 import { toast } from 'sonner'
@@ -68,7 +76,7 @@ export function SchoolLevels() {
             .single()
         if (!profile?.school_id) { setLoading(false); return }
 
-        const { data: levelsData } = await supabase
+        let { data: levelsData } = await supabase
             .from('levels')
             .select('id, name_fr, name_ar')
             .eq('school_id', profile.school_id)
@@ -172,26 +180,51 @@ export function SchoolLevels() {
     return (
         <div className="space-y-6 animate-in fade-in duration-500">
             {/* Header */}
-            <div className="flex justify-between items-start">
+            <div className="flex justify-between items-start gap-4">
                 <div>
                     <h2 className="text-2xl font-bold text-foreground">{t('admin.structure.schoolStructure')}</h2>
                     <p className="text-sm text-muted-foreground mt-0.5">
                         {t('admin.structure.levelsCount', { count: levels.length, x: levels.length !== 1 ? 'x' : '' })} · {t('admin.structure.classesCount', { count: totalClasses, s: totalClasses !== 1 ? 's' : '' })} · {t('admin.structure.studentsCount', { count: totalStudents, s: totalStudents !== 1 ? 's' : '' })}
                     </p>
                 </div>
-                <Link href="/admin/settings">
-                    <Button variant="ghost" size="icon" className="text-muted-foreground hover:text-foreground">
-                        <Settings className="w-5 h-5" />
+                <div className="flex items-center gap-2 shrink-0">
+                    <Button
+                        size="sm"
+                        onClick={() => setShowNewCycleForm(true)}
+                        className="bg-emerald-500 hover:bg-emerald-600 text-black font-semibold gap-1.5 hidden sm:flex h-9"
+                    >
+                        <Plus className="w-4 h-4" />
+                        {t('admin.structure.addCycle') || 'Nouveau Cycle'}
                     </Button>
-                </Link>
+                    <Button
+                        size="icon"
+                        onClick={() => setShowNewCycleForm(true)}
+                        className="bg-emerald-500 hover:bg-emerald-600 text-black sm:hidden h-9 w-9"
+                        title={t('admin.structure.addCycle') || 'Nouveau Cycle'}
+                    >
+                        <Plus className="w-4 h-4" />
+                    </Button>
+                    <Link href="/admin/settings">
+                        <Button variant="ghost" size="icon" className="text-muted-foreground hover:text-foreground h-9 w-9">
+                            <Settings className="w-5 h-5" />
+                        </Button>
+                    </Link>
+                </div>
             </div>
 
             {/* Tree */}
             {levels.length === 0 ? (
-                <div className="text-center py-16 text-muted-foreground">
-                    <GraduationCap className="w-12 h-12 mx-auto mb-3 opacity-20" />
-                    <p className="font-medium">{t('common.noData')}</p>
-                    <p className="text-sm mt-1">{t('admin.structure.addPreschool')}</p>
+                <div className="text-center py-16 text-muted-foreground border-2 border-dashed border-border rounded-3xl flex flex-col items-center justify-center bg-card/50">
+                    <GraduationCap className="w-12 h-12 mx-auto mb-3 opacity-20 text-emerald-500" />
+                    <p className="font-bold text-foreground text-lg">{t('common.noData')}</p>
+                    <p className="text-sm text-muted-foreground mt-1 mb-5 max-w-md">{t('admin.structure.addPreschool') || 'Créez votre premier cycle scolaire (Primaire, Moyen, Secondaire) pour commencer à organiser vos classes.'}</p>
+                    <Button
+                        onClick={() => setShowNewCycleForm(true)}
+                        className="bg-emerald-500 hover:bg-emerald-600 text-black font-bold gap-2"
+                    >
+                        <Plus className="w-4.5 h-4.5" />
+                        {t('admin.structure.addCycle') || 'Créer un cycle'}
+                    </Button>
                 </div>
             ) : (
                 <div className="space-y-3">
@@ -295,58 +328,6 @@ export function SchoolLevels() {
                 </div>
             )}
 
-            {/* Add level */}
-            {showNewCycleForm ? (
-                <div className="border-2 border-primary/30 rounded-2xl p-6 bg-primary/5 space-y-4 animate-in fade-in slide-in-from-bottom-4 duration-300">
-                    <div className="flex items-center justify-between">
-                        <h4 className="font-bold text-foreground">{t('admin.structure.defineNewCycle')}</h4>
-                        <Button variant="ghost" size="icon" onClick={() => setShowNewCycleForm(false)}>
-                            <X className="w-4 h-4" />
-                        </Button>
-                    </div>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                        <div>
-                            <label className="text-xs text-muted-foreground font-bold mb-1.5 block">{t('admin.structure.levelNameFr')}</label>
-                            <Input
-                                placeholder={t('admin.structure.levelNameFrPlaceholder')}
-                                className="h-11"
-                                value={newLevelNameFr}
-                                onChange={(e) => setNewLevelNameFr(e.target.value)}
-                                onKeyDown={(e) => e.key === 'Enter' && handleCreateCycle()}
-                            />
-                        </div>
-                        <div>
-                            <label className="text-xs text-muted-foreground font-bold mb-1.5 block">{t('admin.structure.levelNameAr')}</label>
-                            <Input
-                                placeholder={t('admin.structure.levelNameArPlaceholder')}
-                                className="h-11 text-right"
-                                dir="rtl"
-                                value={newLevelNameAr}
-                                onChange={(e) => setNewLevelNameAr(e.target.value)}
-                            />
-                        </div>
-                    </div>
-                    <Button
-                        className="w-full bg-primary hover:bg-primary/90 text-primary-foreground font-bold h-11"
-                        onClick={handleCreateCycle}
-                        disabled={creating}
-                    >
-                        {creating
-                            ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> {t('admin.structure.creating')}</>
-                            : <><Plus className="w-4 h-4 mr-2" /> {t('admin.structure.createLevel')}</>
-                        }
-                    </Button>
-                </div>
-            ) : (
-                <button
-                    type="button"
-                    onClick={() => setShowNewCycleForm(true)}
-                    className="flex items-center gap-2 px-4 py-2.5 rounded-xl border border-dashed border-border text-sm font-medium text-muted-foreground hover:text-foreground hover:border-primary/40 hover:bg-muted/50 transition-colors"
-                >
-                    <Plus className="w-4 h-4 shrink-0" />
-                    {t('admin.structure.defineNewCycle')}
-                </button>
-            )}
             {/* ── Delete Level Dialog ── */}
             {deletingLevel && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
@@ -425,6 +406,72 @@ export function SchoolLevels() {
                     </div>
                 </div>
             )}
+            {/* ── New Cycle Dialog ── */}
+            <Dialog open={showNewCycleForm} onOpenChange={setShowNewCycleForm}>
+                <DialogContent className="sm:max-w-[420px] bg-[#161B22] border-white/10 text-white">
+                    <DialogHeader>
+                        <DialogTitle className="text-white flex items-center gap-2">
+                            <GraduationCap className="w-5 h-5 text-emerald-400" />
+                            {t('admin.structure.newCycleDialogTitle') || 'Nouveau Cycle Scolaire'}
+                        </DialogTitle>
+                    </DialogHeader>
+                    <div className="space-y-4 py-2">
+                        <p className="text-sm text-gray-400">
+                            {t('admin.structure.newCycleDialogDesc') || 'Définissez un nouveau niveau ou cycle d\'études pour l\'école.'}
+                        </p>
+                        
+                        <div className="space-y-1.5">
+                            <Label htmlFor="cycle-fr" className="text-gray-400 text-xs font-bold uppercase tracking-wide">
+                                {t('admin.structure.cycleLabelFr') || 'Nom du cycle (FR)'}
+                            </Label>
+                            <Input
+                                id="cycle-fr"
+                                placeholder="ex: Cycle Primaire"
+                                value={newLevelNameFr}
+                                onChange={e => setNewLevelNameFr(e.target.value)}
+                                onKeyDown={e => e.key === 'Enter' && newLevelNameFr.trim() && handleCreateCycle()}
+                                className="bg-[#0F1720] border-white/10 text-white placeholder:text-gray-600"
+                            />
+                        </div>
+
+                        <div className="space-y-1.5">
+                            <Label htmlFor="cycle-ar" className="text-gray-400 text-xs font-bold uppercase tracking-wide">
+                                {t('admin.structure.cycleLabelAr') || 'Nom du cycle (AR)'}
+                            </Label>
+                            <Input
+                                id="cycle-ar"
+                                placeholder="ex: الطور الابتدائي"
+                                dir="rtl"
+                                value={newLevelNameAr}
+                                onChange={e => setNewLevelNameAr(e.target.value)}
+                                onKeyDown={e => e.key === 'Enter' && newLevelNameFr.trim() && handleCreateCycle()}
+                                className="bg-[#0F1720] border-white/10 text-white text-right placeholder:text-gray-600"
+                            />
+                        </div>
+                    </div>
+                    <DialogFooter className="pt-2 gap-2 sm:gap-0">
+                        <Button 
+                            variant="outline" 
+                            onClick={() => setShowNewCycleForm(false)} 
+                            disabled={creating}
+                            className="border-white/10 hover:bg-white/5 text-gray-400 hover:text-white"
+                        >
+                            {t('common.cancel')}
+                        </Button>
+                        <Button 
+                            onClick={handleCreateCycle} 
+                            disabled={creating || !newLevelNameFr.trim()}
+                            className="bg-emerald-500 hover:bg-emerald-600 text-black font-bold"
+                        >
+                            {creating ? (
+                                <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> {t('common.creating') || 'Création...'}</>
+                            ) : (
+                                <>{t('common.create') || 'Créer'}</>
+                            )}
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
         </div>
     )
 }

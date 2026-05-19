@@ -7,6 +7,7 @@ import { cn } from '@/lib/utils'
 import { createClient } from '@/utils/supabase/client'
 import { useSchoolContext } from '@/lib/use-school-context'
 import { useLanguage } from '@/i18n'
+import { getSchoolMetricsCounts } from '@/app/admin/actions'
 
 interface Metric {
     label: string
@@ -29,21 +30,20 @@ export function SchoolMetrics() {
         const fetchMetrics = async () => {
             try {
                 const [
-                    studentsRes,
-                    teachersRes,
-                    parentsRes,
+                    aggregatedCounts,
                     attendanceRes,
                     revenueRes,
                     quizzesRes,
-                    homeworkRes,
                 ] = await Promise.all([
-                    supabase.from('profiles').select('id', { count: 'exact', head: true }).eq('school_id', schoolId).eq('role', 'student'),
-                    supabase.from('profiles').select('id', { count: 'exact', head: true }).eq('school_id', schoolId).eq('role', 'teacher'),
-                    supabase.from('profiles').select('id', { count: 'exact', head: true }).eq('school_id', schoolId).eq('role', 'parent'),
-                    supabase.from('attendance').select('status', { count: 'exact' }).eq('school_id', schoolId).gte('date', new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString()),
-                    supabase.from('transactions').select('amount').eq('school_id', schoolId).eq('type', 'income').gte('date', new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString()),
+                    getSchoolMetricsCounts(schoolId),
+                    // Join through classes since attendance lacks direct school_id column
+                    supabase.from('attendance').select('status, classes!inner(school_id)')
+                        .eq('classes.school_id', schoolId)
+                        .gte('date', new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().split('T')[0]),
+                    supabase.from('transactions').select('amount')
+                        .eq('school_id', schoolId).in('type', ['income', 'tuition'])
+                        .gte('transaction_date', new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().split('T')[0]),
                     supabase.from('quizzes').select('id', { count: 'exact', head: true }).eq('school_id', schoolId).eq('is_published', true),
-                    supabase.from('homework').select('id', { count: 'exact', head: true }).eq('school_id', schoolId).eq('is_published', true).gte('due_date', new Date().toISOString()),
                 ])
 
                 const attendanceData = attendanceRes.data || []
@@ -55,13 +55,12 @@ export function SchoolMetrics() {
                 const totalRevenue = (revenueRes.data || []).reduce((sum: number, t: any) => sum + (t.amount || 0), 0)
 
                 setMetrics([
-                    { label: t('common.students'),              value: studentsRes.count ?? 0,                    icon: <GraduationCap className="w-4 h-4" />, trend: 5,  iconCls: 'text-emerald-400 bg-emerald-500/15' },
-                    { label: t('common.teachers'),              value: teachersRes.count ?? 0,                    icon: <Users className="w-4 h-4" />,          iconCls: 'text-blue-400 bg-blue-500/15' },
-                    { label: t('common.parents'),               value: parentsRes.count ?? 0,                     icon: <Users className="w-4 h-4" />,          iconCls: 'text-amber-400 bg-amber-500/15' },
+                    { label: t('common.students'),              value: aggregatedCounts.students,                    icon: <GraduationCap className="w-4 h-4" />, trend: 5,  iconCls: 'text-emerald-400 bg-emerald-500/15' },
+                    { label: t('common.teachers'),              value: aggregatedCounts.teachers,                    icon: <Users className="w-4 h-4" />,          iconCls: 'text-blue-400 bg-blue-500/15' },
+                    { label: t('common.parents'),               value: aggregatedCounts.parents,                     icon: <Users className="w-4 h-4" />,          iconCls: 'text-amber-400 bg-amber-500/15' },
                     { label: t('admin.analytics.attendance'),   value: `${attendanceRate}%`,                      icon: <Calendar className="w-4 h-4" />,       trend: attendanceRate > 90 ? 2 : -3, iconCls: attendanceRate > 90 ? 'text-emerald-400 bg-emerald-500/15' : 'text-amber-400 bg-amber-500/15' },
                     { label: t('admin.analytics.revenueMonth'), value: `${(totalRevenue / 1000).toFixed(0)}K MRU`,icon: <DollarSign className="w-4 h-4" />,    trend: 8,  iconCls: 'text-emerald-400 bg-emerald-500/15' },
                     { label: t('admin.analytics.activeQuizzes'),value: quizzesRes.count ?? 0,                     icon: <BookOpen className="w-4 h-4" />,       iconCls: 'text-purple-400 bg-purple-500/15' },
-                    { label: t('admin.analytics.pendingHomework'),value: homeworkRes.count ?? 0,                  icon: <FileText className="w-4 h-4" />,       iconCls: 'text-blue-400 bg-blue-500/15' },
                 ])
             } catch (error) {
                 console.error('Error fetching metrics:', error)

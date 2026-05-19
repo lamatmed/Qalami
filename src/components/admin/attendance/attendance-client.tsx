@@ -1,22 +1,20 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
-import {
-    getClasses,
-    getEnrolledStudents,
-    getClassPeriods,
-    getSubjectStatsForClass,
-    getClassAttendanceStats,
-    getAttendanceForPeriod,
-} from '@/app/admin/attendance/actions'
+import React, { useState, useEffect } from 'react'
+import { useRouter } from 'next/navigation'
+import { createClient } from '@/utils/supabase/client'
 import {
     Loader2, ChevronDown, ChevronUp,
     BookOpen, Users, BarChart3, Calendar,
-    TrendingUp, TrendingDown,
+    TrendingUp, TrendingDown, ArrowLeft,
 } from 'lucide-react'
 import { motion } from 'framer-motion'
 import { cn } from '@/lib/utils'
 import { useLanguage } from '@/i18n'
+import {
+    getClassAttendanceDetails,
+    getTodayOverview,
+} from '@/app/admin/attendance/actions'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -110,9 +108,11 @@ const item = {
 function PeriodRow({
     period,
     enrolledStudents,
+    classId,
 }: {
     period: ClassPeriod
     enrolledStudents: EnrolledStudent[]
+    classId?: string
 }) {
     const { t, language } = useLanguage()
     const [open,    setOpen]    = useState(false)
@@ -123,9 +123,26 @@ function PeriodRow({
         if (open) { setOpen(false); return }
         if (rows.length === 0) {
             setLoading(true)
-            const data = await getAttendanceForPeriod(period.id)
-            setRows(data as { student_id: string; status: string }[])
-            setLoading(false)
+            try {
+                const supabase = createClient()
+                // Virtual period ids are "virtual-DATE-N" — extract date
+                const date = period.id.startsWith('virtual-') ? period.date : null
+                let query = supabase
+                    .from('attendance')
+                    .select('student_id, status')
+                if (date) {
+                    query = query.eq('date', date) as any
+                    if (classId) {
+                        query = query.eq('class_id', classId) as any
+                    }
+                } else {
+                    query = query.eq('period_id', period.id) as any
+                }
+                const { data } = await query
+                setRows(data ?? [])
+            } catch { /* silent */ } finally {
+                setLoading(false)
+            }
         }
         setOpen(true)
     }
@@ -250,44 +267,63 @@ function ProgressRow({
 
 // ─── Main component ────────────────────────────────────────────────────────────
 
-export function AttendanceClient() {
-    const { t } = useLanguage()
+export function AttendanceClient({ classId }: { classId?: string }) {
+    const { t, language } = useLanguage()
+    const router = useRouter()
     const [classOptions,    setClassOptions]    = useState<{ id: string; name: string }[]>([])
-    const [selectedClassId, setSelectedClassId] = useState('')
+    const [selectedClassId, setSelectedClassId] = useState(classId ?? '')
     const [loadingInit,     setLoadingInit]     = useState(true)
     const [loadingClass,    setLoadingClass]    = useState(false)
+    const [todayOverview,   setTodayOverview]   = useState<any>(null)
 
     const [periods,          setPeriods]          = useState<ClassPeriod[]>([])
     const [subjectStats,     setSubjectStats]     = useState<SubjectStat[]>([])
     const [studentStats,     setStudentStats]     = useState<StudentStat[]>([])
     const [enrolledStudents, setEnrolledStudents] = useState<EnrolledStudent[]>([])
 
-    // Load class list
+    // ── Init: load school overview on mount ──────────────────────────────────
     useEffect(() => {
-        getClasses().then(data => {
-            setClassOptions(data as { id: string; name: string }[])
-            setLoadingInit(false)
-        })
+        let cancelled = false
+        async function init() {
+            try {
+                const now = new Date()
+                const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`
+                const data = await getTodayOverview(todayStr)
+                if (cancelled) return
+                const clsOpts = (data?.classes ?? []).map((c: any) => ({ id: c.id, name: c.name }))
+                setClassOptions(clsOpts)
+                setTodayOverview(data)
+            } catch (err) {
+                console.error('Attendance dashboard init failed:', err)
+            } finally {
+                if (!cancelled) setLoadingInit(false)
+            }
+        }
+        init()
+        return () => { cancelled = true }
     }, [])
 
-    // Load class data when selection changes
-    const loadClass = useCallback(async (classId: string) => {
-        if (!classId) return
+    // ── Load class details when selectedClassId changes ──────────────────────
+    useEffect(() => {
+        if (!selectedClassId) return
+        let cancelled = false
         setLoadingClass(true)
-        const [p, ss, sts, enrolled] = await Promise.all([
-            getClassPeriods(classId, 30),
-            getSubjectStatsForClass(classId, 30),
-            getClassAttendanceStats(classId, 30),
-            getEnrolledStudents(classId),
-        ])
-        setPeriods(p as ClassPeriod[])
-        setSubjectStats(ss as SubjectStat[])
-        setStudentStats(sts as StudentStat[])
-        setEnrolledStudents(enrolled as EnrolledStudent[])
-        setLoadingClass(false)
-    }, [])
-
-    useEffect(() => { loadClass(selectedClassId) }, [selectedClassId, loadClass])
+        setPeriods([])
+        setSubjectStats([])
+        setStudentStats([])
+        setEnrolledStudents([])
+        getClassAttendanceDetails(selectedClassId)
+            .then(result => {
+                if (cancelled) return
+                setPeriods((result?.periods ?? []) as ClassPeriod[])
+                setSubjectStats((result?.subjectStats ?? []) as SubjectStat[])
+                setEnrolledStudents((result?.enrolled ?? []) as EnrolledStudent[])
+                setStudentStats((result?.stats ?? []) as StudentStat[])
+            })
+            .catch(err => console.error('loadClass failed:', err))
+            .finally(() => { if (!cancelled) setLoadingClass(false) })
+        return () => { cancelled = true }
+    }, [selectedClassId])
 
     // Derived global stats
     const totalSessions  = periods.length
@@ -298,6 +334,27 @@ export function AttendanceClient() {
     const bestSubject    = [...sortedByRate].sort((a, b) => (b.rate ?? 0) - (a.rate ?? 0))[0]
     const worstSubject   = [...sortedByRate].sort((a, b) => (a.rate ?? 0) - (b.rate ?? 0))[0]
 
+    // Derive dynamic active stats
+    const now = new Date()
+    const safeTodayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`
+    
+    // Find actual presence stats today for selected class directly from current loaded periods
+    const activePeriodsToday = periods.filter(p => p.date === safeTodayStr)
+    const classPresToday = activePeriodsToday.reduce((s, p) => s + p.stats.present + p.stats.late, 0)
+    const classAbsToday  = activePeriodsToday.reduce((s, p) => s + p.stats.absent, 0)
+
+    const totalPresentToday = selectedClassId 
+        ? classPresToday
+        : (todayOverview?.totalPresent ?? 0)
+
+    const totalAbsentToday = selectedClassId 
+        ? classAbsToday
+        : (todayOverview?.totalAbsent ?? 0)
+
+    const displayGlobalRate = selectedClassId
+        ? globalRate // Use historical global class rate when selected
+        : (todayOverview?.schoolGlobalRate ?? null) // Fallback to school global average
+
     if (loadingInit) return (
         <div className="flex items-center justify-center py-40">
             <Loader2 className="w-7 h-7 animate-spin text-primary" />
@@ -307,33 +364,144 @@ export function AttendanceClient() {
     return (
         <motion.div variants={container} initial="hidden" animate="show" className="space-y-5 pb-24">
 
-            {/* ── Class selector ────────────────────────────────────────────── */}
-            <motion.div variants={item}>
-                <select
-                    value={selectedClassId}
-                    onChange={e => setSelectedClassId(e.target.value)}
-                    className="w-full sm:w-72 bg-card border border-border/50 rounded-2xl px-4 py-2.5 text-sm text-foreground focus:outline-none focus:border-primary/50 transition-colors"
-                >
-                    <option value="">{t('admin.attendance.selectClassPlaceholder')}</option>
-                    {classOptions.map(c => (
-                        <option key={c.id} value={c.id}>{c.name}</option>
-                    ))}
-                </select>
-            </motion.div>
+            {/* ── Header / Navigation ───────────────────────────────────────── */}
+            {selectedClassId && (
+                <motion.div variants={item} className="flex items-center gap-4 mb-2 no-print">
+                    <button
+                        onClick={() => setSelectedClassId('')}
+                        className="p-2 bg-card hover:bg-accent border border-border/50 rounded-xl transition-colors shrink-0 group shadow-sm flex items-center justify-center"
+                    >
+                        <ArrowLeft className="w-5 h-5 text-muted-foreground group-hover:text-foreground transition-colors" />
+                    </button>
+                    <div>
+                        <h2 className="text-2xl font-black text-foreground leading-tight">
+                            {classOptions.find(c => c.id === selectedClassId)?.name || "Classe"}
+                        </h2>
+                        <p className="text-xs text-muted-foreground font-medium tracking-wide uppercase mt-0.5">
+                            {t('admin.attendance.bySubject')}
+                        </p>
+                    </div>
+                </motion.div>
+            )}
+
+            {/* ── Today's Overview Metrics (SCHOOL GLOBAL) ─────────────────── */}
+            {todayOverview && !selectedClassId && (
+                <motion.div variants={item} className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                    <div className="bg-card rounded-2xl p-4 border border-border/50 shadow-sm relative overflow-hidden group">
+                        <div className="flex flex-col">
+                            <span className="text-muted-foreground text-xs font-medium uppercase tracking-wider">
+                                {language === 'ar' ? 'إجمالي الحضور اليوم' : "Total Présents Aujourd'hui"}
+                            </span>
+                            <span className="text-2xl font-black mt-1 text-emerald-500">
+                                {todayOverview.totalPresent}
+                            </span>
+                        </div>
+                        <div className="absolute -bottom-4 -right-4 w-16 h-16 bg-emerald-500/5 rounded-full" />
+                    </div>
+                    <div className="bg-card rounded-2xl p-4 border border-border/50 shadow-sm relative overflow-hidden group">
+                        <div className="flex flex-col">
+                            <span className="text-muted-foreground text-xs font-medium uppercase tracking-wider">
+                                {language === 'ar' ? 'إجمالي الغياب اليوم' : "Total Absents Aujourd'hui"}
+                            </span>
+                            <span className="text-2xl font-black mt-1 text-red-500">
+                                {todayOverview.totalAbsent}
+                            </span>
+                        </div>
+                        <div className="absolute -bottom-4 -right-4 w-16 h-16 bg-red-500/5 rounded-full" />
+                    </div>
+                    <div className="bg-card rounded-2xl p-4 border border-border/50 shadow-sm relative overflow-hidden group">
+                        <div className="flex flex-col">
+                            <span className="text-muted-foreground text-xs font-medium uppercase tracking-wider">
+                                {language === 'ar' ? 'معدل الحضور العام' : "Taux de Présence Global"}
+                            </span>
+                            <span className="text-2xl font-black mt-1 text-indigo-500">
+                                {todayOverview.schoolGlobalRate !== null ? `${todayOverview.schoolGlobalRate}%` : '—'}
+                            </span>
+                        </div>
+                        <div className="absolute -bottom-4 -right-4 w-16 h-16 bg-indigo-500/5 rounded-full" />
+                    </div>
+                </motion.div>
+            )}
 
             {/* ── Empty state ────────────────────────────────────────────────── */}
             {!selectedClassId ? (
-                <motion.div variants={item}
-                    className="flex flex-col items-center justify-center py-24 gap-4 bg-card rounded-3xl border border-border/50"
-                >
-                    <div className="w-14 h-14 rounded-full bg-primary/10 flex items-center justify-center">
-                        <Users className="w-6 h-6 text-primary" />
-                    </div>
-                    <div className="text-center">
-                        <p className="font-bold text-foreground">{t('admin.attendance.chooseClass')}</p>
-                        <p className="text-sm text-muted-foreground mt-1">
-                            {t('admin.attendance.chooseClassDesc')}
-                        </p>
+                <motion.div variants={item} className="space-y-6">
+                    {/* Classes Attendance Status Grid */}
+                    <div className="bg-card rounded-3xl border border-border/50 p-6 space-y-4">
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between border-b border-border/50 pb-4 gap-2">
+                            <div>
+                                <h3 className="font-bold text-lg text-foreground">
+                                    {language === 'ar' ? 'إحصائيات الحضور حسب الأقسام' : "Statistiques de Présence par Classe"}
+                                </h3>
+                                <p className="text-xs text-muted-foreground mt-0.5">
+                                    {language === 'ar' ? 'متابعة يومية فورية لدفتر الحضور' : "Suivi en temps réel de l'appel journalier"}
+                                </p>
+                            </div>
+                        </div>
+
+                        {todayOverview?.classes?.length === 0 ? (
+                            <div className="text-center py-12 text-muted-foreground text-sm">
+                                {language === 'ar' ? 'لا توجد أقسام مضافة.' : 'Aucune classe configurée.'}
+                            </div>
+                        ) : (
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                {todayOverview?.classes?.map((c: any) => {
+                                    const stats = c.stats
+                                    const total = stats ? (stats.present + stats.absent + stats.late + stats.excused) : 0
+                                    const rate = total > 0 ? Math.round(((stats.present + stats.late) / total) * 100) : null
+
+                                    return (
+                                        <button
+                                            key={c.id}
+                                            onClick={() => setSelectedClassId(c.id)}
+                                            className="bg-accent/10 border border-border/30 rounded-2xl p-4 hover:border-indigo-500/30 hover:bg-accent/20 transition-all flex flex-col justify-between gap-3 text-left w-full select-none cursor-pointer group/card"
+                                        >
+                                            <div className="flex items-center justify-between w-full">
+                                                <div>
+                                                    <h4 className="font-extrabold text-foreground text-sm group-hover/card:text-indigo-500 transition-colors">{c.name}</h4>
+                                                    <span className={cn(
+                                                        "text-[10px] font-bold px-2 py-0.5 rounded-full inline-block mt-1",
+                                                        c.hasDoneAttendance 
+                                                            ? "bg-emerald-500/10 text-emerald-500" 
+                                                            : c.lastAttendanceDate 
+                                                                ? "bg-indigo-500/10 text-indigo-500" 
+                                                                : "bg-amber-500/10 text-amber-500"
+                                                    )}>
+                                                        {c.hasDoneAttendance 
+                                                            ? (language === 'ar' ? 'تم تسجيل حضور اليوم' : "Appel Fait Aujourd'hui") 
+                                                            : c.lastAttendanceDate 
+                                                                ? (language === 'ar' ? `آخر تسجيل: ${formatDate(c.lastAttendanceDate, language)}` : `Dernier appel : ${formatDate(c.lastAttendanceDate, language)}`)
+                                                                : (language === 'ar' ? 'لم يتم تسجيل أي حضور' : "Aucun appel enregistré")}
+                                                    </span>
+                                                </div>
+                                            </div>
+
+                                            {rate !== null && (
+                                                <div className="space-y-1 w-full">
+                                                    <div className="flex items-center justify-between text-xs">
+                                                        <span className="text-muted-foreground">
+                                                            {language === 'ar' ? 'معدل الحضور :' : "Taux de présence :"}
+                                                        </span>
+                                                        <span className={cn("font-bold", rateColor(rate))}>{rate}%</span>
+                                                    </div>
+                                                    <div className="h-1.5 bg-border/30 rounded-full overflow-hidden w-full">
+                                                        <div
+                                                            className={cn('h-full rounded-full transition-all duration-500', rateBar(rate))}
+                                                            style={{ width: `${rate}%` }}
+                                                        />
+                                                    </div>
+                                                    {stats && (
+                                                        <p className="text-[10px] text-muted-foreground">
+                                                            {stats.present} {language === 'ar' ? 'حاضر' : 'Présents'} · {stats.absent} {language === 'ar' ? 'غائب' : 'Absents'} · {stats.late} {language === 'ar' ? 'متأخر' : 'Retards'}
+                                                        </p>
+                                                    )}
+                                                </div>
+                                            )}
+                                        </button>
+                                    )
+                                })}
+                            </div>
+                        )}
                     </div>
                 </motion.div>
             ) : loadingClass ? (
@@ -343,7 +511,7 @@ export function AttendanceClient() {
             ) : (
                 <>
                     {/* ── KPI cards ────────────────────────────────────────────── */}
-                    <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+                    <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-4">
                         {([
                             {
                                 label: t('admin.attendance.sessions'),
@@ -359,6 +527,19 @@ export function AttendanceClient() {
                                     ? 'text-emerald-500/10 group-hover:text-emerald-500/20'
                                     : 'text-amber-500/10 group-hover:text-amber-500/20',
                                 warn: globalRate !== null && globalRate < 80,
+                            },
+                            {
+                                label: language === 'ar' ? 'حاضر اليوم' : "Présents Aujourd'hui",
+                                value: String(classPresToday),
+                                icon: Users,
+                                iconColor: 'text-emerald-500/10 group-hover:text-emerald-500/20',
+                            },
+                            {
+                                label: language === 'ar' ? 'غائب اليوم' : "Absents Aujourd'hui",
+                                value: String(classAbsToday),
+                                icon: Users,
+                                iconColor: 'text-red-500/10 group-hover:text-red-500/20',
+                                warn: classAbsToday > 0,
                             },
                             {
                                 label: t('admin.attendance.bestSubject'),
@@ -433,6 +614,7 @@ export function AttendanceClient() {
                                             key={period.id}
                                             period={period}
                                             enrolledStudents={enrolledStudents}
+                                            classId={selectedClassId}
                                         />
                                     ))}
                                 </div>

@@ -42,8 +42,8 @@ export function EnrollmentChart() {
                             .eq('school_id', schoolId).eq('role', 'student')
                             .lte('created_at', m.end.toISOString()),
                         supabase.from('transactions').select('amount')
-                            .eq('school_id', schoolId).eq('type', 'income')
-                            .gte('date', m.start.toISOString()).lte('date', m.end.toISOString()),
+                            .eq('school_id', schoolId).in('type', ['income', 'tuition'])
+                            .gte('transaction_date', m.start.toISOString().split('T')[0]).lte('transaction_date', m.end.toISOString().split('T')[0]),
                     ])
                     chartData.push({
                         month: m.month,

@@ -23,10 +23,19 @@ export function AddTransactionDialog({ open, onOpenChange, onSuccess }: AddTrans
     const [isPending, startTransition] = useTransition()
     const [type, setType] = useState<'income' | 'expense'>('income')
     const [amount, setAmount] = useState('')
-    const [category, setCategory] = useState('')
+    const [category, setCategory] = useState('tuition')
     const [date, setDate] = useState(new Date().toISOString().split('T')[0])
     const [description, setDescription] = useState('')
     const { t } = useLanguage()
+
+    const handleTypeChange = (newType: 'income' | 'expense') => {
+        setType(newType)
+        if (newType === 'income') {
+            setCategory('tuition')
+        } else {
+            setCategory('') // Force user to pick an expense category
+        }
+    }
 
     const handleSubmit = () => {
         if (!amount || !category) {
@@ -65,7 +74,8 @@ export function AddTransactionDialog({ open, onOpenChange, onSuccess }: AddTrans
 
                 // Reset form
                 setAmount('')
-                setCategory('')
+                setCategory('tuition')
+                setType('income')
                 setDescription('')
                 setDate(new Date().toISOString().split('T')[0])
 
@@ -89,7 +99,8 @@ export function AddTransactionDialog({ open, onOpenChange, onSuccess }: AddTrans
                     {/* Type Selector */}
                     <div className="grid grid-cols-2 gap-3 p-1 bg-[#0D1117] rounded-xl border border-white/5">
                         <button
-                            onClick={() => setType('income')}
+                            type="button"
+                            onClick={() => handleTypeChange('income')}
                             className={cn(
                                 "flex items-center justify-center gap-2 py-2.5 rounded-lg text-sm font-bold transition-all",
                                 type === 'income' ? "bg-emerald-500/10 text-emerald-500 shadow-sm" : "text-gray-400 hover:text-white hover:bg-white/5"
@@ -98,7 +109,8 @@ export function AddTransactionDialog({ open, onOpenChange, onSuccess }: AddTrans
                             <ArrowUpRight className="w-4 h-4" /> {t('admin.finance.income')}
                         </button>
                         <button
-                            onClick={() => setType('expense')}
+                            type="button"
+                            onClick={() => handleTypeChange('expense')}
                             className={cn(
                                 "flex items-center justify-center gap-2 py-2.5 rounded-lg text-sm font-bold transition-all",
                                 type === 'expense' ? "bg-red-500/10 text-red-500 shadow-sm" : "text-gray-400 hover:text-white hover:bg-white/5"
@@ -129,12 +141,17 @@ export function AddTransactionDialog({ open, onOpenChange, onSuccess }: AddTrans
                                     <SelectValue placeholder={t('admin.accounting.choose')} />
                                 </SelectTrigger>
                                 <SelectContent className="bg-[#161B22] border-white/10 text-white">
-                                    <SelectItem value="tuition">{t('admin.finance.tuition')}</SelectItem>
-                                    <SelectItem value="transport">Transport</SelectItem>
-                                    <SelectItem value="salary">{t('admin.finance.salaries')}</SelectItem>
-                                    <SelectItem value="maintenance">{t('admin.finance.maintenance')}</SelectItem>
-                                    <SelectItem value="supplies">{t('admin.accounting.supplies')}</SelectItem>
-                                    <SelectItem value="other">{t('admin.finance.others')}</SelectItem>
+                                    {type === 'income' ? (
+                                        <SelectItem value="tuition">{t('admin.finance.tuition')}</SelectItem>
+                                    ) : (
+                                        <>
+                                            <SelectItem value="transport">{t('admin.finance.transport')}</SelectItem>
+                                            <SelectItem value="salary">{t('admin.finance.salaries')}</SelectItem>
+                                            <SelectItem value="maintenance">{t('admin.finance.maintenance')}</SelectItem>
+                                            <SelectItem value="supplies">{t('admin.accounting.supplies')}</SelectItem>
+                                            <SelectItem value="other">{t('admin.finance.others')}</SelectItem>
+                                        </>
+                                    )}
                                 </SelectContent>
                             </Select>
                         </div>

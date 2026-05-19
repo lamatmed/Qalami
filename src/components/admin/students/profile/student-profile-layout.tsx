@@ -22,6 +22,7 @@ import { useLanguage } from '@/i18n'
 
 interface StudentProfile {
     full_name: string
+    phone: string | null
     status: string
     date_of_birth: string | null
     gender: string | null
@@ -48,7 +49,7 @@ export function StudentProfileLayout({ id }: { id: string }) {
     const [assignClassOpen, setAssignClassOpen] = useState(false)
     const tabs = [
         { id: 'grades', label: t('student.grades.title') },
-        { id: 'attendance', label: t('teacher.attendance.title') },
+        { id: 'attendance', label: t('common.attendance') },
         { id: 'schedule', label: t('common.schedule') },
         { id: 'payments', label: t('parent.finances.title') },
         { id: 'remarks', label: t('admin.students.profile.remarks') },
@@ -64,6 +65,7 @@ export function StudentProfileLayout({ id }: { id: string }) {
                 .from('profiles')
                 .select(`
                     full_name,
+                    phone,
                     status,
                     date_of_birth,
                     gender,
@@ -96,6 +98,7 @@ export function StudentProfileLayout({ id }: { id: string }) {
                 const firstEnrollment = enrollments?.[0]
                 setStudent({
                     full_name: profile.full_name || t('common.student'),
+                    phone: (profile as any).phone || null,
                     status: (profile as any).status || 'active',
                     date_of_birth: (profile as any).date_of_birth || null,
                     gender: (profile as any).gender || null,
@@ -245,6 +248,18 @@ export function StudentProfileLayout({ id }: { id: string }) {
                             <p className="text-sm text-white font-medium">{genderLabel(student?.gender ?? null)}</p>
                         </div>
                     </div>
+
+                    {student?.phone && (
+                        <div className="bg-[#0F1720] p-3 rounded-xl flex items-center gap-4 border border-white/5">
+                            <div className="h-10 w-10 bg-cyan-500/10 rounded-lg flex items-center justify-center text-cyan-400 shrink-0">
+                                <Phone className="w-5 h-5" />
+                            </div>
+                            <div>
+                                <p className="text-[10px] text-gray-500 uppercase font-bold">{t('admin.students.register.personal.phone') || 'Téléphone'}</p>
+                                <p className="text-sm text-white font-mono">{student.phone}</p>
+                            </div>
+                        </div>
+                    )}
 
                     {student?.national_id && (
                         <div className="bg-[#0F1720] p-3 rounded-xl flex items-center gap-4 border border-white/5">

@@ -5,6 +5,7 @@ import { createClient } from '@/utils/supabase/client'
 import { Loader2, MessageSquare, StickyNote } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useLanguage } from '@/i18n'
+import { getMySchoolContext } from '@/app/admin/actions'
 
 interface RemarkRow {
     id: string
@@ -42,6 +43,9 @@ export function TeacherRemarksList({ teacherId }: { teacherId: string }) {
     useEffect(() => {
         async function load() {
             const supabase = createClient()
+            const ctx = await getMySchoolContext()
+            const currentSchoolId = ctx?.school_id
+
             const { data } = await supabase
                 .from('remarks')
                 .select(`
@@ -50,6 +54,7 @@ export function TeacherRemarksList({ teacherId }: { teacherId: string }) {
                     subject:subjects ( name )
                 `)
                 .eq('teacher_id', teacherId)
+                .eq('school_id', currentSchoolId)
                 .order('created_at', { ascending: false })
  
             if (data) setRemarks(data as unknown as RemarkRow[])

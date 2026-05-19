@@ -19,8 +19,9 @@ import {
     SelectTrigger,
     SelectValue,
 } from "@/components/ui/select"
-import { Clock, Loader2, BookOpen, FlaskConical, ClipboardList, RotateCcw, Dumbbell, Zap } from 'lucide-react'
+import { Clock, Loader2, BookOpen, FlaskConical, ClipboardList, RotateCcw, Dumbbell, Zap, Repeat, AlertTriangle } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { Switch } from '@/components/ui/switch'
 
 const SESSION_TYPES = [
     { value: 'course',   label: 'Cours',    icon: BookOpen },
@@ -30,6 +31,7 @@ const SESSION_TYPES = [
     { value: 'lab',      label: 'TP',       icon: FlaskConical },
     { value: 'activity', label: 'Activité', icon: Dumbbell },
 ]
+import { fetchTeachersForSchedule, fetchOccupiedTeachersForSlot, type ScheduleTeacherOption, type OccupiedTeacherInfo } from '@/app/admin/schedule/actions'
 import { useLanguage } from '@/i18n'
 import { createClient } from '@/utils/supabase/client'
 import { toast } from 'sonner'
@@ -60,26 +62,57 @@ export function AddCourseDialog({
     isOpen: boolean,
     onClose: () => void,
     onAdd: () => void,
-    selectedSlot: { day: string, hour: number, dayIndex: number } | null,
+    selectedSlot: { day: string, hour: number, dayIndex: number, date: Date } | null,
     classId?: string
 }) {
     const { t } = useLanguage()
     const [subjects, setSubjects] = useState<SubjectOption[]>([])
     const [assignments, setAssignments] = useState<Assignment[]>([])
+    const [allTeachers, setAllTeachers] = useState<ScheduleTeacherOption[]>([])
     const [selectedSubject, setSelectedSubject] = useState('')
     const [selectedTeacher, setSelectedTeacher] = useState('')
     const [sessionType, setSessionType] = useState('course')
     const [room, setRoom] = useState('')
+    const [isRecurring, setIsRecurring] = useState(false)
     const [saving, setSaving] = useState(false)
     const [loading, setLoading] = useState(true)
+    const [occupiedTeachers, setOccupiedTeachers] = useState<OccupiedTeacherInfo[]>([])
 
-    // Filter teachers — use teacher_id directly (it's already the profile UUID)
-    const filteredTeachers: TeacherOption[] = selectedSubject
-        ? assignments
-            .filter(a => a.subject_id === selectedSubject)
-            .map(a => ({ id: a.teacher_id, full_name: a.profiles?.full_name || 'Enseignant' }))
-            .filter((t, i, arr) => arr.findIndex(x => x.id === t.id) === i)
+    // Strict filter: show ONLY teachers who teach the selected subject (normalized to ignore accents/case)
+    const selectedSubName = subjects.find(s => s.id === selectedSubject)?.name
+    const filteredTeachers = selectedSubName
+        ? allTeachers.filter(teacher => {
+            const normalize = (str: string) => str.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().trim()
+            const targetSub = normalize(selectedSubName)
+            return teacher.subjects.some(s => {
+                const tSub = normalize(s)
+                return tSub.includes(targetSub) || targetSub.includes(tSub)
+            })
+        })
         : []
+
+    // Calculate event date string to check precise conflicts in single-occurrence mode
+    const yr = selectedSlot?.date.getFullYear()
+    const mo = String((selectedSlot?.date.getMonth() ?? 0) + 1).padStart(2, '0')
+    const da = String(selectedSlot?.date.getDate() ?? 0).padStart(2, '0')
+    const eventDateStr = `${yr}-${mo}-${da}`
+
+    const getTeacherConflict = (teacherId: string) => {
+        if (!selectedSlot) return null
+        const conflicts = occupiedTeachers.filter(o => o.teacherId === teacherId)
+        if (conflicts.length === 0) return null
+
+        if (isRecurring) {
+            return conflicts[0] // In recurring mode, any future schedule counts as conflict
+        }
+
+        // In single-occurrence mode, it conflicts if:
+        // - the existing schedule is recurring
+        // - OR matches the exact date
+        return conflicts.find(o => o.isRecurring || o.eventDate === eventDateStr) || null
+    }
+
+    const selectedTeacherConflict = selectedTeacher ? getTeacherConflict(selectedTeacher) : null
 
     // Fetch subjects, teachers, and assignments from DB
     useEffect(() => {
@@ -114,15 +147,25 @@ export function AddCourseDialog({
             if (classId) assignmentsQuery = assignmentsQuery.eq('class_id', classId)
             const { data: assignmentsData, error: assignmentsError } = await assignmentsQuery
 
-            if (assignmentsError) console.error('Assignments error:', assignmentsError.message)
+            // Fetch all teachers of the school and check unavailability for this specific slot
+            const [{ teachers: teachersList }, occupiedRes] = await Promise.all([
+                fetchTeachersForSchedule(),
+                selectedSlot ? fetchOccupiedTeachersForSlot({
+                    dayIndex: selectedSlot.dayIndex,
+                    startTime: `${String(selectedSlot.hour).padStart(2, '0')}:00:00`,
+                    endTime: `${String(selectedSlot.hour + 2).padStart(2, '0')}:00:00`
+                }) : Promise.resolve({ occupied: [] })
+            ])
 
             setSubjects(subjectsData || [])
             setAssignments((assignmentsData || []) as unknown as Assignment[])
+            setAllTeachers(teachersList || [])
+            setOccupiedTeachers(occupiedRes?.occupied || [])
             setLoading(false)
         }
 
         fetchData()
-    }, [isOpen, classId])
+    }, [isOpen, classId, selectedSlot])
 
     // Reset form when dialog opens
     useEffect(() => {
@@ -131,6 +174,7 @@ export function AddCourseDialog({
             setSelectedTeacher('')
             setSessionType('course')
             setRoom('')
+            setIsRecurring(false)
         }
     }, [isOpen])
 
@@ -166,7 +210,13 @@ export function AddCourseDialog({
 
             const startHour = selectedSlot.hour
             const startTime = `${String(startHour).padStart(2, '0')}:00:00`
-            const endTime = `${String(startHour + 1).padStart(2, '0')}:00:00`
+            const endTime = `${String(startHour + 2).padStart(2, '0')}:00:00`
+
+            // Format Date safely as YYYY-MM-DD avoiding timezone shifts
+            const yr = selectedSlot.date.getFullYear()
+            const mo = String(selectedSlot.date.getMonth() + 1).padStart(2, '0')
+            const da = String(selectedSlot.date.getDate()).padStart(2, '0')
+            const eventDateStr = `${yr}-${mo}-${da}`
 
             const { error } = await supabase.from('schedule').insert({
                 school_id: profile.school_id,
@@ -178,6 +228,8 @@ export function AddCourseDialog({
                 end_time: endTime,
                 room: room || null,
                 session_type: sessionType,
+                is_recurring: isRecurring,
+                event_date: isRecurring ? null : eventDateStr
             })
 
             if (error) throw error
@@ -202,7 +254,7 @@ export function AddCourseDialog({
                         {selectedSlot && (
                             <span className="flex items-center gap-2 mt-1 font-mono text-primary">
                                 <Clock className="w-3 h-3" />
-                                {selectedSlot.day} • {selectedSlot.hour}h00 - {selectedSlot.hour + 1}h00
+                                {selectedSlot.day} • {selectedSlot.hour}h00 - {selectedSlot.hour + 2}h00
                             </span>
                         )}
                     </DialogDescription>
@@ -245,14 +297,59 @@ export function AddCourseDialog({
                                 </SelectTrigger>
                                 <SelectContent className="bg-card border-border">
                                     {filteredTeachers.length === 0 ? (
-                                        <div className="px-2 py-3 text-sm text-muted-foreground text-center">Aucun enseignant assigné à cette matière pour cette classe</div>
+                                        <div className="px-2 py-3 text-sm text-muted-foreground text-center">{t('admin.schedule.noTeachers') || 'Aucun enseignant disponible'}</div>
                                     ) : (
-                                        filteredTeachers.map(t => <SelectItem key={t.id} value={t.id}>{t.full_name}</SelectItem>)
+                                        filteredTeachers.map(emp => {
+                                            const conflict = getTeacherConflict(emp.id)
+                                            return (
+                                                <SelectItem key={emp.id} value={emp.id} disabled={!!conflict}>
+                                                    <div className="flex flex-col text-left py-0.5">
+                                                        <div className="flex items-center gap-2">
+                                                            <span className={cn("font-medium", conflict && "text-muted-foreground line-through")}>
+                                                                {emp.full_name}
+                                                            </span>
+                                                            {conflict && (
+                                                                <span className="text-[9px] font-bold text-red-400 border border-red-500/30 px-1.5 py-0.2 bg-red-500/10 rounded uppercase tracking-wider">
+                                                                    Indisponible
+                                                                </span>
+                                                            )}
+                                                            {!conflict && emp.phone && (
+                                                                <span className="text-[10px] text-emerald-500 bg-emerald-500/10 px-1.5 py-0.5 rounded font-mono">
+                                                                    {emp.phone}
+                                                                </span>
+                                                            )}
+                                                        </div>
+                                                        {conflict ? (
+                                                            <span className="text-[10px] text-red-400/70 mt-0.5 font-semibold">
+                                                                Occupé: {conflict.schoolName} - {conflict.className}
+                                                            </span>
+                                                        ) : (
+                                                            emp.subjects.length > 0 && (
+                                                                <span className="text-[10px] text-muted-foreground mt-0.5">
+                                                                    {emp.subjects.slice(0, 2).join(', ')}{emp.subjects.length > 2 ? '…' : ''}
+                                                                </span>
+                                                            )
+                                                        )}
+                                                    </div>
+                                                </SelectItem>
+                                            )
+                                        })
                                     )}
                                 </SelectContent>
                             </Select>
                         )}
                     </div>
+
+                    {selectedTeacherConflict && (
+                        <div className="flex items-start gap-2 text-xs text-red-400 bg-red-500/10 border border-red-500/20 rounded-lg p-2.5 animate-in fade-in slide-in-from-top-1">
+                            <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" />
+                            <div>
+                                <span className="font-semibold">Enseignant indisponible</span> : déjà programmé à{' '}
+                                <span className="font-semibold text-red-300">{selectedTeacherConflict.schoolName}</span>{' '}
+                                ({selectedTeacherConflict.className})
+                            </div>
+                        </div>
+                    )}
 
                     <div className="grid gap-2">
                         <Label className="text-muted-foreground text-xs uppercase font-bold">Type de séance</Label>
@@ -288,6 +385,23 @@ export function AddCourseDialog({
                             onChange={e => setRoom(e.target.value)}
                         />
                     </div>
+
+                    <div className="flex items-center justify-between p-3 rounded-xl bg-muted/50 border border-border/50 mt-2">
+                        <div className="flex items-center gap-3">
+                            <div className="p-2 rounded-lg bg-primary/10 text-primary">
+                                <Repeat className="w-4 h-4" />
+                            </div>
+                            <div className="flex flex-col">
+                                <Label className="text-sm font-bold text-foreground cursor-pointer" htmlFor="recurring-switch">
+                                    Répéter chaque semaine
+                                </Label>
+                                <span className="text-[10px] text-muted-foreground">
+                                    {isRecurring ? "Apparaîtra sur toutes les semaines" : "Uniquement pour cette date"}
+                                </span>
+                            </div>
+                        </div>
+                        <Switch id="recurring-switch" checked={isRecurring} onCheckedChange={setIsRecurring} />
+                    </div>
                 </div>
                 <DialogFooter>
                     <Button variant="ghost" onClick={onClose} className="text-muted-foreground hover:text-foreground">
@@ -295,7 +409,7 @@ export function AddCourseDialog({
                     </Button>
                     <Button
                         onClick={handleSave}
-                        disabled={saving || !selectedSubject || !selectedTeacher}
+                        disabled={saving || !selectedSubject || !selectedTeacher || !!selectedTeacherConflict}
                         className="bg-primary hover:bg-primary/90 text-primary-foreground font-bold"
                     >
                         {saving && <Loader2 className="w-4 h-4 me-2 animate-spin" />}

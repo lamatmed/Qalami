@@ -7,6 +7,7 @@ import { useSchoolContext } from '@/lib/use-school-context'
 import { useLanguage } from '@/i18n'
 import Link from 'next/link'
 import { cn } from '@/lib/utils'
+import { getSchoolMetricsCounts } from '@/app/admin/actions'
 import {
     GraduationCap, DollarSign, AlertTriangle, ArrowRight,
     Megaphone, BookOpen, Clock, RefreshCw, UserPlus,
@@ -58,29 +59,30 @@ export default function AdminDashboard() {
 
         const [
             { data: termData },
-            { count: studentCount },
-            { count: teacherCount },
+            aggregatedCounts,
             { data: classData },
             { data: allStudents },
             { data: enrolled },
-            { data: monthPayments },
+            { data: totalPayments },
             { data: announcements },
         ] = await Promise.all([
             supabase.from('terms').select('name').eq('school_id', sid).eq('is_current', true).single(),
-            supabase.from('profiles').select('id', { count: 'exact', head: true }).eq('school_id', sid).eq('role', 'student').eq('status', 'active'),
-            supabase.from('profiles').select('id', { count: 'exact', head: true }).eq('school_id', sid).eq('role', 'teacher').eq('status', 'active'),
+            getSchoolMetricsCounts(sid),
             supabase.from('classes').select('id, name').eq('school_id', sid),
             supabase.from('profiles').select('id').eq('school_id', sid).eq('role', 'student').eq('status', 'active'),
             supabase.from('enrollments').select('student_id, class_id').eq('school_id', sid).eq('status', 'active'),
-            supabase.from('payments').select('amount, amount_paid').eq('school_id', sid).gte('due_date', startMonth).lte('due_date', endMonth),
+            supabase.from('payments').select('amount, payment_status').eq('school_id', sid),
             supabase.from('announcements').select('id, title, content, target_audience, priority, created_at').eq('school_id', sid).order('created_at', { ascending: false }).limit(4),
         ])
+
+        const studentCount = aggregatedCounts.students
+        const teacherCount = aggregatedCounts.teachers
 
         // Attendance
         const classIds = (classData || []).map((c: any) => c.id)
         let attendanceRate: number | null = null
         if (classIds.length > 0) {
-            const { data: attData } = await supabase.from('attendance').select('status').in('class_id', classIds)
+            const { data: attData } = await supabase.from('attendance').select('status, classes!inner(school_id)').eq('classes.school_id', sid)
             if (attData && attData.length > 0) {
                 const present = attData.filter((a: any) => a.status === 'present').length
                 attendanceRate = Math.round((present / attData.length) * 100)
@@ -142,11 +144,11 @@ export default function AdminDashboard() {
             }))
             .sort((a: ClassStat, b: ClassStat) => b.studentCount - a.studentCount)
 
-        // Finance
-        const monthData = monthPayments || []
-        const monthlyExpected = monthData.reduce((s: number, p: any) => s + Number(p.amount), 0)
-        const monthlyReceived = monthData.reduce((s: number, p: any) => s + Number(p.amount_paid), 0)
-        const recoveryRate = monthlyExpected > 0 ? Math.round((monthlyReceived / monthlyExpected) * 100) : null
+        // Finance - Dynamic Recouvrement
+        const payData = totalPayments || []
+        const totalExpected = payData.reduce((s: number, p: any) => s + Number(p.amount), 0)
+        const totalPaid = payData.reduce((s: number, p: any) => s + (p.payment_status === 'paid' ? Number(p.amount) : 0), 0)
+        const recoveryRate = totalExpected > 0 ? Math.round((totalPaid / totalExpected) * 100) : null
 
         // Unassigned students
         const enrolledSet = new Set(enrolledList.map((e: any) => e.student_id))

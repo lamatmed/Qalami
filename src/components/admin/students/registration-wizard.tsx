@@ -36,8 +36,10 @@ export type RegistrationData = {
         className: string
         academicYear: string
         registrationFee: number
+        monthlyTuition: number
         tuitionFee: number
         isPaid: boolean
+        advanceMonths: number
     }
 }
 
@@ -50,7 +52,7 @@ const currentAcademicYear = now.getMonth() >= 8
 const initialData: RegistrationData = {
     personal: { firstName: '', lastName: '', dateOfBirth: '', gender: '', placeOfBirth: '', nationalId: '', address: '', hasPhone: false },
     parents: {},
-    academic: { level: '', className: '', academicYear: currentAcademicYear, registrationFee: 2500, tuitionFee: 28500, isPaid: false }
+    academic: { level: '', className: '', academicYear: currentAcademicYear, registrationFee: 500, monthlyTuition: 1200, tuitionFee: 11300, isPaid: true, advanceMonths: 0 }
 }
 
 const steps = [
@@ -61,7 +63,7 @@ const steps = [
 ]
 
 export function RegistrationWizard() {
-    const { t } = useLanguage()
+    const { t, direction: langDirection } = useLanguage()
     const [currentStep, setCurrentStep] = useState(1)
     const [formData, setFormData] = useState<RegistrationData>(initialData)
     const [direction, setDirection] = useState(0)
@@ -131,10 +133,10 @@ export function RegistrationWizard() {
     const CurrentComponent = steps[currentStep - 1].component
 
     return (
-        <div className="max-w-2xl mx-auto">
+        <div className="max-w-2xl mx-auto" dir={langDirection}>
             {/* Progress Header */}
             <div className="mb-8">
-                <div className="flex justify-between items-center mb-4 px-2">
+                <div className="flex justify-between items-center mb-4 px-2" dir={langDirection}>
                                 {steps.map((step) => (
                         <div key={step.id} className="flex flex-col items-center relative z-10 group cursor-default">
                             <div className={`w-10 h-10 rounded-full flex items-center justify-center font-bold text-sm transition-all duration-300 ${currentStep > step.id ? 'bg-emerald-500 text-black' :
@@ -155,7 +157,7 @@ export function RegistrationWizard() {
             </div>
 
             {/* Step Content */}
-            <div className="bg-white dark:bg-[#0F1720] border border-gray-200 dark:border-white/5 rounded-3xl p-6 sm:p-8 shadow-lg dark:shadow-2xl relative overflow-hidden min-h-[500px] flex flex-col">
+            <div className="bg-white dark:bg-[#0F1720] border border-gray-200 dark:border-white/5 rounded-3xl p-6 sm:p-8 shadow-lg dark:shadow-2xl relative overflow-hidden min-h-[500px] flex flex-col" dir={langDirection}>
                 {saving && (
                     <div className="absolute inset-0 z-20 bg-white/80 dark:bg-[#0F1720]/80 flex items-center justify-center backdrop-blur-sm rounded-3xl">
                         <div className="text-center space-y-3">

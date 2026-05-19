@@ -5,6 +5,7 @@ import { createClient } from '@/utils/supabase/client'
 import { Loader2, GraduationCap, TrendingUp, Users } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useLanguage } from '@/i18n'
+import { getMySchoolContext } from '@/app/admin/actions'
 
 interface GradeRow {
     value: number
@@ -48,6 +49,9 @@ export function TeacherClassAverages({ teacherId }: { teacherId: string }) {
     useEffect(() => {
         async function load() {
             const supabase = createClient()
+            const ctx = await getMySchoolContext()
+            const currentSchoolId = ctx?.school_id
+
             const { data } = await supabase
                 .from('grades')
                 .select(`
@@ -57,6 +61,7 @@ export function TeacherClassAverages({ teacherId }: { teacherId: string }) {
                     class:classes ( id, name )
                 `)
                 .eq('teacher_id', teacherId)
+                .eq('school_id', currentSchoolId)
  
             if (data) setGrades(data as unknown as GradeRow[])
             setLoading(false)

@@ -7,6 +7,7 @@ import { cn } from '@/lib/utils'
 import { createClient } from '@/utils/supabase/client'
 import { Skeleton } from '@/components/ui/skeleton'
 import { useLanguage } from '@/i18n'
+import { getMySchoolContext } from '@/app/admin/actions'
 
 const SESSION_TYPE_CONFIG: Record<string, { label: string; text: string }> = {
     course:   { label: 'Cours',    text: 'text-blue-400' },
@@ -46,6 +47,9 @@ export function TeacherSchedule({ teacherId }: { teacherId: string }) {
             setLoading(true)
             const supabase = createClient()
  
+            const ctx = await getMySchoolContext()
+            const currentSchoolId = ctx?.school_id
+
             const { data, error } = await supabase
                 .from('schedule')
                 .select(`
@@ -56,9 +60,10 @@ export function TeacherSchedule({ teacherId }: { teacherId: string }) {
                     room,
                     session_type,
                     subjects (name),
-                    classes (name)
+                    classes!inner (name, school_id)
                 `)
                 .eq('teacher_id', teacherId)
+                .eq('classes.school_id', currentSchoolId)
                 .order('start_time')
  
             if (error) {

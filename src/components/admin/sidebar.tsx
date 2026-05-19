@@ -35,6 +35,8 @@ import {
     ShieldCheck,
     ChevronDown,
     GripVertical,
+    ChevronLeft,
+    ChevronRight,
 } from 'lucide-react'
 
 import { createClient } from '@/utils/supabase/client'
@@ -74,7 +76,6 @@ export const sidebarItems = [
     { icon: Users, label: 'admin.sidebar.students', href: '/admin/students' },
     { icon: UserCheck, label: 'admin.sidebar.parents', href: '/admin/parents' },
     { icon: BookOpen, label: 'admin.sidebar.teachers', href: '/admin/teachers' },
-    { icon: UserPlus, label: 'admin.sidebar.invitations', href: '/admin/invitations' },
     { icon: GraduationCap, label: 'admin.sidebar.classes', href: '/admin/classes' },
     { icon: BookMarked, label: 'admin.sidebar.subjects', href: '/admin/subjects' },
     { icon: ClipboardList, label: 'admin.sidebar.assignments', href: '/admin/assignments' },
@@ -97,14 +98,32 @@ export function AdminSidebar() {
     const [currentYear, setCurrentYear] = useState<string | null>(null)
     const [currentTerm, setCurrentTerm] = useState<string | null>(null)
     const [unreadNotifications, setUnreadNotifications] = useState(0)
-    const [pendingInvitations, setPendingInvitations] = useState(0)
     const [unassignedStudents, setUnassignedStudents] = useState(0)
     const [userInfo, setUserInfo] = useState<UserInfo | null>(null)
     const [userMenuOpen, setUserMenuOpen] = useState(false)
     const [staffPermissions, setStaffPermissions] = useState<string[] | null>(null)
     const [schoolName, setSchoolName] = useState<string | null>(null)
+    const [schoolLogo, setSchoolLogo] = useState<string | null>(null)
     const [openGroups, setOpenGroups] = useState<string[]>([])
     const [groupOrder, setGroupOrder] = useState<string[]>(['general', 'community', 'pedagogy', 'finance'])
+
+    const [isCollapsed, setIsCollapsed] = useState(false)
+    const [mounted, setMounted] = useState(false)
+
+    // Hydrate collapsed state
+    useEffect(() => {
+        const saved = localStorage.getItem('qalami_admin_sidebar_collapsed')
+        if (saved === 'true') {
+            setIsCollapsed(true)
+        }
+        setMounted(true)
+    }, [])
+
+    const toggleCollapse = () => {
+        const nextState = !isCollapsed
+        setIsCollapsed(nextState)
+        localStorage.setItem('qalami_admin_sidebar_collapsed', String(nextState))
+    }
 
     // Load saved group order
     useEffect(() => {
@@ -167,7 +186,6 @@ export function AdminSidebar() {
                 { data: yearData },
                 { data: termData },
                 { count: notifCount },
-                { count: inviteCount },
                 { data: allStudents },
                 { data: enrolled },
                 { data: schoolData },
@@ -175,28 +193,31 @@ export function AdminSidebar() {
                 supabase.from('academic_years').select('name').eq('school_id', profile.school_id).eq('is_current', true).single(),
                 supabase.from('terms').select('name').eq('school_id', profile.school_id).eq('is_current', true).single(),
                 supabase.from('notifications').select('id', { count: 'exact', head: true }).eq('user_id', ctx.user_id).eq('is_read', false),
-                supabase.from('invitations').select('id', { count: 'exact', head: true }).eq('school_id', profile.school_id).eq('status', 'pending'),
                 supabase.from('profiles').select('id').eq('school_id', profile.school_id).eq('role', 'student').eq('status', 'active'),
                 supabase.from('enrollments').select('student_id').eq('school_id', profile.school_id).eq('status', 'active'),
-                supabase.from('school_settings').select('name').eq('school_id', profile.school_id).single(),
+                supabase.from('school_settings').select('name, logo_url').eq('school_id', profile.school_id).single(),
             ])
 
             setCurrentYear(yearData?.name ?? null)
             setCurrentTerm(termData?.name ?? null)
             setUnreadNotifications(notifCount ?? 0)
-            setPendingInvitations(inviteCount ?? 0)
 
             // school_settings.name first, fallback to schools.name
             const settingsName = (schoolData as any)?.name ?? null
+            setSchoolLogo((schoolData as any)?.logo_url ?? null)
+            
             if (settingsName) {
                 setSchoolName(settingsName)
             } else {
                 const { data: schoolRow } = await supabase
                     .from('schools')
-                    .select('name')
+                    .select('name, logo_url')
                     .eq('id', profile.school_id)
                     .single()
                 setSchoolName((schoolRow as any)?.name ?? null)
+                if (!(schoolData as any)?.logo_url) {
+                    setSchoolLogo((schoolRow as any)?.logo_url ?? null)
+                }
             }
 
             const enrolledSet = new Set((enrolled || []).map((e: any) => e.student_id))
@@ -247,7 +268,6 @@ export function AdminSidebar() {
                 { icon: Users, label: t('admin.sidebar.students'), href: '/admin/students', badge: unassignedStudents },
                 { icon: UserCheck, label: t('admin.sidebar.parents'), href: '/admin/parents' },
                 { icon: BookOpen, label: t('admin.sidebar.teachers'), href: '/admin/teachers' },
-                { icon: UserPlus, label: t('admin.sidebar.invitations'), href: '/admin/invitations', badge: pendingInvitations },
             ],
         },
         {
@@ -301,16 +321,11 @@ export function AdminSidebar() {
     const systemGroup = groups.find(g => g.id === 'system')
 
 
-    // Initialize all groups as open on first load
-    useEffect(() => {
-        if (groups.length > 0 && openGroups.length === 0) {
-            setOpenGroups(groups.map(g => g.id))
-        }
-    }, [groups, openGroups.length])
+
 
     const toggleGroup = (id: string) => {
         setOpenGroups(prev => 
-            prev.includes(id) ? prev.filter(l => l !== id) : [...prev, id]
+            prev.includes(id) ? [] : [id]
         )
     }
 
@@ -325,59 +340,88 @@ export function AdminSidebar() {
 
     return (
         <aside className={cn(
-            "hidden lg:flex flex-col w-60 h-screen sticky top-0 bg-background z-30",
+            "hidden lg:flex flex-col h-screen sticky top-0 bg-background z-30 transition-all duration-300 ease-in-out relative select-none",
+            isCollapsed ? "w-20" : "w-60",
             direction === 'rtl' ? 'border-l border-border' : 'border-r border-border'
         )}>
+            {/* Collapse Toggle floating knob */}
+            <button
+                onClick={toggleCollapse}
+                title={isCollapsed ? "Agrandir" : "Réduire"}
+                className={cn(
+                    "hidden lg:flex absolute top-16 w-6 h-6 bg-background dark:bg-card border border-border rounded-full items-center justify-center shadow-md text-muted-foreground hover:text-emerald-600 hover:border-emerald-300 dark:hover:text-emerald-400 transition-all active:scale-90 z-50",
+                    direction === 'rtl' ? "-left-3" : "-right-3"
+                )}
+            >
+                {isCollapsed 
+                    ? (direction === 'rtl' ? <ChevronLeft className="h-3.5 w-3.5" /> : <ChevronRight className="h-3.5 w-3.5" />)
+                    : (direction === 'rtl' ? <ChevronRight className="h-3.5 w-3.5" /> : <ChevronLeft className="h-3.5 w-3.5" />)
+                }
+            </button>
 
             {/* ── Logo ──────────────────────────────────────────────────────── */}
-            <div className="px-4 pt-5 pb-3 space-y-3">
+            <div className={cn("px-4 pt-5 pb-3 space-y-3", isCollapsed ? "flex flex-col items-center px-2" : "")}>
                 {/* App identity */}
-                <div className="flex items-center justify-between">
-                    <Link href="/admin" className="flex items-center gap-3 hover:opacity-80 transition-opacity">
-                        <div className="w-9 h-9 rounded-xl bg-emerald-600 flex items-center justify-center shrink-0 shadow-sm">
-                            <span className="font-black text-[16px] text-white leading-none">Q</span>
-                        </div>
-                        <div className="min-w-0">
-                            <p className="font-bold text-[15px] text-foreground leading-none tracking-tight">{t('common.appName')}</p>
-                            {schoolName && (
-                                <p className="text-[10px] text-muted-foreground/50 uppercase tracking-widest font-medium mt-0.5 truncate">
-                                    {schoolName}
-                                </p>
+                <div className={cn("flex items-center", isCollapsed ? "justify-center w-full" : "justify-between")}>
+                    <Link href="/admin" className={cn("flex items-center hover:opacity-80 transition-opacity", isCollapsed ? "justify-center" : "gap-3")}>
+                        <div className={cn(
+                            "w-9 h-9 rounded-xl flex items-center justify-center shrink-0 shadow-sm overflow-hidden border border-border/50",
+                            !schoolLogo && "bg-emerald-600"
+                        )}>
+                            {schoolLogo ? (
+                                <img src={schoolLogo} alt="Logo" className="w-full h-full object-cover" />
+                            ) : (
+                                <span className="font-black text-[16px] text-white leading-none">Q</span>
                             )}
                         </div>
+                        {!isCollapsed && (
+                            <div className="min-w-0 animate-in fade-in slide-in-from-left-2 duration-300">
+                                <p className="font-bold text-[15px] text-foreground leading-tight tracking-tight truncate">
+                                    {schoolName || t('common.appName')}
+                                </p>
+                                {schoolName && (
+                                    <p className="text-[10px] text-muted-foreground/60 font-medium mt-0.5 truncate flex items-center gap-1">
+                                        <span className="w-1 h-1 rounded-full bg-emerald-500/50"></span>
+                                        {t('common.appName')} Portal
+                                    </p>
+                                )}
+                            </div>
+                        )}
                     </Link>
                    
                 </div>
 
 
                 {/* Year / term pill */}
-                <Link
-                    href="/admin/terms"
-                    className={cn(
-                        "flex items-center gap-2 w-full px-3 py-2 rounded-xl text-[12px] font-medium transition-colors border",
-                        currentYear
-                            ? "bg-muted/60 border-border text-muted-foreground hover:text-foreground hover:bg-muted"
-                            : "bg-amber-50 border-amber-200 text-amber-600 hover:bg-amber-100"
-                    )}
-                >
-                    {currentYear ? (
-                        <>
-                            <CalendarRange className="w-3.5 h-3.5 shrink-0 text-emerald-500" />
-                            <span className="truncate flex-1">{currentYear}{currentTerm ? ` · ${currentTerm}` : ''}</span>
-                            <ChevronDown className="w-3.5 h-3.5 shrink-0 text-muted-foreground/40" />
-                        </>
-                    ) : (
-                        <>
-                            <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
-                            <span>{t('admin.sidebar.noCurrentYear')}</span>
-                        </>
-                    )}
-                </Link>
+                {!isCollapsed && (
+                    <Link
+                        href="/admin/terms"
+                        className={cn(
+                            "flex items-center gap-2 w-full px-3 py-2 rounded-xl text-[12px] font-medium transition-colors border animate-in fade-in duration-300",
+                            currentYear
+                                ? "bg-muted/60 border-border text-muted-foreground hover:text-foreground hover:bg-muted"
+                                : "bg-amber-50 border-amber-200 text-amber-600 hover:bg-amber-100"
+                        )}
+                    >
+                        {currentYear ? (
+                            <>
+                                <CalendarRange className="w-3.5 h-3.5 shrink-0 text-emerald-500" />
+                                <span className="truncate flex-1">{currentYear}{currentTerm ? ` · ${currentTerm}` : ''}</span>
+                                <ChevronDown className="w-3.5 h-3.5 shrink-0 text-muted-foreground/40" />
+                            </>
+                        ) : (
+                            <>
+                                <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
+                                <span>{t('admin.sidebar.noCurrentYear')}</span>
+                            </>
+                        )}
+                    </Link>
+                )}
 
             </div>
 
             {/* ── Navigation ────────────────────────────────────────────────── */}
-            <nav className="flex-1 overflow-y-auto py-3 px-3 flex flex-col scrollbar-hide">
+            <nav className={cn("flex-1 overflow-y-auto py-3 flex flex-col scrollbar-hide", isCollapsed ? "px-2" : "px-3")}>
 
                 <Reorder.Group 
                     axis="y" 
@@ -393,31 +437,33 @@ export function AdminSidebar() {
                                 value={group.id}
                                 className="space-y-1"
                             >
-                                <div className="flex items-center group/label">
-                                    <div className="w-4 flex items-center justify-center opacity-0 group-hover/label:opacity-100 transition-opacity cursor-grab active:cursor-grabbing">
-                                        <GripVertical className="h-3 w-3 text-muted-foreground/30" />
+                                {!isCollapsed && (
+                                    <div className="flex items-center group/label animate-in fade-in duration-300">
+                                        <div className="w-4 flex items-center justify-center opacity-0 group-hover/label:opacity-100 transition-opacity cursor-grab active:cursor-grabbing">
+                                            <GripVertical className="h-3 w-3 text-muted-foreground/30" />
+                                        </div>
+                                        <button
+                                            onClick={() => toggleGroup(group.id)}
+                                            className="flex-1 flex items-center justify-between py-1 pr-2 text-[11px] font-semibold text-muted-foreground/40 hover:text-muted-foreground transition-colors uppercase tracking-widest"
+                                        >
+                                            <span>{group.label}</span>
+                                            <ChevronDown className={cn(
+                                                "h-3 w-3 transition-transform duration-200",
+                                                !isOpen && "-rotate-90"
+                                            )} />
+                                        </button>
                                     </div>
-                                    <button
-                                        onClick={() => toggleGroup(group.id)}
-                                        className="flex-1 flex items-center justify-between py-1 pr-2 text-[11px] font-semibold text-muted-foreground/40 hover:text-muted-foreground transition-colors uppercase tracking-widest"
-                                    >
-                                        <span>{group.label}</span>
-                                        <ChevronDown className={cn(
-                                            "h-3 w-3 transition-transform duration-200",
-                                            !isOpen && "-rotate-90"
-                                        )} />
-                                    </button>
-                                </div>
+                                )}
 
 
 
 
                                 <AnimatePresence initial={false}>
-                                    {isOpen && (
+                                    {(isOpen || isCollapsed) && (
                                         <motion.div
-                                            initial={{ height: 0, opacity: 0 }}
-                                            animate={{ height: "auto", opacity: 1 }}
-                                            exit={{ height: 0, opacity: 0 }}
+                                            initial={isCollapsed ? false : { height: 0, opacity: 0 }}
+                                            animate={isCollapsed ? false : { height: "auto", opacity: 1 }}
+                                            exit={isCollapsed ? false : { height: 0, opacity: 0 }}
                                             transition={{ duration: 0.3, ease: "easeInOut" }}
                                             className="overflow-hidden space-y-0.5"
                                         >
@@ -428,21 +474,23 @@ export function AdminSidebar() {
                                                     <Link
                                                         key={item.href}
                                                         href={item.href}
+                                                        title={isCollapsed ? item.label : undefined}
                                                         className={cn(
-                                                            "flex items-center justify-between px-3 py-2.5 rounded-xl text-[14px] transition-colors",
+                                                            "flex items-center rounded-xl text-[14px] transition-all duration-200 group/item relative",
+                                                            isCollapsed ? "justify-center h-11 w-11 mx-auto" : "justify-between px-3 py-2.5",
                                                             isActive
-                                                                ? "bg-emerald-50 text-emerald-700 font-bold"
+                                                                ? "bg-emerald-50 text-emerald-700 font-bold shadow-[inset_0_0_0_1px_rgba(16,185,129,0.1)]"
                                                                 : "text-foreground/70 hover:text-foreground hover:bg-muted/60 font-normal"
                                                         )}
                                                     >
-                                                        <div className="flex items-center gap-3 min-w-0">
+                                                        <div className={cn("flex items-center min-w-0", isCollapsed ? "justify-center" : "gap-3")}>
                                                             <item.icon className={cn(
-                                                                "h-[18px] w-[18px] shrink-0",
-                                                                isActive ? "text-emerald-600" : "text-foreground/40"
+                                                                "h-[18px] w-[18px] shrink-0 transition-colors",
+                                                                isActive ? "text-emerald-600" : "text-foreground/40 group-hover/item:text-emerald-600"
                                                             )} />
-                                                            <span className="truncate">{item.label}</span>
+                                                            {!isCollapsed && <span className="truncate animate-in fade-in duration-300">{item.label}</span>}
                                                         </div>
-                                                        {item.badge != null && item.badge > 0 && (
+                                                        {!isCollapsed && item.badge != null && item.badge > 0 && (
                                                             isActionBadge ? (
                                                                 <span className="ml-2 min-w-[22px] h-[22px] px-1.5 rounded-full text-[11px] font-bold flex items-center justify-center shrink-0 bg-emerald-500 text-white">
                                                                     {item.badge > 99 ? '99+' : item.badge}
@@ -452,6 +500,12 @@ export function AdminSidebar() {
                                                                     {item.badge > 99 ? '99+' : item.badge}
                                                                 </span>
                                                             )
+                                                        )}
+                                                        {isCollapsed && item.badge != null && item.badge > 0 && (
+                                                            <span className="absolute top-1 right-1 flex h-2 w-2">
+                                                                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                                                                <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+                                                            </span>
                                                         )}
                                                     </Link>
                                                 )
@@ -464,28 +518,30 @@ export function AdminSidebar() {
                     })}
                 </Reorder.Group>
 
-                <div className="mt-auto pt-4 space-y-4">
+                <div className={cn("mt-auto pt-4 space-y-4", isCollapsed ? "w-full flex flex-col items-center" : "")}>
                     {systemGroup && (
-                        <div key={systemGroup.id} className="space-y-1">
-                            <button
-                                onClick={() => toggleGroup(systemGroup.id)}
-                                className="w-full flex items-center justify-between px-2 mb-1 text-[11px] font-semibold text-muted-foreground/40 hover:text-muted-foreground transition-colors uppercase tracking-widest"
-                            >
-                                <span>{systemGroup.label}</span>
-                                <ChevronDown className={cn(
-                                    "h-3 w-3 transition-transform duration-200",
-                                    !openGroups.includes(systemGroup.id) && "-rotate-90"
-                                )} />
-                            </button>
+                        <div key={systemGroup.id} className="space-y-1 w-full">
+                            {!isCollapsed && (
+                                <button
+                                    onClick={() => toggleGroup(systemGroup.id)}
+                                    className="w-full flex items-center justify-between px-2 mb-1 text-[11px] font-semibold text-muted-foreground/40 hover:text-muted-foreground transition-colors uppercase tracking-widest animate-in fade-in duration-300"
+                                >
+                                    <span>{systemGroup.label}</span>
+                                    <ChevronDown className={cn(
+                                        "h-3 w-3 transition-transform duration-200",
+                                        !openGroups.includes(systemGroup.id) && "-rotate-90"
+                                    )} />
+                                </button>
+                            )}
                             
                             <AnimatePresence initial={false}>
-                                {openGroups.includes(systemGroup.id) && (
+                                {(openGroups.includes(systemGroup.id) || isCollapsed) && (
                                     <motion.div
-                                        initial={{ height: 0, opacity: 0 }}
-                                        animate={{ height: "auto", opacity: 1 }}
-                                        exit={{ height: 0, opacity: 0 }}
+                                        initial={isCollapsed ? false : { height: 0, opacity: 0 }}
+                                        animate={isCollapsed ? false : { height: "auto", opacity: 1 }}
+                                        exit={isCollapsed ? false : { height: 0, opacity: 0 }}
                                         transition={{ duration: 0.3, ease: "easeInOut" }}
-                                        className="overflow-hidden space-y-0.5"
+                                        className="overflow-hidden space-y-0.5 w-full"
                                     >
                                         {systemGroup.items.map((item) => {
                                             const isActive = pathname === item.href || (item.href !== '/admin' && pathname.startsWith(item.href))
@@ -493,19 +549,21 @@ export function AdminSidebar() {
                                                 <Link
                                                     key={item.href}
                                                     href={item.href}
+                                                    title={isCollapsed ? item.label : undefined}
                                                     className={cn(
-                                                        "flex items-center justify-between px-3 py-2.5 rounded-xl text-[14px] transition-colors",
+                                                        "flex items-center rounded-xl text-[14px] transition-all duration-200 group/item relative",
+                                                        isCollapsed ? "justify-center h-11 w-11 mx-auto" : "justify-between px-3 py-2.5",
                                                         isActive
-                                                            ? "bg-emerald-50 text-emerald-700 font-bold"
+                                                            ? "bg-emerald-50 text-emerald-700 font-bold shadow-[inset_0_0_0_1px_rgba(16,185,129,0.1)]"
                                                             : "text-foreground/70 hover:text-foreground hover:bg-muted/60 font-normal"
                                                     )}
                                                 >
-                                                    <div className="flex items-center gap-3 min-w-0">
+                                                    <div className={cn("flex items-center min-w-0", isCollapsed ? "justify-center" : "gap-3")}>
                                                         <item.icon className={cn(
-                                                            "h-[18px] w-[18px] shrink-0",
-                                                            isActive ? "text-emerald-600" : "text-foreground/40"
+                                                            "h-[18px] w-[18px] shrink-0 transition-colors",
+                                                            isActive ? "text-emerald-600" : "text-foreground/40 group-hover/item:text-emerald-600"
                                                         )} />
-                                                        <span className="truncate">{item.label}</span>
+                                                        {!isCollapsed && <span className="truncate animate-in fade-in duration-300">{item.label}</span>}
                                                     </div>
                                                 </Link>
                                             )
@@ -515,9 +573,12 @@ export function AdminSidebar() {
                             </AnimatePresence>
                         </div>
                     )}
-                    <div className="pt-1 pb-2">
-                        <LanguageSwitcher variant="full" />
-                    </div>
+                    
+                    {!isCollapsed && (
+                        <div className="pt-1 pb-2 animate-in fade-in duration-300">
+                            <LanguageSwitcher variant="full" />
+                        </div>
+                    )}
                 </div>
 
 
@@ -525,52 +586,60 @@ export function AdminSidebar() {
 
 
             {/* ── User footer ───────────────────────────────────────────────── */}
-            <div className="border-t border-border p-3 space-y-1">
+            <div className={cn("border-t border-border p-3 space-y-1", isCollapsed ? "flex flex-col items-center" : "")}>
                 {/* User row — click to toggle menu */}
                 <button
                     onClick={() => setUserMenuOpen(o => !o)}
-                    className="flex items-center gap-2.5 w-full px-2.5 py-2 rounded-lg hover:bg-muted/60 transition-colors group"
+                    className={cn(
+                        "flex items-center rounded-lg hover:bg-muted/60 transition-colors group",
+                        isCollapsed ? "justify-center h-10 w-10 p-0" : "gap-2.5 w-full px-2.5 py-2"
+                    )}
+                    title={isCollapsed ? (userInfo?.name || "Compte") : undefined}
                 >
                     {/* Avatar */}
-                    <div className="w-7 h-7 rounded-lg bg-muted border border-border flex items-center justify-center shrink-0 overflow-hidden">
-                        {userInfo?.avatar ? (
-                            // eslint-disable-next-line @next/next/no-img-element
-                            <img src={userInfo.avatar} alt={userInfo.name} className="w-full h-full object-cover" />
-                        ) : (
-                            <span className="text-[10px] font-bold text-muted-foreground">
-                                {userInfo?.initials ?? '?'}
-                            </span>
-                        )}
+                    <div className="w-7 h-7 rounded-lg bg-white dark:bg-muted border border-border flex items-center justify-center shrink-0 overflow-hidden shadow-sm p-0.5">
+                        <img 
+                            src={schoolLogo || '/web-app-manifest-192x192.png'} 
+                            alt="Logo" 
+                            className="w-full h-full object-contain" 
+                        />
                     </div>
 
                     {/* Name + role */}
-                    <div className="flex-1 text-left min-w-0">
-                        <p className="text-[13px] font-medium text-foreground truncate leading-tight">
-                            {userInfo?.name ?? '—'}
-                        </p>
-                        <p className="text-[10px] text-muted-foreground/60 leading-tight capitalize">
-                            {userInfo?.role === 'super_admin' ? t('common.superAdmin') : userInfo?.role === 'school_staff' ? 'Staff' : t('common.admin')}
-                        </p>
+                    {!isCollapsed && (
+                        <>
+                            <div className="flex-1 text-left min-w-0 animate-in fade-in duration-300">
+                                <p className="text-[13px] font-medium text-foreground truncate leading-tight">
+                                    {schoolName || userInfo?.name || '—'}
+                                </p>
+                                <p className="text-[10px] text-muted-foreground/60 leading-tight capitalize">
+                                    {userInfo?.role === 'super_admin' ? t('common.superAdmin') : userInfo?.role === 'school_staff' ? 'Staff' : t('common.admin')}
+                                </p>
+                            </div>
 
-                    </div>
-
-                    {/* Chevron */}
-                    <div className="flex items-center shrink-0">
-                        <ChevronUp className={cn(
-                            'w-3.5 h-3.5 text-muted-foreground/40 transition-transform',
-                            !userMenuOpen && 'rotate-180'
-                        )} />
-                    </div>
+                            {/* Chevron */}
+                            <div className="flex items-center shrink-0">
+                                <ChevronUp className={cn(
+                                    'w-3.5 h-3.5 text-muted-foreground/40 transition-transform',
+                                    !userMenuOpen && 'rotate-180'
+                                )} />
+                            </div>
+                        </>
+                    )}
                 </button>
 
                 {/* Expanded: logout */}
                 {userMenuOpen && (
                     <button
                         onClick={handleLogout}
-                        className="flex items-center gap-2.5 w-full px-3 py-2 rounded-lg text-[13px] font-medium text-muted-foreground hover:text-red-600 hover:bg-red-50 transition-colors"
+                        title={isCollapsed ? t('admin.sidebar.logout') : undefined}
+                        className={cn(
+                            "flex items-center gap-2.5 text-[13px] font-medium text-muted-foreground hover:text-red-600 hover:bg-red-50 transition-colors rounded-lg",
+                            isCollapsed ? "h-10 w-10 justify-center p-0" : "w-full px-3 py-2"
+                        )}
                     >
-                        <LogOut className="h-3.5 w-3.5" />
-                        <span>{t('admin.sidebar.logout')}</span>
+                        <LogOut className="h-3.5 w-3.5 text-red-500" />
+                        {!isCollapsed && <span className="animate-in fade-in duration-300">{t('admin.sidebar.logout')}</span>}
                     </button>
                 )}
             </div>

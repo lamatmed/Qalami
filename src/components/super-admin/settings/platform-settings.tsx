@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { Settings, Globe, Bell, CreditCard, Save, Loader2, ShieldAlert } from 'lucide-react'
+import { Settings, Globe, Bell, CreditCard, Save, Loader2, ShieldAlert, Lock, Eye, EyeOff } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -9,6 +9,7 @@ import { Switch } from '@/components/ui/switch'
 import { toast } from 'sonner'
 import { useLanguage } from '@/i18n'
 import { cn } from '@/lib/utils'
+import { createClient } from '@/utils/supabase/client'
 
 export function PlatformSettings() {
     const { t, direction } = useLanguage()
@@ -35,12 +36,54 @@ export function PlatformSettings() {
         maintenanceMode: false,
     })
 
+    const [showPassword, setShowPassword] = useState(false)
+    const [updatingPassword, setUpdatingPassword] = useState(false)
+    const [passwordForm, setPasswordForm] = useState({
+        newPassword: '',
+        confirmPassword: ''
+    })
+
+    const supabase = createClient()
+
     const handleSave = async () => {
         setSaving(true)
         // Simulate saving
         await new Promise(resolve => setTimeout(resolve, 1000))
         toast.success(t('superAdmin.settings.saveSuccess'))
         setSaving(false)
+    }
+
+    const handleUpdatePassword = async (e: React.FormEvent) => {
+        e.preventDefault()
+        if (!passwordForm.newPassword || !passwordForm.confirmPassword) {
+            toast.error("Veuillez remplir tous les champs.")
+            return
+        }
+        if (passwordForm.newPassword.length < 6) {
+            toast.error("Le mot de passe doit comporter au moins 6 caractères.")
+            return
+        }
+        if (passwordForm.newPassword !== passwordForm.confirmPassword) {
+            toast.error("Les mots de passe ne correspondent pas.")
+            return
+        }
+
+        setUpdatingPassword(true)
+        try {
+            const { error } = await supabase.auth.updateUser({
+                password: passwordForm.newPassword
+            })
+
+            if (error) throw error
+
+            toast.success("Mot de passe mis à jour avec succès !")
+            setPasswordForm({ newPassword: '', confirmPassword: '' })
+        } catch (error: any) {
+            console.error("Error updating password:", error)
+            toast.error(error.message || "Erreur lors de la mise à jour du mot de passe.")
+        } finally {
+            setUpdatingPassword(false)
+        }
     }
 
     const updateSetting = (key: string, value: any) => {
@@ -268,6 +311,76 @@ export function PlatformSettings() {
                         />
                     </div>
                 </div>
+            </div>
+            {/* Security Section */}
+            <div className="bg-white dark:bg-slate-900 border border-gray-100 dark:border-white/5 rounded-3xl p-8 shadow-sm space-y-6">
+                <div className="flex items-center gap-4 pb-4 border-b border-gray-100 dark:border-white/5">
+                    <div className="h-12 w-12 rounded-2xl bg-red-500/10 flex items-center justify-center text-red-500 shrink-0">
+                        <Lock className="w-6 h-6" />
+                    </div>
+                    <div>
+                        <h2 className="font-bold text-gray-900 dark:text-white text-lg">
+                            {t('admin.settings.securityTitle') || "Sécurité & Authentification"}
+                        </h2>
+                        <p className="text-xs text-gray-500 mt-0.5">
+                            {t('admin.settings.securityDesc') || "Mettre à jour votre mot de passe administrateur."}
+                        </p>
+                    </div>
+                </div>
+
+                <form onSubmit={handleUpdatePassword} className="max-w-lg space-y-5">
+                    <div className="space-y-2">
+                        <Label className="text-gray-600 dark:text-gray-400 font-bold text-xs uppercase tracking-wider">
+                            {t('admin.settings.newPassword') || "Nouveau mot de passe"}
+                        </Label>
+                        <div className="relative">
+                            <Input
+                                type={showPassword ? "text" : "password"}
+                                value={passwordForm.newPassword}
+                                onChange={(e) => setPasswordForm({ ...passwordForm, newPassword: e.target.value })}
+                                placeholder="••••••••"
+                                className="bg-gray-50/60 dark:bg-slate-950/50 border-gray-200 dark:border-white/10 text-gray-900 dark:text-white rounded-2xl h-12 pr-12"
+                            />
+                            <button
+                                type="button"
+                                onClick={() => setShowPassword(!showPassword)}
+                                className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
+                            >
+                                {showPassword ? <EyeOff className="w-4.5 h-4.5" /> : <Eye className="w-4.5 h-4.5" />}
+                            </button>
+                        </div>
+                    </div>
+
+                    <div className="space-y-2">
+                        <Label className="text-gray-600 dark:text-gray-400 font-bold text-xs uppercase tracking-wider">
+                            {t('admin.settings.confirmPassword') || "Confirmer le mot de passe"}
+                        </Label>
+                        <Input
+                            type="password"
+                            value={passwordForm.confirmPassword}
+                            onChange={(e) => setPasswordForm({ ...passwordForm, confirmPassword: e.target.value })}
+                            placeholder="••••••••"
+                            className="bg-gray-50/60 dark:bg-slate-950/50 border-gray-200 dark:border-white/10 text-gray-900 dark:text-white rounded-2xl h-12"
+                        />
+                    </div>
+
+                    <Button
+                        type="submit"
+                        disabled={updatingPassword}
+                        className="bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white font-black rounded-2xl px-6 h-12 shadow-lg shadow-purple-600/20 transition-all duration-300"
+                    >
+                        {updatingPassword ? (
+                            <>
+                                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                                {t('admin.settings.updating') || "Mise à jour..."}
+                            </>
+                        ) : (
+                            <>
+                                {t('admin.settings.updatePassword') || "Mettre à jour"}
+                            </>
+                        )}
+                    </Button>
+                </form>
             </div>
         </div>
     )

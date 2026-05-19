@@ -14,7 +14,7 @@ import { Label } from '@/components/ui/label'
 import { createClient } from '@/utils/supabase/client'
 import { useLanguage } from '@/i18n'
 import { toast } from 'sonner'
-import { getMySchoolContext } from '@/app/admin/actions'
+import { getMySchoolContext, getSchoolLinkedProfileIds, secureFetchProfiles } from '@/app/admin/actions'
 
 interface Child {
     id: string
@@ -33,6 +33,16 @@ interface Parent {
     avatar_url: string | null
 }
 
+const normalizeArabicDigits = (val: string) => {
+    return val.replace(/[٠-٩]/g, (d) => String(d.charCodeAt(0) - 1632))
+              .replace(/[۰-۹]/g, (d) => String(d.charCodeAt(0) - 1776));
+}
+
+const cleanPhoneDigits = (val: string) => {
+    const normalized = normalizeArabicDigits(val);
+    return normalized.replace(/[^\d\s]/g, '');
+}
+
 export function ParentDirectory() {
 
     const [filter, setFilter] = useState('tous')
@@ -44,37 +54,76 @@ export function ParentDirectory() {
     const [statusDialog, setStatusDialog] = useState<{ open: boolean; parent: Parent | null }>({ open: false, parent: null })
     const [addingParent, setAddingParent] = useState(false)
     const [newParent, setNewParent] = useState({ firstName: '', lastName: '', phone: '', email: '', password: '' })
-    const { t } = useLanguage()
+    const [parentPhoneCode, setParentPhoneCode] = useState('+222')
+    const [parentLocalPhone, setParentLocalPhone] = useState('')
+    const [checkingPhone, setCheckingPhone] = useState(false)
+    const [phoneChecked, setPhoneChecked] = useState(false)
+    const [foundExistingParent, setFoundExistingParent] = useState<{ fullName: string; id: string } | null>(null)
+    const [verificationError, setVerificationError] = useState('')
+    const [linkingParent, setLinkingParent] = useState(false)
+    
+    const { t, direction } = useLanguage()
+
+    const COMMON_COUNTRIES = [
+        { code: '+222', label: '🇲🇷 +222' },
+        { code: '+221', label: '🇸🇳 +221' },
+        { code: '+212', label: '🇲🇦 +212' },
+        { code: '+33',  label: '🇫🇷 +33' },
+        { code: '+213', label: '🇩🇿 +213' },
+        { code: '+216', label: '🇹🇳 +216' },
+        { code: '+1',   label: '🇺🇸 +1' },
+    ]
 
     const fetchParents = async () => {
         setLoading(true)
         const ctx = await getMySchoolContext()
         if (!ctx) { setLoading(false); return }
-        const adminProfile = { school_id: ctx.school_id }
+        const currentSchoolId = ctx.school_id
         const supabase = createClient()
 
-        const { data: parentProfiles, error } = await supabase
+        // ─── DISCOVERY 1: Parents directly assigned to this school
+        const { data: directProfiles } = await supabase
             .from('profiles')
-            .select('id, full_name, email, phone, avatar_url, status, address')
+            .select('id')
             .eq('role', 'parent')
-            .eq('school_id', adminProfile.school_id)
-            .order('full_name')
+            .eq('school_id', currentSchoolId)
 
-        if (error) { setLoading(false); return }
+        // ─── DISCOVERY 2: Parents of students IN this school (even if parent school_id differs)
+        const { data: linkedRows } = await supabase
+            .from('parent_student_links')
+            .select('parent_id, students:profiles!parent_student_links_student_id_fkey!inner(school_id)')
+            .eq('students.school_id', currentSchoolId)
+
+        // ─── DISCOVERY 3: Parents linked via profile_schools explicitly
+        const schoolLinkedIds = await getSchoolLinkedProfileIds(currentSchoolId, 'parent')
+
+        // COMBINE all unique parent IDs visible to this school
+        const directIds = (directProfiles || []).map(p => p.id)
+        const studentLinkedIds = (linkedRows || []).map((r: any) => r.parent_id)
+        const allParentIds = Array.from(new Set([...directIds, ...studentLinkedIds, ...schoolLinkedIds]))
+
+        if (!allParentIds.length) { setParents([]); setLoading(false); return }
+
+        // Fetch full detailed profiles for these discovered IDs
+        // Fetch full detailed profiles for these discovered IDs via secure server action
+        const parentProfiles = await secureFetchProfiles(allParentIds, 'id, full_name, email, phone, avatar_url, status, address')
+
+        if (!parentProfiles || parentProfiles.length === 0) { setParents([]); setLoading(false); return }
 
         const parentIds = (parentProfiles || []).map(p => p.id)
         if (!parentIds.length) { setParents([]); setLoading(false); return }
 
-        // Batch fetch all children links in one query (fixes N+1)
+        // Batch fetch only children links belonging to THIS school
         const { data: allLinks } = await supabase
             .from('parent_student_links')
             .select(`
                 parent_id,
-                students:profiles!parent_student_links_student_id_fkey (
+                students:profiles!parent_student_links_student_id_fkey!inner (
                     id, full_name, avatar_url
                 )
             `)
             .in('parent_id', parentIds)
+            .eq('students.school_id', currentSchoolId)
 
         const linksByParent = new Map<string, Child[]>()
         ;(allLinks || []).forEach((link: any) => {
@@ -105,6 +154,72 @@ export function ParentDirectory() {
         setLoading(false)
     }
 
+    const handleCheckPhone = async () => {
+        setVerificationError('')
+        const raw = parentLocalPhone.trim().replace(/[^\d\s]/g, '')
+        if (raw.length < 4) {
+            toast.error("Veuillez saisir un numéro de téléphone valide")
+            return
+        }
+        setCheckingPhone(true)
+        try {
+            const combined = `${parentPhoneCode}${raw}`
+            const { checkUserByPhone } = await import('@/app/auth/actions')
+            const res = await checkUserByPhone(combined)
+            
+            if (res.exists) {
+                if (res.role !== 'parent') {
+                    setVerificationError(`Ce numéro est déjà lié à un compte "${res.role}". Impossible de l'enregistrer comme parent.`)
+                    setPhoneChecked(false)
+                } else {
+                    setFoundExistingParent({ fullName: res.fullName || "Parent", id: res.id })
+                    setPhoneChecked(true)
+                }
+            } else {
+                setFoundExistingParent(null)
+                setPhoneChecked(true)
+            }
+        } catch (err) {
+            console.error(err)
+            toast.error("Erreur lors de la vérification")
+        } finally {
+            setCheckingPhone(false)
+        }
+    }
+
+    const resetForm = () => {
+        setShowAddForm(false)
+        setNewParent({ firstName: '', lastName: '', phone: '', email: '', password: '' })
+        setParentLocalPhone('')
+        setPhoneChecked(false)
+        setFoundExistingParent(null)
+        setVerificationError('')
+        setLinkingParent(false)
+    }
+
+    const handleLinkExistingParent = async () => {
+        if (!foundExistingParent) return
+        setLinkingParent(true)
+        try {
+            const { linkProfileToSchool } = await import('@/app/auth/actions')
+            const result = await linkProfileToSchool(foundExistingParent.id, 'parent')
+            if (result.error) {
+                toast.error(result.error)
+            } else {
+                toast.success(t('common.success') || "Succès", {
+                    description: `Le parent (${foundExistingParent.fullName}) a été attaché à votre école.`,
+                    duration: 6000
+                })
+                resetForm()
+                await fetchParents()
+            }
+        } catch (err: any) {
+            toast.error("Erreur lors de la liaison", { description: err.message })
+        } finally {
+            setLinkingParent(false)
+        }
+    }
+
     const handleAddParent = async () => {
         if (!newParent.firstName || !newParent.lastName) {
             toast.error(t('admin.parents.firstNameRequired'))
@@ -116,11 +231,12 @@ export function ParentDirectory() {
         }
         setAddingParent(true)
         try {
+            const combinedPhone = parentLocalPhone.trim() ? `${parentPhoneCode}${parentLocalPhone.trim().replace(/[^\d\s]/g, '')}` : undefined
             const { createParent } = await import('@/app/auth/actions')
             const result = await createParent({
                 firstName: newParent.firstName,
                 lastName: newParent.lastName,
-                phone: newParent.phone || undefined,
+                phone: combinedPhone,
                 email: newParent.email || undefined,
                 password: newParent.password || undefined,
             })
@@ -132,14 +248,21 @@ export function ParentDirectory() {
 
             if (result.success && result.credentials) {
                 const cred = result.credentials
-                toast.success(t('admin.parents.parentAddedSuccess', { name: cred.fullName }), {
-                    description: t('admin.parents.passwordIs', { password: cred.password }),
-                    duration: 10000
-                })
+                
+                if ((result as any).isExisting) {
+                    toast.success(t('common.success') || "Succès", {
+                        description: `Ce parent (${cred.fullName}) est déjà inscrit sur Qalami. Vous pouvez l'associer à un élève.`,
+                        duration: 6000
+                    })
+                } else {
+                    toast.success(t('admin.parents.parentAddedSuccess', { name: cred.fullName }), {
+                        description: t('admin.parents.passwordIs', { password: cred.password }),
+                        duration: 10000
+                    })
+                }
             }
 
-            setShowAddForm(false)
-            setNewParent({ firstName: '', lastName: '', phone: '', email: '', password: '' })
+            resetForm()
             await fetchParents()
         } catch (err: any) {
             toast.error(t('admin.parents.addParentError'), { description: err.message })
@@ -166,15 +289,26 @@ export function ParentDirectory() {
                 <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
                     {/* Directory List Column */}
                     <div className={cn("flex flex-col gap-4 lg:col-span-4", selectedParent ? "hidden lg:flex" : "flex")}>
+                        <Button
+                            className="w-full bg-emerald-500 hover:bg-emerald-600 text-black font-bold"
+                            onClick={() => setShowAddForm(true)}
+                        >
+                            <Plus className="w-4 h-4 mr-2" />
+                            {t('admin.parents.addParent')}
+                        </Button>
+
                         {/* Search & Filters */}
                         <div className="space-y-3">
-                            <div className="relative">
-                                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500" />
+                            <div className="relative" dir={direction}>
+                                <Search className={cn("absolute top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500", direction === 'rtl' ? "right-3" : "left-3")} />
                                 <Input
                                     placeholder={t('admin.parents.searchPlaceholder')}
-                                    className="bg-[#161B22] border-white/5 pl-9 text-white placeholder:text-gray-600 focus-visible:ring-emerald-500/50"
+                                    className={cn(
+                                        "bg-[#161B22] border-white/5 text-white placeholder:text-gray-600 focus-visible:ring-emerald-500/50",
+                                        direction === 'rtl' ? "pr-9 pl-3 text-right" : "pl-9 pr-3 text-left"
+                                    )}
                                     value={searchQuery}
-                                    onChange={(e) => setSearchQuery(e.target.value)}
+                                    onChange={(e) => setSearchQuery(normalizeArabicDigits(e.target.value))}
                                 />
                             </div>
                             <div className="flex gap-2 overflow-x-auto pb-2 no-scrollbar">
@@ -255,94 +389,192 @@ export function ParentDirectory() {
                                 </div>
                             ))}
 
-                            <Button
-                                className="w-full bg-emerald-500 hover:bg-emerald-600 text-black font-bold mt-4"
-                                onClick={() => setShowAddForm(true)}
-                            >
-                                <Plus className="w-4 h-4 mr-2" />
-                                {t('admin.parents.addParent')}
-                            </Button>
 
                             {/* Add Parent Modal */}
+                            {/* Add Parent Modal */}
                             {showAddForm && (
-                                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm" onClick={() => setShowAddForm(false)}>
-                                    <div className="bg-[#1A2530] border border-white/10 rounded-2xl p-6 w-full max-w-md shadow-2xl animate-in fade-in zoom-in-95 duration-200" onClick={(e) => e.stopPropagation()}>
+                                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm" onClick={resetForm}>
+                                    <div 
+                                        dir={direction}
+                                        className={cn(
+                                            "bg-[#1A2530] border border-white/10 rounded-2xl p-6 w-full max-w-md shadow-2xl animate-in fade-in zoom-in-95 duration-200",
+                                            direction === 'rtl' ? 'text-right' : 'text-left'
+                                        )} 
+                                        onClick={(e) => e.stopPropagation()}
+                                    >
                                         <div className="flex items-center justify-between mb-6">
                                             <h3 className="text-lg font-bold text-white">{t('admin.parents.addParent')}</h3>
-                                            <button onClick={() => setShowAddForm(false)} className="text-gray-400 hover:text-white">
+                                            <button onClick={resetForm} className="text-gray-400 hover:text-white">
                                                 <X className="w-5 h-5" />
                                             </button>
                                         </div>
 
-                                        <div className="space-y-4">
-                                            <div className="grid grid-cols-2 gap-3">
-                                                <div className="space-y-1">
-                                                    <Label className="text-xs text-gray-400">{t('admin.parents.firstName')}</Label>
-                                                    <Input
-                                                        placeholder={t('admin.parents.firstNamePlaceholder')}
-                                                        value={newParent.firstName}
-                                                        onChange={(e) => setNewParent(p => ({ ...p, firstName: e.target.value }))}
-                                                        className="bg-[#0D1117] border-white/10 text-white h-10"
-                                                    />
-                                                </div>
-                                                <div className="space-y-1">
-                                                    <Label className="text-xs text-gray-400">{t('admin.parents.lastName')}</Label>
-                                                    <Input
-                                                        placeholder={t('admin.parents.lastNamePlaceholder')}
-                                                        value={newParent.lastName}
-                                                        onChange={(e) => setNewParent(p => ({ ...p, lastName: e.target.value }))}
-                                                        className="bg-[#0D1117] border-white/10 text-white h-10"
-                                                    />
-                                                </div>
-                                            </div>
+                                        <div className="space-y-5">
+                                            {/* STEP 1: Phone Check */}
                                             <div className="space-y-1">
                                                 <Label className="text-xs text-gray-400">{t('admin.parents.phoneLabel')}</Label>
-                                                <Input
-                                                    placeholder={t('admin.parents.phonePlaceholder')}
-                                                    value={newParent.phone}
-                                                    onChange={(e) => setNewParent(p => ({ ...p, phone: e.target.value }))}
-                                                    className="bg-[#0D1117] border-white/10 text-white h-10"
-                                                />
+                                                <div className="relative flex items-center" dir="ltr" style={{ direction: 'ltr' }}>
+                                                    <div style={{ position: 'absolute', left: '4px', right: 'auto', zIndex: 10 }}>
+                                                        <select
+                                                            value={parentPhoneCode}
+                                                            onChange={(e) => { setParentPhoneCode(e.target.value); setPhoneChecked(false); setVerificationError(''); }}
+                                                            disabled={phoneChecked}
+                                                            className="bg-transparent text-gray-400 text-[10px] font-bold py-1 focus:outline-none appearance-none cursor-pointer hover:text-white disabled:opacity-50" style={{ borderRight: '1px solid rgba(255,255,255,0.1)', borderLeft: 'none', paddingLeft: '6px', paddingRight: '4px' }}
+                                                        >
+                                                            {COMMON_COUNTRIES.map(c => (
+                                                                <option key={c.code} value={c.code} className="bg-[#1A2530] text-white">{c.label}</option>
+                                                            ))}
+                                                        </select>
+                                                    </div>
+                                                    <Input
+                                                        placeholder={t('admin.parents.phonePlaceholder')}
+                                                        value={parentLocalPhone}
+                                                        onChange={(e) => { setParentLocalPhone(cleanPhoneDigits(e.target.value)); setPhoneChecked(false); setVerificationError(''); }}
+                                                        disabled={phoneChecked}
+                                                        className="bg-[#0D1117] border-white/10 text-white h-10 disabled:opacity-75" style={{ paddingLeft: '64px', paddingRight: '80px', textAlign: 'left', direction: 'ltr' }}
+                                                        dir="ltr"
+                                                    />
+                                                    {!phoneChecked && (
+                                                        <Button 
+                                                            onClick={handleCheckPhone}
+                                                            disabled={checkingPhone || !parentLocalPhone.trim()}
+                                                            size="sm"
+                                                            className="bg-emerald-500 hover:bg-emerald-600 text-black text-[11px] font-black uppercase tracking-wider h-8 px-3.5 rounded-lg border-0 shadow-md transition-all" style={{ position: 'absolute', right: '4px', left: 'auto', zIndex: 10 }}
+                                                        >
+                                                            {checkingPhone ? <Loader2 className="w-3 h-3 animate-spin" /> : (t('common.verify') || 'Vérifier')}
+                                                        </Button>
+                                                    )}
+                                                    {phoneChecked && (
+                                                        <button 
+                                                            onClick={() => { setPhoneChecked(false); setFoundExistingParent(null); }}
+                                                            className="text-emerald-500 hover:text-white transition-colors" style={{ position: 'absolute', right: '12px', left: 'auto', zIndex: 10 }}
+                                                            title="Modifier"
+                                                        >
+                                                            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M20 6L9 17l-5-5"/></svg>
+                                                        </button>
+                                                    )}
+                                                </div>
+                                                {verificationError && (
+                                                    <div className="mt-2 p-2.5 rounded bg-red-500/10 border border-red-500/20 flex items-start gap-2 text-[11px] text-red-400 animate-in slide-in-from-top-1">
+                                                        <ShieldAlert className="w-3.5 h-3.5 shrink-0 mt-0.5" />
+                                                        <span>{verificationError}</span>
+                                                    </div>
+                                                )}
                                             </div>
-                                            <div className="space-y-1">
-                                                <Label className="text-xs text-gray-400">{t('admin.parents.emailLabel')}</Label>
-                                                <Input
-                                                    type="email"
-                                                    placeholder={t('admin.parents.emailPlaceholder')}
-                                                    value={newParent.email}
-                                                    onChange={(e) => setNewParent(p => ({ ...p, email: e.target.value }))}
-                                                    className="bg-[#0D1117] border-white/10 text-white h-10"
-                                                />
-                                            </div>
-                                            <div className="space-y-1">
-                                                <Label className="text-xs text-gray-400">{t('admin.parents.tempPassword')}</Label>
-                                                <Input
-                                                    placeholder={t('admin.parents.tempPasswordPlaceholder')}
-                                                    value={newParent.password}
-                                                    onChange={(e) => setNewParent(p => ({ ...p, password: e.target.value }))}
-                                                    className="bg-[#0D1117] border-white/10 text-white h-10"
-                                                />
-                                                <p className="text-[10px] text-gray-600">{t('admin.parents.tempPasswordHint')}</p>
-                                            </div>
+
+                                            {!phoneChecked && !checkingPhone && !verificationError && (
+                                                <div className="py-6 text-center bg-[#0D1117] rounded-xl border border-dashed border-white/5">
+                                                    <Phone className="w-6 h-6 text-gray-600 mx-auto mb-2 opacity-50" />
+                                                    <p className="text-gray-500 text-[11px]">{t('admin.parents.verifyPhoneToContinue')}</p>
+                                                </div>
+                                            )}
+
+                                            {/* CASE A: Existing Parent Found */}
+                                            {phoneChecked && foundExistingParent && (
+                                                <div className="bg-emerald-500/10 border border-emerald-500/20 rounded-xl p-4 space-y-3 animate-in slide-in-from-top-2 duration-200">
+                                                    <div className="flex items-center gap-3">
+                                                        <div className="w-10 h-10 rounded-full bg-emerald-500/20 flex items-center justify-center text-emerald-500 font-bold text-lg">
+                                                            {foundExistingParent.fullName.charAt(0)}
+                                                        </div>
+                                                        <div>
+                                                            <p className="text-xs text-emerald-400 font-medium">Compte existant trouvé !</p>
+                                                            <h4 className="text-white font-bold">{foundExistingParent.fullName}</h4>
+                                                        </div>
+                                                    </div>
+                                                    <p className="text-xs text-gray-400">Ce parent est inscrit sur Qalami. Voulez-vous l'attacher à votre annuaire scolaire ?</p>
+                                                    <Button 
+                                                        onClick={handleLinkExistingParent} 
+                                                        disabled={linkingParent}
+                                                        className="w-full bg-emerald-500 hover:bg-emerald-600 text-black font-bold mt-2"
+                                                    >
+                                                        {linkingParent ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Plus className="w-4 h-4 mr-2" />}
+                                                        Attacher à mon école
+                                                    </Button>
+                                                </div>
+                                            )}
+
+                                            {/* CASE B: New Parent Creation Flows */}
+                                            {phoneChecked && !foundExistingParent && (
+                                                <div className="space-y-4 animate-in slide-in-from-top-4 duration-300">
+                                                    <div className="bg-blue-500/10 border border-blue-500/20 text-blue-400 text-xs p-2.5 rounded-lg flex items-center gap-2">
+                                                        <ShieldAlert className="w-4 h-4" /> {t('admin.parents.newNumberEnterDetails')}
+                                                    </div>
+                                                    <div className="grid grid-cols-2 gap-3">
+                                                        <div className="space-y-1">
+                                                            <Label className="text-xs text-gray-400">{t('admin.parents.firstName')}</Label>
+                                                            <Input
+                                                                placeholder={t('admin.parents.firstNamePlaceholder')}
+                                                                value={newParent.firstName}
+                                                                onChange={(e) => setNewParent(p => ({ ...p, firstName: e.target.value }))}
+                                                                className="bg-[#0D1117] border-white/10 text-white h-10"
+                                                            />
+                                                        </div>
+                                                        <div className="space-y-1">
+                                                            <Label className="text-xs text-gray-400">{t('admin.parents.lastName')}</Label>
+                                                            <Input
+                                                                placeholder={t('admin.parents.lastNamePlaceholder')}
+                                                                value={newParent.lastName}
+                                                                onChange={(e) => setNewParent(p => ({ ...p, lastName: e.target.value }))}
+                                                                className="bg-[#0D1117] border-white/10 text-white h-10"
+                                                            />
+                                                        </div>
+                                                    </div>
+                                                    <div className="space-y-1">
+                                                         <Label className="text-xs text-gray-400">{t('admin.parents.emailLabel')}</Label>
+                                                         <Input
+                                                             type="email"
+                                                             placeholder={t('admin.parents.emailPlaceholder')}
+                                                             value={newParent.email}
+                                                             onChange={(e) => setNewParent(p => ({ ...p, email: e.target.value }))}
+                                                             className="bg-[#0D1117] border-white/10 text-white h-10 text-left"
+                                                             dir="ltr"
+                                                         />
+                                                     </div>
+                                                     <div className="space-y-1">
+                                                         <Label className="text-xs text-gray-400">{t('admin.parents.tempPassword')}</Label>
+                                                         <Input
+                                                             placeholder={t('admin.parents.tempPasswordPlaceholder')}
+                                                             value={newParent.password}
+                                                             onChange={(e) => setNewParent(p => ({ ...p, password: e.target.value }))}
+                                                             className="bg-[#0D1117] border-white/10 text-white h-10 text-left"
+                                                             dir="ltr"
+                                                         />
+                                                         <p className="text-[10px] text-gray-600">{t('admin.parents.tempPasswordHint')}</p>
+                                                     </div>
+
+                                                    <div className="flex gap-3 mt-6">
+                                                        <Button
+                                                            variant="outline"
+                                                            className="flex-1 border-white/10 text-gray-400 hover:text-white"
+                                                            onClick={resetForm}
+                                                        >
+                                                            {t('common.cancel')}
+                                                        </Button>
+                                                        <Button
+                                                            className="flex-1 bg-emerald-500 hover:bg-emerald-600 text-black font-bold"
+                                                            onClick={handleAddParent}
+                                                            disabled={addingParent}
+                                                        >
+                                                            {addingParent ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Plus className="w-4 h-4 mr-2" />}
+                                                            {t('common.save')}
+                                                        </Button>
+                                                    </div>
+                                                </div>
+                                            )}
                                         </div>
 
-                                        <div className="flex gap-3 mt-6">
-                                            <Button
-                                                variant="outline"
-                                                className="flex-1 border-white/10 text-gray-400 hover:text-white"
-                                                onClick={() => setShowAddForm(false)}
-                                            >
-                                                {t('common.cancel')}
-                                            </Button>
-                                            <Button
-                                                className="flex-1 bg-emerald-500 hover:bg-emerald-600 text-black font-bold"
-                                                onClick={handleAddParent}
-                                                disabled={addingParent}
-                                            >
-                                                {addingParent ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Plus className="w-4 h-4 mr-2" />}
-                                                {t('common.save')}
-                                            </Button>
-                                        </div>
+                                        {/* Initial footer state - before verify */}
+                                        {!phoneChecked && (
+                                            <div className="flex justify-end mt-6 pt-4 border-t border-white/5">
+                                                <Button
+                                                    variant="ghost"
+                                                    className="text-gray-400 hover:text-white text-xs"
+                                                    onClick={resetForm}
+                                                >
+                                                            {t('common.cancel')}
+                                                </Button>
+                                            </div>
+                                        )}
                                     </div>
                                 </div>
                             )}

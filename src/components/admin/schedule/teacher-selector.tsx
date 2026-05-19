@@ -6,18 +6,12 @@ import {
     SelectItem,
     SelectTrigger,
     SelectValue,
-} from "@/components/ui/select"
-import { GraduationCap, Loader2 } from "lucide-react"
-import { createClient } from '@/utils/supabase/client'
+} from '@/components/ui/select'
+import { GraduationCap, Loader2 } from 'lucide-react'
 import { useState, useEffect } from 'react'
-import { getMySchoolContext } from '@/app/admin/actions'
+import { fetchTeachersForSchedule, type ScheduleTeacherOption } from '@/app/admin/schedule/actions'
 import { useLanguage } from '@/i18n'
-
-interface TeacherOption {
-    id: string
-    full_name: string
-    subjects: string[]
-}
+import { toast } from 'sonner'
 
 export function TeacherSelector({
     selectedTeacher,
@@ -27,49 +21,30 @@ export function TeacherSelector({
     onTeacherChange: (value: string) => void
 }) {
     const { t } = useLanguage()
-    const [teachers, setTeachers] = useState<TeacherOption[]>([])
+    const [teachers, setTeachers] = useState<ScheduleTeacherOption[]>([])
     const [loading, setLoading] = useState(true)
 
     useEffect(() => {
-        async function fetchTeachers() {
-            const supabase = createClient()
-            const ctx = await getMySchoolContext()
-            if (!ctx) { setLoading(false); return }
-            const profile = { school_id: ctx.school_id }
-
-            const [{ data: teacherData }, { data: assignData }] = await Promise.all([
-                supabase.from('profiles')
-                    .select('id, full_name')
-                    .eq('school_id', profile.school_id)
-                    .eq('role', 'teacher')
-                    .order('full_name'),
-                supabase.from('teacher_assignments')
-                    .select('teacher_id, subjects(name)'),
-            ])
-
-            // Build subject list per teacher
-            const subjectsByTeacher = new Map<string, string[]>()
-            ;(assignData || []).forEach((a: { teacher_id: string; subjects?: { name?: string } | null }) => {
-                const name = a.subjects?.name
-                if (!name) return
-                const list = subjectsByTeacher.get(a.teacher_id) || []
-                if (!list.includes(name)) list.push(name)
-                subjectsByTeacher.set(a.teacher_id, list)
-            })
-
-            const result: TeacherOption[] = (teacherData || []).map(tOpt => ({
-                id: tOpt.id,
-                full_name: tOpt.full_name || t('admin.assignments.defaultTeacher'),
-                subjects: subjectsByTeacher.get(tOpt.id) || [],
-            }))
-
-            setTeachers(result)
-            if (result.length > 0 && !selectedTeacher) {
-                onTeacherChange(result[0].id)
+        let cancelled = false
+        async function load() {
+            setLoading(true)
+            const { teachers: list, error } = await fetchTeachersForSchedule()
+            if (cancelled) return
+            if (error) {
+                toast.error(error)
+                setTeachers([])
+                setLoading(false)
+                return
+            }
+            setTeachers(list)
+            if (list.length > 0 && !selectedTeacher) {
+                onTeacherChange(list[0].id)
             }
             setLoading(false)
         }
-        fetchTeachers()
+        void load()
+        return () => { cancelled = true }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- chargement unique ; liste via action serveur (admin)
     }, [])
 
     const selected = teachers.find(tOpt => tOpt.id === selectedTeacher)
@@ -97,13 +72,18 @@ export function TeacherSelector({
                             <SelectValue placeholder={t('admin.schedule.chooseTeacherPlaceholder')} />
                         </SelectTrigger>
                         <SelectContent className="bg-card border-border text-foreground">
-                            {teachers.map(t => (
-                                <SelectItem key={t.id} value={t.id}>
+                            {teachers.length === 0 && (
+                                <div className="px-2 py-3 text-xs text-muted-foreground text-center">
+                                    {t('admin.schedule.noTeachers')}
+                                </div>
+                            )}
+                            {teachers.map(emp => (
+                                <SelectItem key={emp.id} value={emp.id}>
                                     <div className="flex flex-col">
-                                        <span>{t.full_name}</span>
-                                        {t.subjects.length > 0 && (
+                                        <span>{emp.full_name}</span>
+                                        {emp.subjects.length > 0 && (
                                             <span className="text-xs text-muted-foreground">
-                                                {t.subjects.slice(0, 2).join(', ')}{t.subjects.length > 2 ? '…' : ''}
+                                                {emp.subjects.slice(0, 2).join(', ')}{emp.subjects.length > 2 ? '…' : ''}
                                             </span>
                                         )}
                                     </div>

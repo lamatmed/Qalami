@@ -8,8 +8,10 @@ import { Button } from '@/components/ui/button'
 import { Plus, Download, Loader2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { createClient } from '@/utils/supabase/client'
+import { useLanguage } from '@/i18n'
 
 export default function AccountingPage() {
+    const { t } = useLanguage()
     const [isAddTxOpen, setIsAddTxOpen] = useState(false)
     const [generating, setGenerating] = useState(false)
 
@@ -100,8 +102,8 @@ export default function AccountingPage() {
                     disabled={generating}
                 >
                     {generating
-                        ? <><Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" />Génération...</>
-                        : <><Download className="w-3.5 h-3.5 mr-1.5" />Rapport</>
+                        ? <><Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" />{t('admin.finance.generating')}</>
+                        : <><Download className="w-3.5 h-3.5 mr-1.5" />{t('admin.finance.report')}</>
                     }
                 </Button>
                 <Button
@@ -109,7 +111,7 @@ export default function AccountingPage() {
                     onClick={() => setIsAddTxOpen(true)}
                     className="bg-emerald-500 hover:bg-emerald-400 text-black font-semibold"
                 >
-                    <Plus className="w-3.5 h-3.5 mr-1.5" />Transaction
+                    <Plus className="w-3.5 h-3.5 mr-1.5" />{t('admin.finance.transaction')}
                 </Button>
             </div>
 

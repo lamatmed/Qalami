@@ -29,6 +29,7 @@ import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useLanguage } from '@/i18n'
+import { getTeacherAssignmentsAction } from '@/app/teacher/actions'
 
 interface Question {
     id: string
@@ -62,7 +63,7 @@ export function QuizBuilder({ quizId }: QuizBuilderProps) {
     ])
 
     // Available classes and subjects
-    const [classes, setClasses] = useState<{ id: string; name: string }[]>([])
+    const [classes, setClasses] = useState<{ id: string; name: string; schoolId?: string }[]>([])
     const [subjects, setSubjects] = useState<{ id: string; name: string }[]>([])
 
     useEffect(() => {
@@ -77,19 +78,28 @@ export function QuizBuilder({ quizId }: QuizBuilderProps) {
         const { data: { user } } = await supabase.auth.getUser()
         if (!user) return
 
-        // Load teacher's assigned classes
-        const { data: assignments } = await supabase
-            .from('teacher_assignments')
-            .select('class_id, classes(id, name), subjects(id, name)')
-            .eq('teacher_id', user.id)
+        // Load teacher's assigned classes using Server Action to bypass RLS for cross-school school names
+        let assignments: any[] = []
+        try {
+            assignments = await getTeacherAssignmentsAction(user.id)
+        } catch (err) {
+            console.error('Error loading assignments:', err)
+        }
 
-        const classMap = new Map<string, { id: string; name: string }>()
+        const classMap = new Map<string, { id: string; name: string; schoolId?: string }>()
         const subjectMap = new Map<string, { id: string; name: string }>()
 
         assignments?.forEach(a => {
             const cls = a.classes as any
             const subj = a.subjects as any
-            if (cls?.id) classMap.set(cls.id, { id: cls.id, name: cls.name })
+            if (cls?.id) {
+                const schoolName = cls.schools?.name ? ` (${cls.schools.name})` : ''
+                classMap.set(cls.id, { 
+                    id: cls.id, 
+                    name: `${cls.name}${schoolName}`,
+                    schoolId: cls.school_id
+                })
+            }
             if (subj?.id) subjectMap.set(subj.id, { id: subj.id, name: subj.name })
         })
 
@@ -190,10 +200,13 @@ export function QuizBuilder({ quizId }: QuizBuilderProps) {
         const supabase = createClient()
         const { data: { user } } = await supabase.auth.getUser()
 
+        const selectedClass = classes.find(c => c.id === classId)
+
         const quizData = {
             title: title.trim(),
             description: description.trim() || null,
             class_id: classId,
+            school_id: selectedClass?.schoolId,
             subject_id: subjectId || null,
             time_limit_minutes: timeLimit,
             max_attempts: maxAttempts,

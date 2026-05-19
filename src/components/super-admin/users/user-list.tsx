@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { Users, Search, MoreHorizontal, Eye, Building2, GraduationCap, BookOpen, UserCheck, UserX, Loader2, Shield, Mail, Calendar, ExternalLink } from 'lucide-react'
+import { Users, Search, MoreHorizontal, Eye, Building2, GraduationCap, BookOpen, UserCheck, UserX, Loader2, Shield, Mail, Calendar, ExternalLink, Phone, Sparkles, Filter } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { cn } from '@/lib/utils'
@@ -27,6 +27,7 @@ import {
 } from '@/components/ui/dialog'
 import Link from 'next/link'
 import { useLanguage } from '@/i18n'
+import { motion } from 'framer-motion'
 
 interface User {
     id: string
@@ -34,6 +35,7 @@ interface User {
     full_name: string | null
     role: string
     school_id: string | null
+    phone: string | null
     is_active: boolean
     created_at: string
     school?: {
@@ -61,7 +63,6 @@ export function UserList() {
         const fetchData = async () => {
             const supabase = createClient()
             try {
-                // Fetch schools first
                 const { data: schoolsData, error: schoolsError } = await supabase
                     .from('schools')
                     .select('id, name')
@@ -73,7 +74,6 @@ export function UserList() {
 
                 setSchools(schoolsData ?? [])
 
-                // Fetch all users with their school info
                 const { data: usersData, error: usersError } = await supabase
                     .from('profiles')
                     .select(`
@@ -81,6 +81,7 @@ export function UserList() {
                         email,
                         full_name,
                         role,
+                        phone,
                         school_id,
                         created_at
                     `)
@@ -93,7 +94,7 @@ export function UserList() {
                 if (usersData) {
                     const usersWithSchools = usersData.map(user => ({
                         ...user,
-                        is_active: true, // Default to active since column doesn't exist
+                        is_active: true,
                         school: schoolsData?.find(s => s.id === user.school_id)
                     }))
                     setUsers(usersWithSchools as User[])
@@ -111,7 +112,8 @@ export function UserList() {
     const filteredUsers = users.filter(user => {
         const matchesSearch =
             (user.full_name?.toLowerCase().includes(search.toLowerCase()) ?? false) ||
-            (user.email?.toLowerCase().includes(search.toLowerCase()) ?? false)
+            (user.email?.toLowerCase().includes(search.toLowerCase()) ?? false) ||
+            (user.phone?.toLowerCase().includes(search.toLowerCase()) ?? false)
         const matchesRole = roleFilter === 'all' || user.role === roleFilter
         const matchesSchool = schoolFilter === 'all' || user.school_id === schoolFilter
         return matchesSearch && matchesRole && matchesSchool
@@ -194,190 +196,222 @@ export function UserList() {
         parents: users.filter(u => u.role === 'parent').length,
     }
 
+    const isRTL = direction === 'rtl'
+
     return (
-        <div className="space-y-6 pb-12 animate-in fade-in duration-500" dir={direction}>
+        <div className="space-y-10 pb-12 select-none animate-in fade-in duration-500" dir={direction}>
             {/* Header */}
-            <div className="flex items-center justify-between">
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
                 <div>
-                    <h1 className="text-3xl font-black text-gray-900 dark:text-white tracking-tight">
-                        {t('superAdmin.usersList.title')}
+                    <div className="inline-flex items-center gap-2 text-purple-600 dark:text-purple-400 font-black text-[11px] tracking-[0.2em] uppercase mb-2 bg-purple-50 dark:bg-purple-500/10 border border-purple-100 dark:border-purple-500/20 rounded-full px-3.5 py-1 shadow-sm">
+                        <Sparkles className="w-3 h-3 fill-purple-600 dark:fill-purple-400" />
+                        <span>{t('superAdmin.usersList.title') || 'ANNUAIRE'}</span>
+                    </div>
+                    <h1 className="text-3xl md:text-4xl font-black tracking-tight text-slate-900 dark:text-white mt-1">
+                        Gestion des Utilisateurs
                     </h1>
-                    <p className="text-sm text-gray-500 mt-1">
+                    <p className="text-slate-500 dark:text-slate-400 font-semibold mt-1.5 text-sm">
                         {t('superAdmin.usersList.count').replace('{count}', stats.total.toString())}
                     </p>
                 </div>
             </div>
 
-            {/* Stats Cards */}
-            <div className="grid grid-cols-2 md:grid-cols-6 gap-4">
+            {/* Supercharged Mini KPI Cards */}
+            <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-6 gap-4.5">
                 {[
-                    { label: t('superAdmin.usersList.total'), value: stats.total, color: 'gray' },
-                    { label: t('superAdmin.usersList.superAdmins'), value: stats.superAdmins, color: 'purple' },
-                    { label: t('superAdmin.usersList.admins'), value: stats.admins, color: 'emerald' },
-                    { label: t('superAdmin.usersList.teachers'), value: stats.teachers, color: 'indigo' },
-                    { label: t('superAdmin.usersList.students'), value: stats.students, color: 'blue' },
-                    { label: t('superAdmin.usersList.parents'), value: stats.parents, color: 'amber' },
+                    { label: t('superAdmin.usersList.total') || 'Total', value: stats.total, color: 'bg-slate-500 dark:bg-slate-400', text: 'text-slate-900 dark:text-white' },
+                    { label: t('superAdmin.usersList.superAdmins') || 'Super Admins', value: stats.superAdmins, color: 'bg-purple-500', text: 'text-purple-600 dark:text-purple-400' },
+                    { label: t('superAdmin.usersList.admins') || 'Admins', value: stats.admins, color: 'bg-emerald-500', text: 'text-emerald-600 dark:text-emerald-400' },
+                    { label: t('superAdmin.usersList.teachers') || 'Teachers', value: stats.teachers, color: 'bg-indigo-500', text: 'text-indigo-600 dark:text-indigo-400' },
+                    { label: t('superAdmin.usersList.students') || 'Students', value: stats.students, color: 'bg-blue-500', text: 'text-blue-600 dark:text-blue-400' },
+                    { label: t('superAdmin.usersList.parents') || 'Parents', value: stats.parents, color: 'bg-amber-500', text: 'text-amber-600 dark:text-amber-400' },
                 ].map((stat, idx) => (
-                    <div key={idx} className="bg-white dark:bg-slate-900 border border-gray-100 dark:border-white/5 rounded-2xl p-5 shadow-sm transition-transform hover:scale-[1.03] duration-300">
-                        <p className="text-[10px] text-gray-400 dark:text-gray-500 uppercase font-black tracking-wider">{stat.label}</p>
+                    <div 
+                        key={idx} 
+                        className="group relative bg-white dark:bg-slate-900/50 border border-slate-150 dark:border-white/5 rounded-2xl p-5 overflow-hidden shadow-[0_4px_20px_-8px_rgba(0,0,0,0.02)] transition-all duration-300 hover:shadow-lg hover:-translate-y-1"
+                    >
+                        <div className={cn("absolute top-0 inset-x-0 h-[3px] opacity-60 group-hover:opacity-100 transition-opacity", stat.color)} />
+                        <p className="text-[9px] text-slate-400 dark:text-slate-500 uppercase font-black tracking-[0.15em] truncate">{stat.label}</p>
                         <p className={cn(
-                            "text-3xl font-black mt-2",
-                            stat.color === 'gray' && "text-gray-900 dark:text-white",
-                            stat.color === 'purple' && "text-purple-600 dark:text-purple-400",
-                            stat.color === 'emerald' && "text-emerald-600 dark:text-emerald-400",
-                            stat.color === 'indigo' && "text-indigo-600 dark:text-indigo-400",
-                            stat.color === 'blue' && "text-blue-600 dark:text-blue-400",
-                            stat.color === 'amber' && "text-amber-600 dark:text-amber-400"
-                        )}>{stat.value}</p>
+                            "text-2xl sm:text-3xl font-black mt-2 tabular-nums leading-none",
+                            stat.text
+                        )}>{stat.value.toLocaleString()}</p>
                     </div>
                 ))}
             </div>
 
-            {/* Filters */}
-            <div className="flex flex-col md:flex-row gap-4">
-                <div className="relative flex-1">
-                    <Search className={cn("absolute top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400", direction === 'rtl' ? 'right-4' : 'left-4')} />
+            {/* Premium Filters Bar */}
+            <div className="bg-white/60 dark:bg-slate-900/30 backdrop-blur-md p-4 rounded-2xl border border-slate-150 dark:border-white/5 shadow-sm flex flex-col md:flex-row gap-4">
+                <div className="relative flex-1 min-w-0">
+                    <Search className={cn("absolute top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400", isRTL ? 'right-4.5' : 'left-4.5')} />
                     <Input
-                        placeholder={t('superAdmin.usersList.searchPlaceholder')}
+                        placeholder={t('superAdmin.usersList.searchPlaceholder') || 'Rechercher par nom, email, téléphone...'}
                         value={search}
                         onChange={(e) => setSearch(e.target.value)}
-                        className={cn("bg-white dark:bg-slate-900 border-gray-200 dark:border-white/10 text-gray-900 dark:text-white placeholder:text-gray-400 rounded-2xl h-12 shadow-sm transition-all focus:bg-white focus:ring-2 focus:ring-purple-500/10", direction === 'rtl' ? 'pr-12 pl-4' : 'pl-12 pr-4')}
+                        className={cn(
+                            "bg-white dark:bg-slate-950 border-slate-200 dark:border-white/10 text-slate-900 dark:text-white placeholder:text-slate-400 font-medium rounded-xl h-12 shadow-inner transition-all focus:bg-white focus:ring-2 focus:ring-purple-500/20", 
+                            isRTL ? 'pr-12 pl-4' : 'pl-12 pr-4'
+                        )}
                     />
                 </div>
-                <Select value={roleFilter} onValueChange={setRoleFilter}>
-                    <SelectTrigger className="w-full md:w-48 bg-white dark:bg-slate-900 border-gray-200 dark:border-white/10 text-gray-900 dark:text-white rounded-2xl h-12 shadow-sm font-semibold">
-                        <SelectValue placeholder={t('superAdmin.usersList.allRoles')} />
-                    </SelectTrigger>
-                    <SelectContent className="bg-white dark:bg-slate-900 border-gray-200 dark:border-white/10 text-gray-900 dark:text-white rounded-2xl shadow-xl">
-                        <SelectItem value="all" className="font-semibold">{t('superAdmin.usersList.allRoles')}</SelectItem>
-                        <SelectItem value="super_admin" className="font-semibold">{t('superAdmin.usersList.superAdmins')}</SelectItem>
-                        <SelectItem value="admin" className="font-semibold">{t('superAdmin.usersList.admins')}</SelectItem>
-                        <SelectItem value="teacher" className="font-semibold">{t('superAdmin.usersList.teachers')}</SelectItem>
-                        <SelectItem value="student" className="font-semibold">{t('superAdmin.usersList.students')}</SelectItem>
-                        <SelectItem value="parent" className="font-semibold">{t('superAdmin.usersList.parents')}</SelectItem>
-                    </SelectContent>
-                </Select>
-                <Select value={schoolFilter} onValueChange={setSchoolFilter}>
-                    <SelectTrigger className="w-full md:w-64 bg-white dark:bg-slate-900 border-gray-200 dark:border-white/10 text-gray-900 dark:text-white rounded-2xl h-12 shadow-sm font-semibold">
-                        <SelectValue placeholder={t('superAdmin.usersList.allSchools')} />
-                    </SelectTrigger>
-                    <SelectContent className="bg-white dark:bg-slate-900 border-gray-200 dark:border-white/10 text-gray-900 dark:text-white rounded-2xl shadow-xl">
-                        <SelectItem value="all" className="font-semibold">{t('superAdmin.usersList.allSchools')}</SelectItem>
-                        {schools.map(school => (
-                            <SelectItem key={school.id} value={school.id} className="font-semibold">{school.name}</SelectItem>
-                        ))}
-                    </SelectContent>
-                </Select>
+                
+                <div className="flex flex-col sm:flex-row gap-3 shrink-0">
+                    <Select value={roleFilter} onValueChange={setRoleFilter}>
+                        <SelectTrigger className="w-full sm:w-48 bg-white dark:bg-slate-950 border-slate-200 dark:border-white/10 text-slate-900 dark:text-white rounded-xl h-12 shadow-sm font-bold text-sm">
+                            <div className="flex items-center gap-2 truncate">
+                                <Filter className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                                <SelectValue placeholder={t('superAdmin.usersList.allRoles')} />
+                            </div>
+                        </SelectTrigger>
+                        <SelectContent className="bg-white dark:bg-slate-900 border-slate-200 dark:border-white/10 text-slate-900 dark:text-white rounded-xl shadow-2xl">
+                            <SelectItem value="all" className="font-bold py-2.5">{t('superAdmin.usersList.allRoles')}</SelectItem>
+                            <SelectItem value="super_admin" className="font-bold py-2.5">{t('superAdmin.usersList.superAdmins')}</SelectItem>
+                            <SelectItem value="admin" className="font-bold py-2.5">{t('superAdmin.usersList.admins')}</SelectItem>
+                            <SelectItem value="teacher" className="font-bold py-2.5">{t('superAdmin.usersList.teachers')}</SelectItem>
+                            <SelectItem value="student" className="font-bold py-2.5">{t('superAdmin.usersList.students')}</SelectItem>
+                            <SelectItem value="parent" className="font-bold py-2.5">{t('superAdmin.usersList.parents')}</SelectItem>
+                        </SelectContent>
+                    </Select>
+
+                    <Select value={schoolFilter} onValueChange={setSchoolFilter}>
+                        <SelectTrigger className="w-full sm:w-60 bg-white dark:bg-slate-950 border-slate-200 dark:border-white/10 text-slate-900 dark:text-white rounded-xl h-12 shadow-sm font-bold text-sm">
+                            <div className="flex items-center gap-2 truncate">
+                                <Building2 className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                                <SelectValue placeholder={t('superAdmin.usersList.allSchools')} />
+                            </div>
+                        </SelectTrigger>
+                        <SelectContent className="bg-white dark:bg-slate-900 border-slate-200 dark:border-white/10 text-slate-900 dark:text-white rounded-xl shadow-2xl max-h-72">
+                            <SelectItem value="all" className="font-bold py-2.5">{t('superAdmin.usersList.allSchools')}</SelectItem>
+                            {schools.map(school => (
+                                <SelectItem key={school.id} value={school.id} className="font-bold py-2.5">{school.name}</SelectItem>
+                            ))}
+                        </SelectContent>
+                    </Select>
+                </div>
             </div>
 
             {/* Users Content */}
             {loading ? (
-                <div className="flex items-center justify-center py-24 bg-white dark:bg-slate-900 border border-gray-100 dark:border-white/5 rounded-3xl shadow-sm">
-                    <div className="flex flex-col items-center gap-3">
-                        <Loader2 className="w-10 h-10 animate-spin text-purple-600" />
-                    </div>
+                <div className="flex items-center justify-center py-28 bg-white/80 dark:bg-slate-900/40 backdrop-blur-xl border border-slate-150 dark:border-white/5 rounded-3xl shadow-sm animate-pulse">
+                    <Loader2 className="w-10 h-10 animate-spin text-purple-600" />
                 </div>
             ) : filteredUsers.length === 0 ? (
-                <div className="text-center py-24 bg-white dark:bg-slate-900 border border-gray-100 dark:border-white/5 rounded-3xl shadow-sm text-gray-400">
-                    <Users className="w-16 h-16 mx-auto mb-4 opacity-30 text-purple-600" />
-                    <p className="font-bold text-gray-500">{search || roleFilter !== 'all' || schoolFilter !== 'all' ? t('superAdmin.usersList.noResults') : t('superAdmin.usersList.noUsers')}</p>
+                <div className="text-center py-24 bg-white/80 dark:bg-slate-900/40 backdrop-blur-xl border border-slate-150 dark:border-white/5 rounded-3xl shadow-sm text-slate-400">
+                    <div className="bg-slate-50 dark:bg-slate-800 w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-sm border border-slate-100 dark:border-white/5">
+                        <Users className="w-8 h-8 text-purple-500 opacity-80" />
+                    </div>
+                    <p className="font-black uppercase tracking-wider text-xs text-slate-500">
+                        {search || roleFilter !== 'all' || schoolFilter !== 'all' ? t('superAdmin.usersList.noResults') || 'Aucun résultat' : t('superAdmin.usersList.noUsers') || 'Aucun utilisateur'}
+                    </p>
                 </div>
             ) : (
-                <div className="bg-white dark:bg-slate-900 border border-gray-100 dark:border-white/5 rounded-3xl shadow-sm overflow-hidden">
+                <div className="bg-white dark:bg-slate-900/40 backdrop-blur-xl border border-slate-150 dark:border-white/5 rounded-3xl shadow-[0_8px_40px_-12px_rgba(0,0,0,0.03)] overflow-hidden">
                     <div className="overflow-x-auto">
                         <table className="w-full border-collapse">
                             <thead>
-                                <tr className="border-b border-gray-100 dark:border-white/5 bg-gray-50/50 dark:bg-slate-900/50">
-                                    <th className={cn("text-xs text-gray-400 uppercase font-bold tracking-wider px-6 py-4.5", direction === 'rtl' ? 'text-right' : 'text-left')}>{t('superAdmin.usersList.thUser')}</th>
-                                    <th className={cn("text-xs text-gray-400 uppercase font-bold tracking-wider px-6 py-4.5", direction === 'rtl' ? 'text-right' : 'text-left')}>{t('superAdmin.usersList.thRole')}</th>
-                                    <th className={cn("text-xs text-gray-400 uppercase font-bold tracking-wider px-6 py-4.5", direction === 'rtl' ? 'text-right' : 'text-left')}>{t('superAdmin.usersList.thSchool')}</th>
-                                    <th className={cn("text-xs text-gray-400 uppercase font-bold tracking-wider px-6 py-4.5", direction === 'rtl' ? 'text-right' : 'text-left')}>{t('superAdmin.usersList.thStatus')}</th>
-                                    <th className={cn("text-xs text-gray-400 uppercase font-bold tracking-wider px-6 py-4.5", direction === 'rtl' ? 'text-left' : 'text-right')}>{t('superAdmin.usersList.thActions')}</th>
+                                <tr className="border-b border-slate-100 dark:border-white/5 bg-slate-50/50 dark:bg-slate-950/20">
+                                    <th className={cn("text-[10px] text-slate-400 uppercase font-black tracking-[0.15em] px-6 py-4.5", isRTL ? 'text-right' : 'text-left')}>{t('superAdmin.usersList.thUser') || 'UTILISATEUR'}</th>
+                                    <th className={cn("text-[10px] text-slate-400 uppercase font-black tracking-[0.15em] px-6 py-4.5", isRTL ? 'text-right' : 'text-left')}>{t('superAdmin.usersList.thRole') || 'RÔLE'}</th>
+                                    <th className={cn("text-[10px] text-slate-400 uppercase font-black tracking-[0.15em] px-6 py-4.5", isRTL ? 'text-right' : 'text-left')}>TÉLÉPHONE</th>
+                                    <th className={cn("text-[10px] text-slate-400 uppercase font-black tracking-[0.15em] px-6 py-4.5", isRTL ? 'text-right' : 'text-left')}>{t('superAdmin.usersList.thSchool') || 'ÉCOLE'}</th>
+                                    <th className={cn("text-[10px] text-slate-400 uppercase font-black tracking-[0.15em] px-6 py-4.5", isRTL ? 'text-right' : 'text-left')}>{t('superAdmin.usersList.thStatus') || 'STATUT'}</th>
+                                    <th className={cn("text-[10px] text-slate-400 uppercase font-black tracking-[0.15em] px-6 py-4.5", isRTL ? 'text-left' : 'text-right')}>{t('superAdmin.usersList.thActions') || 'ACTIONS'}</th>
                                 </tr>
                             </thead>
-                            <tbody className="divide-y divide-gray-100 dark:divide-white/5">
+                            <tbody className="divide-y divide-slate-100 dark:divide-white/5">
                                 {filteredUsers.map(user => {
                                     const RoleIcon = getRoleIcon(user.role)
                                     const roleClass = getRoleColor(user.role)
+                                    const roleBg = roleClass.split(' ')[0]
+                                    const roleText = roleClass.split(' ')[1]
+                                    const roleBorder = roleClass.split(' ').find(c => c.startsWith('border-')) || 'border-transparent'
+                                    
                                     return (
-                                        <tr key={user.id} className="hover:bg-gray-50/50 dark:hover:bg-white/[0.02] transition-colors duration-200">
+                                        <tr key={user.id} className="group hover:bg-white/80 dark:hover:bg-white/[0.02] transition-all duration-200">
                                             <td className="px-6 py-4.5">
-                                                <div className="flex items-center gap-4.5">
+                                                <div className="flex items-center gap-4">
                                                     <div className={cn(
-                                                        "h-12 w-12 rounded-2xl flex items-center justify-center shrink-0 border",
-                                                        roleClass.split(' ')[0],
-                                                        roleClass.split(' ').find(c => c.startsWith('border-')) || 'border-transparent'
+                                                        "h-12 w-12 rounded-xl flex items-center justify-center shrink-0 border shadow-[0_2px_10px_-4px_rgba(0,0,0,0.05)] group-hover:scale-105 group-hover:rotate-1 transition-all duration-300",
+                                                        roleBg,
+                                                        roleBorder
                                                     )}>
-                                                        <RoleIcon className={cn("w-5.5 h-5.5", roleClass.split(' ')[1])} />
+                                                        <RoleIcon className={cn("w-5.5 h-5.5", roleText)} />
                                                     </div>
-                                                    <div>
-                                                        <p className="font-bold text-gray-900 dark:text-white leading-snug">{user.full_name || t('superAdmin.usersList.unnamed')}</p>
-                                                        <p className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">{user.email || `ID: ${user.id.slice(0, 8)}...`}</p>
+                                                    <div className="min-w-0">
+                                                        <p className="font-black text-slate-900 dark:text-white leading-snug text-sm truncate tracking-tight group-hover:text-purple-600 dark:group-hover:text-purple-400 transition-colors">{user.full_name || t('superAdmin.usersList.unnamed')}</p>
+                                                        <p className="text-[11px] text-slate-400 dark:text-slate-500 font-semibold mt-0.5 truncate max-w-[200px] select-all">{user.email || `ID: ${user.id.slice(0, 8)}...`}</p>
                                                     </div>
                                                 </div>
                                             </td>
                                             <td className="px-6 py-4.5">
                                                 <span className={cn(
-                                                    "px-3 py-1 rounded-full text-[10px] font-black uppercase border tracking-wider",
+                                                    "px-2.5 py-1 rounded-full text-[9px] font-black uppercase border tracking-widest shadow-[0_1px_3px_rgba(0,0,0,0.02)]",
                                                     roleClass
                                                 )}>
                                                     {getRoleLabel(user.role)}
                                                 </span>
                                             </td>
                                             <td className="px-6 py-4.5">
+                                                <span className="text-slate-700 dark:text-slate-300 font-black text-xs font-mono bg-slate-50 dark:bg-white/5 border border-slate-100 dark:border-white/5 px-2 py-0.5 rounded-lg select-all">
+                                                    {user.phone || '-'}
+                                                </span>
+                                            </td>
+                                            <td className="px-6 py-4.5">
                                                 {user.school ? (
-                                                    <div className="flex items-center gap-2">
-                                                        <Building2 className="w-4 h-4 text-gray-400" />
-                                                        <span className="text-gray-700 dark:text-gray-300 text-sm font-semibold">{user.school.name}</span>
+                                                    <div className="flex items-center gap-2 truncate max-w-[200px]">
+                                                        <Building2 className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                                                        <span className="text-slate-700 dark:text-slate-300 text-xs font-black truncate uppercase tracking-wide">{user.school.name}</span>
                                                     </div>
                                                 ) : (
-                                                    <span className="text-gray-400 text-sm">-</span>
+                                                    <span className="text-slate-300 dark:text-slate-700 font-bold text-xs">—</span>
                                                 )}
                                             </td>
                                             <td className="px-6 py-4.5">
                                                 <span className={cn(
-                                                    "inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider",
+                                                    "inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[9px] font-black uppercase tracking-widest border shadow-sm",
                                                     user.is_active !== false
-                                                        ? "bg-emerald-50 text-emerald-600 dark:bg-emerald-500/10 dark:text-emerald-400"
-                                                        : "bg-red-50 text-red-600 dark:bg-red-500/10 dark:text-red-400"
+                                                        ? "bg-emerald-50 text-emerald-600 border-emerald-100 dark:bg-emerald-500/10 dark:text-emerald-400 dark:border-emerald-500/20"
+                                                        : "bg-red-50 text-red-600 border-red-100 dark:bg-red-500/10 dark:text-red-400 dark:border-red-500/20"
                                                 )}>
                                                     {user.is_active !== false ? (
-                                                        <><UserCheck className="w-3.5 h-3.5" /> {t('superAdmin.usersList.active')}</>
+                                                        <><UserCheck className="w-3 h-3" /> {t('superAdmin.usersList.active') || 'ACTIF'}</>
                                                     ) : (
-                                                        <><UserX className="w-3.5 h-3.5" /> {t('superAdmin.usersList.inactive')}</>
+                                                        <><UserX className="w-3 h-3" /> {t('superAdmin.usersList.inactive') || 'INACTIF'}</>
                                                     )}
                                                 </span>
                                             </td>
-                                            <td className="px-6 py-4.5 text-right">
+                                            <td className={cn("px-6 py-4.5", isRTL ? 'text-left' : 'text-right')}>
                                                 <DropdownMenu>
                                                     <DropdownMenuTrigger asChild>
-                                                        <Button variant="ghost" size="icon" className="h-9 w-9 text-gray-400 hover:text-gray-900 dark:hover:text-white rounded-xl">
+                                                        <Button variant="ghost" size="icon" className="h-9 w-9 text-slate-400 hover:text-purple-600 dark:hover:text-purple-400 hover:bg-purple-50 dark:hover:bg-purple-900/20 rounded-xl transition-all">
                                                             <MoreHorizontal className="w-4.5 h-4.5" />
                                                         </Button>
                                                     </DropdownMenuTrigger>
-                                                    <DropdownMenuContent align={direction === 'rtl' ? 'start' : 'end'} className="bg-white dark:bg-slate-900 border-gray-100 dark:border-white/10 text-gray-900 dark:text-white rounded-2xl shadow-xl p-1.5 min-w-48">
+                                                    <DropdownMenuContent align={isRTL ? 'start' : 'end'} className="bg-white dark:bg-slate-900 border border-slate-150 dark:border-white/10 text-slate-900 dark:text-white rounded-2xl shadow-2xl p-1.5 min-w-[200px]">
                                                         <DropdownMenuItem
-                                                            className="flex items-center gap-2.5 cursor-pointer rounded-xl py-2.5 font-semibold text-sm hover:bg-gray-50 dark:hover:bg-white/5"
+                                                            className="flex items-center gap-2.5 cursor-pointer rounded-xl py-3 font-bold text-xs uppercase tracking-wider hover:bg-slate-50 dark:hover:bg-white/5 transition-colors"
                                                             onClick={() => setSelectedUser(user)}
                                                         >
-                                                            <Eye className="w-4 h-4 text-gray-400" /> {t('superAdmin.usersList.viewProfile')}
+                                                            <Eye className="w-4 h-4 text-slate-400" /> {t('superAdmin.usersList.viewProfile')}
                                                         </DropdownMenuItem>
+                                                        
                                                         {user.school && (
                                                             <DropdownMenuItem asChild>
                                                                 <Link
                                                                     href={`/super-admin/schools/${user.school_id}`}
-                                                                    className="flex items-center gap-2.5 cursor-pointer rounded-xl py-2.5 font-semibold text-sm hover:bg-gray-50 dark:hover:bg-white/5"
+                                                                    className="flex items-center gap-2.5 cursor-pointer rounded-xl py-3 font-bold text-xs uppercase tracking-wider hover:bg-slate-50 dark:hover:bg-white/5 transition-colors"
                                                                 >
-                                                                    <Building2 className="w-4 h-4 text-gray-400" /> {t('superAdmin.usersList.viewSchool')}
+                                                                    <Building2 className="w-4 h-4 text-slate-400" /> {t('superAdmin.usersList.viewSchool')}
                                                                 </Link>
                                                             </DropdownMenuItem>
                                                         )}
+                                                        
                                                         {user.role && user.role !== 'super_admin' && (
                                                             <DropdownMenuItem
-                                                                className="flex items-center gap-2.5 cursor-pointer rounded-xl py-2.5 font-semibold text-sm text-purple-600 dark:text-purple-400 hover:bg-purple-50 dark:hover:bg-purple-500/10"
+                                                                className="flex items-center gap-2.5 cursor-pointer rounded-xl py-3 font-black text-xs uppercase tracking-wider text-purple-600 dark:text-purple-400 hover:bg-purple-50 dark:hover:bg-purple-500/10 transition-colors border-t border-slate-100 dark:border-white/5 mt-1"
                                                                 onClick={() => accessAsUser(user)}
                                                             >
-                                                                <ExternalLink className="w-4 h-4" /> {t('superAdmin.usersList.accessAs').replace('{role}', getRoleLabel(user.role))}
+                                                                <ExternalLink className="w-4 h-4 text-purple-500" /> {t('superAdmin.usersList.accessAs').replace('{role}', getRoleLabel(user.role))}
                                                             </DropdownMenuItem>
                                                         )}
                                                     </DropdownMenuContent>
@@ -392,96 +426,132 @@ export function UserList() {
                 </div>
             )}
 
-            {/* User Profile Dialog */}
+            {/* User Profile Dialog - Luxuriously Polished */}
             <Dialog open={!!selectedUser} onOpenChange={() => setSelectedUser(null)}>
-                <DialogContent className="bg-white dark:bg-slate-900 border-gray-100 dark:border-white/10 text-gray-900 dark:text-white max-w-md rounded-3xl p-6 shadow-2xl" dir={direction}>
-                    <DialogHeader>
-                        <DialogTitle className="text-xl font-black tracking-tight">{t('superAdmin.usersList.profileTitle')}</DialogTitle>
+                <DialogContent className="bg-white/95 dark:bg-slate-950/95 backdrop-blur-2xl border border-slate-150 dark:border-white/10 text-slate-900 dark:text-white max-w-md rounded-[28px] p-7 shadow-2xl overflow-hidden" dir={direction}>
+                    
+                    {/* Top background glow accent */}
+                    <div className="absolute -top-10 -right-10 w-32 h-32 bg-purple-500/10 blur-3xl rounded-full pointer-events-none" />
+                    
+                    <DialogHeader className="relative z-10">
+                        <DialogTitle className="text-xl font-black tracking-tight flex items-center gap-2 text-slate-900 dark:text-white">
+                            <Shield className="w-5 h-5 text-purple-500" />
+                            {t('superAdmin.usersList.profileTitle') || 'Fiche Utilisateur'}
+                        </DialogTitle>
                     </DialogHeader>
+                    
                     {selectedUser && (
-                        <div className="space-y-6 mt-4">
-                            {/* User Avatar & Name */}
-                            <div className="flex items-center gap-4">
+                        <div className="space-y-6 mt-5 relative z-10">
+                            {/* User Avatar / Identity */}
+                            <div className="flex items-center gap-4 p-1">
                                 <div className={cn(
-                                    "h-16 w-16 rounded-2xl flex items-center justify-center border shrink-0",
+                                    "h-16 w-16 rounded-[20px] flex items-center justify-center border shadow-[0_4px_15px_-3px_rgba(0,0,0,0.05)] shrink-0",
                                     getRoleColor(selectedUser.role).split(' ')[0],
                                     getRoleColor(selectedUser.role).split(' ').find(c => c.startsWith('border-')) || 'border-transparent'
                                 )}>
                                     {(() => {
                                         const RoleIcon = getRoleIcon(selectedUser.role)
-                                        return <RoleIcon className={cn("w-7 h-7", getRoleColor(selectedUser.role).split(' ')[1])} />
+                                        const roleTextClass = getRoleColor(selectedUser.role).split(' ')[1]
+                                        return <RoleIcon className={cn("w-7 h-7", roleTextClass)} />
                                     })()}
                                 </div>
-                                <div className="space-y-1">
-                                    <h3 className="text-lg font-black tracking-tight leading-none">{selectedUser.full_name || t('superAdmin.usersList.unnamed')}</h3>
-                                    <span className={cn(
-                                        "inline-block px-2.5 py-0.5 rounded-full text-[9px] font-black uppercase border tracking-wider",
-                                        getRoleColor(selectedUser.role)
-                                    )}>
-                                        {getRoleLabel(selectedUser.role)}
-                                    </span>
-                                </div>
-                            </div>
-
-                            {/* User Details */}
-                            <div className="space-y-3.5 bg-gray-50/70 dark:bg-slate-950/40 rounded-2xl p-5 border border-gray-100 dark:border-white/5">
-                                <div className="flex items-center gap-3 text-sm font-semibold">
-                                    <Mail className="w-4 h-4 text-gray-400 shrink-0" />
-                                    <span className="text-gray-400 font-bold text-xs uppercase tracking-wider min-w-24">{t('superAdmin.usersList.profileEmail')}:</span>
-                                    <span className="text-gray-800 dark:text-gray-200 break-all">{selectedUser.email || '-'}</span>
-                                </div>
-                                {selectedUser.school && (
-                                    <div className="flex items-center gap-3 text-sm font-semibold">
-                                        <Building2 className="w-4 h-4 text-gray-400 shrink-0" />
-                                        <span className="text-gray-400 font-bold text-xs uppercase tracking-wider min-w-24">{t('superAdmin.usersList.profileSchool')}:</span>
-                                        <Link
-                                            href={`/super-admin/schools/${selectedUser.school_id}`}
-                                            className="text-purple-600 hover:text-purple-500 dark:text-purple-400 dark:hover:text-purple-300 font-bold underline decoration-purple-600/30 hover:decoration-purple-600"
-                                        >
-                                            {selectedUser.school.name}
-                                        </Link>
+                                <div className="min-w-0 flex-1">
+                                    <h3 className="text-lg font-black tracking-tight text-slate-900 dark:text-white truncate leading-tight">
+                                        {selectedUser.full_name || t('superAdmin.usersList.unnamed')}
+                                    </h3>
+                                    <div className="mt-1.5">
+                                        <span className={cn(
+                                            "inline-block px-2.5 py-0.5 rounded-full text-[8px] font-black uppercase border tracking-widest shadow-sm",
+                                            getRoleColor(selectedUser.role)
+                                        )}>
+                                            {getRoleLabel(selectedUser.role)}
+                                        </span>
                                     </div>
+                                </div>
+                            </div>
+
+                            {/* User Details Section */}
+                            <div className="space-y-3 bg-slate-50/80 dark:bg-slate-900/50 border border-slate-150 dark:border-white/5 rounded-2xl p-5">
+                                <div className="flex flex-col gap-1.5">
+                                    <span className="text-[9px] text-slate-400 dark:text-slate-500 font-black tracking-widest uppercase">{t('superAdmin.usersList.profileEmail') || 'EMAIL'}</span>
+                                    <div className="flex items-center gap-2 font-semibold text-slate-800 dark:text-slate-200 text-sm truncate select-all">
+                                        <Mail className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                                        {selectedUser.email || '—'}
+                                    </div>
+                                </div>
+                                
+                                <div className="h-px bg-slate-200/60 dark:bg-white/5 w-full my-2" />
+
+                                <div className="flex flex-col gap-1.5">
+                                    <span className="text-[9px] text-slate-400 dark:text-slate-500 font-black tracking-widest uppercase">TÉLÉPHONE</span>
+                                    <div className="flex items-center gap-2 font-black text-slate-800 dark:text-slate-200 text-sm font-mono select-all">
+                                        <Phone className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                                        {selectedUser.phone || '—'}
+                                    </div>
+                                </div>
+
+                                {selectedUser.school && (
+                                    <>
+                                        <div className="h-px bg-slate-200/60 dark:bg-white/5 w-full my-2" />
+                                        <div className="flex flex-col gap-1.5">
+                                            <span className="text-[9px] text-slate-400 dark:text-slate-500 font-black tracking-widest uppercase">{t('superAdmin.usersList.profileSchool') || 'ÉCOLE ASSIGNÉE'}</span>
+                                            <div className="flex items-center gap-2 font-black text-sm uppercase tracking-wide">
+                                                <Building2 className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                                                <Link
+                                                    href={`/super-admin/schools/${selectedUser.school_id}`}
+                                                    className="text-purple-600 hover:text-purple-500 dark:text-purple-400 dark:hover:text-purple-300 underline decoration-purple-600/20 hover:decoration-purple-600"
+                                                >
+                                                    {selectedUser.school.name}
+                                                </Link>
+                                            </div>
+                                        </div>
+                                    </>
                                 )}
-                                <div className="flex items-center gap-3 text-sm font-semibold">
-                                    <Calendar className="w-4 h-4 text-gray-400 shrink-0" />
-                                    <span className="text-gray-400 font-bold text-xs uppercase tracking-wider min-w-24">{t('superAdmin.usersList.profileRegistered')}:</span>
-                                    <span className="text-gray-800 dark:text-gray-200">
-                                        {new Date(selectedUser.created_at).toLocaleDateString(direction === 'rtl' ? 'ar-EG' : 'fr-FR', {
-                                            day: 'numeric',
-                                            month: 'long',
-                                            year: 'numeric'
-                                        })}
-                                    </span>
-                                </div>
-                                <div className="flex items-center gap-3 text-sm font-semibold">
-                                    <UserCheck className="w-4 h-4 text-gray-400 shrink-0" />
-                                    <span className="text-gray-400 font-bold text-xs uppercase tracking-wider min-w-24">{t('superAdmin.usersList.profileStatus')}:</span>
-                                    <span className={cn(
-                                        "inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider",
-                                        selectedUser.is_active !== false
-                                            ? "bg-emerald-50 text-emerald-600 dark:bg-emerald-500/10 dark:text-emerald-400"
-                                            : "bg-red-50 text-red-600 dark:bg-red-500/10 dark:text-red-400"
-                                    )}>
-                                        {selectedUser.is_active !== false ? t('superAdmin.usersList.active') : t('superAdmin.usersList.inactive')}
-                                    </span>
+
+                                <div className="h-px bg-slate-200/60 dark:bg-white/5 w-full my-2" />
+
+                                <div className="flex items-center justify-between">
+                                    <div className="flex flex-col gap-1">
+                                        <span className="text-[9px] text-slate-400 dark:text-slate-500 font-black tracking-widest uppercase">{t('superAdmin.usersList.profileRegistered') || 'INSCRIPTION'}</span>
+                                        <div className="flex items-center gap-1.5 text-xs font-bold text-slate-600 dark:text-slate-300">
+                                            <Calendar className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                                            {new Date(selectedUser.created_at).toLocaleDateString(isRTL ? 'ar-EG' : 'fr-FR', {
+                                                day: 'numeric',
+                                                month: 'short',
+                                                year: 'numeric'
+                                            })}
+                                        </div>
+                                    </div>
+                                    
+                                    <div className="flex flex-col gap-1 items-end">
+                                        <span className="text-[9px] text-slate-400 dark:text-slate-500 font-black tracking-widest uppercase">{t('superAdmin.usersList.profileStatus') || 'STATUT'}</span>
+                                        <span className={cn(
+                                            "inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[9px] font-black uppercase tracking-widest border shadow-sm mt-0.5",
+                                            selectedUser.is_active !== false
+                                                ? "bg-emerald-50 text-emerald-600 border-emerald-100 dark:bg-emerald-500/10 dark:text-emerald-400"
+                                                : "bg-red-50 text-red-600 border-red-100 dark:bg-red-500/10 dark:text-red-400"
+                                        )}>
+                                            {selectedUser.is_active !== false ? t('superAdmin.usersList.active') || 'ACTIF' : t('superAdmin.usersList.inactive') || 'INACTIF'}
+                                        </span>
+                                    </div>
                                 </div>
                             </div>
 
-                            {/* User ID */}
-                            <div className="text-[10px] text-gray-400 font-mono tracking-widest bg-gray-50/50 dark:bg-slate-950/20 px-3 py-1.5 rounded-xl border border-gray-100 dark:border-white/5">
-                                ID: {selectedUser.id}
+                            {/* User ID Tech Tag */}
+                            <div className="text-[9px] font-bold font-mono tracking-widest text-slate-400 dark:text-slate-600 bg-slate-50 dark:bg-slate-900/60 px-3 py-2 rounded-xl border border-slate-150 dark:border-white/5 text-center uppercase select-all">
+                                UID: {selectedUser.id}
                             </div>
 
-                            {/* Access as User Button */}
+                            {/* Access as User Call-To-Action Button */}
                             {selectedUser.role && selectedUser.role !== 'super_admin' && (
                                 <Button
                                     onClick={() => {
                                         accessAsUser(selectedUser)
                                         setSelectedUser(null)
                                     }}
-                                    className="w-full bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white font-black rounded-2xl h-12 shadow-lg shadow-purple-600/20 transition-all duration-300 py-3"
+                                    className="w-full bg-gradient-to-r from-purple-600 via-indigo-600 to-blue-600 hover:from-purple-500 hover:via-indigo-500 hover:to-blue-500 text-white font-black rounded-[18px] h-12.5 shadow-lg shadow-purple-500/25 hover:shadow-purple-500/40 transition-all duration-500 py-3 text-xs uppercase tracking-widest flex items-center justify-center gap-2 hover:scale-[1.01] active:scale-98"
                                 >
-                                    <ExternalLink className="w-4.5 h-4.5 mr-2" />
+                                    <ExternalLink className="w-3.5 h-3.5 shrink-0" />
                                     {t('superAdmin.usersList.accessAs').replace('{role}', getRoleLabel(selectedUser.role))}
                                 </Button>
                             )}

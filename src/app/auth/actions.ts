@@ -239,6 +239,48 @@ export async function getInvitations() {
     return { invitations }
 }
 
+export async function checkUserByPhone(phone: string) {
+    const adminClient = createAdminClient()
+    const normalizedPhone = phone.startsWith('+') ? phone : `+${phone.replace(/[^0-9]/g, '')}`
+    
+    const { data, error } = await adminClient
+        .from('profiles')
+        .select('id, full_name, role')
+        .eq('phone', normalizedPhone)
+        .maybeSingle()
+        
+    if (error) return { exists: false, error: error.message }
+    if (!data) return { exists: false }
+    
+    return {
+        exists: true,
+        role: data.role,
+        fullName: data.full_name,
+        id: data.id
+    }
+}
+
+// Alias for backward compat if needed
+export async function checkStudentByNNI(nni: string) {
+    if (!nni || !nni.trim()) return { exists: false }
+    const adminClient = createAdminClient()
+    const { data, error } = await adminClient
+        .from('profiles')
+        .select('id, full_name, role')
+        .eq('national_id', nni.trim())
+        .maybeSingle()
+        
+    if (error) return { exists: false, error: error.message }
+    if (!data) return { exists: false }
+    
+    return {
+        exists: true,
+        role: data.role,
+        fullName: data.full_name,
+        id: data.id
+    }
+}
+
 export async function createParent(formData: {
     firstName: string
     lastName: string
@@ -275,6 +317,55 @@ export async function createParent(formData: {
     const normalizedPhone = formData.phone
         ? (formData.phone.startsWith('+') ? formData.phone : `+${formData.phone.replace(/[^0-9]/g, '')}`)
         : null
+
+    // ─── CHECK IF PARENT ALREADY EXISTS BY PHONE ───────────────────────────
+    if (normalizedPhone) {
+        const { data: existingProfile } = await adminClient
+            .from('profiles')
+            .select('id, full_name, email, phone, school_id, role')
+            .eq('phone', normalizedPhone)
+            .maybeSingle()
+
+        if (existingProfile) {
+            if (existingProfile.role !== 'parent') {
+                return { error: `Ce numéro est déjà enregistré comme ${existingProfile.role}.` }
+            }
+            
+            // Parent already exists globally! 
+            // ─── ATTACH THEM TO THE CURRENT SCHOOL VIA profile_schools ───
+            const { data: existingLink } = await adminClient
+                .from('profile_schools')
+                .select('id')
+                .eq('profile_id', existingProfile.id)
+                .eq('school_id', profile.school_id)
+                .maybeSingle()
+
+            if (!existingLink) {
+                const { error: linkError } = await adminClient
+                    .from('profile_schools')
+                    .insert({
+                        profile_id: existingProfile.id,
+                        school_id: profile.school_id,
+                        role: 'parent',
+                        status: 'active'
+                    })
+                if (linkError) {
+                    return { error: `Erreur lors de la liaison du parent: ${linkError.message}` }
+                }
+            }
+
+            return {
+                success: true,
+                isExisting: true,
+                credentials: {
+                    phone: existingProfile.phone,
+                    email: existingProfile.email,
+                    password: 'Mot de passe existant',
+                    fullName: existingProfile.full_name
+                }
+            }
+        }
+    }
 
     if (!formData.password?.trim()) {
         return { error: 'Le mot de passe instantané est obligatoire' }
@@ -318,8 +409,29 @@ export async function createParent(formData: {
         return { error: 'Erreur lors de la création du profil: ' + profileError.message }
     }
 
+    // ─── ALSO REGISTER IN profile_schools FOR COMPLETENESS ──────────────────
+    const { data: existingLink } = await adminClient
+        .from('profile_schools')
+        .select('id')
+        .eq('profile_id', authUser.user.id)
+        .eq('school_id', profile.school_id)
+        .maybeSingle()
+
+    if (!existingLink) {
+        await adminClient
+            .from('profile_schools')
+            .insert({
+                profile_id: authUser.user.id,
+                school_id: profile.school_id,
+                role: 'parent',
+                is_primary: true,
+                status: 'active'
+            })
+    }
+
     return {
         success: true,
+        isExisting: false,
         credentials: {
             phone: normalizedPhone,
             email: formData.email,
@@ -348,8 +460,10 @@ export async function createStudent(formData: {
         className: string
         academicYear?: string
         registrationFee: number
+        monthlyTuition: number
         tuitionFee: number
         isPaid: boolean
+        advanceMonths?: number
     }
 }) {
     const supabase = await createClient()
@@ -371,6 +485,21 @@ export async function createStudent(formData: {
     if (!profile.school_id) return { error: 'Aucune école associée' }
 
     const fullName = `${formData.personal.firstName} ${formData.personal.lastName}`
+
+    // ─── CHECK IF STUDENT NNI IS UNIQUE & PROVIDED ────────────────────────
+    if (!formData.personal.nationalId?.trim()) {
+        return { error: 'Le NNI est obligatoire.' }
+    }
+
+    const { data: existingNni } = await adminClient
+        .from('profiles')
+        .select('id, full_name')
+        .eq('national_id', formData.personal.nationalId.trim())
+        .maybeSingle()
+        
+    if (existingNni) {
+        return { error: `Ce NNI est déjà associé à un autre compte (${existingNni.full_name}).` }
+    }
 
     // Validate phone & password only if student has phone
     if (formData.hasPhone) {
@@ -422,14 +551,16 @@ export async function createStudent(formData: {
 
     // Resolve academic year name → UUID (shared for enrollment + payment)
     let academicYearId: string | null = null
+    let yearData: any = null
     if (formData.academic.academicYear) {
-        const { data: yearData } = await adminClient
+        const { data } = await adminClient
             .from('academic_years')
-            .select('id')
+            .select('id, start_date, end_date')
             .eq('school_id', profile.school_id)
             .eq('name', formData.academic.academicYear)
-            .single()
-        academicYearId = yearData?.id ?? null
+            .maybeSingle()
+        yearData = data
+        academicYearId = data?.id ?? null
     }
 
     // 3. Find the class and create enrollment
@@ -448,6 +579,8 @@ export async function createStudent(formData: {
                 academic_year_id: academicYearId,
                 school_id: profile.school_id,
                 status: 'active',
+                custom_registration_fee: formData.academic.registrationFee,
+                custom_monthly_tuition: formData.academic.monthlyTuition,
             })
         }
     }
@@ -466,18 +599,59 @@ export async function createStudent(formData: {
         }
     }
 
-    // 5. Record payment if marked as paid
-    if (formData.academic.isPaid && formData.academic.registrationFee > 0) {
+    // 5. Record Registration (Inscription) Payment
+    if (formData.academic.registrationFee > 0) {
         await adminClient.from('payments').insert({
             student_id: authUser.user.id,
             school_id: profile.school_id,
             amount: formData.academic.registrationFee,
-            amount_paid: formData.academic.registrationFee,
             payment_type: 'inscription',
-            status: 'paid',
-            paid_at: new Date().toISOString(),
+            payment_status: formData.academic.isPaid ? 'paid' : 'pending',
+            paid_at: formData.academic.isPaid ? new Date().toISOString() : null,
+            due_date: new Date().toISOString().split('T')[0], // Due immediately
             academic_year_id: academicYearId,
+            description: `Frais d'inscription`,
         })
+    }
+
+    // 6. Autogenerate standard 9-10 monthly tuition installments ('scolarite')
+    if (formData.academic.monthlyTuition > 0) {
+        const start = yearData?.start_date ? new Date(yearData.start_date) : new Date(`${new Date().getFullYear()}-10-01`)
+        const end = yearData?.end_date ? new Date(yearData.end_date) : new Date(`${new Date().getFullYear() + 1}-06-30`)
+        
+        const schedule = []
+        const current = new Date(start)
+        current.setDate(5) // Due on the 5th of each month by default
+
+        const totalAdvance = formData.academic.advanceMonths || 0
+        let advanceApplied = 0
+        
+        // Generate individual payment rows for each month in the academic span
+        while (current <= end) {
+            const isAdvance = advanceApplied < totalAdvance
+            if (isAdvance) {
+                advanceApplied++
+            }
+
+            schedule.push({
+                student_id: authUser.user.id,
+                school_id: profile.school_id,
+                amount: formData.academic.monthlyTuition,
+                payment_type: 'scolarite',
+                payment_status: isAdvance ? 'paid' : 'pending',
+                paid_at: isAdvance ? new Date().toISOString() : null,
+                due_date: current.toISOString().split('T')[0],
+                academic_year_id: academicYearId,
+                description: `Mensualité - ${current.toLocaleString('fr-FR', { month: 'long', year: 'numeric' })}`
+            })
+            
+            // Bump by 1 month
+            current.setMonth(current.getMonth() + 1)
+        }
+        
+        if (schedule.length > 0) {
+            await adminClient.from('payments').insert(schedule)
+        }
     }
 
     return {
@@ -613,6 +787,68 @@ export async function createTeacher(formData: {
         ? (formData.phone.startsWith('+') ? formData.phone : `+${formData.phone.replace(/[^0-9]/g, '')}`)
         : null
 
+    // ─── SAFE PRE-CHECK FOR TEACHER ─────────────────────────────────────
+    if (normalizedPhone) {
+        const { data: existingProfile } = await adminClient
+            .from('profiles')
+            .select('id, full_name, email, phone, role')
+            .eq('phone', normalizedPhone)
+            .maybeSingle()
+
+        if (existingProfile) {
+            if (existingProfile.role !== 'teacher') {
+                return { error: `Ce numéro est déjà utilisé par un ${existingProfile.role}.` }
+            }
+            
+            // ─── ATTACH TEACHER TO THE CURRENT SCHOOL VIA profile_schools ───
+            const { data: existingLink } = await adminClient
+                .from('profile_schools')
+                .select('id')
+                .eq('profile_id', existingProfile.id)
+                .eq('school_id', profile.school_id)
+                .maybeSingle()
+
+            if (!existingLink) {
+                const { error: linkError } = await adminClient
+                    .from('profile_schools')
+                    .insert({
+                        profile_id: existingProfile.id,
+                        school_id: profile.school_id,
+                        role: 'teacher',
+                        status: 'active'
+                    })
+                if (linkError) {
+                    return { error: `Erreur lors de la liaison de l'enseignant: ${linkError.message}` }
+                }
+            }
+
+            revalidatePath('/admin/teachers')
+            return {
+                success: true,
+                isExisting: true,
+                credentials: {
+                    fullName: existingProfile.full_name,
+                    phone: existingProfile.phone,
+                    email: existingProfile.email,
+                    password: 'Mot de passe existant',
+                }
+            }
+        }
+    }
+
+    // ─── SAFE PRE-CHECK FOR NNI UNIQUENESS ──────────────────────────────
+    if (formData.nni && formData.nni.trim()) {
+        const { data: existingNNIProfile } = await adminClient
+            .from('profiles')
+            .select('id')
+            .eq('national_id', formData.nni.trim())
+            .maybeSingle()
+
+        if (existingNNIProfile) {
+            return { error: 'Ce numéro NNI est déjà rattaché à un compte.' }
+        }
+    }
+
     if (!formData.password?.trim()) {
         return { error: 'Le mot de passe instantané est obligatoire' }
     }
@@ -653,6 +889,26 @@ export async function createTeacher(formData: {
         return { error: 'Erreur lors de la création du profil: ' + profileError.message }
     }
 
+    // ─── ALSO REGISTER IN profile_schools FOR COMPLETENESS ──────────────────
+    const { data: existingLink } = await adminClient
+        .from('profile_schools')
+        .select('id')
+        .eq('profile_id', authUser.user.id)
+        .eq('school_id', profile.school_id)
+        .maybeSingle()
+
+    if (!existingLink) {
+        await adminClient
+            .from('profile_schools')
+            .insert({
+                profile_id: authUser.user.id,
+                school_id: profile.school_id,
+                role: 'teacher',
+                is_primary: true,
+                status: 'active'
+            })
+    }
+
     revalidatePath('/admin/teachers')
     return {
         success: true,
@@ -663,4 +919,54 @@ export async function createTeacher(formData: {
             password: plainPassword,
         }
     }
+}
+
+/**
+ * Attaches an already existing user (from any school) to the currently logged-in school
+ */
+export async function linkProfileToSchool(profileId: string, role: 'teacher' | 'parent') {
+    const supabase = await createClient()
+    const adminClient = createAdminClient()
+
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return { error: 'Non authentifié' }
+
+    const { data: profile } = await supabase
+        .from('profiles')
+        .select('role, school_id')
+        .eq('id', user.id)
+        .single()
+
+    if (!profile || !['admin', 'super_admin', 'school_staff'].includes(profile.role)) {
+        return { error: 'Accès non autorisé' }
+    }
+
+    if (!profile.school_id) return { error: 'Aucune école associée' }
+
+    const { data: existingLink } = await adminClient
+        .from('profile_schools')
+        .select('id')
+        .eq('profile_id', profileId)
+        .eq('school_id', profile.school_id)
+        .maybeSingle()
+
+    if (!existingLink) {
+        const { error } = await adminClient
+            .from('profile_schools')
+            .insert({
+                profile_id: profileId,
+                school_id: profile.school_id,
+                role: role,
+                status: 'active'
+            })
+        if (error) {
+            return { error: `Erreur lors de la liaison: ${error.message}` }
+        }
+    }
+
+
+
+    revalidatePath('/admin/teachers')
+    revalidatePath('/admin/parents')
+    return { success: true }
 }

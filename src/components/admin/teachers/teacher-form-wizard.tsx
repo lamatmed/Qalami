@@ -34,10 +34,17 @@ export function TeacherFormWizard() {
 
             if (result.success && result.credentials) {
                 const cred = result.credentials
-                toast.success(t('admin.teachers.teacherAddedSuccess', { name: cred.fullName }), {
-                    description: t('admin.teachers.passwordIs', { password: cred.password }),
-                    duration: 10000,
-                })
+                if ((result as any).isExisting) {
+                    toast.success(t('common.success') || "Succès", {
+                        description: `Cet enseignant (${cred.fullName}) est prêt. Vous pouvez l'assigner à vos classes dès maintenant.`,
+                        duration: 6000,
+                    })
+                } else {
+                    toast.success(t('admin.teachers.teacherAddedSuccess', { name: cred.fullName }), {
+                        description: t('admin.teachers.passwordIs', { password: cred.password }),
+                        duration: 10000,
+                    })
+                }
             }
 
             router.push('/admin/teachers')
