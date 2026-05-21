@@ -668,6 +668,7 @@
         "sessions": "séances",
         "noCourseThisDay": "Pas de cours ce jour",
         "validAmountRequired": "Veuillez entrer un montant valide",
+        "amountExceedsPending": "Le montant saisi ({amount} MRU) dépasse le montant total en attente ({pending} MRU).",
         "studentNotIdentified": "Étudiant non identifié",
         "notAuthenticated": "Non authentifié",
         "schoolNotFound": "École non trouvée",

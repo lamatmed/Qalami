@@ -668,6 +668,7 @@
         "sessions": "حصص",
         "noCourseThisDay": "لا توجد دروس هذا اليوم",
         "validAmountRequired": "يرجى إدخال مبلغ صالح",
+        "amountExceedsPending": "المبلغ المدخل ({amount} MRU) يتجاوز إجمالي المبلغ المستحق ({pending} MRU).",
         "studentNotIdentified": "تعذر تحديد التلميذ",
         "notAuthenticated": "غير مصادق",
         "schoolNotFound": "لم يتم العثور على المدرسة",

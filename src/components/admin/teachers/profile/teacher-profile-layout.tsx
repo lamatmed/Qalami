@@ -267,7 +267,7 @@ export function TeacherProfileLayout({ id }: { id: string }) {
                 {activeTab === 'absences'    && <TeacherAbsences teacherId={id} />}
                 {activeTab === 'remarks'     && <TeacherRemarksList teacherId={id} />}
                 {activeTab === 'evaluations' && <TeacherEvaluations teacherId={id} />}
-                {activeTab === 'documents'   && <TeacherDocuments />}
+                {activeTab === 'documents'   && <TeacherDocuments teacherId={id} />}
                 {activeTab === 'contract'    && <TeacherContract teacherId={id} />}
             </div>
         </div>

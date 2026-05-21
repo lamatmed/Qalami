@@ -10,7 +10,6 @@ import { Upload, FileText, Loader2, X } from 'lucide-react'
 import { createClient } from '@/utils/supabase/client'
 import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
-import { getMySchoolContext } from '@/app/admin/actions'
 
 const DOCUMENT_TYPES = [
     { value: 'course', label: 'Cours' },
@@ -20,6 +19,15 @@ const DOCUMENT_TYPES = [
     { value: 'correction', label: 'Correction' },
     { value: 'resource', label: 'Ressource' },
     { value: 'general', label: 'Général' },
+]
+
+const CATEGORIES = [
+    { value: 'pedago',  label: 'Pédagogie' },
+    { value: 'admin',   label: 'Administration' },
+    { value: 'finance', label: 'Finance' },
+    { value: 'hr',      label: 'RH' },
+    { value: 'legal',   label: 'Juridique' },
+    { value: 'student', label: 'Élèves' },
 ]
 
 interface UploadDocumentDialogProps {
@@ -42,6 +50,7 @@ export function UploadDocumentDialog({
     const fileInputRef = useRef<HTMLInputElement>(null)
     const [file, setFile] = useState<File | null>(null)
     const [documentType, setDocumentType] = useState('course')
+    const [category, setCategory] = useState('pedago')
     const [subjectId, setSubjectId] = useState(defaultSubjectId || 'none')
     const [classId, setClassId] = useState(defaultClassId || 'none')
     const [teacherId, setTeacherId] = useState(defaultTeacherId || 'none')
@@ -57,6 +66,27 @@ export function UploadDocumentDialog({
     const yr = now.getFullYear()
     const currentAcademicYear = now.getMonth() >= 8 ? `${yr}-${yr + 1}` : `${yr - 1}-${yr}`
 
+    /**
+     * Fetches school context fully client-side using the anon Supabase client.
+     * This replaces the previous `getMySchoolContext` server action call that was
+     * causing a fatal "Application error" crash on Vercel when called from a
+     * client component.
+     */
+    const getSchoolContext = async () => {
+        const supabase = createClient()
+        const { data: { user }, error: authError } = await supabase.auth.getUser()
+        if (authError || !user) return null
+
+        const { data: profile, error: profileError } = await supabase
+            .from('profiles')
+            .select('school_id')
+            .eq('id', user.id)
+            .single()
+
+        if (profileError || !profile?.school_id) return null
+        return { school_id: profile.school_id, user_id: user.id }
+    }
+
     useEffect(() => {
         if (!isOpen) return
         setAcademicYear(currentAcademicYear)
@@ -64,21 +94,25 @@ export function UploadDocumentDialog({
         setClassId(defaultClassId || 'none')
         setTeacherId(defaultTeacherId || 'none')
         async function loadOptions() {
-            const ctx = await getMySchoolContext()
-            if (!ctx) return
-            const profile = { school_id: ctx.school_id }
-            const supabase = createClient()
+            try {
+                const ctx = await getSchoolContext()
+                if (!ctx) return
+                const supabase = createClient()
 
-            const [{ data: subj }, { data: cls }, { data: tch }] = await Promise.all([
-                supabase.from('subjects').select('id, name, icon').eq('school_id', profile.school_id).order('name'),
-                supabase.from('classes').select('id, name').eq('school_id', profile.school_id).order('name'),
-                supabase.from('profiles').select('id, full_name').eq('school_id', profile.school_id).eq('role', 'teacher').order('full_name'),
-            ])
-            setSubjects(subj || [])
-            setClasses(cls || [])
-            setTeachers(tch || [])
+                const [{ data: subj }, { data: cls }, { data: tch }] = await Promise.all([
+                    supabase.from('subjects').select('id, name, icon').eq('school_id', ctx.school_id).order('name'),
+                    supabase.from('classes').select('id, name').eq('school_id', ctx.school_id).order('name'),
+                    supabase.from('profiles').select('id, full_name').eq('school_id', ctx.school_id).eq('role', 'teacher').order('full_name'),
+                ])
+                setSubjects(subj || [])
+                setClasses(cls || [])
+                setTeachers(tch || [])
+            } catch (err) {
+                console.error('[UploadDocumentDialog] loadOptions error:', err)
+            }
         }
         loadOptions()
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [isOpen])
 
     const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -90,14 +124,13 @@ export function UploadDocumentDialog({
 
         setUploading(true)
         try {
-            const ctx = await getMySchoolContext()
+            const ctx = await getSchoolContext()
             if (!ctx) throw new Error('Non authentifié')
-            const profile = { school_id: ctx.school_id }
             const supabase = createClient()
 
             const fileExt = file.name.split('.').pop()
             const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_')
-            const filePath = `school_${profile.school_id}/${documentType}/${Date.now()}_${safeName}`
+            const filePath = `school_${ctx.school_id}/${documentType}/${Date.now()}_${safeName}`
 
             const { error: storageError } = await supabase.storage
                 .from('documents')
@@ -114,12 +147,13 @@ export function UploadDocumentDialog({
             const { data: urlData } = supabase.storage.from('documents').getPublicUrl(filePath)
 
             const { error: dbError } = await supabase.from('documents').insert({
-                school_id: profile.school_id,
+                school_id: ctx.school_id,
                 name: file.name,
                 file_url: urlData.publicUrl,
                 file_type: fileExt?.toUpperCase() || 'PDF',
                 file_size_bytes: file.size,
                 document_type: documentType,
+                category: category,
                 subject_id: (subjectId && subjectId !== 'none') ? subjectId : null,
                 class_id: (classId && classId !== 'none') ? classId : null,
                 teacher_id: (teacherId && teacherId !== 'none') ? teacherId : (defaultTeacherId || null),
@@ -143,6 +177,7 @@ export function UploadDocumentDialog({
     const handleClose = () => {
         setFile(null)
         setDocumentType('course')
+        setCategory('pedago')
         setSubjectId(defaultSubjectId || 'none')
         setClassId(defaultClassId || 'none')
         setTeacherId(defaultTeacherId || 'none')
@@ -187,19 +222,34 @@ export function UploadDocumentDialog({
                         )}
                     </div>
 
-                    {/* Type */}
-                    <div className="space-y-1.5">
-                        <Label className="text-xs text-gray-400 uppercase font-bold">Type de document</Label>
-                        <Select value={documentType} onValueChange={setDocumentType}>
-                            <SelectTrigger className="bg-[#0D1117] border-white/10 text-white">
-                                <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent className="bg-[#1A2530] border-white/10 text-white">
-                                {DOCUMENT_TYPES.map(t => (
-                                    <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>
-                                ))}
-                            </SelectContent>
-                        </Select>
+                    {/* Type + Category row */}
+                    <div className="grid grid-cols-2 gap-3">
+                        <div className="space-y-1.5">
+                            <Label className="text-xs text-gray-400 uppercase font-bold">Type de document</Label>
+                            <Select value={documentType} onValueChange={setDocumentType}>
+                                <SelectTrigger className="bg-[#0D1117] border-white/10 text-white">
+                                    <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent className="bg-[#1A2530] border-white/10 text-white">
+                                    {DOCUMENT_TYPES.map(t => (
+                                        <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+                        </div>
+                        <div className="space-y-1.5">
+                            <Label className="text-xs text-gray-400 uppercase font-bold">Catégorie</Label>
+                            <Select value={category} onValueChange={setCategory}>
+                                <SelectTrigger className="bg-[#0D1117] border-white/10 text-white">
+                                    <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent className="bg-[#1A2530] border-white/10 text-white">
+                                    {CATEGORIES.map(c => (
+                                        <SelectItem key={c.value} value={c.value}>{c.label}</SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+                        </div>
                     </div>
 
                     <div className="grid grid-cols-2 gap-3">
@@ -237,7 +287,7 @@ export function UploadDocumentDialog({
                             </Select>
                         </div>
 
-                        {/* Teacher */}
+                        {/* Teacher — only shown when not pre-set from parent context */}
                         {!defaultTeacherId && (
                             <div className="space-y-1.5">
                                 <Label className="text-xs text-gray-400 uppercase font-bold">Enseignant (optionnel)</Label>
