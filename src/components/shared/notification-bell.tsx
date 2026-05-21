@@ -8,6 +8,7 @@ import { createClient } from '@/utils/supabase/client'
 import { markAsRead, markAllAsRead, formatNotificationTime, type Notification, type NotificationType } from '@/lib/notifications'
 import { useRouter } from 'next/navigation'
 import { useLanguage } from '@/i18n'
+import { getAdminNotifications } from '@/app/admin/actions'
 
 export function NotificationBell() {
     const supabase = createClient()
@@ -16,25 +17,50 @@ export function NotificationBell() {
     const [isOpen, setIsOpen] = useState(false)
     const [notifications, setNotifications] = useState<Notification[]>([])
     const [loading, setLoading] = useState(true)
+    const [userRole, setUserRole] = useState<string>('')
     const dropdownRef = useRef<HTMLDivElement>(null)
+    const userContextRef = useRef<{ userId: string, schoolId: string | null, isAdmin: boolean } | null>(null)
 
     const unreadCount = notifications.filter(n => !n.is_read).length
 
     // Fetch notifications
     useEffect(() => {
         const fetchNotifications = async () => {
-            const { data: { user } } = await supabase.auth.getUser()
-            if (!user) return
+            try {
+                const { data: { user } } = await supabase.auth.getUser()
+                if (!user) return
 
-            const { data } = await supabase
-                .from('notifications')
-                .select('*')
-                .eq('user_id', user.id)
-                .order('created_at', { ascending: false })
-                .limit(20)
+                const { data: profile } = await supabase.from('profiles').select('role, school_id').eq('id', user.id).single()
+                const role = profile?.role || ''
+                setUserRole(role)
+                const isAdmin = ['admin', 'super_admin', 'school_staff'].includes(role)
+                
+                userContextRef.current = { userId: user.id, schoolId: profile?.school_id || null, isAdmin }
 
-            setNotifications(data ?? [])
-            setLoading(false)
+                let query = supabase
+                    .from('notifications')
+                    .select('*')
+                    .order('created_at', { ascending: false })
+                    .limit(20)
+
+                let data;
+                if (isAdmin && profile?.school_id) {
+                    data = await getAdminNotifications(profile.school_id)
+                } else {
+                    query = query.eq('user_id', user.id)
+                    const { data: userData } = await query
+                    data = userData
+                }
+
+                setNotifications(data ?? [])
+                setLoading(false)
+            } catch (error: any) {
+                if (error?.name === 'AbortError') {
+                    console.log('Fetch notifications aborted')
+                } else {
+                    console.error('Error fetching notifications:', error)
+                }
+            }
         }
 
         fetchNotifications()
@@ -46,7 +72,16 @@ export function NotificationBell() {
                 { event: 'INSERT', schema: 'public', table: 'notifications' },
                 (payload) => {
                     const newNotification = payload.new as Notification
-                    setNotifications(prev => [newNotification, ...prev].slice(0, 20))
+                    const ctx = userContextRef.current
+                    if (!ctx) return
+
+                    if (ctx.isAdmin && ctx.schoolId) {
+                        if (newNotification.school_id === ctx.schoolId) {
+                            setNotifications(prev => [newNotification, ...prev].slice(0, 20))
+                        }
+                    } else if (newNotification.user_id === ctx.userId) {
+                        setNotifications(prev => [newNotification, ...prev].slice(0, 20))
+                    }
                 }
             )
             .on('postgres_changes',
@@ -84,7 +119,21 @@ export function NotificationBell() {
             )
         }
         if (notification.action_url) {
-            router.push(notification.action_url)
+            let url = notification.action_url
+            if (url.startsWith('/announcements/')) {
+                const id = url.split('/')[2]
+                if (['admin', 'super_admin', 'school_staff'].includes(userRole)) {
+                    url = '/admin/announcements'
+                } else if (userRole === 'teacher') {
+                    // Teacher has a specific detail page for community announcements
+                    url = `/teacher/community/announcements/${id}`
+                } else if (userRole === 'parent') {
+                    url = '/parent/announcements'
+                } else if (userRole === 'student') {
+                    url = '/student/announcements'
+                }
+            }
+            router.push(url)
             setIsOpen(false)
         }
     }

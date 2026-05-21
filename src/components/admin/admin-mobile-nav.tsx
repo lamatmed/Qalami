@@ -19,16 +19,17 @@ export function AdminMobileNav({ user, academicContext }: { user: any; academicC
 
     // Permission → hrefs mapping for school_staff filtering
     const PERM_HREFS: Record<string, string[]> = {
-        students:   ['/admin/students'],
-        parents:    ['/admin/parents'],
-        teachers:   ['/admin/teachers'],
-        classes:    ['/admin/classes', '/admin/subjects', '/admin/assignments'],
-        schedule:   ['/admin/schedule', '/admin/terms'],
-        attendance: ['/admin/attendance'],
-        reports:    ['/admin/reports'],
-        finance:    ['/admin/finance', '/admin/finance/tuition', '/admin/finance/payroll'],
-        settings:   ['/admin/settings', '/admin/documents'],
-        users:      ['/admin/users'],
+        students:      ['/admin/students'],
+        parents:       ['/admin/parents'],
+        teachers:      ['/admin/teachers'],
+        classes:       ['/admin/classes', '/admin/subjects', '/admin/assignments'],
+        schedule:      ['/admin/schedule', '/admin/terms'],
+        attendance:    ['/admin/attendance'],
+        reports:       ['/admin/reports'],
+        finance:       ['/admin/finance', '/admin/finance/tuition', '/admin/finance/payroll'],
+        settings:      ['/admin/settings', '/admin/documents'],
+        users:         ['/admin/users'],
+        announcements: ['/admin/announcements', '/admin/events'],
     }
 
     const canSeeHref = (href: string) => {

@@ -10,7 +10,7 @@ import { cn } from '@/lib/utils'
 import { getSchoolMetricsCounts } from '@/app/admin/actions'
 import {
     GraduationCap, DollarSign, AlertTriangle, ArrowRight,
-    Megaphone, BookOpen, Clock, RefreshCw, UserPlus,
+    Megaphone, BookOpen, Clock, RefreshCw, UserPlus, CalendarDays,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 
@@ -33,6 +33,7 @@ interface DashboardData {
     classes: ClassStat[]
     recentGrades: { id: string; student_name: string; subject_name: string; value: number; max_value: number }[]
     announcements: { id: string; title: string; content: string; target_audience: any; priority: string | null; created_at: string }[]
+    recentEvents: { id: string; title: string; event_type: string; start_date: string; color: string | null }[]
     schoolId: string
     userId: string
 }
@@ -65,6 +66,7 @@ export default function AdminDashboard() {
             { data: enrolled },
             { data: totalPayments },
             { data: announcements },
+            { data: eventsData },
         ] = await Promise.all([
             supabase.from('terms').select('name').eq('school_id', sid).eq('is_current', true).single(),
             getSchoolMetricsCounts(sid),
@@ -73,6 +75,7 @@ export default function AdminDashboard() {
             supabase.from('enrollments').select('student_id, class_id').eq('school_id', sid).eq('status', 'active'),
             supabase.from('payments').select('amount, payment_status').eq('school_id', sid),
             supabase.from('announcements').select('id, title, content, target_audience, priority, created_at').eq('school_id', sid).order('created_at', { ascending: false }).limit(4),
+            supabase.from('events').select('id, title, event_type, start_date, color').eq('school_id', sid).gte('start_date', new Date().toISOString()).order('start_date', { ascending: true }).limit(4),
         ])
 
         const studentCount = aggregatedCounts.students
@@ -164,6 +167,13 @@ export default function AdminDashboard() {
             classes,
             recentGrades,
             announcements: announcements || [],
+            recentEvents: (eventsData || []).map((e: any) => ({
+                id: e.id,
+                title: e.title,
+                event_type: e.event_type,
+                start_date: e.start_date,
+                color: e.color,
+            })),
             schoolId: sid,
             userId: context.user_id,
         })
@@ -323,8 +333,8 @@ export default function AdminDashboard() {
                 </div>
             </div>
 
-            {/* ── Row 3: Dernières notes + Annonces récentes ── */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+            {/* ── Row 3: Dernières notes + Annonces récentes + Événements à venir ── */}
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
 
                 {/* Dernières notes */}
                 <div className="bg-[#161B22] rounded-2xl border border-white/5 p-5">
@@ -383,6 +393,9 @@ export default function AdminDashboard() {
                 <div className="bg-[#161B22] rounded-2xl border border-white/5 p-5">
                     <div className="flex items-center justify-between mb-4">
                         <p className="text-[11px] font-bold text-gray-500 uppercase tracking-wider">{t('admin.dashboard.recentAnnouncements')}</p>
+                        <Link href="/admin/announcements" className="text-[11px] text-gray-600 hover:text-gray-400 transition-colors">
+                            {t('admin.dashboard.viewAll')} →
+                        </Link>
                     </div>
                     {data.announcements.length === 0 ? (
                         <div className="text-center py-8">
@@ -419,6 +432,43 @@ export default function AdminDashboard() {
                                         </div>
                                         <p className="text-xs font-semibold text-white/85 line-clamp-1">{ann.title}</p>
                                         <p className="text-[11px] text-gray-500 line-clamp-2 mt-0.5 leading-relaxed">{ann.content}</p>
+                                    </div>
+                                )
+                            })}
+                        </div>
+                    )}
+                </div>
+
+                {/* Événements à venir */}
+                <div className="bg-[#161B22] rounded-2xl border border-white/5 p-5">
+                    <div className="flex items-center justify-between mb-4">
+                        <p className="text-[11px] font-bold text-gray-500 uppercase tracking-wider">{t('admin.dashboard.upcomingEvents')}</p>
+                        <Link href="/admin/events" className="text-[11px] text-gray-600 hover:text-gray-400 transition-colors">
+                            {t('admin.dashboard.viewAll')} →
+                        </Link>
+                    </div>
+                    {data.recentEvents.length === 0 ? (
+                        <div className="text-center py-8">
+                            <CalendarDays className="w-8 h-8 text-gray-700 mx-auto mb-2" />
+                            <p className="text-xs text-gray-600">{t('admin.dashboard.noUpcomingEvents')}</p>
+                        </div>
+                    ) : (
+                        <div className="space-y-2.5">
+                            {data.recentEvents.map(ev => {
+                                const d = new Date(ev.start_date)
+                                const dayNum = d.getDate()
+                                const monthStr = d.toLocaleDateString('fr-FR', { month: 'short' }).toUpperCase()
+                                const dotColor = ev.color ?? '#6b7280'
+                                return (
+                                    <div key={ev.id} className="flex items-center gap-3 p-2.5 rounded-xl bg-white/2 border border-white/5 hover:bg-white/4 transition-colors">
+                                        <div className="shrink-0 w-10 h-10 rounded-xl flex flex-col items-center justify-center text-center" style={{ backgroundColor: dotColor + '22', border: `1px solid ${dotColor}44` }}>
+                                            <span className="text-[10px] font-bold leading-none" style={{ color: dotColor }}>{monthStr}</span>
+                                            <span className="text-sm font-black leading-none mt-0.5 text-white">{dayNum}</span>
+                                        </div>
+                                        <div className="min-w-0">
+                                            <p className="text-xs font-semibold text-white/85 truncate">{ev.title}</p>
+                                            <p className="text-[10px] text-gray-500 mt-0.5 capitalize">{ev.event_type}</p>
+                                        </div>
                                     </div>
                                 )
                             })}

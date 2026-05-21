@@ -222,3 +222,26 @@ export async function notifyLateParentAction(studentId: string, overdueCount: nu
 
     return { success: true }
 }
+
+export async function getAdminNotifications(schoolId: string) {
+    const adminClient = createAdminClient()
+    const { data } = await adminClient
+        .from('notifications')
+        .select('*')
+        .eq('school_id', schoolId)
+        .order('created_at', { ascending: false })
+        .limit(20)
+    
+    return data || []
+}
+
+export async function getAdminUnreadNotificationsCount(schoolId: string) {
+    const adminClient = createAdminClient()
+    const { count } = await adminClient
+        .from('notifications')
+        .select('*', { count: 'exact', head: true })
+        .eq('school_id', schoolId)
+        .eq('is_read', false)
+    
+    return count || 0
+}

@@ -37,13 +37,15 @@ import {
     GripVertical,
     ChevronLeft,
     ChevronRight,
+    Megaphone,
+    CalendarDays,
 } from 'lucide-react'
 
 import { createClient } from '@/utils/supabase/client'
 import { useLanguage } from '@/i18n'
 import { LanguageSwitcher } from '@/components/shared/language-switcher'
 import { ThemeToggle } from '@/components/shared/theme-toggle'
-import { getMySchoolContext } from '@/app/admin/actions'
+import { getMySchoolContext, getAdminUnreadNotificationsCount } from '@/app/admin/actions'
 
 
 // ─── Types ───────────────────────────────────────────────────────────────────
@@ -77,6 +79,8 @@ export const sidebarItems = [
     { icon: Users, label: 'admin.sidebar.students', href: '/admin/students' },
     { icon: UserCheck, label: 'admin.sidebar.parents', href: '/admin/parents' },
     { icon: BookOpen, label: 'admin.sidebar.teachers', href: '/admin/teachers' },
+    { icon: Megaphone, label: 'admin.sidebar.announcements', href: '/admin/announcements' },
+    { icon: CalendarDays, label: 'admin.sidebar.events', href: '/admin/events' },
     { icon: GraduationCap, label: 'admin.sidebar.classes', href: '/admin/classes' },
     { icon: BookMarked, label: 'admin.sidebar.subjects', href: '/admin/subjects' },
     { icon: ClipboardList, label: 'admin.sidebar.assignments', href: '/admin/assignments' },
@@ -189,14 +193,14 @@ export function AdminSidebar() {
             const [
                 { data: yearData },
                 { data: termData },
-                { count: notifCount },
+                notifCount,
                 { data: allStudents },
                 { data: enrolled },
                 { data: schoolData },
             ] = await Promise.all([
                 supabase.from('academic_years').select('name').eq('school_id', profile.school_id).eq('is_current', true).single(),
                 supabase.from('terms').select('name').eq('school_id', profile.school_id).eq('is_current', true).single(),
-                supabase.from('notifications').select('id', { count: 'exact', head: true }).eq('user_id', ctx.user_id).eq('is_read', false),
+                getAdminUnreadNotificationsCount(profile.school_id),
                 supabase.from('profiles').select('id').eq('school_id', profile.school_id).eq('role', 'student').eq('status', 'active'),
                 supabase.from('enrollments').select('student_id').eq('school_id', profile.school_id).eq('status', 'active'),
                 supabase.from('school_settings').select('name, logo_url').eq('school_id', profile.school_id).single(),
@@ -234,16 +238,17 @@ export function AdminSidebar() {
 
     // Permission → hrefs mapping for school_staff filtering
     const PERM_HREFS: Record<string, string[]> = {
-        students:   ['/admin/students'],
-        parents:    ['/admin/parents'],
-        teachers:   ['/admin/teachers'],
-        classes:    ['/admin/classes', '/admin/subjects', '/admin/assignments'],
-        schedule:   ['/admin/schedule', '/admin/terms'],
-        attendance: ['/admin/attendance'],
-        reports:    ['/admin/reports'],
-        finance:    ['/admin/finance', '/admin/finance/tuition', '/admin/finance/payroll'],
-        settings:   ['/admin/settings', '/admin/documents'],
-        users:      ['/admin/users'],
+        students:      ['/admin/students'],
+        parents:       ['/admin/parents'],
+        teachers:      ['/admin/teachers'],
+        classes:       ['/admin/classes', '/admin/subjects', '/admin/assignments'],
+        schedule:      ['/admin/schedule', '/admin/terms'],
+        attendance:    ['/admin/attendance'],
+        reports:       ['/admin/reports'],
+        finance:       ['/admin/finance', '/admin/finance/tuition', '/admin/finance/payroll'],
+        settings:      ['/admin/settings', '/admin/documents'],
+        users:         ['/admin/users'],
+        announcements: ['/admin/announcements', '/admin/events'],
     }
 
     const isStaff = userInfo?.role === 'school_staff'
@@ -272,6 +277,8 @@ export function AdminSidebar() {
                 { icon: Users, label: t('admin.sidebar.students'), href: '/admin/students', badge: unassignedStudents },
                 { icon: UserCheck, label: t('admin.sidebar.parents'), href: '/admin/parents' },
                 { icon: BookOpen, label: t('admin.sidebar.teachers'), href: '/admin/teachers' },
+                { icon: Megaphone, label: t('admin.sidebar.announcements'), href: '/admin/announcements' },
+                { icon: CalendarDays, label: t('admin.sidebar.events'), href: '/admin/events' },
             ],
         },
         {

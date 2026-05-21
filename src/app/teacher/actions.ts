@@ -148,6 +148,7 @@ export async function updateTeacherProfile(formData: {
     fullName?: string
     avatarUrl?: string
     newPassword?: string
+    phone?: string
 }) {
     const supabase = await createClient()
     const { data: { user } } = await supabase.auth.getUser()
@@ -155,10 +156,31 @@ export async function updateTeacherProfile(formData: {
 
     const adminClient = createAdminClient()
 
-    // 1. Update profiles table
+    // 1. Check if phone is being changed, normalize it, and verify it's not already in use
+    let normalizedPhone: string | undefined = undefined
+    if (formData.phone && formData.phone.trim()) {
+        const phoneInput = formData.phone.trim()
+        normalizedPhone = phoneInput.startsWith('+') ? phoneInput : `+${phoneInput.replace(/[^0-9]/g, '')}`
+        
+        if (normalizedPhone !== user.phone) {
+            const { data: phoneInUse } = await adminClient
+                .from('profiles')
+                .select('id')
+                .eq('phone', normalizedPhone)
+                .neq('id', user.id)
+                .maybeSingle()
+
+            if (phoneInUse) {
+                return { error: 'Ce numéro de téléphone est déjà utilisé par un autre compte.' }
+            }
+        }
+    }
+
+    // 2. Update profiles table
     const updateData: any = {}
     if (formData.fullName) updateData.full_name = formData.fullName
     if (formData.avatarUrl !== undefined) updateData.avatar_url = formData.avatarUrl
+    if (normalizedPhone) updateData.phone = normalizedPhone
 
     if (Object.keys(updateData).length > 0) {
         const { error: profileError } = await adminClient
@@ -172,16 +194,25 @@ export async function updateTeacherProfile(formData: {
         }
     }
 
-    // 2. Update password via Admin API if newPassword is provided
+    // 3. Update password and/or phone via Admin API
+    const authUpdateData: any = {}
     if (formData.newPassword && formData.newPassword.trim()) {
-        const { error: passError } = await adminClient.auth.admin.updateUserById(
+        authUpdateData.password = formData.newPassword.trim()
+    }
+    if (normalizedPhone && normalizedPhone !== user.phone) {
+        authUpdateData.phone = normalizedPhone
+        authUpdateData.phone_confirm = true
+    }
+
+    if (Object.keys(authUpdateData).length > 0) {
+        const { error: authError } = await adminClient.auth.admin.updateUserById(
             user.id,
-            { password: formData.newPassword.trim() }
+            authUpdateData
         )
 
-        if (passError) {
-            console.error('Error updating password:', passError)
-            return { error: 'Erreur lors du changement de mot de passe.' }
+        if (authError) {
+            console.error('Error updating auth:', authError)
+            return { error: 'Erreur lors de la mise à jour des informations de connexion.' }
         }
     }
 

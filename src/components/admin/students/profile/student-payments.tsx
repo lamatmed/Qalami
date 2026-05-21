@@ -98,25 +98,98 @@ export function StudentPayments({ studentId, studentName }: StudentPaymentsProps
             // Resolve current academic year
             const { data: currentYear } = await supabase
                 .from('academic_years')
-                .select('id')
+                .select('id, name')
                 .eq('school_id', profile.school_id)
                 .eq('is_current', true)
                 .single()
 
-            const { error } = await supabase.from('payments').insert({
-                student_id: studentId,
-                school_id: profile.school_id,
-                amount: amount,
-                amount_paid: amount,
-                payment_type: paymentType,
-                status: 'paid',
-                paid_at: new Date().toISOString(),
-                due_date: new Date().toISOString(),
-                academic_year_id: currentYear?.id ?? null,
-                description: paymentNote || `Paiement ${paymentType}`
-            })
+            // Find the oldest pending payment of the selected type
+            const { data: pendingPayments, error: fetchPendingError } = await supabase
+                .from('payments')
+                .select('*')
+                .eq('student_id', studentId)
+                .eq('payment_type', paymentType)
+                .in('payment_status', ['pending', 'overdue'])
+                .order('due_date', { ascending: true })
 
-            if (error) throw error
+            if (fetchPendingError) throw fetchPendingError
+
+            let remainingAmount = amount
+
+            if (pendingPayments && pendingPayments.length > 0) {
+                for (const pending of pendingPayments) {
+                    if (remainingAmount <= 0) break
+
+                    if (remainingAmount >= Number(pending.amount)) {
+                        // Mark this pending payment as fully paid
+                        const { error } = await supabase
+                            .from('payments')
+                            .update({
+                                payment_status: 'paid',
+                                paid_at: new Date().toISOString(),
+                                amount: Number(pending.amount),
+                                description: paymentNote || pending.description || `Paiement ${paymentType}`
+                            })
+                            .eq('id', pending.id)
+
+                        if (error) throw error
+                        remainingAmount -= Number(pending.amount)
+                    } else {
+                        // Partial payment for this month: update current row and create a new pending row for the remainder
+                        const diff = Number(pending.amount) - remainingAmount
+
+                        const { error: updateError } = await supabase
+                            .from('payments')
+                            .update({
+                                payment_status: 'paid',
+                                paid_at: new Date().toISOString(),
+                                amount: remainingAmount,
+                                description: paymentNote || pending.description || `Paiement ${paymentType}`
+                            })
+                            .eq('id', pending.id)
+
+                        if (updateError) throw updateError
+
+                        const { error: insertError } = await supabase
+                            .from('payments')
+                            .insert({
+                                student_id: studentId,
+                                school_id: profile.school_id,
+                                amount: diff,
+                                payment_type: paymentType,
+                                payment_status: pending.payment_status || 'pending',
+                                due_date: pending.due_date,
+                                academic_year_id: pending.academic_year_id,
+                                academic_year: pending.academic_year,
+                                description: pending.description || `Reste paiement ${paymentType}`
+                            })
+
+                        if (insertError) throw insertError
+
+                        remainingAmount = 0
+                    }
+                }
+            }
+
+            if (remainingAmount > 0) {
+                // Insert a new payment for surplus/advance payment
+                const { error } = await supabase
+                    .from('payments')
+                    .insert({
+                        student_id: studentId,
+                        school_id: profile.school_id,
+                        amount: remainingAmount,
+                        payment_type: paymentType,
+                        payment_status: 'paid',
+                        paid_at: new Date().toISOString(),
+                        due_date: new Date().toISOString(),
+                        academic_year_id: currentYear?.id ?? null,
+                        academic_year: currentYear?.name ?? '2024-2025',
+                        description: paymentNote || (pendingPayments && pendingPayments.length > 0 ? `Surplus paiement ${paymentType}` : `Paiement ${paymentType}`)
+                    })
+
+                if (error) throw error
+            }
 
             toast.success(t('admin.students.profile.paymentRegistered', { amount: amount.toLocaleString(language === 'ar' ? 'ar-u-ca-gregory' : 'fr-FR') }))
             setShowPaymentForm(false)
@@ -207,21 +280,21 @@ export function StudentPayments({ studentId, studentName }: StudentPaymentsProps
     return (
         <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-700">
             {/* Summary Card */}
-            <div className="bg-gradient-to-br from-emerald-900/40 to-emerald-900/10 rounded-3xl border border-emerald-500/20 p-6 flex flex-col sm:flex-row justify-between items-center text-center sm:text-left">
+            <div className="bg-gradient-to-br from-emerald-50 to-teal-50 rounded-3xl border border-emerald-200/50 p-6 flex flex-col sm:flex-row justify-between items-center text-center sm:text-left shadow-sm">
                 <div className="space-y-2">
-                    <h3 className="font-bold text-white text-lg flex items-center gap-2 justify-center sm:justify-start">
-                        <CreditCard className="w-5 h-5 text-emerald-500" />
+                    <h3 className="font-bold text-slate-900 text-lg flex items-center gap-2 justify-center sm:justify-start">
+                        <CreditCard className="w-5 h-5 text-emerald-600" />
                         {t('admin.students.profile.tuitionStatus')}
                     </h3>
-                    <p className="text-emerald-200/60 text-sm">{t('common.schoolYear')} {new Date().getFullYear() - 1}-{new Date().getFullYear()}</p>
+                    <p className="text-slate-500 text-sm font-medium">{t('common.schoolYear')} {new Date().getFullYear() - 1}-{new Date().getFullYear()}</p>
                 </div>
                 <div className="mt-4 sm:mt-0">
                     <div className="flex items-end gap-2 justify-center sm:justify-end">
-                        <span className="text-4xl font-bold text-white">{loading ? '...' : `${paidPercentage}%`}</span>
-                        <span className="text-emerald-500 font-bold mb-2">{t('common.paid')}</span>
+                        <span className="text-4xl font-bold text-slate-900">{loading ? '...' : `${paidPercentage}%`}</span>
+                        <span className="text-emerald-600 font-bold mb-2">{t('common.paid')}</span>
                     </div>
-                    <Progress value={paidPercentage} className="h-2 w-48 bg-black/20 mt-2" />
-                    <p className="text-[10px] text-emerald-200/50 mt-2 text-right">
+                    <Progress value={paidPercentage} className="h-2 w-48 bg-emerald-100/80 mt-2" indicatorClassName="bg-emerald-600" />
+                    <p className="text-[10px] text-slate-500 mt-2 text-right font-medium">
                         {loading ? '...' : `${t('admin.students.profile.remainingToPay')}: ${remaining.toLocaleString(language === 'ar' ? 'ar-u-ca-gregory' : 'fr-FR')} MRU`}
                     </p>
                 </div>

@@ -9,6 +9,7 @@ import { useTeacher } from '@/context/teacher-context'
 import { createClient } from '@/utils/supabase/client'
 import { useLanguage } from '@/i18n'
 import { getTeacherScheduleAction } from '@/app/teacher/actions'
+import { useReadNotifications } from '@/hooks/use-read-notifications'
 import { cn } from '@/lib/utils'
 
 interface NextClass {
@@ -35,6 +36,9 @@ export function TeacherHome() {
     const [stats, setStats] = useState<TeacherStats>({ remainingClasses: 0, pendingAttendance: 0, remarksCount: 0 })
     const [loadingData, setLoadingData] = useState(true)
     const [currentTime, setCurrentTime] = useState(new Date())
+    const [unreadCount, setUnreadCount] = useState(0)
+    
+    const { readIds } = useReadNotifications(teacherId)
 
     const isRTL = direction === 'rtl'
 
@@ -123,6 +127,58 @@ export function TeacherHome() {
         }
     }
 
+    useEffect(() => {
+        async function fetchUnreadCount() {
+            if (!teacherId || !schoolId || classes.length === 0) return
+            
+            try {
+                const supabase = createClient()
+                const targetKeys = ['all', 'enseignants', ...classes.map(c => `cls:${c.id}`)]
+                
+                const [{ data: allAnn }, { data: ev }] = await Promise.all([
+                    supabase.from('announcements').select('id, target_audience, target_scope, target_class_id').eq('school_id', schoolId),
+                    supabase.from('events').select('id').eq('school_id', schoolId).overlaps('visibility', targetKeys)
+                ])
+                
+                let count = 0
+                if (allAnn) {
+                    const filteredAnn = allAnn.filter((a: any) => {
+                        if (a.target_audience) {
+                            let audArray: string[] = []
+                            if (Array.isArray(a.target_audience)) {
+                                audArray = a.target_audience
+                            } else if (typeof a.target_audience === 'string') {
+                                try {
+                                    audArray = JSON.parse(a.target_audience)
+                                } catch {
+                                    audArray = a.target_audience.split(',').map((s: string) => s.trim())
+                                }
+                            }
+                            if (audArray.length > 0) {
+                                return audArray.some(t => targetKeys.includes(t))
+                            }
+                        }
+                        if (a.target_scope === 'school') return true
+                        if (a.target_scope === 'class' && a.target_class_id) return classes.some(c => c.id === a.target_class_id)
+                        return false
+                    })
+                    count += filteredAnn.filter(a => !readIds.includes(a.id)).length
+                }
+                if (ev) count += ev.filter(e => !readIds.includes(e.id)).length
+                
+                setUnreadCount(count)
+            } catch (error: any) {
+                if (error?.name === 'AbortError') {
+                    console.log('fetchUnreadCount aborted')
+                } else {
+                    console.error('Error fetching unread count:', error)
+                }
+            }
+        }
+        
+        fetchUnreadCount()
+    }, [teacherId, schoolId, classes, readIds])
+
     const container = {
         hidden: { opacity: 0 },
         show: {
@@ -208,9 +264,15 @@ export function TeacherHome() {
                         </p>
                     </div>
                 </div>
-                <button className="h-11 w-11 rounded-2xl bg-white dark:bg-slate-950 border border-slate-150 dark:border-white/10 flex items-center justify-center text-slate-400 hover:text-emerald-600 dark:hover:text-emerald-400 hover:scale-105 active:scale-95 shadow-sm transition-all shrink-0 cursor-pointer">
+                <Link href="/teacher/community" className="relative h-11 w-11 rounded-2xl bg-white dark:bg-slate-950 border border-slate-150 dark:border-white/10 flex items-center justify-center text-slate-400 hover:text-emerald-600 dark:hover:text-emerald-400 hover:scale-105 active:scale-95 shadow-sm transition-all shrink-0 cursor-pointer">
                     <Bell className="w-5 h-5" />
-                </button>
+                    {unreadCount > 0 && (
+                        <span className="absolute -top-1 -right-1 flex h-4 w-4">
+                            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
+                            <span className="relative inline-flex rounded-full h-4 w-4 bg-red-500 border-2 border-white dark:border-slate-950"></span>
+                        </span>
+                    )}
+                </Link>
             </motion.header>
 
             {/* Supercharged Stats Row */}

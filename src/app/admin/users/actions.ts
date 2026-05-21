@@ -177,3 +177,86 @@ async function logActivity(
         details,
     })
 }
+
+export async function adminUpdateUserPassword(targetUserId: string, newPassword: string) {
+    const ctx = await getActionContext()
+    if (!ctx) return { error: 'Non autorisé' }
+    const { supabase, userId: actorId, schoolId } = ctx
+    const adminClient = createAdminClient()
+
+    if (!newPassword || newPassword.trim().length < 6) {
+        return { error: 'Le mot de passe doit contenir au moins 6 caractères.' }
+    }
+
+    const { data: targetProfile, error: profileError } = await adminClient
+        .from('profiles')
+        .select('school_id, role, full_name, phone')
+        .eq('id', targetUserId)
+        .single()
+
+    if (profileError || !targetProfile) {
+        return { error: 'Utilisateur non trouvé' }
+    }
+
+    let isAuthorized = false
+
+    if (ctx.role === 'super_admin') {
+        isAuthorized = true
+    } else if (['admin', 'school_staff'].includes(ctx.role)) {
+        if (targetProfile.school_id === schoolId) {
+            isAuthorized = true
+        } else {
+            const { data: schoolLink } = await adminClient
+                .from('profile_schools')
+                .select('id')
+                .eq('profile_id', targetUserId)
+                .eq('school_id', schoolId)
+                .maybeSingle()
+            
+            if (schoolLink) {
+                isAuthorized = true
+            } else if (targetProfile.role === 'parent') {
+                const { data: parentLink } = await adminClient
+                    .from('parent_student_links')
+                    .select('student_id, students:profiles!parent_student_links_student_id_fkey!inner(school_id)')
+                    .eq('parent_id', targetUserId)
+                    .eq('students.school_id', schoolId)
+                    .limit(1)
+                
+                if (parentLink && parentLink.length > 0) {
+                    isAuthorized = true
+                }
+            } else if (targetProfile.role === 'teacher') {
+                const { data: teacherAssignment } = await adminClient
+                    .from('teacher_assignments')
+                    .select('class_id, classes!inner(school_id)')
+                    .eq('teacher_id', targetUserId)
+                    .eq('classes.school_id', schoolId)
+                    .limit(1)
+                
+                if (teacherAssignment && teacherAssignment.length > 0) {
+                    isAuthorized = true
+                }
+            }
+        }
+    }
+
+    if (!isAuthorized) {
+        return { error: 'Accès non autorisé' }
+    }
+
+    const { error: updateError } = await adminClient.auth.admin.updateUserById(targetUserId, {
+        password: newPassword.trim()
+    })
+
+    if (updateError) {
+        console.error('Password update failed:', updateError)
+        return { error: `Échec de la mise à jour: ${updateError.message}` }
+    }
+
+    await logActivity(supabase, actorId, schoolId, 'update_password', 'user', targetUserId,
+        `Mise à jour du mot de passe pour: ${targetProfile.full_name}`)
+
+    return { success: true }
+}
+

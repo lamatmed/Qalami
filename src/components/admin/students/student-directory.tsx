@@ -7,10 +7,11 @@ import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import {
     Search, UserPlus, X, Loader2, ShieldAlert, GraduationCap,
-    LayoutList, LayoutGrid, Square, CheckSquare2, ChevronDown, Upload,
+    LayoutList, LayoutGrid, Square, CheckSquare2, ChevronDown, Upload, KeyRound
 } from 'lucide-react'
 import { StatusBadge } from '@/components/admin/shared/status-badge'
 import { ChangeStatusDialog } from '@/components/admin/shared/change-status-dialog'
+import { ChangePasswordDialog } from '@/components/admin/shared/change-password-dialog'
 import { AssignClassDialog } from '@/components/admin/students/assign-class-dialog'
 import { CsvImportDialog } from '@/components/admin/students/csv-import-dialog'
 import Link from 'next/link'
@@ -36,6 +37,7 @@ interface Student {
     initials: string
     email: string
     nationalId: string | null
+    phone: string | null
 }
 
 interface ClassOption {
@@ -145,6 +147,7 @@ export function StudentDirectory() {
 
     // Dialogs
     const [statusDialog, setStatusDialog] = useState<{ open: boolean; student: Student | null }>({ open: false, student: null })
+    const [passwordDialog, setPasswordDialog] = useState<{ open: boolean; student: Student | null }>({ open: false, student: null })
     const [assignDialog, setAssignDialog] = useState<{ open: boolean; student: Student | null }>({ open: false, student: null })
     const [importOpen, setImportOpen] = useState(false)
 
@@ -165,7 +168,7 @@ export function StudentDirectory() {
                 .order('name'),
             supabase
                 .from('profiles')
-                .select('id, full_name, email, status, gender, national_id')
+                .select('id, full_name, email, status, gender, national_id, phone')
                 .eq('role', 'student')
                 .eq('school_id', adminProfile.school_id)
                 .order('full_name'),
@@ -219,6 +222,7 @@ export function StudentDirectory() {
                 ).toUpperCase(),
                 email: p.email || '',
                 nationalId: p.national_id ?? null,
+                phone: p.phone ?? null,
             }
         })
 
@@ -524,9 +528,18 @@ export function StudentDirectory() {
                                             <GraduationCap className="w-3.5 h-3.5" />
                                         </button>
                                     )}
-                                    <button
-                                        className="p-1.5 rounded-lg text-gray-600 hover:text-orange-400 hover:bg-orange-500/10 transition-colors"
-                                        title={t('admin.students.changeStatus')}
+                                     {student.phone && (
+                                         <button
+                                             className="p-1.5 rounded-lg text-gray-600 hover:text-emerald-400 hover:bg-emerald-500/10 transition-colors"
+                                             title={t('admin.users.changePassword') || 'Modifier le mot de passe'}
+                                             onClick={(e) => { e.preventDefault(); setPasswordDialog({ open: true, student }) }}
+                                         >
+                                             <KeyRound className="w-3.5 h-3.5" />
+                                         </button>
+                                     )}
+                                     <button
+                                         className="p-1.5 rounded-lg text-gray-600 hover:text-orange-400 hover:bg-orange-500/10 transition-colors"
+                                         title={t('admin.students.changeStatus')}
                                         onClick={(e) => { e.preventDefault(); setStatusDialog({ open: true, student }) }}
                                     >
                                         <ShieldAlert className="w-3.5 h-3.5" />
@@ -596,6 +609,15 @@ export function StudentDirectory() {
                                                         <GraduationCap className="w-3.5 h-3.5" />
                                                     </button>
                                                 )}
+                                                {student.phone && (
+                                                    <button
+                                                        className="p-1.5 rounded-lg text-gray-600 hover:text-emerald-400 hover:bg-emerald-500/10 transition-colors"
+                                                        title={t('admin.users.changePassword') || 'Modifier le mot de passe'}
+                                                        onClick={() => setPasswordDialog({ open: true, student })}
+                                                    >
+                                                        <KeyRound className="w-3.5 h-3.5" />
+                                                    </button>
+                                                )}
                                                 <button className="p-1.5 rounded-lg text-gray-600 hover:text-orange-400 hover:bg-orange-500/10 transition-colors" onClick={() => setStatusDialog({ open: true, student })}>
                                                     <ShieldAlert className="w-3.5 h-3.5" />
                                                 </button>
@@ -648,6 +670,13 @@ export function StudentDirectory() {
                 onSuccess={(newStatus) => {
                     setStudents(prev => prev.map(s => s.id === statusDialog.student?.id ? { ...s, status: newStatus } : s))
                 }}
+            />
+            <ChangePasswordDialog
+                open={passwordDialog.open}
+                onOpenChange={(open) => setPasswordDialog(s => ({ ...s, open }))}
+                userId={passwordDialog.student?.id ?? ''}
+                userName={passwordDialog.student?.name ?? ''}
+                userPhone={passwordDialog.student?.phone ?? null}
             />
 
             {assignDialog.student && (

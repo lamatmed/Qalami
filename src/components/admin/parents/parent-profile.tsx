@@ -4,17 +4,15 @@ import { useState, useEffect } from 'react'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { Phone, MessageSquare, Mail, MapPin, X, Banknote, User, ShieldAlert, Plus } from 'lucide-react'
+import { Phone, MessageSquare, Mail, MapPin, X, Banknote, User, ShieldAlert, Plus, KeyRound } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { toast } from 'sonner'
 import { useLanguage } from '@/i18n'
-import { FinanceOverview } from './finance/finance-overview'
-import { FeeBreakdown } from './finance/fee-breakdown'
-import { GroupPaymentDialog } from './finance/group-payment-dialog'
-import { TransactionHistory } from './finance/transaction-history'
+import { StudentPayments } from '@/components/admin/students/profile/student-payments'
 import { createClient } from '@/utils/supabase/client'
 import { StatusBadge } from '@/components/admin/shared/status-badge'
 import { ChangeStatusDialog } from '@/components/admin/shared/change-status-dialog'
+import { ChangePasswordDialog } from '@/components/admin/shared/change-password-dialog'
 
 interface ParentProfileProps {
     parent: any
@@ -27,60 +25,10 @@ interface ParentProfileProps {
 
 export function ParentProfile({ parent, onClose, onParentUpdated }: ParentProfileProps) {
     const { t } = useLanguage()
-    const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false)
     const [statusDialogOpen, setStatusDialogOpen] = useState(false)
+    const [passwordDialogOpen, setPasswordDialogOpen] = useState(false)
     const [currentStatus, setCurrentStatus] = useState<string>(parent?.status || 'active')
     const [activeTab, setActiveTab] = useState<'info' | 'finance'>('info')
-    const [financeSummary, setFinanceSummary] = useState({ totalOutstanding: 0, totalPaid: 0, totalDue: 0, byCategory: { tuition: 0, transport: 0, canteen: 0 } })
-    const [childFees, setChildFees] = useState<any[]>([])
-    const [pendingFees, setPendingFees] = useState<any[]>([])
-    const [financeLoaded, setFinanceLoaded] = useState(false)
-
-    useEffect(() => {
-        if (activeTab !== 'finance' || financeLoaded || !parent) return
-        async function loadFinance() {
-            const supabase = createClient()
-            // Get payments for this parent's children
-            const childIds = (parent.children || []).map((c: any) => c.id)
-            if (childIds.length === 0) { setFinanceLoaded(true); return }
-
-            const { data: payments } = await supabase
-                .from('payments')
-                .select('*')
-                .in('student_id', childIds)
-                .order('created_at', { ascending: false })
-
-            const allPayments = payments || []
-            const totalPaid = allPayments.filter((p: any) => p.status === 'completed').reduce((s: number, p: any) => s + (p.amount || 0), 0)
-            const totalDue = allPayments.reduce((s: number, p: any) => s + (p.amount || 0), 0)
-            setFinanceSummary({ totalOutstanding: totalDue - totalPaid, totalPaid, totalDue, byCategory: { tuition: totalPaid, transport: 0, canteen: 0 } })
-
-            // Build child fees
-            const fees = (parent.children || []).map((child: any) => {
-                const cPayments = allPayments.filter((p: any) => p.student_id === child.id)
-                return {
-                    studentId: child.id,
-                    name: child.name,
-                    class: child.class_name || '',
-                    fees: cPayments.map((p: any) => ({
-                        id: p.id, type: p.type || 'Paiement', amount: p.amount || 0,
-                        paidAmount: p.status === 'completed' ? p.amount : 0,
-                        dueDate: p.created_at ? new Date(p.created_at).toLocaleDateString('fr-FR') : '',
-                        status: p.status === 'completed' ? 'paid' as const : 'overdue' as const
-                    }))
-                }
-            })
-            setChildFees(fees)
-
-            const pending = allPayments.filter((p: any) => p.status !== 'completed').map((p: any) => {
-                const child = (parent.children || []).find((c: any) => c.id === p.student_id)
-                return { id: p.id, studentName: child?.name || '', type: p.type || 'Paiement', amount: p.amount || 0, dueDate: p.created_at ? new Date(p.created_at).toLocaleDateString('fr-FR') : '' }
-            })
-            setPendingFees(pending)
-            setFinanceLoaded(true)
-        }
-        loadFinance()
-    }, [activeTab, financeLoaded, parent])
 
     if (!parent) return null
 
@@ -159,6 +107,15 @@ export function ParentProfile({ parent, onClose, onParentUpdated }: ParentProfil
                     )}
                     <div className="flex items-center justify-center gap-2 pt-1">
                         <StatusBadge status={currentStatus} />
+                        {parentPhone && parentPhone !== 'Non renseigné' && (
+                            <button
+                                onClick={() => setPasswordDialogOpen(true)}
+                                className="text-gray-500 hover:text-emerald-400 transition-colors"
+                                title={t('admin.users.changePassword') || 'Modifier le mot de passe'}
+                            >
+                                <KeyRound className="w-3.5 h-3.5" />
+                            </button>
+                        )}
                         <button
                             onClick={() => setStatusDialogOpen(true)}
                             className="text-gray-500 hover:text-orange-400 transition-colors"
@@ -193,15 +150,7 @@ export function ParentProfile({ parent, onClose, onParentUpdated }: ParentProfil
                         <ActionBtn icon={Mail} label={t('admin.parents.message')} color="text-blue-400" bg="bg-blue-500/5 group-hover:bg-blue-500/10" onClick={handleMessage} />
                     </div>
                 )}
-                {activeTab === 'finance' && (
-                    <Button
-                        onClick={() => setIsPaymentModalOpen(true)}
-                        className="mt-2 bg-indigo-600 hover:bg-indigo-500 text-white font-bold h-10 px-6 rounded-xl shadow-lg shadow-indigo-500/20"
-                    >
-                        <Plus className="w-4 h-4 mr-2" />
-                        {t('admin.parents.newPayment')}
-                    </Button>
-                )}
+
             </div>
 
             {/* Scrollable Content */}
@@ -260,20 +209,33 @@ export function ParentProfile({ parent, onClose, onParentUpdated }: ParentProfil
                         </div>
                     </>
                 ) : (
-                    <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
-                        <FinanceOverview summary={financeSummary} />
-                        <FeeBreakdown data={childFees} onStatementGenerate={() => { }} />
-                        <TransactionHistory parentId={parent.id} childIds={(parent.children || []).map((c: any) => c.id)} />
+                    <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
+                        {!parent.children || parent.children.length === 0 ? (
+                            <div className="py-12 text-center rounded-2xl bg-[#0D1117] border border-white/5">
+                                <p className="text-sm text-gray-500">{t('admin.parents.noStudentsLinked') || 'Aucun élève associé'}</p>
+                            </div>
+                        ) : (
+                            parent.children.map((child: any) => (
+                                <div key={child.id} className="bg-[#0D1117] border border-white/5 rounded-3xl p-6 space-y-4">
+                                    <div className="flex items-center gap-3 pb-4 border-b border-white/5">
+                                        <Avatar className="w-10 h-10 border border-white/5 bg-[#161B22]">
+                                            <AvatarImage src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${child.name}`} />
+                                            <AvatarFallback>{child.name[0]}</AvatarFallback>
+                                        </Avatar>
+                                        <div>
+                                            <h4 className="text-sm font-bold text-white">{child.name}</h4>
+                                            <Badge variant="secondary" className="text-[10px] h-4 bg-white/5 text-gray-400">
+                                                {child.class_name || t('admin.students.list.unassigned') || 'Sans classe'}
+                                            </Badge>
+                                        </div>
+                                    </div>
+                                    <StudentPayments studentId={child.id} studentName={child.name} />
+                                </div>
+                            ))
+                        )}
                     </div>
                 )}
             </div>
-
-            <GroupPaymentDialog
-                open={isPaymentModalOpen}
-                onOpenChange={setIsPaymentModalOpen}
-                pendingFees={pendingFees}
-                parentName={parent.name}
-            />
 
             <ChangeStatusDialog
                 open={statusDialogOpen}
@@ -282,6 +244,13 @@ export function ParentProfile({ parent, onClose, onParentUpdated }: ParentProfil
                 currentStatus={currentStatus}
                 userName={parent.name}
                 onSuccess={(newStatus) => setCurrentStatus(newStatus)}
+            />
+            <ChangePasswordDialog
+                open={passwordDialogOpen}
+                onOpenChange={setPasswordDialogOpen}
+                userId={parent.id}
+                userName={parent.name}
+                userPhone={parentPhone && parentPhone !== 'Non renseigné' ? parentPhone : null}
             />
         </div>
     )

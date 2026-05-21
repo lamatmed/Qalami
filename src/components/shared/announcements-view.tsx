@@ -86,22 +86,40 @@ export function AnnouncementsView({ userRole, backUrl = '/student' }: Props) {
                     .from('announcements')
                     .select('id, title, content, target_audience, target_scope, target_class_id, target_profile_id, priority, created_at, published_at')
                     .eq('school_id', profile.school_id)
-                    .in('status', ['published', 'sent'])
                     .order('created_at', { ascending: false })
                     .limit(50)
 
-                const roleLabel = ROLE_LABEL[userRole] || userRole
-                const filtered = (data || []).filter((a: Announcement) => {
+                const roleLabel = userRole === 'teacher' ? 'enseignants' : userRole === 'student' ? 'eleves' : 'parents'
+                const targetKeys = ['all', roleLabel, ...classIds.map(id => `cls:${id}`)]
+
+                const filtered = (data || []).filter((a: any) => {
+                    // Check new audience format first
+                    if (a.target_audience) {
+                        let audArray: string[] = []
+                        if (Array.isArray(a.target_audience)) {
+                            audArray = a.target_audience
+                        } else if (typeof a.target_audience === 'string') {
+                            try {
+                                audArray = JSON.parse(a.target_audience)
+                            } catch {
+                                audArray = a.target_audience.split(',').map((s: string) => s.trim())
+                            }
+                        }
+                        if (audArray.length > 0) {
+                            return audArray.some(t => targetKeys.includes(t))
+                        }
+                    }
+                    // Legacy fallback
                     if (a.target_scope === 'individual') {
                         return a.target_profile_id === user.id
                     }
                     if (a.target_scope === 'class') {
                         return a.target_class_id ? classIds.includes(a.target_class_id) : false
                     }
-                    // school scope
-                    if (!a.target_audience) return true
-                    const audience = a.target_audience.split(',').map(s => s.trim())
-                    return audience.length === 0 || audience.includes('all') || audience.includes(roleLabel)
+                    if (a.target_scope === 'school') {
+                        return true
+                    }
+                    return false
                 })
 
                 setAnnouncements(filtered)

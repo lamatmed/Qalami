@@ -42,9 +42,9 @@ export function UploadDocumentDialog({
     const fileInputRef = useRef<HTMLInputElement>(null)
     const [file, setFile] = useState<File | null>(null)
     const [documentType, setDocumentType] = useState('course')
-    const [subjectId, setSubjectId] = useState(defaultSubjectId || '')
-    const [classId, setClassId] = useState(defaultClassId || '')
-    const [teacherId, setTeacherId] = useState(defaultTeacherId || '')
+    const [subjectId, setSubjectId] = useState(defaultSubjectId || 'none')
+    const [classId, setClassId] = useState(defaultClassId || 'none')
+    const [teacherId, setTeacherId] = useState(defaultTeacherId || 'none')
     const [academicYear, setAcademicYear] = useState('')
     const [uploading, setUploading] = useState(false)
 
@@ -60,6 +60,9 @@ export function UploadDocumentDialog({
     useEffect(() => {
         if (!isOpen) return
         setAcademicYear(currentAcademicYear)
+        setSubjectId(defaultSubjectId || 'none')
+        setClassId(defaultClassId || 'none')
+        setTeacherId(defaultTeacherId || 'none')
         async function loadOptions() {
             const ctx = await getMySchoolContext()
             if (!ctx) return
@@ -117,9 +120,9 @@ export function UploadDocumentDialog({
                 file_type: fileExt?.toUpperCase() || 'PDF',
                 file_size_bytes: file.size,
                 document_type: documentType,
-                subject_id: subjectId || null,
-                class_id: classId || null,
-                teacher_id: teacherId || (defaultTeacherId || null),
+                subject_id: (subjectId && subjectId !== 'none') ? subjectId : null,
+                class_id: (classId && classId !== 'none') ? classId : null,
+                teacher_id: (teacherId && teacherId !== 'none') ? teacherId : (defaultTeacherId || null),
                 academic_year: academicYear || null,
                 uploaded_by: ctx.user_id,
             })
@@ -140,9 +143,9 @@ export function UploadDocumentDialog({
     const handleClose = () => {
         setFile(null)
         setDocumentType('course')
-        setSubjectId(defaultSubjectId || '')
-        setClassId(defaultClassId || '')
-        setTeacherId(defaultTeacherId || '')
+        setSubjectId(defaultSubjectId || 'none')
+        setClassId(defaultClassId || 'none')
+        setTeacherId(defaultTeacherId || 'none')
         if (fileInputRef.current) fileInputRef.current.value = ''
         onClose()
     }
@@ -208,7 +211,7 @@ export function UploadDocumentDialog({
                                     <SelectValue placeholder="—" />
                                 </SelectTrigger>
                                 <SelectContent className="bg-[#1A2530] border-white/10 text-white max-h-48">
-                                    <SelectItem value="">—</SelectItem>
+                                    <SelectItem value="none">—</SelectItem>
                                     {subjects.map(s => (
                                         <SelectItem key={s.id} value={s.id}>
                                             {s.icon ? `${s.icon} ` : ''}{s.name}
@@ -226,7 +229,7 @@ export function UploadDocumentDialog({
                                     <SelectValue placeholder="—" />
                                 </SelectTrigger>
                                 <SelectContent className="bg-[#1A2530] border-white/10 text-white max-h-48">
-                                    <SelectItem value="">—</SelectItem>
+                                    <SelectItem value="none">—</SelectItem>
                                     {classes.map(c => (
                                         <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
                                     ))}
@@ -243,7 +246,7 @@ export function UploadDocumentDialog({
                                         <SelectValue placeholder="—" />
                                     </SelectTrigger>
                                     <SelectContent className="bg-[#1A2530] border-white/10 text-white max-h-48">
-                                        <SelectItem value="">—</SelectItem>
+                                        <SelectItem value="none">—</SelectItem>
                                         {teachers.map(t => (
                                             <SelectItem key={t.id} value={t.id}>{t.full_name}</SelectItem>
                                         ))}

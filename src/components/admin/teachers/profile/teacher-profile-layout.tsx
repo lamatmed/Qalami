@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { Button } from '@/components/ui/button'
-import { ArrowLeft, Phone, Mail, CheckCircle2, ShieldAlert } from 'lucide-react'
+import { ArrowLeft, Phone, Mail, CheckCircle2, ShieldAlert, KeyRound } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 import { cn } from '@/lib/utils'
 import { TeacherSchedule } from './teacher-schedule'
@@ -20,6 +20,7 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { useLanguage } from '@/i18n'
 import { StatusBadge } from '@/components/admin/shared/status-badge'
 import { ChangeStatusDialog } from '@/components/admin/shared/change-status-dialog'
+import { ChangePasswordDialog } from '@/components/admin/shared/change-password-dialog'
 
 const tabs = [
     { id: 'schedule',  label: 'Emploi du temps' },
@@ -52,6 +53,7 @@ export function TeacherProfileLayout({ id }: { id: string }) {
     const [teacher, setTeacher] = useState<TeacherProfile | null>(null)
     const [loading, setLoading] = useState(true)
     const [statusDialogOpen, setStatusDialogOpen] = useState(false)
+    const [passwordDialogOpen, setPasswordDialogOpen] = useState(false)
 
     useEffect(() => {
         async function fetchTeacher() {
@@ -176,16 +178,27 @@ export function TeacherProfileLayout({ id }: { id: string }) {
                     </div>
 
                     {/* Bouton changement de statut */}
-                    <div className="relative z-10 mb-4">
+                    <div className="relative z-10 mb-4 flex gap-2">
                         <Button
                             variant="outline"
                             size="sm"
-                            className="w-full border-white/10 text-gray-400 hover:text-orange-400 hover:border-orange-500/30 hover:bg-orange-500/5 gap-2"
+                            className="flex-1 border-white/10 text-gray-400 hover:text-orange-400 hover:border-orange-500/30 hover:bg-orange-500/5 gap-2"
                             onClick={() => setStatusDialogOpen(true)}
                         >
                             <ShieldAlert className="w-4 h-4" />
                             {t('admin.teachers.profile.changeStatus')}
                         </Button>
+                        {teacher.phone && (
+                            <Button
+                                variant="outline"
+                                size="sm"
+                                className="flex-1 border-white/10 text-gray-400 hover:text-emerald-400 hover:border-emerald-500/30 hover:bg-emerald-500/5 gap-2"
+                                onClick={() => setPasswordDialogOpen(true)}
+                            >
+                                <KeyRound className="w-4 h-4" />
+                                {t('admin.users.changePassword') || 'Modifier le mot de passe'}
+                            </Button>
+                        )}
                     </div>
 
                     {/* Navigation Tabs */}
@@ -265,6 +278,13 @@ export function TeacherProfileLayout({ id }: { id: string }) {
             currentStatus={teacher.status}
             userName={teacher.full_name}
             onSuccess={(newStatus) => setTeacher(prev => prev ? { ...prev, status: newStatus } : prev)}
+        />
+        <ChangePasswordDialog
+            open={passwordDialogOpen}
+            onOpenChange={setPasswordDialogOpen}
+            userId={teacher.id}
+            userName={teacher.full_name}
+            userPhone={teacher.phone}
         />
         </>
     )

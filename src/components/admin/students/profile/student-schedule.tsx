@@ -27,14 +27,14 @@ const DAYS = [
 ]
 
 const SUBJECT_COLORS = [
-    'bg-indigo-500/20 border-indigo-500/30 text-indigo-300',
-    'bg-emerald-500/20 border-emerald-500/30 text-emerald-300',
-    'bg-blue-500/20 border-blue-500/30 text-blue-300',
-    'bg-purple-500/20 border-purple-500/30 text-purple-300',
-    'bg-amber-500/20 border-amber-500/30 text-amber-300',
-    'bg-rose-500/20 border-rose-500/30 text-rose-300',
-    'bg-cyan-500/20 border-cyan-500/30 text-cyan-300',
-    'bg-orange-500/20 border-orange-500/30 text-orange-300',
+    'bg-indigo-50 border-indigo-200/80 text-indigo-900',
+    'bg-emerald-50 border-emerald-200/80 text-emerald-900',
+    'bg-sky-50 border-sky-200/80 text-sky-900',
+    'bg-purple-50 border-purple-200/80 text-purple-900',
+    'bg-amber-50 border-amber-200/80 text-amber-900',
+    'bg-rose-50 border-rose-200/80 text-rose-900',
+    'bg-cyan-50 border-cyan-200/80 text-cyan-900',
+    'bg-orange-50 border-orange-200/80 text-orange-900',
 ]
 
 function formatTime(t: string) {
@@ -111,10 +111,10 @@ export function StudentSchedule({ studentId }: { studentId: string }) {
     )
 
     if (schedule.length === 0) return (
-        <div className="text-center py-20 bg-[#1A2530] rounded-3xl border border-white/5">
-            <CalendarDays className="w-10 h-10 text-gray-600 mx-auto mb-3" />
-            <p className="text-gray-500 font-medium">{t('admin.students.profile.noSchedule')}</p>
-            <p className="text-xs text-gray-600 mt-1">{t('admin.students.profile.noActiveClass')}</p>
+        <div className="text-center py-20 bg-white rounded-3xl border border-slate-200/80 shadow-sm">
+            <CalendarDays className="w-10 h-10 text-slate-300 mx-auto mb-3" />
+            <p className="text-slate-500 font-medium">{t('admin.students.profile.noSchedule')}</p>
+            <p className="text-xs text-slate-400 mt-1">{t('admin.students.profile.noActiveClass')}</p>
         </div>
     )
 
@@ -123,13 +123,13 @@ export function StudentSchedule({ studentId }: { studentId: string }) {
 
             {/* Week summary */}
             <div className="grid grid-cols-2 gap-3">
-                <div className="bg-[#1A2530] rounded-2xl border border-white/5 p-4 text-center">
-                    <p className="text-2xl font-black text-white">{schedule.length}</p>
-                    <p className="text-[10px] text-gray-500 font-bold uppercase mt-1">{t('admin.students.profile.sessionsPerWeek')}</p>
+                <div className="bg-gradient-to-br from-emerald-50 to-teal-50 rounded-2xl border border-emerald-200/50 p-4 text-center shadow-sm">
+                    <p className="text-2xl font-black text-emerald-800">{schedule.length}</p>
+                    <p className="text-[10px] text-emerald-700/80 font-bold uppercase mt-1">{t('admin.students.profile.sessionsPerWeek')}</p>
                 </div>
-                <div className="bg-[#1A2530] rounded-2xl border border-white/5 p-4 text-center">
-                    <p className="text-2xl font-black text-white">{activeDays.length}</p>
-                    <p className="text-[10px] text-gray-500 font-bold uppercase mt-1">{t('admin.students.profile.classDays')}</p>
+                <div className="bg-gradient-to-br from-sky-50 to-blue-50 rounded-2xl border border-sky-200/50 p-4 text-center shadow-sm">
+                    <p className="text-2xl font-black text-sky-800">{activeDays.length}</p>
+                    <p className="text-[10px] text-sky-700/80 font-bold uppercase mt-1">{t('admin.students.profile.classDays')}</p>
                 </div>
             </div>
 
@@ -144,12 +144,12 @@ export function StudentSchedule({ studentId }: { studentId: string }) {
                             className={cn(
                                 "flex-shrink-0 px-4 py-2.5 rounded-xl border text-center transition-all min-w-[72px]",
                                 selectedDay === day.index
-                                    ? "bg-emerald-500/20 border-emerald-500/40 text-emerald-400"
-                                    : "bg-[#1A2530] border-white/5 text-gray-500 hover:text-white hover:border-white/20"
+                                    ? "bg-emerald-50 border-emerald-500/50 text-emerald-700 font-bold shadow-sm"
+                                    : "bg-white border-slate-200/80 text-slate-500 hover:text-slate-800 hover:bg-slate-50 shadow-sm"
                             )}
                         >
                             <p className="text-xs font-bold">{day.short}</p>
-                            <p className={cn("text-[10px] mt-0.5", selectedDay === day.index ? "text-emerald-600" : "text-gray-600")}>
+                            <p className={cn("text-[10px] mt-0.5", selectedDay === day.index ? "text-emerald-600/90 font-medium" : "text-slate-400")}>
                                 {count} {t('admin.students.profile.courses')}
                             </p>
                         </button>
@@ -158,39 +158,39 @@ export function StudentSchedule({ studentId }: { studentId: string }) {
             </div>
 
             {/* Day detail */}
-            <div className="bg-[#1A2530] rounded-3xl border border-white/5 overflow-hidden">
-                <div className="px-5 py-3 border-b border-white/5">
-                    <p className="text-sm font-bold text-white">
+            <div className="bg-white rounded-3xl border border-slate-200/80 overflow-hidden shadow-sm">
+                <div className="px-5 py-4 border-b border-slate-100 bg-slate-50/50">
+                    <p className="text-sm font-bold text-slate-900">
                         {DAYS.find(d => d.index === selectedDay)?.label}
                     </p>
-                    <p className="text-xs text-gray-500">{daySchedule.length} {t('admin.students.profile.sessions')}</p>
+                    <p className="text-xs text-slate-500">{daySchedule.length} {t('admin.students.profile.sessions')}</p>
                 </div>
 
                 {daySchedule.length === 0 ? (
-                    <div className="text-center py-10 text-gray-600 text-sm">{t('admin.students.profile.noCourseThisDay')}</div>
+                    <div className="text-center py-10 text-slate-400 text-sm font-medium">{t('admin.students.profile.noCourseThisDay')}</div>
                 ) : (
-                    <div className="divide-y divide-white/5">
+                    <div className="divide-y divide-slate-100">
                         {daySchedule.map(entry => {
                             const subjectName = entry.subjects?.name ?? t('common.subjects')
                             const color = subjectColors.get(subjectName) ?? SUBJECT_COLORS[0]
                             return (
-                                <div key={entry.id} className="flex items-center gap-4 px-5 py-4 hover:bg-[#0F1720] transition-colors">
+                                <div key={entry.id} className="flex items-center gap-4 px-5 py-4 hover:bg-slate-50/30 transition-colors">
                                     {/* Time */}
                                     <div className="text-center shrink-0 w-14">
-                                        <p className="text-xs font-bold text-white">{formatTime(entry.start_time)}</p>
-                                        <div className="w-px h-4 bg-white/10 mx-auto my-1" />
-                                        <p className="text-xs text-gray-600">{formatTime(entry.end_time)}</p>
+                                        <p className="text-xs font-bold text-slate-800">{formatTime(entry.start_time)}</p>
+                                        <div className="w-px h-4 bg-slate-200 mx-auto my-1" />
+                                        <p className="text-xs text-slate-500 font-medium">{formatTime(entry.end_time)}</p>
                                     </div>
 
                                     {/* Subject pill */}
-                                    <div className={cn("flex-1 min-w-0 px-4 py-3 rounded-xl border", color)}>
+                                    <div className={cn("flex-1 min-w-0 px-4 py-3 rounded-xl border shadow-sm", color)}>
                                         <p className="font-bold text-sm">{subjectName}</p>
                                         <div className="flex items-center gap-3 mt-1">
                                             {entry.teacher?.full_name && (
-                                                <p className="text-[11px] opacity-70">{entry.teacher.full_name}</p>
+                                                <p className="text-[11px] opacity-85 font-medium">{entry.teacher.full_name}</p>
                                             )}
                                             {entry.room && (
-                                                <p className="text-[11px] opacity-60">{t('admin.schedule.room')} {entry.room}</p>
+                                                <p className="text-[11px] opacity-75">{t('admin.schedule.room')} {entry.room}</p>
                                             )}
                                         </div>
                                     </div>
@@ -202,11 +202,11 @@ export function StudentSchedule({ studentId }: { studentId: string }) {
             </div>
 
             {/* All subjects legend */}
-            <div className="bg-[#1A2530] rounded-2xl border border-white/5 p-4">
-                <p className="text-[10px] font-bold text-gray-500 uppercase tracking-wider mb-3">{t('common.subjects')}</p>
+            <div className="bg-white rounded-2xl border border-slate-200/80 p-4 shadow-sm">
+                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-3">{t('common.subjects')}</p>
                 <div className="flex flex-wrap gap-2">
                     {Array.from(subjectColors.entries()).map(([name, color]) => (
-                        <span key={name} className={cn("text-xs font-medium px-2.5 py-1 rounded-lg border", color)}>
+                        <span key={name} className={cn("text-xs font-semibold px-2.5 py-1 rounded-lg border shadow-sm", color)}>
                             {name}
                         </span>
                     ))}

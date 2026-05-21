@@ -4,9 +4,10 @@
 import { useState, useEffect, useMemo } from 'react'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
-import { Search, Plus, ShieldAlert, AlertTriangle, Clock, BookOpen } from 'lucide-react'
+import { Search, Plus, ShieldAlert, AlertTriangle, Clock, BookOpen, KeyRound } from 'lucide-react'
 import { StatusDot } from '@/components/admin/shared/status-badge'
 import { ChangeStatusDialog } from '@/components/admin/shared/change-status-dialog'
+import { ChangePasswordDialog } from '@/components/admin/shared/change-password-dialog'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { cn } from '@/lib/utils'
@@ -48,6 +49,7 @@ export function TeacherDirectory() {
     const [statusFilter, setStatusFilter] = useState('all')
     const [subjectFilter, setSubjectFilter] = useState('all')
     const [statusDialog, setStatusDialog] = useState<{ open: boolean; teacher: Teacher | null }>({ open: false, teacher: null })
+    const [passwordDialog, setPasswordDialog] = useState<{ open: boolean; user: Teacher | null }>({ open: false, user: null })
 
     useEffect(() => {
         const fetchAll = async () => {
@@ -265,6 +267,15 @@ export function TeacherDirectory() {
                                 </span>
                             )}
                             <StatusDot status={teacher.status} />
+                            {teacher.phone && (
+                                <button
+                                    className="text-gray-600 hover:text-emerald-400 transition-colors opacity-0 group-hover:opacity-100"
+                                    onClick={e => { e.stopPropagation(); setPasswordDialog({ open: true, user: teacher }) }}
+                                    title={t('admin.users.changePassword') || 'Modifier le mot de passe'}
+                                >
+                                    <KeyRound className="w-3.5 h-3.5" />
+                                </button>
+                            )}
                             <button
                                 className="text-gray-600 hover:text-orange-400 transition-colors opacity-0 group-hover:opacity-100"
                                 onClick={e => { e.stopPropagation(); setStatusDialog({ open: true, teacher }) }}
@@ -329,6 +340,13 @@ export function TeacherDirectory() {
                 onSuccess={newStatus => setTeachers(prev => prev.map(tc =>
                     tc.id === statusDialog.teacher?.id ? { ...tc, status: newStatus } : tc
                 ))}
+            />
+            <ChangePasswordDialog
+                open={passwordDialog.open}
+                onOpenChange={open => setPasswordDialog(s => ({ ...s, open }))}
+                userId={passwordDialog.user?.id ?? ''}
+                userName={passwordDialog.user?.name ?? ''}
+                userPhone={passwordDialog.user?.phone ?? null}
             />
         </div>
     )

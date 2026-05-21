@@ -3,9 +3,10 @@
 import { useState, useEffect } from 'react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { Search, Plus, Phone, User, X, Loader2, ShieldAlert } from 'lucide-react'
+import { Search, Plus, Phone, User, X, Loader2, ShieldAlert, KeyRound } from 'lucide-react'
 import { StatusBadge } from '@/components/admin/shared/status-badge'
 import { ChangeStatusDialog } from '@/components/admin/shared/change-status-dialog'
+import { ChangePasswordDialog } from '@/components/admin/shared/change-password-dialog'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { cn } from '@/lib/utils'
 import { ParentProfile } from './parent-profile'
@@ -20,6 +21,7 @@ interface Child {
     id: string
     name: string
     avatar: string | null
+    class_name?: string
 }
 
 interface Parent {
@@ -52,6 +54,7 @@ export function ParentDirectory() {
     const [loading, setLoading] = useState(true)
     const [showAddForm, setShowAddForm] = useState(false)
     const [statusDialog, setStatusDialog] = useState<{ open: boolean; parent: Parent | null }>({ open: false, parent: null })
+    const [passwordDialog, setPasswordDialog] = useState<{ open: boolean; parent: Parent | null }>({ open: false, parent: null })
     const [addingParent, setAddingParent] = useState(false)
     const [newParent, setNewParent] = useState({ firstName: '', lastName: '', phone: '', email: '', password: '' })
     const [parentPhoneCode, setParentPhoneCode] = useState('+222')
@@ -125,6 +128,25 @@ export function ParentDirectory() {
             .in('parent_id', parentIds)
             .eq('students.school_id', currentSchoolId)
 
+        // Fetch enrollments to get the class_name for each child
+        const studentIds = (allLinks || []).map((link: any) => link.students?.id).filter(Boolean)
+        const classMap = new Map<string, string>()
+        
+        if (studentIds.length > 0) {
+            const { data: enrollments } = await supabase
+                .from('enrollments')
+                .select('student_id, classes(name)')
+                .in('student_id', studentIds)
+                .eq('school_id', currentSchoolId)
+                .order('created_at', { ascending: false })
+
+            ;(enrollments || []).forEach((e: any) => {
+                if (!classMap.has(e.student_id) && e.classes?.name) {
+                    classMap.set(e.student_id, e.classes.name)
+                }
+            })
+        }
+
         const linksByParent = new Map<string, Child[]>()
         ;(allLinks || []).forEach((link: any) => {
             const list = linksByParent.get(link.parent_id) || []
@@ -132,6 +154,7 @@ export function ParentDirectory() {
                 id: link.students?.id || '',
                 name: link.students?.full_name?.split(' ')[0] || 'Enfant',
                 avatar: link.students?.avatar_url || null,
+                class_name: classMap.get(link.students?.id) || '',
             })
             linksByParent.set(link.parent_id, list)
         })
@@ -352,6 +375,15 @@ export function ParentDirectory() {
                                                 <h3 className="text-sm font-bold text-gray-800 dark:text-gray-200 truncate">{parent.name}</h3>
                                                 <div className="flex items-center gap-1 shrink-0">
                                                     <StatusBadge status={parent.status} />
+                                                    {parent.phone && parent.phone !== 'Non renseigné' && (
+                                                         <button
+                                                             className="text-gray-500 hover:text-emerald-400 transition-colors"
+                                                             title={t('admin.users.changePassword') || 'Modifier le mot de passe'}
+                                                             onClick={(e) => { e.stopPropagation(); setPasswordDialog({ open: true, parent }) }}
+                                                         >
+                                                             <KeyRound className="w-3.5 h-3.5" />
+                                                         </button>
+                                                    )}
                                                     <button
                                                         className="text-gray-500 hover:text-orange-400 transition-colors"
                                                         title="Changer le statut"
@@ -610,6 +642,13 @@ export function ParentDirectory() {
                         p.id === statusDialog.parent?.id ? { ...p, status: newStatus } : p
                     ))
                 }}
+            />
+            <ChangePasswordDialog
+                open={passwordDialog.open}
+                onOpenChange={(open) => setPasswordDialog(s => ({ ...s, open }))}
+                userId={passwordDialog.parent?.id ?? ''}
+                userName={passwordDialog.parent?.name ?? ''}
+                userPhone={passwordDialog.parent?.phone && passwordDialog.parent.phone !== 'Non renseigné' ? passwordDialog.parent.phone : null}
             />
         </div>
     )

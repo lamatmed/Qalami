@@ -1,8 +1,10 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { Users, Search, MoreHorizontal, Eye, Building2, GraduationCap, BookOpen, UserCheck, UserX, Loader2, Shield, Mail, Calendar, ExternalLink, Phone, Sparkles, Filter } from 'lucide-react'
+import { Users, Search, MoreHorizontal, Eye, Building2, GraduationCap, BookOpen, UserCheck, UserX, Loader2, Shield, Mail, Calendar, ExternalLink, Phone, Sparkles, Filter, KeyRound } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import { toast } from 'sonner'
+import { updateUserPassword } from '@/app/super-admin/users/actions'
 import { Input } from '@/components/ui/input'
 import { cn } from '@/lib/utils'
 import { createClient } from '@/utils/supabase/client'
@@ -58,6 +60,43 @@ export function UserList() {
     const [roleFilter, setRoleFilter] = useState<string>('all')
     const [schoolFilter, setSchoolFilter] = useState<string>('all')
     const [selectedUser, setSelectedUser] = useState<User | null>(null)
+    const [passwordUser, setPasswordUser] = useState<User | null>(null)
+    const [newPassword, setNewPassword] = useState('')
+    const [confirmPassword, setConfirmPassword] = useState('')
+    const [updatingPassword, setUpdatingPassword] = useState(false)
+
+    const handleUpdatePassword = async (e: React.FormEvent) => {
+        e.preventDefault()
+        if (!passwordUser) return
+
+        if (newPassword.length < 6) {
+            toast.error(t('teacher.settings.passwordMinLength') || 'Le mot de passe doit contenir au moins 6 caractères.')
+            return
+        }
+
+        if (newPassword !== confirmPassword) {
+            toast.error('Les mots de passe ne correspondent pas.')
+            return
+        }
+
+        setUpdatingPassword(true)
+        try {
+            const res = await updateUserPassword(passwordUser.id, newPassword)
+            if (res.error) {
+                toast.error(res.error)
+            } else {
+                toast.success('Le mot de passe a été mis à jour avec succès.')
+                setPasswordUser(null)
+                setNewPassword('')
+                setConfirmPassword('')
+            }
+        } catch (error) {
+            console.error('Error changing password:', error)
+            toast.error('Une erreur est survenue lors de la mise à jour.')
+        } finally {
+            setUpdatingPassword(false)
+        }
+    }
 
     useEffect(() => {
         const fetchData = async () => {
@@ -414,6 +453,13 @@ export function UserList() {
                                                                 <ExternalLink className="w-4 h-4 text-purple-500" /> {t('superAdmin.usersList.accessAs').replace('{role}', getRoleLabel(user.role))}
                                                             </DropdownMenuItem>
                                                         )}
+
+                                                        <DropdownMenuItem
+                                                            className="flex items-center gap-2.5 cursor-pointer rounded-xl py-3 font-bold text-xs uppercase tracking-wider text-amber-600 dark:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-500/10 transition-colors border-t border-slate-100 dark:border-white/5 mt-1"
+                                                            onClick={() => setPasswordUser(user)}
+                                                        >
+                                                            <KeyRound className="w-4 h-4 text-amber-500" /> {t('superAdmin.usersList.changePassword') || 'Modifier mot de passe'}
+                                                        </DropdownMenuItem>
                                                     </DropdownMenuContent>
                                                 </DropdownMenu>
                                             </td>
@@ -556,6 +602,89 @@ export function UserList() {
                                 </Button>
                             )}
                         </div>
+                    )}
+                </DialogContent>
+            </Dialog>
+
+            {/* User Password Dialog */}
+            <Dialog open={!!passwordUser} onOpenChange={(open) => {
+                if (!open) {
+                    setPasswordUser(null)
+                    setNewPassword('')
+                    setConfirmPassword('')
+                }
+            }}>
+                <DialogContent className="bg-white/95 dark:bg-slate-950/95 backdrop-blur-2xl border border-slate-150 dark:border-white/10 text-slate-900 dark:text-white max-w-md rounded-[28px] p-7 shadow-2xl overflow-hidden" dir={direction}>
+                    <div className="absolute -top-10 -right-10 w-32 h-32 bg-purple-500/10 blur-3xl rounded-full pointer-events-none" />
+                    
+                    <DialogHeader className="relative z-10">
+                        <DialogTitle className="text-xl font-black tracking-tight flex items-center gap-2 text-slate-900 dark:text-white">
+                            <KeyRound className="w-5 h-5 text-purple-500" />
+                            {t('superAdmin.usersList.changePassword') || 'Modifier le mot de passe'}
+                        </DialogTitle>
+                    </DialogHeader>
+
+                    {passwordUser && (
+                        <form onSubmit={handleUpdatePassword} className="space-y-4 mt-4 relative z-10">
+                            <div className="bg-slate-50/80 dark:bg-slate-900/50 border border-slate-150 dark:border-white/5 rounded-2xl p-4 mb-2">
+                                <p className="text-xs font-bold text-slate-500 dark:text-slate-400">
+                                    Utilisateur : <span className="text-purple-600 dark:text-purple-400 font-black">{passwordUser.full_name || passwordUser.email}</span>
+                                </p>
+                                <p className="text-[10px] font-semibold text-slate-400 mt-1 truncate">
+                                    {passwordUser.email}
+                                </p>
+                            </div>
+
+                            <div className="space-y-1.5">
+                                <label className="text-[10px] font-black tracking-wider text-slate-400 dark:text-slate-500 uppercase">
+                                    {t('superAdmin.usersList.newPassword') || 'Nouveau mot de passe'}
+                                </label>
+                                <Input
+                                    type="password"
+                                    required
+                                    placeholder="••••••••"
+                                    value={newPassword}
+                                    onChange={(e) => setNewPassword(e.target.value)}
+                                    className="bg-white dark:bg-slate-950 border-slate-200 dark:border-white/10 text-slate-900 dark:text-white rounded-xl h-11 shadow-inner focus:ring-2 focus:ring-purple-500/20"
+                                />
+                            </div>
+
+                            <div className="space-y-1.5">
+                                <label className="text-[10px] font-black tracking-wider text-slate-400 dark:text-slate-500 uppercase">
+                                    {t('superAdmin.usersList.confirmPassword') || 'Confirmer le mot de passe'}
+                                </label>
+                                <Input
+                                    type="password"
+                                    required
+                                    placeholder="••••••••"
+                                    value={confirmPassword}
+                                    onChange={(e) => setConfirmPassword(e.target.value)}
+                                    className="bg-white dark:bg-slate-950 border-slate-200 dark:border-white/10 text-slate-900 dark:text-white rounded-xl h-11 shadow-inner focus:ring-2 focus:ring-purple-500/20"
+                                />
+                            </div>
+
+                            <div className="flex gap-3 pt-3">
+                                <Button
+                                    type="button"
+                                    variant="outline"
+                                    onClick={() => setPasswordUser(null)}
+                                    className="flex-1 rounded-[18px] h-11 font-bold text-xs uppercase tracking-wider border-slate-200 dark:border-white/10"
+                                >
+                                    {t('common.cancel') || 'Annuler'}
+                                </Button>
+                                <Button
+                                    type="submit"
+                                    disabled={updatingPassword}
+                                    className="flex-1 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white font-black rounded-[18px] h-11 shadow-lg shadow-purple-500/25 transition-all text-xs uppercase tracking-widest flex items-center justify-center gap-2"
+                                >
+                                    {updatingPassword ? (
+                                        <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                                    ) : (
+                                        t('common.confirm') || 'Confirmer'
+                                    )}
+                                </Button>
+                            </div>
+                        </form>
                     )}
                 </DialogContent>
             </Dialog>

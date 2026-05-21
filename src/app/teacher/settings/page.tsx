@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
-import { User, Lock, Camera, KeyRound, AlertCircle, Save, ArrowLeft, Loader2 } from 'lucide-react'
+import { User, Lock, Camera, KeyRound, AlertCircle, Save, ArrowLeft, Loader2, Phone } from 'lucide-react'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Button } from '@/components/ui/button'
@@ -21,6 +21,7 @@ export default function TeacherSettingsPage() {
     const [avatarUrl, setAvatarUrl] = useState<string | null>(null)
     const [newPassword, setNewPassword] = useState('')
     const [confirmPassword, setConfirmPassword] = useState('')
+    const [phone, setPhone] = useState('')
 
     // UX States
     const [loading, setLoading] = useState(true)
@@ -37,6 +38,7 @@ export default function TeacherSettingsPage() {
                     setProfile(data)
                     setFullName(data.full_name || '')
                     setAvatarUrl(data.avatar_url || null)
+                    setPhone(data.phone || '')
                 }
             } catch (error) {
                 console.error('Error loading teacher profile:', error)
@@ -90,6 +92,11 @@ export default function TeacherSettingsPage() {
             return
         }
 
+        if (!phone.trim()) {
+            toast.error("Le numéro de téléphone est obligatoire.")
+            return
+        }
+
         if (newPassword) {
             if (newPassword.length < 6) {
                 toast.error(t('teacher.settings.passwordMinLength') || "Le mot de passe doit contenir au moins 6 caractères.")
@@ -107,6 +114,7 @@ export default function TeacherSettingsPage() {
                 fullName: fullName.trim(),
                 avatarUrl: avatarUrl ?? undefined,
                 newPassword: newPassword || undefined,
+                phone: phone.trim(),
             })
 
             if (result.error) {
@@ -239,14 +247,18 @@ export default function TeacherSettingsPage() {
                                 <Label className="text-slate-700 dark:text-slate-300 font-semibold">
                                     {t('teacher.settings.phone') || 'Numéro de téléphone'}
                                 </Label>
-                                <Input
-                                    value={profile?.phone || '—'}
-                                    disabled
-                                    className="bg-slate-50 dark:bg-slate-950 border-slate-100 dark:border-white/5 h-11 rounded-xl text-slate-400 dark:text-slate-500 cursor-not-allowed select-none"
-                                    dir="ltr"
-                                />
+                                <div className="relative">
+                                    <Phone className={`absolute ${isRtl ? 'right-3' : 'left-3'} top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400`} />
+                                    <Input
+                                        value={phone}
+                                        onChange={(e) => setPhone(e.target.value)}
+                                        className={`${isRtl ? 'pr-10 pl-4' : 'pl-10 pr-4'} bg-slate-50 dark:bg-slate-950 border-slate-100 dark:border-white/5 h-11 rounded-xl focus-visible:ring-indigo-500`}
+                                        dir="ltr"
+                                        placeholder="+222 XXXXXXXX"
+                                    />
+                                </div>
                                 <p className="text-[11px] text-slate-400 italic">
-                                    {t('teacher.settings.phoneHint') || "Ce numéro ne peut pas être modifié ici."}
+                                    {t('teacher.settings.phoneHint') || "Ce numéro sert d'identifiant pour vous connecter."}
                                 </p>
                             </div>
                         </div>

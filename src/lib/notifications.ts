@@ -11,6 +11,7 @@ export interface Notification {
     action_url: string | null
     is_read: boolean
     created_at: string
+    school_id?: string | null
 }
 
 /**

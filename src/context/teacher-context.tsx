@@ -45,26 +45,27 @@ export function TeacherProvider({ children }: { children: ReactNode }) {
     // Initialize user and loaded schools list
     useEffect(() => {
         async function initializeTeacher() {
-            const supabase = createClient()
+            try {
+                const supabase = createClient()
 
-            // Impersonation or standard user
-            let userId: string | null = null
-            const stored = sessionStorage.getItem('superAdminViewingAs')
-            if (stored) {
-                try {
-                    const parsed = JSON.parse(stored)
-                    userId = parsed.userId
-                } catch { }
-            }
-            if (!userId) {
-                const { data: { user } } = await supabase.auth.getUser()
-                userId = user?.id || null
-            }
+                // Impersonation or standard user
+                let userId: string | null = null
+                const stored = sessionStorage.getItem('superAdminViewingAs')
+                if (stored) {
+                    try {
+                        const parsed = JSON.parse(stored)
+                        userId = parsed.userId
+                    } catch { }
+                }
+                if (!userId) {
+                    const { data: { user } } = await supabase.auth.getUser()
+                    userId = user?.id || null
+                }
 
-            if (!userId) {
-                setLoading(false)
-                return
-            }
+                if (!userId) {
+                    setLoading(false)
+                    return
+                }
 
             // Load profile
             const { data: profile } = await supabase
@@ -143,6 +144,14 @@ export function TeacherProvider({ children }: { children: ReactNode }) {
             if (!currentActiveId) {
                 setLoading(false)
             }
+            } catch (error: any) {
+                if (error?.name === 'AbortError') {
+                    console.log('TeacherContext initialization aborted')
+                } else {
+                    console.error('Error initializing teacher:', error)
+                }
+                setLoading(false)
+            }
         }
 
         initializeTeacher()
@@ -158,68 +167,77 @@ export function TeacherProvider({ children }: { children: ReactNode }) {
 
             const supabase = createClient()
 
-            // Load assignments STRICTLY FILTERED to classes in the active school!
-            const { data: assignments } = await supabase
-                .from('teacher_assignments')
-                .select(`
-                    class_id,
-                    classes!inner (
-                        id,
-                        name,
-                        school_id
-                    )
-                `)
-                .eq('teacher_id', teacherId)
-                .eq('classes.school_id', schoolId)
+            try {
+                // Load assignments STRICTLY FILTERED to classes in the active school!
+                const { data: assignments } = await supabase
+                    .from('teacher_assignments')
+                    .select(`
+                        class_id,
+                        classes!inner (
+                            id,
+                            name,
+                            school_id
+                        )
+                    `)
+                    .eq('teacher_id', teacherId)
+                    .eq('classes.school_id', schoolId)
 
-            if (!assignments || assignments.length === 0) {
-                setClasses([])
+                if (!assignments || assignments.length === 0) {
+                    setClasses([])
+                    setLoading(false)
+                    return
+                }
+
+                // Deduplicate classes
+                const classMap = new Map<string, ClassInfo>()
+                const classIds: string[] = []
+
+                for (const a of assignments) {
+                    const cls = a.classes as { id?: string, name?: string }
+                    if (cls?.id && !classMap.has(cls.id)) {
+                        classIds.push(cls.id)
+                        classMap.set(cls.id, {
+                            id: cls.id,
+                            name: cls.name || 'Classe',
+                            studentCount: 0
+                        })
+                    }
+                }
+
+                if (classIds.length > 0) {
+                    // Fetch student enrollments
+                    const { data: enrollments } = await supabase
+                        .from('enrollments')
+                        .select('class_id')
+                        .in('class_id', classIds)
+                        .eq('status', 'active')
+
+                    if (enrollments) {
+                        const counts: Record<string, number> = {}
+                        for (const e of enrollments) {
+                            if (e.class_id) {
+                                counts[e.class_id] = (counts[e.class_id] || 0) + 1
+                            }
+                        }
+                        for (const cId of classIds) {
+                            const cls = classMap.get(cId)
+                            if (cls) {
+                                cls.studentCount = counts[cId] || 0
+                            }
+                        }
+                    }
+                }
+
+                setClasses(Array.from(classMap.values()))
+            } catch (error: any) {
+                if (error?.name === 'AbortError') {
+                    console.log('Teacher loadSchoolClasses aborted')
+                } else {
+                    console.error('Error loading school classes:', error)
+                }
+            } finally {
                 setLoading(false)
-                return
             }
-
-            // Deduplicate classes
-            const classMap = new Map<string, ClassInfo>()
-            const classIds: string[] = []
-
-            for (const a of assignments) {
-                const cls = a.classes as { id?: string, name?: string }
-                if (cls?.id && !classMap.has(cls.id)) {
-                    classIds.push(cls.id)
-                    classMap.set(cls.id, {
-                        id: cls.id,
-                        name: cls.name || 'Classe',
-                        studentCount: 0
-                    })
-                }
-            }
-
-            if (classIds.length > 0) {
-                // Fetch student enrollments
-                const { data: enrollments } = await supabase
-                    .from('enrollments')
-                    .select('class_id')
-                    .in('class_id', classIds)
-                    .eq('status', 'active')
-
-                if (enrollments) {
-                    const counts: Record<string, number> = {}
-                    for (const e of enrollments) {
-                        if (e.class_id) {
-                            counts[e.class_id] = (counts[e.class_id] || 0) + 1
-                        }
-                    }
-                    for (const cId of classIds) {
-                        const cls = classMap.get(cId)
-                        if (cls) {
-                            cls.studentCount = counts[cId] || 0
-                        }
-                    }
-                }
-            }
-
-            setClasses(Array.from(classMap.values()))
-            setLoading(false)
         }
 
         loadSchoolClasses()

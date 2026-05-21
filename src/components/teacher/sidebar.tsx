@@ -12,7 +12,8 @@ import {
     LogOut,
     ChevronLeft,
     ChevronRight,
-    Settings
+    Settings,
+    Bell
 } from 'lucide-react'
 import { createClient } from '@/utils/supabase/client'
 import { useLanguage } from '@/i18n'
@@ -27,6 +28,7 @@ export function useTeacherSidebarItems() {
         { icon: Calendar, label: t('teacher.sidebar.schedule'), href: '/teacher/schedule' },
         { icon: BrainCircuit, label: t('teacher.sidebar.quizzes'), href: '/teacher/quizzes' },
         { icon: AlertTriangle, label: t('teacher.sidebar.attendance'), href: '/teacher/remarks' },
+        { icon: Bell, label: t('teacher.sidebar.community') || 'Communauté', href: '/teacher/community' },
         { icon: Settings, label: t('teacher.sidebar.settings') || 'Paramètres', href: '/teacher/settings' },
     ]
 }
@@ -37,6 +39,7 @@ export const sidebarItems = [
     { icon: Calendar, label: 'teacher.sidebar.schedule', href: '/teacher/schedule' },
     { icon: BrainCircuit, label: 'teacher.sidebar.quizzes', href: '/teacher/quizzes' },
     { icon: AlertTriangle, label: 'teacher.sidebar.attendance', href: '/teacher/remarks' },
+    { icon: Bell, label: 'teacher.sidebar.community', href: '/teacher/community' },
     { icon: Settings, label: 'teacher.sidebar.settings', href: '/teacher/settings' },
 ]
 

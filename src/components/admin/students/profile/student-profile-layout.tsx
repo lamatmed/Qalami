@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { Button } from '@/components/ui/button'
-import { ArrowLeft, Calendar, User, Phone, CreditCard, Home, ShieldAlert, Loader2 } from 'lucide-react'
+import { ArrowLeft, Calendar, User, Phone, CreditCard, Home, ShieldAlert, Loader2, KeyRound } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 import { cn } from '@/lib/utils'
 import { StudentDocuments } from './student-documents'
@@ -14,11 +14,19 @@ import { StudentAttendance } from './student-attendance'
 import { StudentSchedule } from './student-schedule'
 import { StatusBadge } from '@/components/admin/shared/status-badge'
 import { ChangeStatusDialog } from '@/components/admin/shared/change-status-dialog'
+import { ChangePasswordDialog } from '@/components/admin/shared/change-password-dialog'
 import { ChangeEnrollmentStatus } from '@/components/admin/students/change-enrollment-status'
 import { AssignClassDialog } from '@/components/admin/students/assign-class-dialog'
+import { AssignParentsDialog } from '@/components/admin/students/assign-parents-dialog'
 import { createClient } from '@/utils/supabase/client'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { useLanguage } from '@/i18n'
+
+interface ParentInfo {
+    id: string
+    full_name: string
+    phone: string | null
+}
 
 interface StudentProfile {
     full_name: string
@@ -34,9 +42,9 @@ interface StudentProfile {
     enrollmentId: string | null
     enrollmentStatus: string | null
     academicYear: string | null
-    parentName: string | null
-    parentPhone: string | null
+    parents: ParentInfo[]
 }
+
 
 export function StudentProfileLayout({ id }: { id: string }) {
     const { t, language } = useLanguage()
@@ -45,8 +53,10 @@ export function StudentProfileLayout({ id }: { id: string }) {
     const [student, setStudent] = useState<StudentProfile | null>(null)
     const [loading, setLoading] = useState(true)
     const [statusDialogOpen, setStatusDialogOpen] = useState(false)
+    const [passwordDialogOpen, setPasswordDialogOpen] = useState(false)
     const [enrollmentDialogOpen, setEnrollmentDialogOpen] = useState(false)
     const [assignClassOpen, setAssignClassOpen] = useState(false)
+    const [assignParentsOpen, setAssignParentsOpen] = useState(false)
     const tabs = [
         { id: 'grades', label: t('student.grades.title') },
         { id: 'attendance', label: t('common.attendance') },
@@ -82,6 +92,7 @@ export function StudentProfileLayout({ id }: { id: string }) {
                     ),
                     parent_student_links!parent_student_links_student_id_fkey (
                         profiles!parent_student_links_parent_id_fkey (
+                            id,
                             full_name,
                             phone
                         )
@@ -93,7 +104,14 @@ export function StudentProfileLayout({ id }: { id: string }) {
             if (profile) {
                 const enrollments = profile.enrollments as any[]
                 const links = profile.parent_student_links as any[]
-                const firstParent = links?.[0]?.profiles
+                const parents: ParentInfo[] = (links || [])
+                    .map(link => link.profiles)
+                    .filter(Boolean)
+                    .map((p: any) => ({
+                        id: p.id,
+                        full_name: p.full_name,
+                        phone: p.phone,
+                    }))
 
                 const firstEnrollment = enrollments?.[0]
                 setStudent({
@@ -110,8 +128,7 @@ export function StudentProfileLayout({ id }: { id: string }) {
                     enrollmentId: firstEnrollment?.id || null,
                     enrollmentStatus: firstEnrollment?.status || null,
                     academicYear: (firstEnrollment?.academic_years as any)?.name || null,
-                    parentName: firstParent?.full_name || null,
-                    parentPhone: firstParent?.phone || null,
+                    parents,
                 })
             }
             setLoading(false)
@@ -153,15 +170,28 @@ export function StudentProfileLayout({ id }: { id: string }) {
                             <ArrowLeft className="w-5 h-5" />
                         </Button>
                         <h3 className="font-bold text-white mt-2">{t('admin.students.profile.studentFile')}</h3>
-                        <Button
-                            variant="ghost"
-                            size="icon"
-                            className="text-gray-400 hover:text-orange-400 -mr-2"
-                            title={t('admin.students.changeStatus')}
-                            onClick={() => setStatusDialogOpen(true)}
-                        >
-                            <ShieldAlert className="w-5 h-5" />
-                        </Button>
+                        <div className="flex items-center gap-1 -mr-2">
+                            {student?.phone && (
+                                <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    className="text-gray-400 hover:text-emerald-400"
+                                    title={t('admin.users.changePassword') || 'Modifier le mot de passe'}
+                                    onClick={() => setPasswordDialogOpen(true)}
+                                >
+                                    <KeyRound className="w-5 h-5" />
+                                </Button>
+                            )}
+                            <Button
+                                variant="ghost"
+                                size="icon"
+                                className="text-gray-400 hover:text-orange-400"
+                                title={t('admin.students.changeStatus')}
+                                onClick={() => setStatusDialogOpen(true)}
+                            >
+                                <ShieldAlert className="w-5 h-5" />
+                            </Button>
+                        </div>
                     </div>
 
                     <div className="flex flex-col items-center text-center relative z-10 mb-6">
@@ -286,33 +316,60 @@ export function StudentProfileLayout({ id }: { id: string }) {
                     )}
                 </div>
 
-                {/* Emergency Contact */}
-                {(student?.parentName || student?.parentPhone) && (
-                    <div className="bg-[#1A2530] rounded-3xl border border-white/5 p-6">
-                        <h4 className="text-sm font-bold text-white mb-4">{t('admin.students.profile.emergencyContact')}</h4>
-                        <div className="bg-[#0F1720] p-4 rounded-2xl flex items-center justify-between border border-white/5">
-                            <div className="flex items-center gap-3">
-                                <div className="h-10 w-10 bg-emerald-500/10 rounded-full flex items-center justify-center text-emerald-500 border border-emerald-500/20">
-                                    <User className="w-5 h-5" />
-                                </div>
-                                <div>
-                                    <p className="text-sm font-bold text-white">{student?.parentName || '—'}</p>
-                                    <p className="text-[10px] text-gray-500">{t('admin.students.profile.parentGuardian')}</p>
-                                </div>
-                            </div>
-                            {student?.parentPhone && (
-                                <a href={`tel:${student.parentPhone}`}>
-                                    <Button size="icon" className="bg-emerald-500 hover:bg-emerald-600 rounded-full text-black h-10 w-10 shadow-lg shadow-emerald-500/20">
-                                        <Phone className="w-5 h-5" />
-                                    </Button>
-                                </a>
-                            )}
-                        </div>
-                        {student?.parentPhone && (
-                            <p className="text-center text-gray-500 font-mono text-sm mt-3">{student.parentPhone}</p>
-                        )}
+                {/* Parents/Responsables Section */}
+                <div className="bg-[#1A2530] rounded-3xl border border-white/5 p-6 space-y-4">
+                    <div className="flex items-center justify-between">
+                        <h4 className="text-sm font-bold text-white">
+                            {t('admin.students.register.parents.title') || 'Contacts parents'}
+                        </h4>
+                        <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => setAssignParentsOpen(true)}
+                            className="text-emerald-500 hover:text-emerald-400 hover:bg-emerald-500/10 font-semibold text-xs h-7 px-2"
+                        >
+                            {t('common.edit') || 'Gérer'}
+                        </Button>
                     </div>
-                )}
+
+                    {(!student?.parents || student.parents.length === 0) ? (
+                        <div className="text-center py-6 text-gray-500 text-xs border border-dashed border-white/5 rounded-2xl bg-[#0F1720]/30">
+                            {t('admin.students.register.parents.noContact') || 'Aucun contact associé'}
+                        </div>
+                    ) : (
+                        <div className="space-y-3">
+                            {student.parents.map((p, index) => (
+                                <div key={p.id} className="bg-[#0F1720] p-4 rounded-2xl border border-white/5 space-y-2">
+                                    <div className="flex items-center justify-between">
+                                        <div className="flex items-center gap-3">
+                                            <div className="h-10 w-10 bg-emerald-500/10 rounded-full flex items-center justify-center text-emerald-500 border border-emerald-500/20">
+                                                <User className="w-5 h-5" />
+                                            </div>
+                                            <div>
+                                                <p className="text-sm font-bold text-white">{p.full_name}</p>
+                                                <p className="text-[10px] text-gray-500">
+                                                    {index === 0 
+                                                        ? (t('admin.students.register.parents.primaryParent') || 'Parent principal')
+                                                        : (t('admin.students.register.parents.secondaryParent') || 'Parent secondaire')}
+                                                </p>
+                                            </div>
+                                        </div>
+                                        {p.phone && (
+                                            <a href={`tel:${p.phone}`}>
+                                                <Button size="icon" className="bg-emerald-500 hover:bg-emerald-600 rounded-full text-black h-10 w-10 shadow-lg shadow-emerald-500/20 shrink-0">
+                                                    <Phone className="w-5 h-5" />
+                                                </Button>
+                                            </a>
+                                        )}
+                                    </div>
+                                    {p.phone && (
+                                        <p className="text-center text-gray-500 font-mono text-sm mt-1">{p.phone}</p>
+                                    )}
+                                </div>
+                            ))}
+                        </div>
+                    )}
+                </div>
             </div>
 
             {/* Center/Right Column */}
@@ -334,6 +391,13 @@ export function StudentProfileLayout({ id }: { id: string }) {
                 userName={student?.full_name ?? ''}
                 onSuccess={(newStatus) => setStudent(s => s ? { ...s, status: newStatus } : s)}
             />
+            <ChangePasswordDialog
+                open={passwordDialogOpen}
+                onOpenChange={setPasswordDialogOpen}
+                userId={id}
+                userName={student?.full_name ?? ''}
+                userPhone={student?.phone ?? null}
+            />
 
             {student?.enrollmentId && (
                 <ChangeEnrollmentStatus
@@ -353,6 +417,15 @@ export function StudentProfileLayout({ id }: { id: string }) {
                 studentName={student?.full_name ?? ''}
                 currentClassId={student?.enrollmentId ? undefined : null}
                 onSuccess={(className) => setStudent(s => s ? { ...s, className } : s)}
+            />
+
+            <AssignParentsDialog
+                open={assignParentsOpen}
+                onOpenChange={setAssignParentsOpen}
+                studentId={id}
+                studentName={student?.full_name ?? ''}
+                currentParents={student?.parents ?? []}
+                onSuccess={(newParents) => setStudent(s => s ? { ...s, parents: newParents } : s)}
             />
         </div>
     )

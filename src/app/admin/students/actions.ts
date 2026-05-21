@@ -141,3 +141,41 @@ export async function bulkImportStudents(rows: ImportRow[]): Promise<{
     revalidatePath('/admin/students')
     return { created, errors }
 }
+
+export async function assignParentsToStudent(studentId: string, parentIds: string[]) {
+    const ctx = await getActionContext()
+    if (!ctx) return { error: 'Non authentifié' }
+    const adminClient = createAdminClient()
+
+    // 1. Delete all existing parent-student links for this student
+    const { error: deleteError } = await adminClient
+        .from('parent_student_links')
+        .delete()
+        .eq('student_id', studentId)
+
+    if (deleteError) {
+        console.error('Error deleting student parent links:', deleteError)
+        return { error: deleteError.message }
+    }
+
+    // 2. Insert new parent-student links
+    for (let i = 0; i < parentIds.length; i++) {
+        const parentId = parentIds[i]
+        const { error: linkError } = await adminClient
+            .from('parent_student_links')
+            .insert({
+                parent_id: parentId,
+                student_id: studentId,
+                relationship: 'parent',
+                is_primary: i === 0,
+            })
+        if (linkError) {
+            console.error('Parent link error:', linkError)
+            return { error: linkError.message }
+        }
+    }
+
+    revalidatePath(`/admin/students/${studentId}`)
+    revalidatePath('/admin/students')
+    return { success: true }
+}

@@ -36,6 +36,7 @@ interface Remark {
     message: string
     created_at: string
     is_visible_to_parent: boolean
+    is_visible_to_student: boolean
     sender_type: 'teacher' | 'school' | null
     teacherName: string | null
     subjectName: string | null
@@ -74,6 +75,7 @@ export function StudentRemarks({ studentId }: { studentId: string }) {
     const [formCategory, setFormCategory] = useState('general')
     const [formMessage, setFormMessage]   = useState('')
     const [visibleToParent, setVisibleToParent] = useState(true)
+    const [visibleToStudent, setVisibleToStudent] = useState(true)
 
     /* ─── Fetch ─── */
 
@@ -83,7 +85,7 @@ export function StudentRemarks({ studentId }: { studentId: string }) {
             .from('remarks')
             .select(`
                 id, type, category, message, created_at,
-                is_visible_to_parent, sender_type,
+                is_visible_to_parent, is_visible_to_student, sender_type,
                 profiles!remarks_teacher_id_fkey ( full_name ),
                 subjects!remarks_subject_id_fkey ( name )
             `)
@@ -98,6 +100,7 @@ export function StudentRemarks({ studentId }: { studentId: string }) {
                 message: r.message,
                 created_at: r.created_at,
                 is_visible_to_parent: (r as any).is_visible_to_parent ?? true,
+                is_visible_to_student: (r as any).is_visible_to_student ?? true,
                 sender_type: (r as any).sender_type || null,
                 teacherName: (r.profiles as any)?.full_name || null,
                 subjectName: (r.subjects as any)?.name || null,
@@ -144,17 +147,19 @@ export function StudentRemarks({ studentId }: { studentId: string }) {
                 category: formCategory,
                 message: formMessage.trim(),
                 is_visible_to_parent: visibleToParent,
+                is_visible_to_student: visibleToStudent,
             })
 
         if (error) {
             toast.error('Erreur lors de l\'envoi de la remarque')
-            console.error(error)
+            console.error('Remark insertion error details:', error.message || error)
         } else {
             toast.success('Remarque envoyée avec succès')
             setFormMessage('')
             setFormType('positive')
             setFormCategory('general')
             setVisibleToParent(true)
+            setVisibleToStudent(true)
             setShowForm(false)
             setLoading(true)
             await fetchRemarks()
@@ -250,27 +255,46 @@ export function StudentRemarks({ studentId }: { studentId: string }) {
                         />
                     </div>
 
-                    {/* Visible to parent toggle + send button */}
-                    <div className="flex items-center justify-between gap-2">
-                        <label className="flex items-center gap-2 cursor-pointer">
-                            <div
-                                onClick={() => setVisibleToParent(v => !v)}
-                                className={cn(
-                                    'w-8 h-4 rounded-full transition-colors relative',
-                                    visibleToParent ? 'bg-emerald-500' : 'bg-white/10'
-                                )}
-                            >
-                                <div className={cn(
-                                    'absolute top-0.5 w-3 h-3 rounded-full bg-white transition-transform',
-                                    visibleToParent ? 'translate-x-4' : 'translate-x-0.5'
-                                )} />
-                            </div>
-                            <span className="text-[10px] text-gray-400">{t('admin.students.profile.remarksVisibleToParents')}</span>
-                        </label>
+                    {/* Visible to parent/student toggles + send button */}
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-1">
+                        <div className="flex flex-wrap gap-4">
+                            <label className="flex items-center gap-2 cursor-pointer">
+                                <div
+                                    onClick={() => setVisibleToParent(v => !v)}
+                                    className={cn(
+                                        'w-8 h-4 rounded-full transition-colors relative',
+                                        visibleToParent ? 'bg-emerald-500' : 'bg-white/10'
+                                    )}
+                                >
+                                    <div className={cn(
+                                        'absolute top-0.5 w-3 h-3 rounded-full bg-white transition-transform',
+                                        visibleToParent ? 'translate-x-4' : 'translate-x-0.5'
+                                    )} />
+                                </div>
+                                <span className="text-[10px] text-gray-400">{t('admin.students.profile.remarksVisibleToParents')}</span>
+                            </label>
+
+                            <label className="flex items-center gap-2 cursor-pointer">
+                                <div
+                                    onClick={() => setVisibleToStudent(v => !v)}
+                                    className={cn(
+                                        'w-8 h-4 rounded-full transition-colors relative',
+                                        visibleToStudent ? 'bg-emerald-500' : 'bg-white/10'
+                                    )}
+                                >
+                                    <div className={cn(
+                                        'absolute top-0.5 w-3 h-3 rounded-full bg-white transition-transform',
+                                        visibleToStudent ? 'translate-x-4' : 'translate-x-0.5'
+                                    )} />
+                                </div>
+                                <span className="text-[10px] text-gray-400">{t('admin.students.profile.remarksVisibleToStudent')}</span>
+                            </label>
+                        </div>
+
                         <button
                             onClick={handleSend}
                             disabled={sending || !formMessage.trim()}
-                            className="flex items-center gap-1.5 px-4 py-1.5 bg-emerald-500 hover:bg-emerald-400 disabled:opacity-50 disabled:cursor-not-allowed text-black text-xs font-bold rounded-lg transition-colors"
+                            className="flex items-center gap-1.5 px-4 py-1.5 bg-emerald-500 hover:bg-emerald-400 disabled:opacity-50 disabled:cursor-not-allowed text-black text-xs font-bold rounded-lg transition-colors self-end sm:self-auto"
                         >
                             {sending ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Send className="w-3.5 h-3.5" />}
                             {t('admin.students.profile.remarksSend')}
@@ -351,10 +375,15 @@ export function StudentRemarks({ studentId }: { studentId: string }) {
 
                                         <p className="text-sm text-gray-300">{remark.message}</p>
 
-                                        {/* Visibility indicator */}
-                                        {!remark.is_visible_to_parent && (
-                                            <p className="text-[10px] text-gray-600 mt-1.5 italic">{t('admin.students.profile.remarksNotVisibleToParents')}</p>
-                                        )}
+                                        {/* Visibility indicators */}
+                                        <div className="flex flex-col gap-0.5 mt-1.5">
+                                            {!remark.is_visible_to_parent && (
+                                                <p className="text-[10px] text-gray-600 italic">{t('admin.students.profile.remarksNotVisibleToParents')}</p>
+                                            )}
+                                            {!remark.is_visible_to_student && (
+                                                <p className="text-[10px] text-gray-600 italic">{t('admin.students.profile.remarksNotVisibleToStudent')}</p>
+                                            )}
+                                        </div>
                                     </div>
                                 </div>
                             </div>

@@ -470,3 +470,53 @@ export async function deleteSchoolCascade(schoolId: string) {
         return { error: err.message || 'Échec de la suppression en cascade' }
     }
 }
+
+export async function updateSchoolAdminPassword(schoolId: string, newPassword: string) {
+    const supabase = await createClient()
+    const adminClient = createAdminClient()
+
+    // 1. Authenticate and authorize Super Admin
+    const { data: { user }, error: authCheckError } = await supabase.auth.getUser()
+    if (authCheckError || !user) {
+        return { error: 'Non authentifié' }
+    }
+
+    const { data: profile } = await supabase
+        .from('profiles')
+        .select('role')
+        .eq('id', user.id)
+        .single()
+
+    if (!profile || profile.role !== 'super_admin') {
+        return { error: 'Accès non autorisé. Vous devez être Super Admin.' }
+    }
+
+    if (!newPassword || newPassword.trim().length < 6) {
+        return { error: 'Le mot de passe doit contenir au moins 6 caractères.' }
+    }
+
+    // 2. Find the admin of this school
+    const { data: adminProfile, error: adminProfileError } = await adminClient
+        .from('profiles')
+        .select('id, full_name, email')
+        .eq('school_id', schoolId)
+        .eq('role', 'admin')
+        .maybeSingle()
+
+    if (adminProfileError || !adminProfile) {
+        return { error: 'Impossible de trouver le compte administrateur associé à cette école.' }
+    }
+
+    // 3. Update password in auth via admin client
+    const { error: updateError } = await adminClient.auth.admin.updateUserById(adminProfile.id, {
+        password: newPassword.trim()
+    })
+
+    if (updateError) {
+        console.error('School Admin Password update failed:', updateError)
+        return { error: `Échec de mise à jour du mot de passe de l'admin: ${updateError.message}` }
+    }
+
+    return { success: true, adminName: adminProfile.full_name, adminEmail: adminProfile.email }
+}
+

@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { Building2, Plus, Search, MoreHorizontal, Eye, Settings, Loader2, Trash2, AlertTriangle } from 'lucide-react'
+import { Building2, Plus, Search, MoreHorizontal, Eye, Settings, Loader2, Trash2, AlertTriangle, KeyRound } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { cn } from '@/lib/utils'
@@ -22,7 +22,7 @@ import {
     DialogHeader,
     DialogTitle,
 } from "@/components/ui/dialog"
-import { deleteSchoolCascade } from '@/app/super-admin/schools/actions'
+import { deleteSchoolCascade, updateSchoolAdminPassword } from '@/app/super-admin/schools/actions'
 import { toast } from 'sonner'
 
 interface School {
@@ -48,6 +48,44 @@ export function SchoolList() {
     const [schoolToDelete, setSchoolToDelete] = useState<School | null>(null)
     const [deleteConfirmInput, setDeleteConfirmInput] = useState('')
     const [isDeleting, setIsDeleting] = useState(false)
+
+    const [passwordSchool, setPasswordSchool] = useState<School | null>(null)
+    const [newPassword, setNewPassword] = useState('')
+    const [confirmPassword, setConfirmPassword] = useState('')
+    const [updatingPassword, setUpdatingPassword] = useState(false)
+
+    const handleUpdatePassword = async (e: React.FormEvent) => {
+        e.preventDefault()
+        if (!passwordSchool) return
+
+        if (newPassword.length < 6) {
+            toast.error("Le mot de passe doit contenir au moins 6 caractères.")
+            return
+        }
+
+        if (newPassword !== confirmPassword) {
+            toast.error("Les mots de passe ne correspondent pas.")
+            return
+        }
+
+        setUpdatingPassword(true)
+        try {
+            const res = await updateSchoolAdminPassword(passwordSchool.id, newPassword)
+            if (res.error) {
+                toast.error(res.error)
+            } else {
+                toast.success(`Le mot de passe de l'administrateur (${res.adminName || res.adminEmail}) a été mis à jour.`)
+                setPasswordSchool(null)
+                setNewPassword('')
+                setConfirmPassword('')
+            }
+        } catch (error) {
+            console.error('Error changing admin password:', error)
+            toast.error("Une erreur est survenue lors de la mise à jour.")
+        } finally {
+            setUpdatingPassword(false)
+        }
+    }
 
     useEffect(() => {
         if (!schoolToDelete) {
@@ -223,12 +261,18 @@ export function SchoolList() {
                                                 <Settings className="w-4 h-4" /> {t('superAdmin.schoolsList.accessAdmin')}
                                             </Link>
                                         </DropdownMenuItem>
+                                        <DropdownMenuItem 
+                                            onClick={() => setPasswordSchool(school)}
+                                            className="flex items-center gap-2 text-amber-600 dark:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-500/10 font-medium cursor-pointer"
+                                        >
+                                            <KeyRound className="w-4 h-4 text-amber-500" /> {t('superAdmin.schoolsList.changeAdminPassword') || 'Modifier mot de passe admin'}
+                                        </DropdownMenuItem>
                                         <div className="h-px bg-gray-100 dark:bg-white/5 my-1" />
                                         <DropdownMenuItem 
                                             onClick={() => setSchoolToDelete(school)}
                                             className="flex items-center gap-2 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-500/10 font-medium cursor-pointer"
                                         >
-                                            <Trash2 className="w-4 h-4" /> Supprimer l'école
+                                            <Trash2 className="w-4 h-4" /> {t('superAdmin.schoolsList.deleteSchool') || "Supprimer l'école"}
                                         </DropdownMenuItem>
                                     </DropdownMenuContent>
                                 </DropdownMenu>
@@ -284,24 +328,24 @@ export function SchoolList() {
                 <DialogContent className="bg-white dark:bg-slate-900 border-gray-200 dark:border-white/10 max-w-md">
                     <DialogHeader>
                         <DialogTitle className="text-xl font-black text-red-600 flex items-center gap-2">
-                            <AlertTriangle className="w-5 h-5" /> Action Irréversible
+                            <AlertTriangle className="w-5 h-5" /> {t('superAdmin.schoolsList.deleteTitle') || "Action Irréversible"}
                         </DialogTitle>
                         <DialogDescription asChild>
                             <div className="text-gray-500 dark:text-gray-400 pt-3 text-sm leading-relaxed">
-                                Cette action va supprimer définitivement l'école <strong className="text-gray-900 dark:text-white">"{schoolToDelete?.name}"</strong> ainsi que l'intégralité de ses données :
+                                {t('superAdmin.schoolsList.deleteDesc').replace('{name}', schoolToDelete?.name || '')}
                                 <ul className="list-disc list-inside my-3 space-y-1 text-xs font-semibold text-red-600/90 bg-red-500/5 border border-red-500/10 p-2.5 rounded-lg">
-                                    <li>Tous les utilisateurs (élèves, parents, profs)</li>
-                                    <li>Tous les plannings, cours et devoirs</li>
-                                    <li>Toutes les notes, absences et bulletins</li>
-                                    <li>Tous les paiements et configurations</li>
+                                    <li>{t('superAdmin.schoolsList.deleteUsers')}</li>
+                                    <li>{t('superAdmin.schoolsList.deleteSchedules')}</li>
+                                    <li>{t('superAdmin.schoolsList.deleteGrades')}</li>
+                                    <li>{t('superAdmin.schoolsList.deleteFinance')}</li>
                                 </ul>
-                                Pour confirmer, veuillez saisir le slug <code className="font-bold text-red-600 dark:text-red-400 font-mono bg-red-500/10 px-1.5 py-0.5 rounded border border-red-500/20">{schoolToDelete?.slug}</code> :
+                                {t('superAdmin.schoolsList.deleteConfirmSlug').replace('{slug}', '')} <code className="font-bold text-red-600 dark:text-red-400 font-mono bg-red-500/10 px-1.5 py-0.5 rounded border border-red-500/20">{schoolToDelete?.slug}</code> :
                             </div>
                         </DialogDescription>
                     </DialogHeader>
                     <div className="py-2">
                         <Input
-                            placeholder="Saisissez le slug ici"
+                            placeholder={t('superAdmin.schoolsList.deletePlaceholder') || "Saisissez le slug ici"}
                             value={deleteConfirmInput}
                             onChange={(e) => setDeleteConfirmInput(e.target.value)}
                             className="bg-transparent border-red-200 dark:border-red-900/50 focus-visible:ring-red-500 text-gray-900 dark:text-white rounded-xl"
@@ -319,9 +363,79 @@ export function SchoolList() {
                             className="bg-red-600 hover:bg-red-500 text-white font-bold rounded-xl shadow-lg shadow-red-600/10 w-full sm:w-auto"
                         >
                             {isDeleting ? <Loader2 className="w-4 h-4 animate-spin me-2" /> : <Trash2 className="w-4 h-4 me-2" />}
-                            Supprimer définitivement
+                            {t('superAdmin.schoolsList.deleteBtn') || "Supprimer définitivement"}
                         </Button>
                     </DialogFooter>
+                </DialogContent>
+            </Dialog>
+
+            {/* School Admin Password Dialog */}
+            <Dialog open={!!passwordSchool} onOpenChange={(open) => {
+                if (!open) {
+                    setPasswordSchool(null)
+                    setNewPassword('')
+                    setConfirmPassword('')
+                }
+            }}>
+                <DialogContent className="bg-white dark:bg-slate-900 border-gray-200 dark:border-white/10 max-w-md rounded-2xl">
+                    <DialogHeader>
+                        <DialogTitle className="text-xl font-black text-gray-900 dark:text-white flex items-center gap-2">
+                            <KeyRound className="w-5 h-5 text-purple-600 dark:text-purple-400" /> {t('superAdmin.schoolsList.changeAdminPassword') || 'Modifier mot de passe admin'}
+                        </DialogTitle>
+                        <DialogDescription>
+                            {t('superAdmin.schoolsList.changeAdminPasswordDesc').replace('{name}', passwordSchool?.name || '')}
+                        </DialogDescription>
+                    </DialogHeader>
+
+                    {passwordSchool && (
+                        <form onSubmit={handleUpdatePassword} className="space-y-4 mt-2">
+                            <div className="space-y-2">
+                                <label className="text-xs font-bold text-gray-400 uppercase">
+                                    {t('superAdmin.usersList.newPassword') || 'Nouveau mot de passe'}
+                                </label>
+                                <Input
+                                    type="password"
+                                    required
+                                    placeholder="••••••••"
+                                    value={newPassword}
+                                    onChange={(e) => setNewPassword(e.target.value)}
+                                    className="bg-transparent border-gray-200 dark:border-white/10 focus-visible:ring-purple-500 text-gray-900 dark:text-white rounded-xl"
+                                />
+                            </div>
+
+                            <div className="space-y-2">
+                                <label className="text-xs font-bold text-gray-400 uppercase">
+                                    {t('superAdmin.usersList.confirmPassword') || 'Confirmer le mot de passe'}
+                                </label>
+                                <Input
+                                    type="password"
+                                    required
+                                    placeholder="••••••••"
+                                    value={confirmPassword}
+                                    onChange={(e) => setConfirmPassword(e.target.value)}
+                                    className="bg-transparent border-gray-200 dark:border-white/10 focus-visible:ring-purple-500 text-gray-900 dark:text-white rounded-xl"
+                                />
+                            </div>
+
+                            <DialogFooter className="gap-2 pt-2 sm:gap-0 flex flex-col-reverse sm:flex-row">
+                                <Button type="button" variant="ghost" onClick={() => setPasswordSchool(null)} className="text-gray-500 hover:text-gray-700 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-white/5 rounded-xl w-full sm:w-auto">
+                                    {t('common.cancel') || 'Annuler'}
+                                </Button>
+                                <Button
+                                    type="submit"
+                                    disabled={updatingPassword}
+                                    className="bg-purple-600 hover:bg-purple-500 text-white font-bold rounded-xl shadow-lg shadow-purple-600/10 w-full sm:w-auto"
+                                >
+                                    {updatingPassword ? (
+                                        <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                                    ) : (
+                                        <KeyRound className="w-4 h-4 mr-2" />
+                                    )}
+                                    {t('common.save') || 'Enregistrer'}
+                                </Button>
+                            </DialogFooter>
+                        </form>
+                    )}
                 </DialogContent>
             </Dialog>
         </div>
