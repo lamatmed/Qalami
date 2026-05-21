@@ -1,7 +1,6 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { createClient } from '@/utils/supabase/client'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -10,7 +9,7 @@ import {
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { toast } from 'sonner'
-import { getMySchoolContext } from '@/app/admin/actions'
+import { getFeeStructuresAction, saveFeeStructuresAction } from '@/app/admin/settings/actions'
 import { useLanguage } from '@/i18n'
 
 // ─── Types ─────────────────────────────────────────────────────────────────────
@@ -79,78 +78,55 @@ export function FeeStructures() {
     const [loading, setLoading] = useState(true)
     const [schoolId, setSchoolId] = useState<string | null>(null)
 
-    // Load school context + saved fees + cycle structures
+    // Load school context + saved fees + cycle structures via server action (bypasses RLS)
     useEffect(() => {
         async function load() {
             try {
-                const supabase = createClient()
-                const ctx = await getMySchoolContext()
-                if (!ctx) { setLoading(false); return }
-                
-                const profile = { school_id: ctx.school_id }
-                setSchoolId(profile.school_id)
-
-                const { data: year } = await supabase
-                    .from('academic_years')
-                    .select('id, name')
-                    .eq('school_id', profile.school_id)
-                    .eq('is_current', true)
-                    .maybeSingle()
-                
-                setCurrentYear(year ?? null)
-
-                // 1. Load Cycle Fees
-                if (year) {
-                    const { data: cycleData } = await supabase
-                        .from('cycle_fees_config')
-                        .select('*')
-                        .eq('school_id', profile.school_id)
-                        .eq('academic_year_id', year.id)
-
-                    if (cycleData && cycleData.length > 0) {
-                        const loadedCycles: CycleState = {
-                            fondamental: { registration: '', tuition: '' },
-                            college: { registration: '', tuition: '' },
-                            lycee: { registration: '', tuition: '' }
-                        }
-                        
-                        cycleData.forEach((row: any) => {
-                            if (row.cycle in loadedCycles) {
-                                loadedCycles[row.cycle as keyof CycleState] = {
-                                    registration: row.default_registration_fee?.toString() || '',
-                                    tuition: row.default_monthly_tuition?.toString() || ''
-                                }
-                            }
-                        })
-                        setCycles(loadedCycles)
-                    }
-                    
-                    // 2. Load existing other fees from fee_structures
-                    const { data: existingFees } = await supabase
-                        .from('fee_structures')
-                        .select('*')
-                        .eq('school_id', profile.school_id)
-                        .eq('academic_year_id', year.id)
-                        
-                    if (existingFees && existingFees.length > 0) {
-                        const loadedFees = defaultFees()
-                        existingFees.forEach((row: any) => {
-                            if (row.fee_type in loadedFees) {
-                                loadedFees[row.fee_type] = {
-                                    amount: row.amount?.toString() || '',
-                                    frequency: row.frequency,
-                                    due_day: row.due_day?.toString() || '5',
-                                    enabled: true
-                                }
-                            }
-                        })
-                        setFees(loadedFees)
-                    }
+                const result = await getFeeStructuresAction()
+                if ('error' in result && result.error) {
+                    console.error("Failed to load fee configurations:", result.error)
+                    setLoading(false)
+                    return
                 }
 
-                // Fallback Load from localStorage for other settings
-                if (!year) {
-                    const key = `${STORAGE_KEY_PREFIX}${profile.school_id}`
+                setSchoolId(result.schoolId)
+                setCurrentYear(result.year ?? null)
+
+                if (result.cycleFees.length > 0) {
+                    const loadedCycles: CycleState = {
+                        fondamental: { registration: '', tuition: '' },
+                        college:     { registration: '', tuition: '' },
+                        lycee:       { registration: '', tuition: '' },
+                    }
+                    result.cycleFees.forEach((row: any) => {
+                        if (row.cycle in loadedCycles) {
+                            loadedCycles[row.cycle as keyof CycleState] = {
+                                registration: row.default_registration_fee?.toString() || '',
+                                tuition:      row.default_monthly_tuition?.toString()  || '',
+                            }
+                        }
+                    })
+                    setCycles(loadedCycles)
+                }
+
+                if (result.feeStructures.length > 0) {
+                    const loadedFees = defaultFees()
+                    result.feeStructures.forEach((row: any) => {
+                        if (row.fee_type in loadedFees) {
+                            loadedFees[row.fee_type] = {
+                                amount:    row.amount?.toString() || '',
+                                frequency: row.frequency,
+                                due_day:   row.due_day?.toString() || '5',
+                                enabled:   true,
+                            }
+                        }
+                    })
+                    setFees(loadedFees)
+                }
+
+                // Fallback: localStorage when no academic year configured
+                if (!result.year) {
+                    const key = `${STORAGE_KEY_PREFIX}${result.schoolId}`
                     const stored = localStorage.getItem(key)
                     if (stored) {
                         try { setFees(JSON.parse(stored)) } catch { /* ignore */ }
@@ -179,11 +155,8 @@ export function FeeStructures() {
     const handleSave = async () => {
         setSaving(true)
         try {
-            const supabase = createClient()
-            
             // Guard for academic year
-            if (!currentYear?.id) {
-                // Try to save locally if no year
+            if (!currentYear?.id || !schoolId) {
                 const key = `${STORAGE_KEY_PREFIX}${schoolId}`
                 localStorage.setItem(key, JSON.stringify(fees))
                 toast.success("Config. locale enregistrée !", {
@@ -193,61 +166,41 @@ export function FeeStructures() {
                 return
             }
 
-            // 1. Upsert Cycle Fees to Database
-            const cyclePayloads = Object.entries(cycles).map(([cName, cVals]) => ({
-                school_id: schoolId,
-                academic_year_id: currentYear.id,
+            const cycleList = Object.entries(cycles).map(([cName, cVals]) => ({
                 cycle: cName,
                 default_registration_fee: parseFloat(cVals.registration) || 0,
-                default_monthly_tuition: parseFloat(cVals.tuition) || 0
+                default_monthly_tuition: parseFloat(cVals.tuition) || 0,
             }))
 
-            const { error: cycleErr } = await supabase
-                .from('cycle_fees_config')
-                .upsert(cyclePayloads, { onConflict: 'school_id,academic_year_id,cycle' })
-
-            if (cycleErr) throw cycleErr
-
-            // 2. Upsert Additional Fees to fee_structures table
             const activeFees = FEE_TYPES
                 .filter(t_item => fees[t_item.id].enabled && fees[t_item.id].amount)
                 .map(t_item => ({
-                    school_id: schoolId,
-                    academic_year_id: currentYear.id,
-                    name: `${t('admin.settings.fees.types.' + t_item.id + '.label')} ${currentYear.name}`,
                     fee_type: t_item.id,
+                    name: `${t('admin.settings.fees.types.' + t_item.id + '.label')} ${currentYear.name}`,
                     amount: parseFloat(fees[t_item.id].amount) || 0,
                     frequency: fees[t_item.id].frequency,
                     due_day: parseInt(fees[t_item.id].due_day) || 5,
-                    is_active: true,
                 }))
 
-            if (activeFees.length > 0) {
-                const { error: feeErr } = await supabase
-                    .from('fee_structures' as any)
-                    .upsert(activeFees, { onConflict: 'school_id,academic_year_id,fee_type' })
-                
-                if (feeErr) throw feeErr
-            }
-
-            // Cleanup/Deactivate any that were disabled
             const disabledFeeTypes = FEE_TYPES
                 .filter(t_item => !fees[t_item.id].enabled)
                 .map(t_item => t_item.id)
-            
-            if (disabledFeeTypes.length > 0) {
-                await supabase
-                    .from('fee_structures')
-                    .delete()
-                    .eq('school_id', schoolId)
-                    .eq('academic_year_id', currentYear.id)
-                    .in('fee_type', disabledFeeTypes)
-            }
+
+            const result = await saveFeeStructuresAction({
+                schoolId,
+                academicYearId: currentYear.id,
+                cycles: cycleList,
+                activeFees,
+                disabledFeeTypes,
+            })
+
+            if (result.error) throw new Error(result.error)
 
             toast.success(t('admin.settings.fees.toastSuccess') || "Configuration enregistrée avec succès !")
         } catch (err) {
             console.error("Save error:", err)
-            toast.error(t('admin.settings.fees.toastError') || "Une erreur est survenue lors de la sauvegarde.")
+            const msg = err instanceof Error ? err.message : String(err)
+            toast.error(`${t('admin.settings.fees.toastError') || "Erreur lors de la sauvegarde"} — ${msg}`)
         } finally {
             setSaving(false)
         }
@@ -407,6 +360,8 @@ export function FeeStructures() {
 
                                     {/* Enabled toggle */}
                                     <button
+                                        type="button"
+                                        aria-label={fee.enabled ? "Désactiver" : "Activer"}
                                         onClick={() => updateFee(type.id, 'enabled', !fee.enabled)}
                                         className={cn(
                                             "relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none",
@@ -442,6 +397,7 @@ export function FeeStructures() {
                                             <div className="flex gap-1 flex-wrap bg-[#0F1720] p-1 rounded-xl border border-white/5">
                                                 {(['monthly', 'trimester', 'annual'] as const).map(f => (
                                                     <button
+                                                        type="button"
                                                         key={f}
                                                         onClick={() => updateFee(type.id, 'frequency', f)}
                                                         className={cn(

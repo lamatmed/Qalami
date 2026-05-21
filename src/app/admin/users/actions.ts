@@ -135,6 +135,7 @@ export async function deleteStaffUser(userId: string) {
     if (targetProfile?.school_id !== schoolId) return { error: 'Utilisateur non trouvé' }
 
     await adminClient.from('staff_permissions').delete().eq('user_id', userId)
+    await adminClient.from('profiles').delete().eq('id', userId)
     await adminClient.auth.admin.deleteUser(userId)
 
     await logActivity(supabase, actorId, schoolId, 'delete_staff', 'user', userId,

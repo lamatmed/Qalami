@@ -157,18 +157,23 @@ export default function TuitionPage() {
     useEffect(() => { fetchData() }, [fetchData])
 
     // ── Filters ──────────────────────────────────────────────────────────────
+    const todayStr = new Date().toISOString().split('T')[0]
     const filtered = payments.filter(p => {
         const matchSearch = search === '' ||
             p.student_name.toLowerCase().includes(search.toLowerCase()) ||
             (p.class_name ?? '').toLowerCase().includes(search.toLowerCase())
-        const matchStatus = filterStatus === 'all' || p.status === filterStatus
+        const isLate = p.status !== 'paid' && (p.status === 'overdue' || (p.due_date && p.due_date < todayStr))
+        const matchStatus = filterStatus === 'all'
+            ? true
+            : filterStatus === 'overdue'
+                ? isLate
+                : p.status === filterStatus
         const matchType = filterType === 'all' || p.payment_type === filterType
         const matchClass = filterClass === 'all' || p.class_name === filterClass
         return matchSearch && matchStatus && matchType && matchClass
     })
 
     // ── Compute Late Students Grouped ──────────────────────────────────────────
-    const todayStr = new Date().toISOString().split('T')[0]
     const lateStudentsMap: Record<string, {
         studentId: string,
         studentName: string,

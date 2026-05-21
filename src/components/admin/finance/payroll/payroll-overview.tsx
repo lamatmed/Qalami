@@ -18,15 +18,19 @@ interface PayrollEmployee {
     employeeId: string
     employeeName: string
     position: string
+    contractType: string
     status: 'pending' | 'paid' | 'cancelled'
     baseSalary: number
     bonuses: number
     deductions: number
     netSalary: number
     initials: string
+    phone?: string
+    nni?: string
+    avatarUrl?: string
 }
 
-export function PayrollOverview({ onSelectTeacher }: { onSelectTeacher: (teacher: any) => void }) {
+export function PayrollOverview({ onSelectTeacher, refreshKey }: { onSelectTeacher: (teacher: any) => void, refreshKey?: number }) {
     const { t } = useLanguage()
     const [employees, setEmployees] = useState<PayrollEmployee[]>([])
     const [loading, setLoading] = useState(true)
@@ -71,10 +75,14 @@ export function PayrollOverview({ onSelectTeacher }: { onSelectTeacher: (teacher
                         employee_id,
                         position,
                         monthly_salary,
+                        contract_type,
                         profiles (
                             id,
                             full_name,
-                            role
+                            role,
+                            phone,
+                            national_id,
+                            avatar_url
                         )
                     `)
                     .eq('school_id', profile.school_id)
@@ -131,12 +139,16 @@ export function PayrollOverview({ onSelectTeacher }: { onSelectTeacher: (teacher
                         employeeId: empId,
                         employeeName: fullName,
                         position: defaultPosition,
+                        contractType: (contract as any)?.contract_type || 'CDI',
                         status: (payroll?.status as 'pending'|'paid'|'cancelled') || 'pending',
                         baseSalary: payroll ? (parseFloat(payroll.base_salary) || 0) : defaultSalary,
                         bonuses: payroll ? (parseFloat(payroll.bonuses) || 0) : 0,
                         deductions: payroll ? (parseFloat(payroll.deductions) || 0) : 0,
                         netSalary: payroll ? (parseFloat(payroll.net_salary) || 0) : defaultSalary,
-                        initials
+                        initials,
+                        phone: profileObj?.phone || undefined,
+                        nni: profileObj?.national_id || undefined,
+                        avatarUrl: profileObj?.avatar_url || undefined,
                     }
                 })
 
@@ -149,7 +161,7 @@ export function PayrollOverview({ onSelectTeacher }: { onSelectTeacher: (teacher
         }
 
         fetchPayroll()
-    }, [])
+    }, [refreshKey])
 
 
     const filteredEmployees = employees.filter(e => {
@@ -326,8 +338,8 @@ export function PayrollOverview({ onSelectTeacher }: { onSelectTeacher: (teacher
                                         onCheckedChange={() => toggleSelectEmployee(employee.id)}
                                         className="border-white/20 data-[state=checked]:bg-emerald-500 data-[state=checked]:border-emerald-500"
                                     />
-                                    <Avatar className="h-10 w-10 border border-white/10">
-                                        <AvatarImage src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${employee.employeeName}`} />
+                                    <Avatar className="h-12 w-12 border border-white/10 shrink-0">
+                                        <AvatarImage src={employee.avatarUrl || `https://api.dicebear.com/7.x/initials/svg?seed=${employee.employeeName}`} className="object-cover" />
                                         <AvatarFallback className="bg-[#21262d] text-gray-400 text-xs font-bold">{employee.initials}</AvatarFallback>
                                     </Avatar>
 
@@ -339,6 +351,14 @@ export function PayrollOverview({ onSelectTeacher }: { onSelectTeacher: (teacher
                                             )}
                                         </div>
                                         <p className="text-gray-500 text-xs truncate">{employee.position}</p>
+                                        <div className="flex items-center gap-3 mt-0.5">
+                                            {employee.phone && (
+                                                <span className="text-gray-600 text-[10px] font-mono">{employee.phone}</span>
+                                            )}
+                                            {employee.nni && (
+                                                <span className="text-gray-600 text-[10px] font-mono">NNI: {employee.nni}</span>
+                                            )}
+                                        </div>
                                     </div>
                                 </div>
 
@@ -367,7 +387,12 @@ export function PayrollOverview({ onSelectTeacher }: { onSelectTeacher: (teacher
                                             base: employee.baseSalary,
                                             variable: employee.bonuses - employee.deductions,
                                             name: employee.employeeName,
-                                            subject: employee.position
+                                            subject: employee.position,
+                                            contractType: employee.contractType,
+                                            phone: employee.phone,
+                                            nni: employee.nni,
+                                            avatarUrl: employee.avatarUrl,
+                                            isPaid: employee.status === 'paid',
                                         })}
                                         className="text-gray-500 hover:text-white hover:bg-white/5 rounded-lg h-8 w-8"
                                     >

@@ -6,11 +6,11 @@ import { useState, useEffect } from 'react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { Search, ArrowUpRight, ArrowDownRight, MoreHorizontal, Download, Loader2, RefreshCw } from 'lucide-react'
+import { Search, ArrowUpRight, ArrowDownRight, MoreHorizontal, Download, Loader2, RefreshCw, Calendar, X } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import { createClient } from '@/utils/supabase/client'
 import { useLanguage } from '@/i18n'
 import { toast } from 'sonner'
+import { getTransactionsAction } from '@/app/admin/finance/actions'
 
 interface Transaction {
     id: string
@@ -24,36 +24,23 @@ interface Transaction {
 }
 
 export function TransactionLedger() {
-    const supabase = createClient()
     const [transactions, setTransactions] = useState<Transaction[]>([])
     const [loading, setLoading] = useState(true)
     const [searchQuery, setSearchQuery] = useState('')
+    const [dateFrom, setDateFrom] = useState('')
+    const [dateTo, setDateTo] = useState('')
     const [expandedId, setExpandedId] = useState<string | null>(null)
     const { t, language } = useLanguage()
 
-    const fetchTransactions = async () => {
+    const fetchTransactions = async (from = dateFrom, to = dateTo) => {
         setLoading(true)
         try {
-            const { data: { user } } = await supabase.auth.getUser()
-            if (!user) return
-
-            const { data: profile } = await supabase
-                .from('profiles')
-                .select('school_id')
-                .eq('id', user.id)
-                .single()
-
-            if (!profile?.school_id) return
-
-            const { data, error } = await supabase
-                .from('transactions')
-                .select('*')
-                .eq('school_id', profile.school_id)
-                .order('created_at', { ascending: false })
-                .limit(50)
-
-            if (error) throw error
-            setTransactions(data ?? [])
+            const result = await getTransactionsAction({ dateFrom: from || undefined, dateTo: to || undefined })
+            if (result.error) {
+                console.error('Error fetching transactions:', result.error)
+                return
+            }
+            setTransactions(result.data)
         } catch (error) {
             console.error('Error fetching transactions:', error)
         } finally {
@@ -62,14 +49,15 @@ export function TransactionLedger() {
     }
 
     useEffect(() => {
-        fetchTransactions()
-    }, [])
+        fetchTransactions(dateFrom, dateTo)
+    }, [dateFrom, dateTo])
 
-    // Filter by search
-    const filteredTransactions = transactions.filter(trx =>
-        (trx.description?.toLowerCase() ?? '').includes(searchQuery.toLowerCase()) ||
-        (trx.category?.toLowerCase() ?? '').includes(searchQuery.toLowerCase())
-    )
+    const filteredTransactions = transactions.filter(trx => {
+        const matchesSearch = !searchQuery ||
+            (trx.description?.toLowerCase() ?? '').includes(searchQuery.toLowerCase()) ||
+            (trx.category?.toLowerCase() ?? '').includes(searchQuery.toLowerCase())
+        return matchesSearch
+    })
 
     const formatDate = (dateStr: string) => {
         const locale = language === 'ar' ? 'ar-u-ca-gregory' : 'fr-FR'
@@ -101,52 +89,86 @@ export function TransactionLedger() {
     return (
         <div className="bg-[#161B22] border border-white/5 rounded-3xl overflow-hidden flex flex-col h-full">
             {/* Header / Controls */}
-            <div className="p-6 border-b border-white/5 flex flex-col sm:flex-row gap-4 justify-between items-start sm:items-center">
-                <h3 className="text-xl font-bold text-white flex items-center gap-2">
-                    {t('admin.finance.transactionHistory')}
-                    <Badge variant="outline" className="ml-2 bg-white/5 border-white/10 text-gray-400">{filteredTransactions.length}</Badge>
-                </h3>
+            <div className="p-6 border-b border-white/5 flex flex-col gap-4">
+                <div className="flex flex-col sm:flex-row gap-4 justify-between items-start sm:items-center">
+                    <h3 className="text-xl font-bold text-white flex items-center gap-2">
+                        {t('admin.finance.transactionHistory')}
+                        <Badge variant="outline" className="ml-2 bg-white/5 border-white/10 text-gray-400">{filteredTransactions.length}</Badge>
+                    </h3>
 
-                <div className="flex gap-2 w-full sm:w-auto">
-                    <div className="relative flex-1 sm:w-64">
-                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500" />
-                        <Input
-                            placeholder={t('admin.accounting.searchTransaction')}
-                            value={searchQuery}
-                            onChange={(e) => setSearchQuery(e.target.value)}
-                            className="bg-[#0D1117] border-white/10 pl-9 text-white placeholder:text-gray-600 focus-visible:ring-emerald-500/50"
-                        />
+                    <div className="flex gap-2 w-full sm:w-auto">
+                        <div className="relative flex-1 sm:w-64">
+                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500" />
+                            <Input
+                                placeholder={t('admin.accounting.searchTransaction')}
+                                value={searchQuery}
+                                onChange={(e) => setSearchQuery(e.target.value)}
+                                className="bg-[#0D1117] border-white/10 pl-9 text-white placeholder:text-gray-600 focus-visible:ring-emerald-500/50"
+                            />
+                        </div>
+                        <Button
+                            variant="outline"
+                            onClick={() => fetchTransactions(dateFrom, dateTo)}
+                            className="border-white/10 bg-[#0D1117] text-gray-400 hover:text-white hover:bg-white/5"
+                        >
+                            <RefreshCw className={cn("w-4 h-4", loading && "animate-spin")} />
+                        </Button>
+                        <Button
+                            variant="outline"
+                            className="border-white/10 bg-[#0D1117] text-gray-400 hover:text-white hover:bg-white/5"
+                            onClick={() => {
+                                if (filteredTransactions.length === 0) { toast.info('Aucune transaction à exporter'); return }
+                                let csv = `Description,Catégorie,Date,Statut,Montant (MRU),Type\n`
+                                filteredTransactions.forEach(trx => {
+                                    csv += `"${trx.description || 'Transaction'}",${getCategoryLabel(trx.category)},${formatDate(trx.transaction_date)},${trx.status},${trx.amount},${trx.type}\n`
+                                })
+                                const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' })
+                                const url = URL.createObjectURL(blob)
+                                const link = document.createElement('a')
+                                link.href = url
+                                link.download = `transactions-${new Date().toISOString().split('T')[0]}.csv`
+                                document.body.appendChild(link)
+                                link.click()
+                                document.body.removeChild(link)
+                                URL.revokeObjectURL(url)
+                                toast.success(`${filteredTransactions.length} transactions exportées`)
+                            }}
+                        >
+                            <Download className="w-4 h-4" />
+                        </Button>
                     </div>
-                    <Button
-                        variant="outline"
-                        onClick={() => fetchTransactions()}
-                        className="border-white/10 bg-[#0D1117] text-gray-400 hover:text-white hover:bg-white/5"
-                    >
-                        <RefreshCw className={cn("w-4 h-4", loading && "animate-spin")} />
-                    </Button>
-                    <Button
-                        variant="outline"
-                        className="border-white/10 bg-[#0D1117] text-gray-400 hover:text-white hover:bg-white/5"
-                        onClick={() => {
-                            if (filteredTransactions.length === 0) { toast.info('Aucune transaction à exporter'); return }
-                            let csv = `Description,Catégorie,Date,Statut,Montant (MRU),Type\n`
-                            filteredTransactions.forEach(trx => {
-                                csv += `"${trx.description || 'Transaction'}",${getCategoryLabel(trx.category)},${formatDate(trx.transaction_date)},${trx.status},${trx.amount},${trx.type}\n`
-                            })
-                            const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' })
-                            const url = URL.createObjectURL(blob)
-                            const link = document.createElement('a')
-                            link.href = url
-                            link.download = `transactions-${new Date().toISOString().split('T')[0]}.csv`
-                            document.body.appendChild(link)
-                            link.click()
-                            document.body.removeChild(link)
-                            URL.revokeObjectURL(url)
-                            toast.success(`${filteredTransactions.length} transactions exportées`)
-                        }}
-                    >
-                        <Download className="w-4 h-4" />
-                    </Button>
+                </div>
+
+                {/* Date range filter */}
+                <div className="flex flex-wrap items-center gap-2">
+                    <div className="flex items-center gap-1.5 text-gray-500">
+                        <Calendar className="w-3.5 h-3.5" />
+                        <span className="text-xs font-medium">{t('admin.accounting.filterByDate')}</span>
+                    </div>
+                    <input
+                        type="date"
+                        value={dateFrom}
+                        onChange={e => setDateFrom(e.target.value)}
+                        className="bg-[#0D1117] border border-white/10 text-white text-sm rounded-md h-8 px-3 focus:outline-none focus:border-emerald-500/50 [color-scheme:dark] cursor-pointer"
+                    />
+                    <span className="text-gray-600 text-xs">{t('admin.accounting.dateTo')}</span>
+                    <input
+                        type="date"
+                        value={dateTo}
+                        min={dateFrom || undefined}
+                        onChange={e => setDateTo(e.target.value)}
+                        className="bg-[#0D1117] border border-white/10 text-white text-sm rounded-md h-8 px-3 focus:outline-none focus:border-emerald-500/50 [color-scheme:dark] cursor-pointer"
+                    />
+                    {(dateFrom || dateTo) && (
+                        <button
+                            type="button"
+                            onClick={() => { setDateFrom(''); setDateTo('') }}
+                            className="flex items-center gap-1 text-xs text-gray-500 hover:text-white bg-white/5 hover:bg-white/10 border border-white/10 rounded-md px-2 h-8 transition-colors"
+                        >
+                            <X className="w-3 h-3" />
+                            {t('admin.accounting.clearDates')}
+                        </button>
+                    )}
                 </div>
             </div>
 

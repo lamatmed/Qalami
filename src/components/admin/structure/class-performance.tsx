@@ -11,6 +11,7 @@ import {
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { toast } from 'sonner'
+import { useLanguage } from '@/i18n'
 import {
     getTermsForSchool, getClassPerformance,
     type StudentPerf, type TermOption,
@@ -39,6 +40,7 @@ const AVG_BAR = (avg: number | null) => {
 const fmt = (n: number | null) => n !== null ? n.toFixed(1) : '—'
 
 export function ClassPerformance({ resolvedClassId }: Props) {
+    const { t } = useLanguage()
     const [terms, setTerms] = useState<TermOption[]>([])
     const [termId, setTermId] = useState('')
     const [activeSubjectId, setActiveSubjectId] = useState<string>('all')
@@ -94,7 +96,7 @@ export function ClassPerformance({ resolvedClassId }: Props) {
                     onChange={e => { setTermId(e.target.value); setExpandedId(null) }}
                     className="appearance-none bg-[#161B22] border border-white/8 text-white text-sm rounded-xl h-9 pl-3 pr-8 focus:outline-none focus:border-emerald-500/50 cursor-pointer"
                 >
-                    <option value="">Toutes les périodes</option>
+                    <option value="">{t('admin.structure.allPeriods')}</option>
                     {terms.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
                 </select>
                 <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-500 pointer-events-none" />
@@ -112,7 +114,7 @@ export function ClassPerformance({ resolvedClassId }: Props) {
                                 : 'bg-[#161B22] border-white/5 text-gray-600 hover:text-gray-400'
                         )}
                     >
-                        Toutes les matières
+                        {t('admin.structure.allSubjectsFilter')}
                     </button>
                     {classSubjects.map(s => (
                         <button
@@ -139,7 +141,10 @@ export function ClassPerformance({ resolvedClassId }: Props) {
                         <div className="flex items-center gap-2 mb-1">
                             <BarChart2 className="w-3.5 h-3.5 text-blue-400" />
                             <p className="text-[10px] font-bold text-gray-600 uppercase tracking-wider">
-                                Moy. {currentSubject ? currentSubject.name : 'classe'}
+                                {currentSubject
+                                    ? `${t('admin.structure.avgSubjectPrefix')} ${currentSubject.name}`
+                                    : t('admin.structure.avgClassLabel')
+                                }
                             </p>
                         </div>
                         <p className={cn('text-xl font-black', AVG_COLOR(perfData.classAverage))}>
@@ -150,7 +155,7 @@ export function ClassPerformance({ resolvedClassId }: Props) {
                     <div className="bg-[#161B22] rounded-xl border border-white/5 px-4 py-3">
                         <div className="flex items-center gap-2 mb-1">
                             <Trophy className="w-3.5 h-3.5 text-amber-400" />
-                            <p className="text-[10px] font-bold text-gray-600 uppercase tracking-wider">Meilleur</p>
+                            <p className="text-[10px] font-bold text-gray-600 uppercase tracking-wider">{t('admin.structure.bestStudentLabel')}</p>
                         </div>
                         {perfData.topStudent ? (
                             <>
@@ -167,7 +172,7 @@ export function ClassPerformance({ resolvedClassId }: Props) {
                     <div className="bg-[#161B22] rounded-xl border border-white/5 px-4 py-3">
                         <div className="flex items-center gap-2 mb-1">
                             <BookOpen className="w-3.5 h-3.5 text-purple-400" />
-                            <p className="text-[10px] font-bold text-gray-600 uppercase tracking-wider">Évaluations</p>
+                            <p className="text-[10px] font-bold text-gray-600 uppercase tracking-wider">{t('admin.structure.evaluationsLabel')}</p>
                         </div>
                         <p className="text-xl font-black text-white">{perfData.totalGrades}</p>
                     </div>
@@ -179,8 +184,8 @@ export function ClassPerformance({ resolvedClassId }: Props) {
                 <div className="px-5 py-3 border-b border-white/5 flex items-center justify-between">
                     <p className="text-[11px] font-bold text-gray-600 uppercase tracking-wider">
                         {activeSubjectId === 'all'
-                            ? `Classement général · ${perfData?.students.length ?? 0} élèves`
-                            : `Notes ${currentSubject?.name ?? ''} · ${perfData?.students.length ?? 0} élèves`
+                            ? t('admin.structure.generalRankingLabel').replace('{count}', String(perfData?.students.length ?? 0))
+                            : t('admin.structure.subjectGradesLabel').replace('{name}', currentSubject?.name ?? '').replace('{count}', String(perfData?.students.length ?? 0))
                         }
                     </p>
                     {loading && <Loader2 className="w-4 h-4 animate-spin text-gray-600" />}
@@ -189,15 +194,15 @@ export function ClassPerformance({ resolvedClassId }: Props) {
                 {loading ? (
                     <div className="flex items-center justify-center py-16 text-gray-600">
                         <Loader2 className="w-5 h-5 animate-spin mr-2" />
-                        <span className="text-sm">Chargement…</span>
+                        <span className="text-sm">{t('admin.structure.loadingLabel')}</span>
                     </div>
                 ) : !perfData || perfData.students.every(s => s.grades.length === 0) ? (
                     <div className="text-center py-16 text-gray-600 text-sm">
                         <BookOpen className="w-8 h-8 mx-auto mb-2 opacity-30" />
-                        Aucune note enregistrée pour ce trimestre
+                        {t('admin.structure.noGradesForTerm')}
                         {activeSubjectId !== 'all' && (
                             <p className="text-[11px] mt-1 text-gray-700">
-                                en {currentSubject?.name}
+                                {t('admin.structure.inSubject').replace('{name}', currentSubject?.name ?? '')}
                             </p>
                         )}
                     </div>
@@ -312,11 +317,14 @@ export function ClassPerformance({ resolvedClassId }: Props) {
     )
 }
 
-function GradePill({ grade }: { grade: { title: string; value: number; maxValue: number; coefficient: number } }) {
+const ASSESSMENT_LABELS: Record<string, string> = { devoir: 'Devoir', examen: 'Examen' }
+
+function GradePill({ grade }: { grade: { assessmentType: string; comment: string | null; value: number; maxValue: number; coefficient: number } }) {
     const avg20 = grade.maxValue > 0 ? (grade.value / grade.maxValue) * 20 : 0
+    const label = grade.comment || ASSESSMENT_LABELS[grade.assessmentType] || grade.assessmentType
     return (
         <div className="flex items-center gap-1.5 bg-white/4 border border-white/8 rounded-lg px-2.5 py-1.5">
-            <span className="text-[11px] text-gray-500">{grade.title}</span>
+            <span className="text-[11px] text-gray-500">{label}</span>
             <span className={cn('text-[11px] font-bold', AVG_COLOR(avg20))}>
                 {grade.value}/{grade.maxValue}
             </span>

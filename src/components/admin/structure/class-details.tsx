@@ -10,7 +10,7 @@ import { cn } from '@/lib/utils'
 import { useLanguage } from '@/i18n'
 import { createClient } from '@/utils/supabase/client'
 import { useSchoolContext } from '@/lib/use-school-context'
-import { removeSubjectFromClass } from '@/app/admin/subjects/actions'
+import { removeSubjectFromClass, addSubjectToClass } from '@/app/admin/subjects/actions'
 import { ClassPerformance } from './class-performance'
 import { assignStudentToClass } from '@/app/admin/students/actions'
 import { updateClass, deleteClass } from '@/app/admin/classes/actions'
@@ -20,12 +20,14 @@ interface StudentRow {
     id: string
     name: string
     avatar: string
+    nni?: string
 }
 
 interface UnassignedStudent {
     id: string
     name: string
     avatar: string
+    nni?: string
 }
 
 interface SubjectRow {
@@ -46,6 +48,13 @@ export function ClassDetails({ levelId, classId }: { levelId: string, classId: s
     const [className, setClassName] = useState('')
     const [resolvedClassId, setResolvedClassId] = useState('')
     const [removingId, setRemovingId] = useState<string | null>(null)
+
+    // Add subject panel
+    const [showAddSubject, setShowAddSubject] = useState(false)
+    const [allSubjects, setAllSubjects] = useState<SubjectRow[]>([])
+    const [loadingAllSubjects, setLoadingAllSubjects] = useState(false)
+    const [addingSubjectId, setAddingSubjectId] = useState<string | null>(null)
+    const [subjectSearch, setSubjectSearch] = useState('')
 
     // Edit / Delete dialogs
     const [editOpen, setEditOpen] = useState(false)
@@ -78,13 +87,14 @@ export function ClassDetails({ levelId, classId }: { levelId: string, classId: s
 
                 const { data: enrollments } = await supabase
                     .from('enrollments')
-                    .select('student_id, profiles!enrollments_student_id_fkey(id, full_name)')
+                    .select('student_id, profiles!enrollments_student_id_fkey(id, full_name, national_id)')
                     .eq('class_id', classData.id)
 
                 setStudents((enrollments || []).map((e: any) => ({
                     id: e.profiles?.id || e.student_id,
                     name: e.profiles?.full_name || 'Inconnu',
                     avatar: (e.profiles?.full_name || 'XX').split(' ').map((w: string) => w[0]).join('').substring(0, 2).toUpperCase(),
+                    nni: e.profiles?.national_id ?? undefined,
                 })))
             }
             setLoading(false)
@@ -99,16 +109,14 @@ export function ClassDetails({ levelId, classId }: { levelId: string, classId: s
         const supabase = createClient()
         const schoolId = context.school_id
 
-        // All active students
         const { data: allStudents } = await supabase
             .from('profiles')
-            .select('id, full_name')
+            .select('id, full_name, national_id')
             .eq('school_id', schoolId)
             .eq('role', 'student')
             .eq('status', 'active')
             .order('full_name')
 
-        // All enrolled student IDs
         const { data: enrollments } = await supabase
             .from('enrollments')
             .select('student_id')
@@ -123,6 +131,7 @@ export function ClassDetails({ levelId, classId }: { levelId: string, classId: s
                 id: s.id,
                 name: s.full_name || 'Inconnu',
                 avatar: (s.full_name || 'XX').split(' ').map((w: string) => w[0]).join('').substring(0, 2).toUpperCase(),
+                nni: s.national_id ?? undefined,
             }))
 
         setUnassigned(unassignedList)
@@ -140,8 +149,7 @@ export function ClassDetails({ levelId, classId }: { levelId: string, classId: s
         if (result?.error) {
             toast.error(result.error)
         } else {
-            toast.success(`${student.name} affecté(e) à ${className}`)
-            // Move student from unassigned to class list
+            toast.success(t('admin.structure.studentAssignedToClass').replace('{name}', student.name).replace('{className}', className))
             setUnassigned(prev => prev.filter(s => s.id !== student.id))
             setStudents(prev => [...prev, student])
         }
@@ -172,13 +180,42 @@ export function ClassDetails({ levelId, classId }: { levelId: string, classId: s
         if (activeTab === 'subjects' && resolvedClassId) loadSubjects()
     }, [activeTab, resolvedClassId, loadSubjects])
 
+    const loadAllSubjects = useCallback(async () => {
+        if (!context) return
+        setLoadingAllSubjects(true)
+        const supabase = createClient()
+        const { data } = await supabase
+            .from('subjects')
+            .select('id, name, icon')
+            .eq('school_id', context.school_id)
+            .order('name')
+        setAllSubjects((data || []).map((s: any) => ({ id: s.id, name: s.name, icon: s.icon ?? null })))
+        setLoadingAllSubjects(false)
+    }, [context])
+
+    useEffect(() => {
+        if (showAddSubject) loadAllSubjects()
+    }, [showAddSubject, loadAllSubjects])
+
+    const handleAddSubject = async (subject: SubjectRow) => {
+        setAddingSubjectId(subject.id)
+        const result = await addSubjectToClass(resolvedClassId, subject.id)
+        if (result?.error) {
+            toast.error(result.error)
+        } else {
+            toast.success(t('admin.structure.subjectAddedToClass').replace('{name}', subject.name))
+            setClassSubjects(prev => [...prev, subject])
+        }
+        setAddingSubjectId(null)
+    }
+
     const handleRemove = async (subjectId: string, subjectName: string) => {
         setRemovingId(subjectId)
         const result = await removeSubjectFromClass(resolvedClassId, subjectId)
         if (result?.error) {
             toast.error(result.error)
         } else {
-            toast.success(`${subjectName} retiré de la classe`)
+            toast.success(t('admin.structure.subjectRemovedFromClass').replace('{name}', subjectName))
             setClassSubjects(prev => prev.filter(s => s.id !== subjectId))
         }
         setRemovingId(null)
@@ -191,13 +228,13 @@ export function ClassDetails({ levelId, classId }: { levelId: string, classId: s
     }
 
     const handleEditSave = async () => {
-        if (!editName.trim()) { toast.error('Le nom est requis'); return }
+        if (!editName.trim()) { toast.error(t('admin.structure.classNameRequired')); return }
         setSaving(true)
         const result = await updateClass(resolvedClassId, { name: editName.trim(), capacity: parseInt(editCapacity) || undefined })
         if (result?.error) {
             toast.error(result.error)
         } else {
-            toast.success('Classe modifiée avec succès')
+            toast.success(t('admin.structure.classEditedSuccess'))
             setClassName(editName.trim())
             setEditOpen(false)
         }
@@ -211,7 +248,7 @@ export function ClassDetails({ levelId, classId }: { levelId: string, classId: s
             toast.error(result.error)
             setDeleting(false)
         } else {
-            toast.success(`Classe "${className}" supprimée`)
+            toast.success(t('admin.structure.classDeletedSuccess').replace('{name}', className))
             router.back()
         }
     }
@@ -248,7 +285,6 @@ export function ClassDetails({ levelId, classId }: { levelId: string, classId: s
         setTimeout(() => win.print(), 250)
     }
 
-    // Filtered unassigned students by search
     const filteredUnassigned = searchQuery.trim()
         ? unassigned.filter(s => s.name.toLowerCase().includes(searchQuery.toLowerCase()))
         : unassigned
@@ -262,7 +298,9 @@ export function ClassDetails({ levelId, classId }: { levelId: string, classId: s
                         <ArrowLeft className="w-5 h-5" />
                     </Button>
                     <div>
-                        <h2 className="text-2xl font-bold text-white">Classe : {className || classId.toUpperCase()}</h2>
+                        <h2 className="text-2xl font-bold text-white">
+                            {t('admin.structure.classTitle').replace('{name}', className || classId.toUpperCase())}
+                        </h2>
                         <p className="text-emerald-500 text-sm font-bold">
                             {loading ? '…' : `${students.length} élève${students.length !== 1 ? 's' : ''}`}
                         </p>
@@ -273,7 +311,7 @@ export function ClassDetails({ levelId, classId }: { levelId: string, classId: s
                         <Link href={`/admin/assignments?class_id=${resolvedClassId}`}>
                             <Button variant="outline" size="sm" className="gap-2 border-white/10 text-gray-300 hover:text-white hover:bg-white/5 text-xs">
                                 <ClipboardList className="w-3.5 h-3.5" />
-                                Affectations
+                                {t('admin.structure.assignmentsBtn')}
                             </Button>
                         </Link>
                         <Button
@@ -283,7 +321,7 @@ export function ClassDetails({ levelId, classId }: { levelId: string, classId: s
                             className="gap-1.5 border-white/10 text-gray-300 hover:text-white hover:bg-white/5 text-xs"
                         >
                             <Pencil className="w-3.5 h-3.5" />
-                            Modifier
+                            {t('admin.structure.editBtn')}
                         </Button>
                         <Button
                             variant="outline"
@@ -292,7 +330,7 @@ export function ClassDetails({ levelId, classId }: { levelId: string, classId: s
                             className="gap-1.5 border-red-500/20 text-red-400 hover:text-red-300 hover:bg-red-500/10 text-xs"
                         >
                             <Trash2 className="w-3.5 h-3.5" />
-                            Supprimer
+                            {t('admin.structure.deleteBtn')}
                         </Button>
                     </div>
                 )}
@@ -301,6 +339,7 @@ export function ClassDetails({ levelId, classId }: { levelId: string, classId: s
             {/* Tabs */}
             <div className="flex gap-1 border-b border-white/10">
                 <button
+                    type="button"
                     onClick={() => setActiveTab('students')}
                     className={cn(
                         "flex items-center gap-2 px-4 pb-3 text-sm font-bold transition-colors border-b-2",
@@ -310,10 +349,11 @@ export function ClassDetails({ levelId, classId }: { levelId: string, classId: s
                     )}
                 >
                     <Users className="w-4 h-4" />
-                    Élèves
+                    {t('admin.structure.tabStudents')}
                     <span className="text-xs bg-white/10 px-1.5 py-0.5 rounded-full">{students.length}</span>
                 </button>
                 <button
+                    type="button"
                     onClick={() => setActiveTab('subjects')}
                     className={cn(
                         "flex items-center gap-2 px-4 pb-3 text-sm font-bold transition-colors border-b-2",
@@ -323,12 +363,13 @@ export function ClassDetails({ levelId, classId }: { levelId: string, classId: s
                     )}
                 >
                     <BookOpen className="w-4 h-4" />
-                    Matières
+                    {t('admin.structure.tabSubjects')}
                     {classSubjects.length > 0 && (
                         <span className="text-xs bg-white/10 px-1.5 py-0.5 rounded-full">{classSubjects.length}</span>
                     )}
                 </button>
                 <button
+                    type="button"
                     onClick={() => setActiveTab('performance')}
                     className={cn(
                         "flex items-center gap-2 px-4 pb-3 text-sm font-bold transition-colors border-b-2",
@@ -338,7 +379,7 @@ export function ClassDetails({ levelId, classId }: { levelId: string, classId: s
                     )}
                 >
                     <TrendingUp className="w-4 h-4" />
-                    Performances
+                    {t('admin.structure.tabPerformance')}
                 </button>
             </div>
 
@@ -365,7 +406,7 @@ export function ClassDetails({ levelId, classId }: { levelId: string, classId: s
                                         disabled={students.length === 0}
                                     >
                                         <Download className="w-3.5 h-3.5" />
-                                        Exporter
+                                        {t('admin.structure.exportBtn')}
                                     </Button>
                                     <Button
                                         size="sm"
@@ -378,9 +419,9 @@ export function ClassDetails({ levelId, classId }: { levelId: string, classId: s
                                         )}
                                     >
                                         {showUnassigned ? (
-                                            <><X className="w-3.5 h-3.5" /> Fermer</>
+                                            <><X className="w-3.5 h-3.5" /> {t('admin.structure.closeBtn')}</>
                                         ) : (
-                                            <><UserPlus className="w-3.5 h-3.5" /> Affecter un élève</>
+                                            <><UserPlus className="w-3.5 h-3.5" /> {t('admin.structure.assignStudentBtn')}</>
                                         )}
                                     </Button>
                                 </div>
@@ -393,13 +434,14 @@ export function ClassDetails({ levelId, classId }: { levelId: string, classId: s
                             ) : students.length === 0 ? (
                                 <div className="flex-1 flex flex-col items-center justify-center text-center py-12">
                                     <Users className="w-10 h-10 text-gray-700 mx-auto mb-3" />
-                                    <p className="text-sm text-gray-500">Aucun élève inscrit dans cette classe</p>
+                                    <p className="text-sm text-gray-500">{t('admin.structure.noStudentsInClass')}</p>
                                     {!showUnassigned && (
                                         <button
+                                            type="button"
                                             onClick={() => setShowUnassigned(true)}
                                             className="mt-3 text-xs font-semibold text-emerald-400 hover:text-emerald-300 transition-colors"
                                         >
-                                            Affecter des élèves →
+                                            {t('admin.structure.assignStudentsHint')}
                                         </button>
                                     )}
                                 </div>
@@ -412,7 +454,9 @@ export function ClassDetails({ levelId, classId }: { levelId: string, classId: s
                                             </div>
                                             <div className="min-w-0">
                                                 <p className="font-semibold text-gray-200 text-sm truncate">{student.name}</p>
-                                                <p className="text-[10px] text-gray-600 font-mono">{student.id.substring(0, 12)}</p>
+                                                {student.nni && (
+                                                    <p className="text-[10px] text-gray-600 font-mono">{student.nni}</p>
+                                                )}
                                             </div>
                                         </div>
                                     ))}
@@ -430,15 +474,14 @@ export function ClassDetails({ levelId, classId }: { levelId: string, classId: s
                                         <UserCheck className="w-3.5 h-3.5 text-emerald-400" />
                                     </div>
                                     <p className="text-[11px] font-bold text-emerald-400 uppercase tracking-wider">
-                                        Élèves sans classe
+                                        {t('admin.structure.unassignedStudentsPanel')}
                                     </p>
                                 </div>
 
-                                {/* Search */}
                                 <div className="relative mb-3">
                                     <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-600 pointer-events-none" />
                                     <Input
-                                        placeholder="Rechercher un élève…"
+                                        placeholder={t('admin.structure.searchStudentPlaceholder')}
                                         value={searchQuery}
                                         onChange={e => setSearchQuery(e.target.value)}
                                         className="pl-8 h-8 text-xs bg-[#0D1117] border-white/8 text-white placeholder:text-gray-700 focus:border-emerald-500/40 rounded-lg"
@@ -453,7 +496,7 @@ export function ClassDetails({ levelId, classId }: { levelId: string, classId: s
                                     <div className="text-center py-8">
                                         <UserCheck className="w-8 h-8 text-gray-700 mx-auto mb-2" />
                                         <p className="text-xs text-gray-500">
-                                            {searchQuery ? 'Aucun résultat' : 'Tous les élèves sont assignés'}
+                                            {searchQuery ? t('admin.structure.noResults') : t('admin.structure.allStudentsAssigned')}
                                         </p>
                                     </div>
                                 ) : (
@@ -469,15 +512,21 @@ export function ClassDetails({ levelId, classId }: { levelId: string, classId: s
                                                 <div className="w-8 h-8 rounded-full bg-white/5 flex items-center justify-center text-gray-400 font-bold text-[11px] shrink-0">
                                                     {student.avatar}
                                                 </div>
-                                                <p className="text-xs font-medium text-gray-300 flex-1 truncate">{student.name}</p>
+                                                <div className="flex-1 min-w-0">
+                                                    <p className="text-xs font-medium text-gray-300 truncate">{student.name}</p>
+                                                    {student.nni && (
+                                                        <p className="text-[10px] text-gray-600 font-mono">{student.nni}</p>
+                                                    )}
+                                                </div>
                                                 <button
+                                                    type="button"
                                                     onClick={() => handleAssign(student)}
                                                     disabled={assigningId === student.id}
                                                     className="shrink-0 h-7 px-2.5 rounded-lg bg-emerald-500/15 text-emerald-400 text-[11px] font-semibold border border-emerald-500/20 hover:bg-emerald-500/25 transition-colors disabled:opacity-50 flex items-center gap-1"
                                                 >
                                                     {assigningId === student.id
                                                         ? <Loader2 className="w-3 h-3 animate-spin" />
-                                                        : <><Plus className="w-3 h-3" />Affecter</>
+                                                        : <><Plus className="w-3 h-3" />{t('admin.structure.assignBtn')}</>
                                                     }
                                                 </button>
                                             </div>
@@ -492,53 +541,162 @@ export function ClassDetails({ levelId, classId }: { levelId: string, classId: s
 
             {/* Tab: Subjects */}
             {activeTab === 'subjects' && (
-                <div className="flex-1 flex flex-col gap-4">
+                <div className="flex-1 flex gap-5 min-h-0">
                     {/* Subjects list */}
-                    <div className="flex-1 bg-[#1A2530] rounded-2xl border border-white/5 p-5">
-                        <p className="text-[11px] font-bold text-gray-500 uppercase tracking-wider mb-4">
-                            Programme de la classe · {classSubjects.length} matière{classSubjects.length !== 1 ? 's' : ''}
-                        </p>
+                    <div className="flex-1 flex flex-col">
+                        <div className="bg-[#1A2530] rounded-2xl border border-white/5 p-5 flex flex-col flex-1">
+                            <div className="flex justify-between items-center mb-4">
+                                <p className="text-[11px] font-bold text-gray-500 uppercase tracking-wider">
+                                    {t('admin.structure.classSubjectsHeader')} · {classSubjects.length} matière{classSubjects.length !== 1 ? 's' : ''}
+                                </p>
+                                <Button
+                                    size="sm"
+                                    onClick={() => { setShowAddSubject(v => !v); setSubjectSearch('') }}
+                                    className={cn(
+                                        "h-8 text-xs gap-1.5 font-semibold transition-colors",
+                                        showAddSubject
+                                            ? "bg-white/8 text-gray-300 hover:bg-white/12 border border-white/10"
+                                            : "bg-emerald-500/15 text-emerald-400 hover:bg-emerald-500/25 border border-emerald-500/20"
+                                    )}
+                                >
+                                    {showAddSubject
+                                        ? <><X className="w-3.5 h-3.5" /> {t('admin.structure.closeBtn')}</>
+                                        : <><Plus className="w-3.5 h-3.5" /> {t('admin.structure.addSubjectBtn')}</>
+                                    }
+                                </Button>
+                            </div>
 
-                        {loadingSubjects ? (
-                            <div className="flex items-center justify-center py-12">
-                                <Loader2 className="w-6 h-6 animate-spin text-emerald-500" />
-                            </div>
-                        ) : classSubjects.length === 0 ? (
-                            <div className="text-center py-12 text-gray-500 text-sm">
-                                Aucune matière assignée à cette classe.
-                            </div>
-                        ) : (
-                            <div className="space-y-2">
-                                {classSubjects.map(subject => (
-                                    <div key={subject.id} className="flex items-center justify-between p-3 bg-[#0F1720] rounded-xl border border-white/5 hover:border-emerald-500/20 transition-all group">
-                                        <div className="flex items-center gap-3">
-                                            {subject.icon ? (
-                                                <span className="h-9 w-9 rounded-lg bg-emerald-500/10 flex items-center justify-center text-base">
-                                                    {subject.icon}
-                                                </span>
-                                            ) : (
-                                                <div className="h-9 w-9 rounded-lg bg-white/5 flex items-center justify-center">
-                                                    <BookOpen className="w-4 h-4 text-gray-500" />
-                                                </div>
-                                            )}
-                                            <span className="font-medium text-white text-sm">{subject.name}</span>
-                                        </div>
+                            {loadingSubjects ? (
+                                <div className="flex items-center justify-center py-12">
+                                    <Loader2 className="w-6 h-6 animate-spin text-emerald-500" />
+                                </div>
+                            ) : classSubjects.length === 0 ? (
+                                <div className="flex-1 flex flex-col items-center justify-center text-center py-12">
+                                    <BookOpen className="w-10 h-10 text-gray-700 mx-auto mb-3" />
+                                    <p className="text-sm text-gray-500">{t('admin.structure.noSubjectsInClass')}</p>
+                                    {!showAddSubject && (
                                         <button
-                                            className="p-1.5 rounded-lg text-gray-600 hover:text-red-400 hover:bg-red-500/10 transition-colors opacity-0 group-hover:opacity-100"
-                                            title="Retirer de la classe"
-                                            onClick={() => handleRemove(subject.id, subject.name)}
-                                            disabled={removingId === subject.id}
+                                            type="button"
+                                            onClick={() => setShowAddSubject(true)}
+                                            className="mt-3 text-xs font-semibold text-emerald-400 hover:text-emerald-300 transition-colors"
                                         >
-                                            {removingId === subject.id
-                                                ? <Loader2 className="w-4 h-4 animate-spin" />
-                                                : <X className="w-4 h-4" />
-                                            }
+                                            {t('admin.structure.addSubjectsHint')}
                                         </button>
-                                    </div>
-                                ))}
-                            </div>
-                        )}
+                                    )}
+                                </div>
+                            ) : (
+                                <div className="space-y-2 overflow-y-auto">
+                                    {classSubjects.map(subject => (
+                                        <div key={subject.id} className="flex items-center justify-between p-3 bg-[#0F1720] rounded-xl border border-white/5 hover:border-emerald-500/20 transition-all group">
+                                            <div className="flex items-center gap-3">
+                                                {subject.icon ? (
+                                                    <span className="h-9 w-9 rounded-lg bg-emerald-500/10 flex items-center justify-center text-base">
+                                                        {subject.icon}
+                                                    </span>
+                                                ) : (
+                                                    <div className="h-9 w-9 rounded-lg bg-white/5 flex items-center justify-center">
+                                                        <BookOpen className="w-4 h-4 text-gray-500" />
+                                                    </div>
+                                                )}
+                                                <span className="font-medium text-white text-sm">{subject.name}</span>
+                                            </div>
+                                            <button
+                                                type="button"
+                                                className="p-1.5 rounded-lg text-gray-600 hover:text-red-400 hover:bg-red-500/10 transition-colors opacity-0 group-hover:opacity-100"
+                                                title={t('admin.structure.removeSubjectTitle')}
+                                                onClick={() => handleRemove(subject.id, subject.name)}
+                                                disabled={removingId === subject.id}
+                                            >
+                                                {removingId === subject.id
+                                                    ? <Loader2 className="w-4 h-4 animate-spin" />
+                                                    : <X className="w-4 h-4" />
+                                                }
+                                            </button>
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+                        </div>
                     </div>
+
+                    {/* Right: add subject panel */}
+                    {showAddSubject && (
+                        <div className="w-80 shrink-0 flex flex-col animate-in slide-in-from-right-4 duration-300">
+                            <div className="bg-[#161B22] rounded-2xl border border-emerald-500/20 p-4 flex flex-col flex-1">
+                                <div className="flex items-center gap-2 mb-3">
+                                    <div className="w-6 h-6 rounded-lg bg-emerald-500/15 flex items-center justify-center shrink-0">
+                                        <BookOpen className="w-3.5 h-3.5 text-emerald-400" />
+                                    </div>
+                                    <p className="text-[11px] font-bold text-emerald-400 uppercase tracking-wider">
+                                        {t('admin.structure.availableSubjectsPanel')}
+                                    </p>
+                                </div>
+
+                                <div className="relative mb-3">
+                                    <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-600 pointer-events-none" />
+                                    <Input
+                                        placeholder={t('admin.structure.searchSubjectPlaceholder')}
+                                        value={subjectSearch}
+                                        onChange={e => setSubjectSearch(e.target.value)}
+                                        className="pl-8 h-8 text-xs bg-[#0D1117] border-white/8 text-white placeholder:text-gray-700 focus:border-emerald-500/40 rounded-lg"
+                                    />
+                                </div>
+
+                                {loadingAllSubjects ? (
+                                    <div className="flex items-center justify-center py-8">
+                                        <Loader2 className="w-5 h-5 animate-spin text-gray-500" />
+                                    </div>
+                                ) : (() => {
+                                    const linkedIds = new Set(classSubjects.map(s => s.id))
+                                    const available = allSubjects
+                                        .filter(s => !linkedIds.has(s.id))
+                                        .filter(s => !subjectSearch.trim() || s.name.toLowerCase().includes(subjectSearch.toLowerCase()))
+                                    return available.length === 0 ? (
+                                        <div className="text-center py-8">
+                                            <BookOpen className="w-8 h-8 text-gray-700 mx-auto mb-2" />
+                                            <p className="text-xs text-gray-500">
+                                                {subjectSearch ? t('admin.structure.noResults') : t('admin.structure.allSubjectsLinked')}
+                                            </p>
+                                        </div>
+                                    ) : (
+                                        <div className="space-y-1.5 overflow-y-auto flex-1">
+                                            <p className="text-[10px] text-gray-600 mb-2">
+                                                {available.length} matière{available.length > 1 ? 's' : ''} disponible{available.length > 1 ? 's' : ''}
+                                            </p>
+                                            {available.map(subject => (
+                                                <div
+                                                    key={subject.id}
+                                                    className="flex items-center gap-2.5 p-2.5 rounded-xl bg-[#0D1117] border border-white/5 hover:border-emerald-500/20 transition-colors group"
+                                                >
+                                                    {subject.icon ? (
+                                                        <span className="w-8 h-8 rounded-lg bg-emerald-500/10 flex items-center justify-center text-sm shrink-0">
+                                                            {subject.icon}
+                                                        </span>
+                                                    ) : (
+                                                        <div className="w-8 h-8 rounded-lg bg-white/5 flex items-center justify-center shrink-0">
+                                                            <BookOpen className="w-3.5 h-3.5 text-gray-500" />
+                                                        </div>
+                                                    )}
+                                                    <p className="text-xs font-medium text-gray-300 flex-1 truncate">{subject.name}</p>
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => handleAddSubject(subject)}
+                                                        disabled={addingSubjectId === subject.id}
+                                                        className="shrink-0 h-7 px-2.5 rounded-lg bg-emerald-500/15 text-emerald-400 text-[11px] font-semibold border border-emerald-500/20 hover:bg-emerald-500/25 transition-colors disabled:opacity-50 flex items-center gap-1"
+                                                    >
+                                                        {addingSubjectId === subject.id
+                                                            ? <Loader2 className="w-3 h-3 animate-spin" />
+                                                            : <><Plus className="w-3 h-3" />{t('admin.structure.add')}</>
+                                                        }
+                                                    </button>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    )
+                                })()}
+                            </div>
+                        </div>
+                    )}
                 </div>
             )}
 
@@ -559,28 +717,28 @@ export function ClassDetails({ levelId, classId }: { levelId: string, classId: s
                                 <Pencil className="w-4 h-4 text-blue-400" />
                             </div>
                             <div>
-                                <h3 className="text-base font-semibold text-white">Modifier la classe</h3>
-                                <p className="text-[11px] text-gray-500">Mettre à jour les informations</p>
+                                <h3 className="text-base font-semibold text-white">{t('admin.structure.editDialogTitle')}</h3>
+                                <p className="text-[11px] text-gray-500">{t('admin.structure.editDialogSubtitle')}</p>
                             </div>
-                            <button onClick={() => setEditOpen(false)} className="ml-auto text-gray-600 hover:text-white transition-colors">
+                            <button type="button" aria-label={t('admin.structure.closeBtn')} onClick={() => setEditOpen(false)} className="ml-auto text-gray-600 hover:text-white transition-colors">
                                 <X className="w-4 h-4" />
                             </button>
                         </div>
 
                         <div className="space-y-3">
                             <div className="space-y-1.5">
-                                <label className="text-[11px] font-bold text-gray-500 uppercase tracking-wider">Nom de la classe</label>
+                                <label className="text-[11px] font-bold text-gray-500 uppercase tracking-wider">{t('admin.structure.classNameLabel')}</label>
                                 <Input
                                     value={editName}
                                     onChange={e => setEditName(e.target.value)}
-                                    placeholder="Ex : 6ème A"
+                                    placeholder={t('admin.structure.classNamePlaceholder')}
                                     className="bg-[#0D1117] border-white/8 text-white placeholder:text-gray-700 focus:border-blue-500/60 h-10 rounded-xl"
                                     onKeyDown={e => e.key === 'Enter' && handleEditSave()}
                                     autoFocus
                                 />
                             </div>
                             <div className="space-y-1.5">
-                                <label className="text-[11px] font-bold text-gray-500 uppercase tracking-wider">Capacité maximale</label>
+                                <label className="text-[11px] font-bold text-gray-500 uppercase tracking-wider">{t('admin.structure.capacityLabel')}</label>
                                 <Input
                                     type="number"
                                     value={editCapacity}
@@ -593,18 +751,20 @@ export function ClassDetails({ levelId, classId }: { levelId: string, classId: s
 
                         <div className="flex gap-2 pt-1">
                             <button
+                                type="button"
                                 onClick={() => setEditOpen(false)}
                                 className="flex-1 h-10 rounded-xl border border-white/8 text-gray-500 hover:text-gray-300 hover:bg-white/4 text-sm font-medium transition-colors"
                             >
-                                Annuler
+                                {t('admin.structure.cancelBtn')}
                             </button>
                             <button
+                                type="button"
                                 onClick={handleEditSave}
                                 disabled={saving || !editName.trim()}
                                 className="flex-1 h-10 rounded-xl bg-blue-600/85 hover:bg-blue-600 text-white text-sm font-semibold disabled:opacity-40 transition-colors flex items-center justify-center gap-2"
                             >
                                 {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
-                                {saving ? 'Enregistrement…' : 'Enregistrer'}
+                                {saving ? t('admin.structure.savingLabel') : t('admin.structure.saveBtn')}
                             </button>
                         </div>
                     </div>
@@ -621,21 +781,21 @@ export function ClassDetails({ levelId, classId }: { levelId: string, classId: s
                                 <AlertTriangle className="w-4 h-4 text-red-400" />
                             </div>
                             <div>
-                                <h3 className="text-base font-semibold text-white">Supprimer la classe</h3>
+                                <h3 className="text-base font-semibold text-white">{t('admin.structure.deleteDialogTitle')}</h3>
                                 <p className="text-sm text-gray-400 mt-1">
-                                    La classe <span className="font-semibold text-white">"{className}"</span> sera supprimée définitivement.
+                                    {t('admin.structure.deleteDialogDesc').replace('{name}', className)}
                                 </p>
                             </div>
                         </div>
 
                         <div className="bg-red-500/8 border border-red-500/15 rounded-xl p-3 space-y-1.5">
-                            <p className="text-[11px] font-bold text-red-400 uppercase tracking-wider">Cette action va :</p>
+                            <p className="text-[11px] font-bold text-red-400 uppercase tracking-wider">{t('admin.structure.deleteImpactTitle')}</p>
                             <ul className="space-y-1">
                                 {[
-                                    `Désassigner les ${students.length} élève${students.length !== 1 ? 's' : ''} de la classe`,
-                                    'Supprimer toutes les matières liées',
-                                    'Retirer les affectations enseignants',
-                                    'Effacer les créneaux de l\'emploi du temps',
+                                    t('admin.structure.deleteImpactStudents').replace('{count}', String(students.length)),
+                                    t('admin.structure.impactDeleteSubjects'),
+                                    t('admin.structure.impactRemoveTeacherAssignments'),
+                                    t('admin.structure.impactClearSchedule'),
                                 ].map(line => (
                                     <li key={line} className="text-xs text-red-300/80 flex items-start gap-1.5">
                                         <span className="text-red-500 mt-0.5 shrink-0">·</span>
@@ -647,19 +807,21 @@ export function ClassDetails({ levelId, classId }: { levelId: string, classId: s
 
                         <div className="flex gap-2">
                             <button
+                                type="button"
                                 onClick={() => setDeleteOpen(false)}
                                 disabled={deleting}
                                 className="flex-1 h-10 rounded-xl border border-white/8 text-gray-500 hover:text-gray-300 hover:bg-white/4 text-sm font-medium transition-colors disabled:opacity-40"
                             >
-                                Annuler
+                                {t('admin.structure.cancelBtn')}
                             </button>
                             <button
+                                type="button"
                                 onClick={handleDelete}
                                 disabled={deleting}
                                 className="flex-1 h-10 rounded-xl bg-red-600/85 hover:bg-red-600 text-white text-sm font-semibold disabled:opacity-40 transition-colors flex items-center justify-center gap-2"
                             >
                                 {deleting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-3.5 h-3.5" />}
-                                {deleting ? 'Suppression…' : 'Supprimer'}
+                                {deleting ? t('admin.structure.deleting') : t('admin.structure.deleteBtn')}
                             </button>
                         </div>
                     </div>

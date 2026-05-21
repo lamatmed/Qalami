@@ -16,7 +16,8 @@ export interface GradeEntry {
     id: string
     studentId: string
     subjectId: string
-    title: string
+    assessmentType: 'devoir' | 'examen'
+    comment: string | null
     value: number
     maxValue: number
     coefficient: number
@@ -82,7 +83,8 @@ export async function getClassPerformance(
     // FIX 2 : term_id optionnel — si termId vide, récupère TOUTES les notes
     let query = supabase
         .from('grades')
-        .select('id, student_id, subject_id, title, value, max_value, coefficient, created_at, term_id')
+        .select('id, student_id, subject_id, assessment_type, comment, value, max_value, coefficient, created_at, term_id')
+        .eq('class_id', classId)
         .in('student_id', studentIds)
 
     if (termId) query = query.eq('term_id', termId)
@@ -118,7 +120,8 @@ export async function getClassPerformance(
                 id: g.id,
                 studentId: g.student_id,
                 subjectId: g.subject_id,
-                title: g.title || 'Évaluation',
+                assessmentType: g.assessment_type ?? 'devoir',
+                comment: g.comment ?? null,
                 value: g.value ?? 0,
                 maxValue: g.max_value ?? 20,
                 coefficient: g.coefficient ?? 1,

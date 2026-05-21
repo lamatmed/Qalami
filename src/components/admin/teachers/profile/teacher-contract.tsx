@@ -11,7 +11,7 @@ import { Switch } from '@/components/ui/switch'
 import { DollarSign, Building, CreditCard, Save, Loader2, CheckCircle2 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useLanguage } from '@/i18n'
-import { createClient } from '@/utils/supabase/client'
+import { loadTeacherContractAction, saveTeacherContractAction } from '@/app/admin/teachers/actions'
 import { toast } from 'sonner'
 import { Skeleton } from '@/components/ui/skeleton'
 
@@ -32,41 +32,23 @@ export function TeacherContract({ teacherId }: { teacherId?: string }) {
 
     // Meta state
     const [contractId, setContractId] = useState<string | null>(null)
-    const [schoolId, setSchoolId] = useState<string | null>(null)
     const [loading, setLoading] = useState(true)
     const [saving, setSaving] = useState(false)
     const [saved, setSaved] = useState(false)
 
-    // Load existing contract on mount
+    // Load existing contract on mount via server action (bypasses RLS)
     useEffect(() => {
         if (!teacherId) { setLoading(false); return }
 
         async function loadContract() {
             setLoading(true)
-            const supabase = createClient()
-
-            // Get admin's school_id
-            const { data: { user } } = await supabase.auth.getUser()
-            if (!user) { setLoading(false); return }
-
-            const { data: me } = await supabase
-                .from('profiles')
-                .select('school_id')
-                .eq('id', user.id)
-                .single()
-
-            if (!me?.school_id) { setLoading(false); return }
-            setSchoolId(me.school_id)
-
-            // Fetch existing contract for this teacher
-            const { data: contract } = await supabase
-                .from('contracts')
-                .select('*')
-                .eq('employee_id', teacherId)
-                .eq('school_id', me.school_id)
-                .eq('status', 'active')
-                .maybeSingle()
-
+            const result = await loadTeacherContractAction(teacherId!)
+            if ('error' in result && result.error) {
+                console.error('[TeacherContract] load error:', result.error)
+                setLoading(false)
+                return
+            }
+            const contract = result.contract
             if (contract) {
                 setContractId(contract.id)
                 setPosition(contract.position || '')
@@ -77,14 +59,7 @@ export function TeacherContract({ teacherId }: { teacherId?: string }) {
                 } else {
                     setSalary(contract.monthly_salary?.toString() || '')
                 }
-                setCnss(contract.cnss ?? false)
-                setPaymentMethod(contract.payment_method || 'bank')
-                setBankName(contract.bank_name || '')
-                setAccountNumber(contract.account_number || '')
-                setWalletApp(contract.wallet_app || '')
-                setWalletPhone(contract.wallet_phone || '')
             }
-
             setLoading(false)
         }
 
@@ -92,57 +67,31 @@ export function TeacherContract({ teacherId }: { teacherId?: string }) {
     }, [teacherId])
 
     const handleSave = async () => {
-        if (!teacherId || !schoolId) {
+        if (!teacherId) {
             toast.error(t('admin.teachers.contract.saveError') || 'Enseignant non identifié')
             return
         }
 
-        const monthlySalary = contractType === 'fixed'
-            ? parseFloat(salary) || 0
-            : parseFloat(hourlyRate) || 0
-
         setSaving(true)
         setSaved(false)
         try {
-            const supabase = createClient()
+            const result = await saveTeacherContractAction({
+                teacherId,
+                contractId,
+                contractType: contractType as 'fixed' | 'hourly',
+                salary: contractType === 'fixed' ? parseFloat(salary) || 0 : parseFloat(hourlyRate) || 0,
+                position,
+            })
 
-            const payload = {
-                school_id: schoolId,
-                employee_id: teacherId,
-                contract_type: contractType === 'fixed' ? 'CDI' : 'hourly',
-                position: position || 'Enseignant',
-                monthly_salary: monthlySalary,
-                start_date: new Date().toISOString().split('T')[0],
-                status: 'active',
-            }
-
-            let error
-            if (contractId) {
-                // Update existing
-                const { error: updateError } = await supabase
-                    .from('contracts')
-                    .update(payload)
-                    .eq('id', contractId)
-                error = updateError
-            } else {
-                // Insert new and save the id
-                const { data: inserted, error: insertError } = await supabase
-                    .from('contracts')
-                    .insert(payload)
-                    .select('id')
-                    .single()
-                error = insertError
-                if (inserted?.id) setContractId(inserted.id)
-            }
-
-            if (error) throw error
+            if (result.error) throw new Error(result.error)
+            if (result.contractId && !contractId) setContractId(result.contractId)
 
             setSaved(true)
             toast.success(t('admin.teachers.contract.saveSuccess') || 'Contrat enregistré avec succès')
             setTimeout(() => setSaved(false), 3000)
         } catch (err: any) {
             console.error('[TeacherContract] save error:', err)
-            toast.error(t('admin.teachers.contract.saveError') || 'Erreur lors de l\'enregistrement', {
+            toast.error(t('admin.teachers.contract.saveError') || "Erreur lors de l'enregistrement", {
                 description: err.message
             })
         } finally {

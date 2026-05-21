@@ -38,24 +38,30 @@ export default function SchedulePage() {
         }
         setExporting(true)
         try {
-            const html2canvas = (await import('html2canvas')).default
+            const { toPng } = await import('html-to-image')
             const { jsPDF } = await import('jspdf')
             const element = scheduleRef.current
-            if (!element) throw new Error('No schedule element')
-            const canvas = await html2canvas(element, {
-                scale: 2,
+            if (!element) throw new Error('No element')
+            const dataUrl = await toPng(element, {
+                quality: 1,
+                pixelRatio: 1.5,
                 backgroundColor: '#0D1117',
-                useCORS: true,
+                skipAutoScale: false,
             })
-            const imgData = canvas.toDataURL('image/png')
+            const img = new Image()
+            img.src = dataUrl
+            await new Promise<void>(resolve => { img.onload = () => resolve() })
             const pdf = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' })
             const pdfWidth = pdf.internal.pageSize.getWidth()
-            const pdfHeight = (canvas.height * pdfWidth) / canvas.width
-            pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight)
+            const pdfHeight = (img.height * pdfWidth) / img.width
+            const pageHeight = pdf.internal.pageSize.getHeight()
+            pdf.addImage(dataUrl, 'PNG', 0, 0, pdfWidth, Math.min(pdfHeight, pageHeight))
             pdf.save(`emploi-du-temps-${new Date().toISOString().split('T')[0]}.pdf`)
             toast.success(t('admin.schedule.exportSuccess'))
         } catch (err) {
-            toast.error(t('admin.schedule.exportError'))
+            console.error('[PDF export]', err)
+            const msg = err instanceof Error ? err.message : String(err)
+            toast.error(`${t('admin.schedule.exportError')} — ${msg}`)
         } finally {
             setExporting(false)
         }
@@ -84,6 +90,7 @@ export default function SchedulePage() {
             {/* View mode toggle */}
             <div className="flex gap-1 bg-white/4 p-1 rounded-xl w-fit print:hidden border border-white/5">
                 <button
+                    type="button"
                     onClick={() => setViewMode('class')}
                     className={cn(
                         "flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold transition-all",
@@ -96,6 +103,7 @@ export default function SchedulePage() {
                     {t('admin.schedule.byClass')}
                 </button>
                 <button
+                    type="button"
                     onClick={() => setViewMode('teacher')}
                     className={cn(
                         "flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold transition-all",

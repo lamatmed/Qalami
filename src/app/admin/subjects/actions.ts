@@ -55,6 +55,35 @@ export async function updateSubject(subjectId: string, formData: FormData) {
     return { success: true }
 }
 
+export async function upsertGlobalSubjectCoefficient(subjectId: string, coefficient: number) {
+    const ctx = await getActionContext()
+    if (!ctx) return { error: 'Non authentifié' }
+    const { supabase, schoolId } = ctx
+
+    const { data: existing } = await supabase
+        .from('subject_coefficients')
+        .select('id')
+        .eq('subject_id', subjectId)
+        .eq('school_id', schoolId)
+        .is('class_id', null)
+        .maybeSingle()
+
+    if (existing) {
+        const { error } = await supabase
+            .from('subject_coefficients')
+            .update({ coefficient })
+            .eq('id', existing.id)
+        if (error) return { error: error.message }
+    } else {
+        const { error } = await supabase
+            .from('subject_coefficients')
+            .insert({ subject_id: subjectId, school_id: schoolId, coefficient, class_id: null })
+        if (error) return { error: error.message }
+    }
+
+    return { success: true }
+}
+
 export async function upsertSubjectCoefficient(subjectId: string, classId: string, coefficient: number) {
     const ctx = await getActionContext()
     if (!ctx) return { error: 'Non authentifié' }
