@@ -62,7 +62,7 @@ function SenderBadge({ senderType, teacherName }: { senderType: 'teacher' | 'sch
 
 /* ─── Main Component ─── */
 
-export function StudentRemarks({ studentId }: { studentId: string }) {
+export function StudentRemarks({ studentId, schoolId, isArchived }: { studentId: string; schoolId: string; isArchived?: boolean }) {
     const { t } = useLanguage()
     const [remarks, setRemarks]           = useState<Remark[]>([])
     const [loading, setLoading]           = useState(true)
@@ -90,6 +90,7 @@ export function StudentRemarks({ studentId }: { studentId: string }) {
                 subjects!remarks_subject_id_fkey ( name )
             `)
             .eq('student_id', studentId)
+            .eq('school_id', schoolId)
             .order('created_at', { ascending: false })
 
         if (!error && data) {
@@ -109,7 +110,7 @@ export function StudentRemarks({ studentId }: { studentId: string }) {
         setLoading(false)
     }
 
-    useEffect(() => { fetchRemarks() }, [studentId])
+    useEffect(() => { fetchRemarks() }, [studentId, schoolId])
 
     /* ─── Send remark as school ─── */
 
@@ -118,27 +119,20 @@ export function StudentRemarks({ studentId }: { studentId: string }) {
         setSending(true)
 
         const supabase = createClient()
-        const { data: { user } } = await supabase.auth.getUser()
-        if (!user) { setSending(false); return }
-
-        const { data: profile } = await supabase
-            .from('profiles')
-            .select('school_id')
-            .eq('id', user.id)
-            .single()
 
         // Get student's active class
         const { data: enrollment } = await supabase
             .from('enrollments')
             .select('class_id')
             .eq('student_id', studentId)
+            .eq('school_id', schoolId)
             .eq('status', 'active')
             .maybeSingle()
 
         const { error } = await supabase
             .from('remarks')
             .insert({
-                school_id: profile?.school_id,
+                school_id: schoolId,
                 student_id: studentId,
                 class_id: enrollment?.class_id || null,
                 teacher_id: null,
@@ -192,23 +186,25 @@ export function StudentRemarks({ studentId }: { studentId: string }) {
                         {remarks.length}
                     </span>
                 </h3>
-                <button
-                    onClick={() => setShowForm(v => !v)}
-                    className={cn(
-                        'flex items-center gap-1.5 text-xs font-bold px-3 py-1.5 rounded-lg border transition-all',
-                        showForm
-                            ? 'bg-white/5 border-white/10 text-gray-400'
-                            : 'bg-emerald-500/15 border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/25'
-                    )}
-                >
-                    {showForm
-                        ? <><X className="w-3.5 h-3.5" /> {t('admin.students.profile.remarksCancel')}</>
-                        : <><PlusCircle className="w-3.5 h-3.5" /> {t('admin.students.profile.newRemark')}</>}
-                </button>
+                {!isArchived && (
+                    <button
+                        onClick={() => setShowForm(v => !v)}
+                        className={cn(
+                            'flex items-center gap-1.5 text-xs font-bold px-3 py-1.5 rounded-lg border transition-all',
+                            showForm
+                                ? 'bg-white/5 border-white/10 text-gray-400'
+                                : 'bg-emerald-500/15 border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/25'
+                        )}
+                    >
+                        {showForm
+                            ? <><X className="w-3.5 h-3.5" /> {t('admin.students.profile.remarksCancel')}</>
+                            : <><PlusCircle className="w-3.5 h-3.5" /> {t('admin.students.profile.newRemark')}</>}
+                    </button>
+                )}
             </div>
 
             {/* ── Send form (school) ── */}
-            {showForm && (
+            {showForm && !isArchived && (
                 <div className="mb-4 bg-[#0F1720] rounded-2xl border border-emerald-500/20 p-4 space-y-3 animate-in fade-in slide-in-from-top-2 duration-200">
                     <div className="flex items-center gap-2 mb-1">
                         <School className="w-4 h-4 text-emerald-400" />

@@ -44,7 +44,7 @@ const TERM_LABELS: Record<string, string> = { T1: '1er Trimestre', T2: '2ème Tr
 
 // ─── Main component ────────────────────────────────────────────────────────────
 
-export function StudentGrades({ studentId }: { studentId: string }) {
+export function StudentGrades({ studentId, schoolId }: { studentId: string; schoolId: string }) {
     const { t, language } = useLanguage()
     const [grades, setGrades] = useState<Grade[]>([])
     const [loading, setLoading] = useState(true)
@@ -57,15 +57,16 @@ export function StudentGrades({ studentId }: { studentId: string }) {
             const supabase = createClient()
             const { data, error } = await supabase
                 .from('grades')
-                .select('id, value, max_value, assessment_type, coefficient, term_id, terms(id, name), created_at, subjects(id, name, icon)')
+                .select('id, value, max_value, assessment_type, coefficient, term_id, terms!inner(id, name, school_id), created_at, subjects(id, name, icon)')
                 .eq('student_id', studentId)
+                .eq('terms.school_id', schoolId)
                 .order('created_at', { ascending: true })
 
             if (!error) setGrades((data as unknown as Grade[]) || [])
             setLoading(false)
         }
         fetch()
-    }, [studentId])
+    }, [studentId, schoolId])
 
     // Build term summaries
     const terms: TermSummary[] = useMemo(() => {

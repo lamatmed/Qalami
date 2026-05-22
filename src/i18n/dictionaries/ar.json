@@ -479,6 +479,27 @@
         "maxTwoError": "لا يمكنك تعيين أكثر من وليي أمر كحد أقصى.",
         "successMessage": "تم تحديث جهات اتصال أولياء الأمور بنجاح."
       },
+      "transferDialog": {
+        "title": "نقل التلميذ",
+        "description": "نقل هذا التلميذ إلى مؤسسة أخرى. سيتم أرشفة التلميذ في هذه المؤسسة للحفاظ على سجله، وسيصبح ملفه التعريفي نشطًا في المؤسسة المستقبلة.",
+        "selectSchoolPlaceholder": "اختر مؤسسة",
+        "selectClassPlaceholder": "اختر قسمًا (اختياري)",
+        "schoolLabel": "المؤسسة المستقبلة",
+        "classLabel": "القسم المستقبل",
+        "loadingSchools": "جاري تحميل المؤسسات...",
+        "loadingClasses": "جاري تحميل الأقسام...",
+        "transfer": "نقل",
+        "transferring": "جاري النقل...",
+        "cancel": "إلغاء",
+        "successMessage": "تم نقل التلميذ بنجاح.",
+        "selectSchoolError": "يرجى تحديد مؤسسة",
+        "revertTransfer": "إلغاء النقل",
+        "revertSuccessMessage": "تم إلغاء النقل بنجاح وتنشيط الطالب مجددًا.",
+        "revertConfirmMessage": "هل تريد إلغاء نقل هذا الطالب وتنشيطه مجددًا في مؤسستك؟",
+        "unarchive": "إلغاء الأرشفة",
+        "unarchiveConfirmMessage": "هل تريد إلغاء أرشفة هذا الطالب وإعادة تنشيطه في مؤسستك؟",
+        "unarchiveSuccessMessage": "تم إلغاء أرشفة الطالب بنجاح."
+      },
       "register": {
         "pageTitle": "تسجيل جديد",
         "steps": {

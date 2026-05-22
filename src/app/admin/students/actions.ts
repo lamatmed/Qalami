@@ -179,3 +179,257 @@ export async function assignParentsToStudent(studentId: string, parentIds: strin
     revalidatePath('/admin/students')
     return { success: true }
 }
+
+export async function getTransferDestinationSchools() {
+    const ctx = await getActionContext()
+    if (!ctx) return { error: 'Non authentifié' }
+    const { schoolId } = ctx
+    const adminClient = createAdminClient()
+    
+    const { data: schools, error } = await adminClient
+        .from('schools')
+        .select('id, name')
+        .eq('is_active', true)
+        .neq('id', schoolId)
+        .order('name')
+        
+    if (error) return { error: error.message }
+    return { schools: schools || [] }
+}
+
+export async function getClassesForSchool(targetSchoolId: string) {
+    const ctx = await getActionContext()
+    if (!ctx) return { error: 'Non authentifié' }
+    const adminClient = createAdminClient()
+    
+    const { data: classes, error } = await adminClient
+        .from('classes')
+        .select('id, name')
+        .eq('school_id', targetSchoolId)
+        .order('name')
+        
+    if (error) return { error: error.message }
+    return { classes: classes || [] }
+}
+
+export async function transferStudentToSchool(studentId: string, targetSchoolId: string, targetClassId?: string) {
+    const ctx = await getActionContext()
+    if (!ctx) return { error: 'Non authentifié' }
+    const { schoolId } = ctx
+    const adminClient = createAdminClient()
+
+    // 1. Verify student exists and belongs to the administrator's school
+    const { data: student, error: studentErr } = await adminClient
+        .from('profiles')
+        .select('id, school_id, status')
+        .eq('id', studentId)
+        .eq('role', 'student')
+        .single()
+
+    if (studentErr || !student) {
+        return { error: "Élève introuvable." }
+    }
+    if (student.school_id !== schoolId) {
+        return { error: "Cet élève n'appartient pas à votre établissement." }
+    }
+
+    // 2. Update profiles.school_id to targetSchoolId
+    const { error: updateProfileErr } = await adminClient
+        .from('profiles')
+        .update({ school_id: targetSchoolId, status: 'active', updated_at: new Date().toISOString() })
+        .eq('id', studentId)
+
+    if (updateProfileErr) {
+        return { error: "Erreur lors de la mise à jour de la fiche élève : " + updateProfileErr.message }
+    }
+
+    // 3. Mark current active enrollments at the old school as 'transferred'
+    const { error: updateEnrollmentErr } = await adminClient
+        .from('enrollments')
+        .update({ status: 'transferred' })
+        .eq('student_id', studentId)
+        .eq('school_id', schoolId)
+        .eq('status', 'active')
+
+    if (updateEnrollmentErr) {
+        console.error("Warning: failed to update old enrollments status to transferred:", updateEnrollmentErr)
+    }
+
+    // 4. Update profile_schools link for old school to 'inactive'
+    const { data: existingLinkOld } = await adminClient
+        .from('profile_schools')
+        .select('id')
+        .eq('profile_id', studentId)
+        .eq('school_id', schoolId)
+        .eq('role', 'student')
+        .maybeSingle()
+
+    if (existingLinkOld) {
+        await adminClient
+            .from('profile_schools')
+            .update({ status: 'inactive', is_primary: false, updated_at: new Date().toISOString() })
+            .eq('id', existingLinkOld.id)
+    } else {
+        await adminClient
+            .from('profile_schools')
+            .insert({
+                profile_id: studentId,
+                school_id: schoolId,
+                role: 'student',
+                status: 'inactive',
+                is_primary: false
+            })
+    }
+
+    // 5. Update profile_schools link for target school to 'active'
+    const { data: existingLinkNew } = await adminClient
+        .from('profile_schools')
+        .select('id')
+        .eq('profile_id', studentId)
+        .eq('school_id', targetSchoolId)
+        .eq('role', 'student')
+        .maybeSingle()
+
+    if (existingLinkNew) {
+        await adminClient
+            .from('profile_schools')
+            .update({ status: 'active', is_primary: true, updated_at: new Date().toISOString() })
+            .eq('id', existingLinkNew.id)
+    } else {
+        await adminClient
+            .from('profile_schools')
+            .insert({
+                profile_id: studentId,
+                school_id: targetSchoolId,
+                role: 'student',
+                status: 'active',
+                is_primary: true
+            })
+    }
+
+    // 6. Create new enrollment in target class if specified
+    if (targetClassId) {
+        // Get target school's current academic year
+        const { data: currentYear } = await adminClient
+            .from('academic_years')
+            .select('id')
+            .eq('school_id', targetSchoolId)
+            .eq('is_current', true)
+            .single()
+
+        const targetAcademicYearId = currentYear?.id ?? null
+
+        const { error: insertEnrollmentErr } = await adminClient
+            .from('enrollments')
+            .insert({
+                student_id: studentId,
+                class_id: targetClassId,
+                academic_year_id: targetAcademicYearId,
+                school_id: targetSchoolId,
+                status: 'active'
+            })
+
+        if (insertEnrollmentErr) {
+            console.error("Warning: failed to create new enrollment in target class:", insertEnrollmentErr)
+        }
+    }
+
+    revalidatePath(`/admin/students/${studentId}`)
+    revalidatePath('/admin/students')
+    return { success: true }
+}
+
+export async function revertStudentTransfer(studentId: string) {
+    const ctx = await getActionContext()
+    if (!ctx) return { error: 'Non authentifié' }
+    const { schoolId } = ctx
+    const adminClient = createAdminClient()
+
+    // 1. Verify student exists and is currently linked to the administrator's school (as inactive/archived)
+    const { data: student, error: studentErr } = await adminClient
+        .from('profiles')
+        .select('id, school_id, status')
+        .eq('id', studentId)
+        .eq('role', 'student')
+        .single()
+
+    if (studentErr || !student) {
+        return { error: "Élève introuvable." }
+    }
+    if (student.school_id === schoolId) {
+        return { error: "Cet élève est déjà actif dans votre établissement." }
+    }
+
+    const previousSchoolId = student.school_id
+
+    // Verify they are actually linked to our school
+    const { data: linkOld } = await adminClient
+        .from('profile_schools')
+        .select('id')
+        .eq('profile_id', studentId)
+        .eq('school_id', schoolId)
+        .eq('role', 'student')
+        .maybeSingle()
+
+    if (!linkOld) {
+        return { error: "Vous n'avez pas de lien avec cet élève pour annuler son transfert." }
+    }
+
+    // 2. Update profiles.school_id back to our school and status to 'active'
+    const { error: updateProfileErr } = await adminClient
+        .from('profiles')
+        .update({ school_id: schoolId, status: 'active', updated_at: new Date().toISOString() })
+        .eq('id', studentId)
+
+    if (updateProfileErr) {
+        return { error: "Erreur lors de la réactivation de la fiche élève : " + updateProfileErr.message }
+    }
+
+    // 3. Mark the latest 'transferred' enrollment at our school as 'active' again
+    const { data: latestTransferredEnrollment } = await adminClient
+        .from('enrollments')
+        .select('id')
+        .eq('student_id', studentId)
+        .eq('school_id', schoolId)
+        .eq('status', 'transferred')
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle()
+
+    if (latestTransferredEnrollment) {
+        await adminClient
+            .from('enrollments')
+            .update({ status: 'active' })
+            .eq('id', latestTransferredEnrollment.id)
+    }
+
+    // 4. Mark active enrollments at the other school (if any) as 'transferred'
+    if (previousSchoolId) {
+        await adminClient
+            .from('enrollments')
+            .update({ status: 'transferred' })
+            .eq('student_id', studentId)
+            .eq('school_id', previousSchoolId)
+            .eq('status', 'active')
+    }
+
+    // 5. Update profile_schools link for our school to 'active' and primary
+    await adminClient
+        .from('profile_schools')
+        .update({ status: 'active', is_primary: true, updated_at: new Date().toISOString() })
+        .eq('profile_id', studentId)
+        .eq('school_id', schoolId)
+
+    // 6. Update profile_schools link for the other school to 'inactive' and non-primary
+    if (previousSchoolId) {
+        await adminClient
+            .from('profile_schools')
+            .update({ status: 'inactive', is_primary: false, updated_at: new Date().toISOString() })
+            .eq('profile_id', studentId)
+            .eq('school_id', previousSchoolId)
+    }
+
+    revalidatePath(`/admin/students/${studentId}`)
+    revalidatePath('/admin/students')
+    return { success: true }
+}

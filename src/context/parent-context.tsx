@@ -8,6 +8,7 @@ interface Child {
     name: string
     class: string
     avatar?: string
+    schoolId?: string
 }
 
 interface ParentContextType {
@@ -77,6 +78,7 @@ export function ParentProvider({ children }: { children: ReactNode }) {
                             id,
                             full_name,
                             avatar_url,
+                            school_id,
                             enrollments (
                                 classes (
                                     name
@@ -90,7 +92,8 @@ export function ParentProvider({ children }: { children: ReactNode }) {
                             id: student.id,
                             name: student.full_name || 'Enfant',
                             class: student.enrollments?.[0]?.classes?.name || 'Non assigné',
-                            avatar: student.avatar_url
+                            avatar: student.avatar_url,
+                            schoolId: student.school_id
                         }))
 
                         setChildrenList(fetchedChildren)

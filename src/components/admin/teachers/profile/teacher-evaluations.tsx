@@ -66,13 +66,14 @@ export function TeacherEvaluations({ teacherId }: { teacherId: string }) {
             const studentIds = [...new Set((enrollments || []).map(e => e.student_id))]
             setStudentCount(studentIds.length)
 
-            // Grades entered for those students in those subjects
+            // Grades entered for those students in those subjects at this school
             const { data: gradesData } = studentIds.length > 0
                 ? await supabase
                     .from('grades')
-                    .select('subject_id, term')
+                    .select('subject_id, term, terms!inner(school_id)')
                     .in('student_id', studentIds)
                     .in('subject_id', subjectIds)
+                    .eq('terms.school_id', currentSchoolId)
                 : { data: [] }
 
             setAssignments((assignData as any[]).map(a => ({

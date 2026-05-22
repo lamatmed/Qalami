@@ -479,6 +479,27 @@
         "maxTwoError": "Vous ne pouvez affecter que deux parents au maximum.",
         "successMessage": "Contacts parents mis à jour avec succès."
       },
+      "transferDialog": {
+        "title": "Transférer l'élève",
+        "description": "Transférer cet élève vers un autre établissement. L'élève sera archivé dans cet établissement pour conserver son historique, et son profil deviendra actif dans l'établissement destinataire.",
+        "selectSchoolPlaceholder": "Sélectionner un établissement",
+        "selectClassPlaceholder": "Sélectionner une classe (optionnel)",
+        "schoolLabel": "Établissement destinataire",
+        "classLabel": "Classe de destination",
+        "loadingSchools": "Chargement des établissements...",
+        "loadingClasses": "Chargement des classes...",
+        "transfer": "Transférer",
+        "transferring": "Transfert en cours...",
+        "cancel": "Annuler",
+        "successMessage": "L'élève a été transféré avec succès.",
+        "selectSchoolError": "Veuillez sélectionner un établissement",
+        "revertTransfer": "Annuler le transfert",
+        "revertSuccessMessage": "Le transfert a été annulé avec succès.",
+        "revertConfirmMessage": "Voulez-vous annuler le transfert de cet élève et le réactiver dans votre établissement ?",
+        "unarchive": "Désarchiver",
+        "unarchiveConfirmMessage": "Voulez-vous désarchiver cet élève et le réactiver dans votre établissement ?",
+        "unarchiveSuccessMessage": "L'élève a été désarchivé avec succès."
+      },
       "register": {
         "pageTitle": "Nouvelle inscription",
         "steps": {

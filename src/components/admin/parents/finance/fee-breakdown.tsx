@@ -22,6 +22,7 @@ interface ChildFees {
     name: string
     class: string
     fees: Fee[]
+    avatar?: string | null
 }
 
 interface FeeBreakdownProps {
@@ -75,7 +76,7 @@ export function FeeBreakdown({ data, onStatementGenerate }: FeeBreakdownProps) {
                             >
                                 <div className="flex items-center gap-3">
                                     <Avatar className="w-10 h-10 border border-white/5 bg-[#0D1117]">
-                                        <AvatarImage src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${child.name}`} />
+                                        <AvatarImage src={child.avatar || `https://api.dicebear.com/7.x/avataaars/svg?seed=${child.name}`} />
                                         <AvatarFallback>{child.name[0]}</AvatarFallback>
                                     </Avatar>
                                     <div>

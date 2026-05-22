@@ -20,7 +20,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { createClient } from '@/utils/supabase/client'
 import { useLanguage } from '@/i18n'
 import { assignStudentToClass } from '@/app/admin/students/actions'
-import { getMySchoolContext } from '@/app/admin/actions'
+import { getMySchoolContext, getSchoolLinkedProfileIds } from '@/app/admin/actions'
 import { toast } from 'sonner'
 
 // ─── Types ─────────────────────────────────────────────────────────────────────
@@ -31,6 +31,7 @@ interface Student {
     className: string
     classId: string
     status: string
+    isTransferred: boolean
     gender: string | null
     paymentStatus: 'ok' | 'overdue' | null
     academicYear: string | null
@@ -160,7 +161,7 @@ export function StudentDirectory() {
         const adminProfile = { school_id: ctx.school_id }
         const supabase = createClient()
 
-        const [{ data: classesData }, { data: studentProfiles }] = await Promise.all([
+        const [{ data: classesData }, { data: directProfiles }] = await Promise.all([
             supabase
                 .from('classes')
                 .select('id, name')
@@ -168,16 +169,41 @@ export function StudentDirectory() {
                 .order('name'),
             supabase
                 .from('profiles')
-                .select('id, full_name, email, status, gender, national_id, phone')
+                .select('id, full_name, email, status, gender, national_id, phone, school_id')
                 .eq('role', 'student')
                 .eq('school_id', adminProfile.school_id)
                 .order('full_name'),
         ])
 
-        setClasses(classesData || [])
-        if (!studentProfiles?.length) { setLoading(false); return }
+        const linkedIds = await getSchoolLinkedProfileIds(adminProfile.school_id, 'student')
+        let linkedProfiles: any[] = []
+        if (linkedIds.length > 0) {
+            const { data: linkedData } = await supabase
+                .from('profiles')
+                .select('id, full_name, email, status, gender, national_id, phone, school_id')
+                .eq('role', 'student')
+                .in('id', linkedIds)
+            if (linkedData) {
+                linkedProfiles = linkedData
+            }
+        }
 
-        const studentIds = studentProfiles.map(p => p.id)
+        // Merge and de-duplicate profiles
+        const profileMap = new Map<string, any>()
+        ;(directProfiles || []).forEach(p => {
+            profileMap.set(p.id, p)
+        })
+        ;(linkedProfiles || []).forEach(p => {
+            if (!profileMap.has(p.id)) {
+                profileMap.set(p.id, p)
+            }
+        })
+        const mergedProfiles = Array.from(profileMap.values())
+
+        setClasses(classesData || [])
+        if (!mergedProfiles.length) { setStudents([]); setLoading(false); return }
+
+        const studentIds = mergedProfiles.map(p => p.id)
 
         // Batch fetch enrollments + payments
         const [{ data: enrollments }, { data: overduePayments }] = await Promise.all([
@@ -204,15 +230,18 @@ export function StudentDirectory() {
         // Set of students with overdue payments
         const overdueSet = new Set((overduePayments || []).map((p: any) => p.student_id))
 
-        const result: Student[] = (studentProfiles as any[]).map(p => {
+        const result: Student[] = mergedProfiles.map(p => {
             const enroll = enrollMap.get(p.id)
             const parts = (p.full_name || t('common.student')).split(' ')
+            const isTransferred = p.school_id !== adminProfile.school_id
+            const displayStatus = isTransferred ? 'archived' : (p.status || 'active')
             return {
                 id: p.id,
                 name: p.full_name || t('common.student'),
                 className: enroll?.classes?.name || '',
                 classId: enroll?.class_id || '',
-                status: p.status || 'active',
+                status: displayStatus,
+                isTransferred,
                 gender: p.gender ?? null,
                 paymentStatus: overdueSet.has(p.id) ? 'overdue' : 'ok',
                 academicYear: (enroll?.academic_years as any)?.name ?? null,
@@ -481,7 +510,7 @@ export function StudentDirectory() {
                                 )}
                             >
                                 {/* Checkbox — only for unassigned students */}
-                                {!student.classId && (
+                                {!student.classId && student.status !== 'archived' && (
                                     <button
                                         className="shrink-0 text-gray-700 hover:text-emerald-500 transition-colors"
                                         onClick={() => toggleSelect(student.id)}
@@ -492,7 +521,7 @@ export function StudentDirectory() {
                                         }
                                     </button>
                                 )}
-                                {student.classId && (
+                                {(student.classId || student.status === 'archived') && (
                                     <div className="w-4 shrink-0" />
                                 )}
 
@@ -519,31 +548,37 @@ export function StudentDirectory() {
 
                                 {/* Row actions */}
                                 <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
-                                    {!student.classId && (
+                                    {student.status !== 'archived' && (
+                                        <>
+                                            {!student.classId && (
+                                                <button
+                                                    className="p-1.5 rounded-lg text-amber-500 hover:bg-amber-500/10 transition-colors"
+                                                    title={t('admin.students.assignToClass')}
+                                                    onClick={(e) => { e.preventDefault(); setAssignDialog({ open: true, student }) }}
+                                                >
+                                                    <GraduationCap className="w-3.5 h-3.5" />
+                                                </button>
+                                            )}
+                                             {student.phone && (
+                                                 <button
+                                                     className="p-1.5 rounded-lg text-gray-600 hover:text-emerald-400 hover:bg-emerald-500/10 transition-colors"
+                                                     title={t('admin.users.changePassword') || 'Modifier le mot de passe'}
+                                                     onClick={(e) => { e.preventDefault(); setPasswordDialog({ open: true, student }) }}
+                                                 >
+                                                     <KeyRound className="w-3.5 h-3.5" />
+                                                 </button>
+                                             )}
+                                        </>
+                                    )}
+                                    {!student.isTransferred && (
                                         <button
-                                            className="p-1.5 rounded-lg text-amber-500 hover:bg-amber-500/10 transition-colors"
-                                            title={t('admin.students.assignToClass')}
-                                            onClick={(e) => { e.preventDefault(); setAssignDialog({ open: true, student }) }}
+                                            className="p-1.5 rounded-lg text-gray-600 hover:text-orange-400 hover:bg-orange-500/10 transition-colors"
+                                            title={t('admin.students.changeStatus')}
+                                            onClick={(e) => { e.preventDefault(); setStatusDialog({ open: true, student }) }}
                                         >
-                                            <GraduationCap className="w-3.5 h-3.5" />
+                                            <ShieldAlert className="w-3.5 h-3.5" />
                                         </button>
                                     )}
-                                     {student.phone && (
-                                         <button
-                                             className="p-1.5 rounded-lg text-gray-600 hover:text-emerald-400 hover:bg-emerald-500/10 transition-colors"
-                                             title={t('admin.users.changePassword') || 'Modifier le mot de passe'}
-                                             onClick={(e) => { e.preventDefault(); setPasswordDialog({ open: true, student }) }}
-                                         >
-                                             <KeyRound className="w-3.5 h-3.5" />
-                                         </button>
-                                     )}
-                                     <button
-                                         className="p-1.5 rounded-lg text-gray-600 hover:text-orange-400 hover:bg-orange-500/10 transition-colors"
-                                         title={t('admin.students.changeStatus')}
-                                        onClick={(e) => { e.preventDefault(); setStatusDialog({ open: true, student }) }}
-                                    >
-                                        <ShieldAlert className="w-3.5 h-3.5" />
-                                    </button>
                                 </div>
                             </div>
                         ))}
@@ -575,7 +610,7 @@ export function StudentDirectory() {
                                 {filteredStudents.map(student => (
                                     <tr key={student.id} className={cn("group transition-colors", selectedIds.has(student.id) ? "bg-emerald-500/5" : "hover:bg-white/[0.02]")}>
                                         <td className="p-3 text-center">
-                                            {!student.classId && (
+                                            {!student.classId && student.status !== 'archived' && (
                                                 <button onClick={() => toggleSelect(student.id)} className="text-gray-600 hover:text-emerald-500 transition-colors">
                                                     {selectedIds.has(student.id)
                                                         ? <CheckSquare2 className="w-4 h-4 text-emerald-500" />
@@ -602,27 +637,37 @@ export function StudentDirectory() {
                                                 : <span className="text-xs text-gray-600">{t('admin.students.paidUp')}</span>
                                             }
                                         </td>
-                                        <td className="px-3 py-2.5">
-                                            <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
-                                                {!student.classId && (
-                                                    <button className="p-1.5 rounded-lg text-amber-500 hover:bg-amber-500/10 transition-colors" onClick={() => setAssignDialog({ open: true, student })}>
-                                                        <GraduationCap className="w-3.5 h-3.5" />
-                                                    </button>
-                                                )}
-                                                {student.phone && (
-                                                    <button
-                                                        className="p-1.5 rounded-lg text-gray-600 hover:text-emerald-400 hover:bg-emerald-500/10 transition-colors"
-                                                        title={t('admin.users.changePassword') || 'Modifier le mot de passe'}
-                                                        onClick={() => setPasswordDialog({ open: true, student })}
-                                                    >
-                                                        <KeyRound className="w-3.5 h-3.5" />
-                                                    </button>
-                                                )}
-                                                <button className="p-1.5 rounded-lg text-gray-600 hover:text-orange-400 hover:bg-orange-500/10 transition-colors" onClick={() => setStatusDialog({ open: true, student })}>
-                                                    <ShieldAlert className="w-3.5 h-3.5" />
-                                                </button>
-                                            </div>
-                                        </td>
+                                         <td className="px-3 py-2.5">
+                                             <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                                                 {student.status !== 'archived' && (
+                                                     <>
+                                                         {!student.classId && (
+                                                             <button className="p-1.5 rounded-lg text-amber-500 hover:bg-amber-500/10 transition-colors" onClick={() => setAssignDialog({ open: true, student })}>
+                                                                 <GraduationCap className="w-3.5 h-3.5" />
+                                                             </button>
+                                                         )}
+                                                         {student.phone && (
+                                                             <button
+                                                                 className="p-1.5 rounded-lg text-gray-600 hover:text-emerald-400 hover:bg-emerald-500/10 transition-colors"
+                                                                 title={t('admin.users.changePassword') || 'Modifier le mot de passe'}
+                                                                 onClick={() => setPasswordDialog({ open: true, student })}
+                                                             >
+                                                                 <KeyRound className="w-3.5 h-3.5" />
+                                                             </button>
+                                                         )}
+                                                     </>
+                                                 )}
+                                                 {!student.isTransferred && (
+                                                     <button
+                                                         className="p-1.5 rounded-lg text-gray-600 hover:text-orange-400 hover:bg-orange-500/10 transition-colors"
+                                                         title={t('admin.students.changeStatus')}
+                                                         onClick={() => setStatusDialog({ open: true, student })}
+                                                     >
+                                                         <ShieldAlert className="w-3.5 h-3.5" />
+                                                     </button>
+                                                 )}
+                                             </div>
+                                         </td>
                                     </tr>
                                 ))}
                             </tbody>

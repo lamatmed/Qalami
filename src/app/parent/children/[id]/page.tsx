@@ -49,7 +49,7 @@ export default function ChildProfilePage() {
             // Fetch profile data
             const { data: profile, error: profileError } = await supabase
                 .from('profiles')
-                .select('id, full_name, avatar_url')
+                .select('id, full_name, avatar_url, school_id')
                 .eq('id', childId)
                 .single()
 
@@ -86,11 +86,22 @@ export default function ChildProfilePage() {
                 }
 
                 // Calculate average from grades
-                const { data: grades } = await supabase
+                let gradesQuery = supabase
                     .from('grades')
                     .select('value, max_value, coefficient')
                     .eq('student_id', childId)
                     .eq('term', 'T1')
+
+                if (profile.school_id) {
+                    gradesQuery = supabase
+                        .from('grades')
+                        .select('value, max_value, coefficient, terms!inner(school_id)')
+                        .eq('student_id', childId)
+                        .eq('term', 'T1')
+                        .eq('terms.school_id', profile.school_id)
+                }
+
+                const { data: grades } = await gradesQuery
 
                 let average: number | null = null
                 if (grades && grades.length > 0) {
@@ -106,11 +117,22 @@ export default function ChildProfilePage() {
                 }
 
                 // Count absences
-                const { data: attendance } = await supabase
+                let attendanceQuery = supabase
                     .from('attendance')
                     .select('status')
                     .eq('student_id', childId)
                     .neq('status', 'present')
+
+                if (profile.school_id) {
+                    attendanceQuery = supabase
+                        .from('attendance')
+                        .select('status, classes!inner(school_id)')
+                        .eq('student_id', childId)
+                        .neq('status', 'present')
+                        .eq('classes.school_id', profile.school_id)
+                }
+
+                const { data: attendance } = await attendanceQuery
 
                 setChild({
                     name: profile.full_name || 'Élève',

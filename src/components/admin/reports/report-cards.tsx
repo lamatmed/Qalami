@@ -418,11 +418,10 @@ export function ReportCards() {
         : reports
 
     const handleSaveDetails = async () => {
-        const validReports = reports.filter(r => r.generalAverage !== null)
-        if (validReports.length === 0) return
+        if (reports.length === 0) return
         setSavingDetails(true)
 
-        const details = validReports.map(r => ({
+        const details = reports.map(r => ({
             studentId: r.studentId,
             conductGrade: conductGrades.get(r.studentId) ?? '',
             generalComment: generalComments.get(r.studentId) ?? '',
@@ -436,12 +435,11 @@ export function ReportCards() {
     }
 
     const handleValidate = async () => {
-        const validReports = reports.filter(r => r.generalAverage !== null)
-        if (validReports.length === 0 || reportStatus !== 'draft') return
+        if (reports.length === 0 || reportStatus !== 'draft') return
         setValidating(true)
 
-        // Save details first for valid reports
-        const details = validReports.map(r => ({
+        // Save details first for all reports
+        const details = reports.map(r => ({
             studentId: r.studentId,
             conductGrade: conductGrades.get(r.studentId) ?? '',
             generalComment: generalComments.get(r.studentId) ?? '',
@@ -534,8 +532,9 @@ export function ReportCards() {
                 const conductVal = conductGrades.get(report.studentId) || extras.get(report.studentId)?.conductGrade
                 const conductStr = conductVal ? (CONDUCT_LABELS[language]?.[conductVal] ?? conductVal) : t('reports.nonDefinie')
 
+                const hasAverage = report.generalAverage !== null
                 const originalIndex = reports.findIndex(r => r.studentId === report.studentId)
-                const rank = originalIndex !== -1 ? originalIndex + 1 : index + 1
+                const rank = hasAverage && originalIndex !== -1 ? originalIndex + 1 : null
                 const att = attendanceStats[report.studentId]
                 const ext = extras.get(report.studentId)
                 const comment = generalComments.get(report.studentId) || ext?.generalComment
@@ -625,7 +624,8 @@ export function ReportCards() {
                 // Row 1
                 doc.text("Élève :", 25, 61)
                 doc.setTextColor(0, 0, 0)
-                doc.text(report.studentName, 40, 61)
+                const studentNameText = report.studentName + (report.enrollmentStatus === 'transferred' ? ' (Archivé)' : '')
+                doc.text(studentNameText, 40, 61)
 
                 doc.setTextColor(100, 100, 100)
                 doc.text("Classe :", 110, 61)
@@ -656,7 +656,7 @@ export function ReportCards() {
                 doc.setTextColor(100, 100, 100)
                 doc.text("Rang :", 110, 73)
                 doc.setTextColor(79, 70, 229)
-                const rankLabel = rank === 1 ? '1er' : `${rank}e`
+                const rankLabel = rank !== null ? (rank === 1 ? '1er' : `${rank}e`) : '—'
                 doc.text(rankLabel, 120, 73)
 
                 // Row 4
@@ -1218,8 +1218,9 @@ export function ReportCards() {
                                  </thead>
                                  <tbody>
                                      {displayReports.map((report) => {
+                                         const hasAverage = report.generalAverage !== null
                                          const originalIndex = reports.findIndex(r => r.studentId === report.studentId)
-                                         const rank = originalIndex !== -1 ? originalIndex + 1 : 1
+                                         const rank = hasAverage && originalIndex !== -1 ? originalIndex + 1 : null
                                          const att = attendanceStats[report.studentId]
                                          const ext = extras.get(report.studentId)
                                          const isReadOnly = reportStatus === 'published'
@@ -1235,7 +1236,7 @@ export function ReportCards() {
                                                 {/* Name */}
                                                 <td className="px-5 py-4 sticky left-0 bg-[#0F1720] border-r border-white/5 z-10 shadow-[2px_0_5px_rgba(0,0,0,0.3)]">
                                                     <div className="flex items-center gap-2.5">
-                                                        {rank <= 3 && (
+                                                        {hasAverage && rank !== null && rank <= 3 && (
                                                             <span className={cn(
                                                                 'text-[10px] font-black w-5 h-5 rounded-full flex items-center justify-center shrink-0 shadow-sm',
                                                                 rank === 1 ? 'bg-amber-500/20 text-amber-300 border border-amber-500/45' :
@@ -1246,9 +1247,16 @@ export function ReportCards() {
                                                             </span>
                                                         )}
                                                         <div className="flex flex-col">
-                                                            <span className="font-extrabold text-white tracking-wide truncate max-w-[160px] hover:text-indigo-200 transition-colors">
-                                                                {report.studentName}
-                                                            </span>
+                                                            <div className="flex items-center gap-2">
+                                                                <span className="font-extrabold text-white tracking-wide truncate max-w-[160px] hover:text-indigo-200 transition-colors">
+                                                                    {report.studentName}
+                                                                </span>
+                                                                {report.enrollmentStatus === 'transferred' && (
+                                                                    <span className="text-[9px] font-black px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-400 border border-amber-500/30 uppercase tracking-wide">
+                                                                        {language === 'ar' ? 'مؤرشف' : 'Archivé'}
+                                                                    </span>
+                                                                )}
+                                                            </div>
                                                             <span className="text-[10px] text-gray-500 font-mono">
                                                                 NNI: {report.studentNNI || '—'}
                                                             </span>
@@ -1413,11 +1421,11 @@ export function ReportCards() {
                 )}
             </div>
 
-            {/* ── Print area (eager-loaded but invisible on screen, visible when printing) ─────── */}
             <div className="print-area opacity-0 pointer-events-none absolute -z-50 h-0 w-0 overflow-hidden">
                 {displayReports.map((report) => {
+                    const hasAverage = report.generalAverage !== null
                     const globalIndex = reports.findIndex(r => r.studentId === report.studentId)
-                    const rank = globalIndex !== -1 ? globalIndex + 1 : 1
+                    const rank = hasAverage && globalIndex !== -1 ? globalIndex + 1 : null
                     const isAr = language === 'ar'
                     const att = attendanceStats[report.studentId]
                     const ext = extras.get(report.studentId)
@@ -1477,7 +1485,9 @@ export function ReportCards() {
                                 {/* Row 1 */}
                                 <div className="id-box-row">
                                     <span className="id-box-label">{t('reports.student')} :</span>
-                                    <span className="id-box-val" style={{ fontSize: '14px' }}>{report.studentName}</span>
+                                    <span className="id-box-val" style={{ fontSize: '14px' }}>
+                                        {report.studentName} {report.enrollmentStatus === 'transferred' && (isAr ? ' (مؤرشف)' : ' (Archivé)')}
+                                    </span>
                                 </div>
                                 <div className="id-box-row">
                                     <span className="id-box-label">{t('reports.selectClass')} :</span>
@@ -1504,7 +1514,7 @@ export function ReportCards() {
                                 <div className="id-box-row">
                                     <span className="id-box-label">{t('reports.rank')} :</span>
                                     <span className="id-box-val" style={{ color: '#4f46e5' }}>
-                                        {isAr ? `الـ ${rank}` : `${rank}${rank === 1 ? 'er' : 'e'}`}
+                                        {rank !== null ? (isAr ? `الـ ${rank}` : `${rank}${rank === 1 ? 'er' : 'e'}`) : '—'}
                                     </span>
                                 </div>
                                 

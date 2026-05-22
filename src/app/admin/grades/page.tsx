@@ -90,11 +90,12 @@ export default function AdminGradesPage() {
                 return
             }
 
-            // 3. Fetch grades using correct schema columns
+            // 3. Fetch grades using correct schema columns and filtering by school
             const { data: gradesRaw, error } = await supabase
                 .from('grades')
-                .select('id, value, max_value, assessment_type, coefficient, term_id, subject_id, student_id, created_at')
+                .select('id, value, max_value, assessment_type, coefficient, term_id, subject_id, student_id, created_at, terms!inner(school_id)')
                 .in('student_id', allStudentIds)
+                .eq('terms.school_id', sid)
                 .order('created_at', { ascending: false })
                 .limit(2000)
 

@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
@@ -33,6 +33,14 @@ export function ChangeStatusDialog({
     const [newStatus, setNewStatus] = useState<ProfileStatus>(currentStatus as ProfileStatus)
     const [reason, setReason] = useState('')
     const [loading, setLoading] = useState(false)
+
+    useEffect(() => {
+        if (open) {
+            setNewStatus(currentStatus as ProfileStatus)
+            setReason('')
+        }
+    }, [open, currentStatus])
+
     const STATUS_OPTIONS: { value: ProfileStatus; label: string; description: string }[] = [
         { value: 'active', label: t('admin.students.statusActive'), description: t('admin.students.statusActiveDesc') },
         { value: 'suspended', label: t('admin.students.statusSuspended'), description: t('admin.students.statusSuspendedDesc') },

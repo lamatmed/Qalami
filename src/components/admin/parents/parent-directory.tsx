@@ -22,6 +22,8 @@ interface Child {
     name: string
     avatar: string | null
     class_name?: string
+    fullName?: string
+    national_id?: string | null
 }
 
 interface Parent {
@@ -122,7 +124,7 @@ export function ParentDirectory() {
             .select(`
                 parent_id,
                 students:profiles!parent_student_links_student_id_fkey!inner (
-                    id, full_name, avatar_url
+                    id, full_name, avatar_url, national_id
                 )
             `)
             .in('parent_id', parentIds)
@@ -155,6 +157,8 @@ export function ParentDirectory() {
                 name: link.students?.full_name?.split(' ')[0] || 'Enfant',
                 avatar: link.students?.avatar_url || null,
                 class_name: classMap.get(link.students?.id) || '',
+                fullName: link.students?.full_name || '',
+                national_id: link.students?.national_id || null,
             })
             linksByParent.set(link.parent_id, list)
         })
@@ -367,7 +371,7 @@ export function ParentDirectory() {
                                 >
                                     <div className="flex items-start gap-3">
                                         <Avatar className="w-10 h-10 border border-white/10">
-                                            <AvatarImage src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${parent.name}`} />
+                                            <AvatarImage src={parent.avatar_url || `https://api.dicebear.com/7.x/avataaars/svg?seed=${parent.name}`} />
                                             <AvatarFallback>{parent.name.substring(0, 2)}</AvatarFallback>
                                         </Avatar>
                                         <div className="flex-1 min-w-0">
@@ -406,7 +410,7 @@ export function ParentDirectory() {
                                             <div className="flex -space-x-2">
                                                 {parent.children.slice(0, 3).map((child, i) => (
                                                     <Avatar key={child.id} className="w-5 h-5 border border-[#161B22]">
-                                                        <AvatarImage src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${child.name}`} />
+                                                        <AvatarImage src={child.avatar || `https://api.dicebear.com/7.x/avataaars/svg?seed=${child.name}`} />
                                                         <AvatarFallback className="text-[8px]">{child.name[0]}</AvatarFallback>
                                                     </Avatar>
                                                 ))}

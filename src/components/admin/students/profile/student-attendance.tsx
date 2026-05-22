@@ -49,7 +49,7 @@ const STATUS_CONFIG = {
 
 type FilterType = 'all' | 'absent' | 'justified' | 'late'
 
-export function StudentAttendance({ studentId }: { studentId: string }) {
+export function StudentAttendance({ studentId, schoolId }: { studentId: string; schoolId: string }) {
     const { t, language } = useLanguage()
     const [records, setRecords] = useState<AttendanceRecord[]>([])
     const [loading, setLoading] = useState(true)
@@ -63,9 +63,11 @@ export function StudentAttendance({ studentId }: { studentId: string }) {
                 .select(`
                     id, date, status, justified, justification_note,
                     subjects ( name ),
-                    recorder:profiles!attendance_recorded_by_fkey ( full_name )
+                    recorder:profiles!attendance_recorded_by_fkey ( full_name ),
+                    classes!inner ( school_id )
                 `)
                 .eq('student_id', studentId)
+                .eq('classes.school_id', schoolId)
                 .neq('status', 'present')
                 .order('date', { ascending: false })
 
@@ -73,7 +75,7 @@ export function StudentAttendance({ studentId }: { studentId: string }) {
             setLoading(false)
         }
         load()
-    }, [studentId])
+    }, [studentId, schoolId])
 
     const stats = useMemo(() => {
         const absent    = records.filter(r => r.status === 'absent' && !r.justified)

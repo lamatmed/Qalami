@@ -41,7 +41,7 @@ function formatTime(t: string) {
     return t?.slice(0, 5) ?? '—'
 }
 
-export function StudentSchedule({ studentId }: { studentId: string }) {
+export function StudentSchedule({ studentId, schoolId }: { studentId: string; schoolId?: string }) {
     const { t, language } = useLanguage()
     const [schedule, setSchedule] = useState<ScheduleEntry[]>([])
     const [loading, setLoading] = useState(true)
@@ -54,15 +54,23 @@ export function StudentSchedule({ studentId }: { studentId: string }) {
         async function load() {
             const supabase = createClient()
 
-            // Get active enrollment → class_id
-            const { data: enrollment } = await supabase
+            // Get enrollment → class_id
+            let query = supabase
                 .from('enrollments')
-                .select('class_id')
+                .select('class_id, status')
                 .eq('student_id', studentId)
-                .eq('status', 'active')
-                .maybeSingle()
 
-            if (!enrollment?.class_id) { setLoading(false); return }
+            if (schoolId) {
+                query = query.eq('school_id', schoolId)
+            }
+
+            const { data: enrollments } = await query
+                .order('created_at', { ascending: false })
+
+            // Prefer active, but fallback to any (e.g. transferred)
+            const enrollment = enrollments?.find(e => e.status === 'active') || enrollments?.[0]
+
+            if (!enrollment?.class_id) { setLoading(false); setSchedule([]); return }
 
             const { data } = await supabase
                 .from('schedule')
@@ -80,7 +88,7 @@ export function StudentSchedule({ studentId }: { studentId: string }) {
             setLoading(false)
         }
         load()
-    }, [studentId])
+    }, [studentId, schoolId])
 
     // Color map per subject name
     const subjectColors = useMemo(() => {

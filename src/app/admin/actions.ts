@@ -25,7 +25,7 @@ export async function getMySchoolContext() {
     }
 }
 
-export async function getSchoolLinkedProfileIds(schoolId: string, role: 'teacher' | 'parent') {
+export async function getSchoolLinkedProfileIds(schoolId: string, role: 'teacher' | 'parent' | 'student') {
     const adminClient = createAdminClient()
     const { data, error } = await adminClient
         .from('profile_schools')

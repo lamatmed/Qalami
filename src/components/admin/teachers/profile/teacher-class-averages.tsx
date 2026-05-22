@@ -58,10 +58,11 @@ export function TeacherClassAverages({ teacherId }: { teacherId: string }) {
                     value,
                     student:profiles!grades_student_id_fkey ( id, full_name ),
                     subject:subjects ( name ),
-                    class:classes ( id, name )
+                    class:classes ( id, name ),
+                    terms!inner ( school_id )
                 `)
                 .eq('teacher_id', teacherId)
-                .eq('school_id', currentSchoolId)
+                .eq('terms.school_id', currentSchoolId)
  
             if (data) setGrades(data as unknown as GradeRow[])
             setLoading(false)

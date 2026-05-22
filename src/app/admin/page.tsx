@@ -98,8 +98,9 @@ export default function AdminDashboard() {
         if (studentIds.length > 0) {
             const { data: gradesData } = await supabase
                 .from('grades')
-                .select('id, value, max_value, profiles!grades_student_id_fkey(full_name), subjects(name)')
+                .select('id, value, max_value, profiles!grades_student_id_fkey(full_name), subjects(name), terms!inner(school_id)')
                 .in('student_id', studentIds)
+                .eq('terms.school_id', sid)
                 .order('created_at', { ascending: false })
                 .limit(5)
             recentGrades = (gradesData || []).map((g: any) => ({
@@ -126,7 +127,10 @@ export default function AdminDashboard() {
         const classGradeMap: Record<string, { sum: number; count: number }> = {}
         if (studentIds.length > 0 && classIds.length > 0) {
             const { data: allGrades } = await supabase
-                .from('grades').select('value, max_value, student_id').in('student_id', studentIds)
+                .from('grades')
+                .select('value, max_value, student_id, terms!inner(school_id)')
+                .in('student_id', studentIds)
+                .eq('terms.school_id', sid)
             ;(allGrades || []).forEach((g: any) => {
                 const cid = studentToClass[g.student_id]
                 if (!cid) return

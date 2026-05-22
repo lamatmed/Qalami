@@ -24,7 +24,7 @@ interface HistoryEvent {
     color: string
 }
 
-export function StudentHistory({ studentId }: { studentId: string }) {
+export function StudentHistory({ studentId, schoolId }: { studentId: string; schoolId?: string }) {
     const { t } = useLanguage()
     const [filter, setFilter] = useState<FilterType>('all')
     const [events, setEvents] = useState<HistoryEvent[]>([])
@@ -35,18 +35,34 @@ export function StudentHistory({ studentId }: { studentId: string }) {
             if (!studentId) return
             const supabase = createClient()
 
+            let gradesQuery = supabase
+                .from('grades')
+                .select('id, value, max_value, assessment_type, term, comment, created_at, subjects!grades_subject_id_fkey(name)')
+                .eq('student_id', studentId)
+
+            if (schoolId) {
+                gradesQuery = supabase
+                    .from('grades')
+                    .select('id, value, max_value, assessment_type, term, comment, created_at, subjects!grades_subject_id_fkey(name), terms!inner(school_id)')
+                    .eq('student_id', studentId)
+                    .eq('terms.school_id', schoolId)
+            }
+
+            let remarksQuery = supabase
+                .from('remarks')
+                .select('id, type, message, created_at, profiles!remarks_teacher_id_fkey(full_name)')
+                .eq('student_id', studentId)
+
+            if (schoolId) {
+                remarksQuery = remarksQuery.eq('school_id', schoolId)
+            }
+
             // Fetch grades and remarks in parallel
             const [gradesRes, remarksRes] = await Promise.all([
-                supabase
-                    .from('grades')
-                    .select('id, value, max_value, assessment_type, term, comment, created_at, subjects!grades_subject_id_fkey(name)')
-                    .eq('student_id', studentId)
+                gradesQuery
                     .order('created_at', { ascending: false })
                     .limit(20),
-                supabase
-                    .from('remarks')
-                    .select('id, type, message, created_at, profiles!remarks_teacher_id_fkey(full_name)')
-                    .eq('student_id', studentId)
+                remarksQuery
                     .order('created_at', { ascending: false })
                     .limit(20)
             ])
@@ -95,7 +111,7 @@ export function StudentHistory({ studentId }: { studentId: string }) {
             setLoading(false)
         }
         load()
-    }, [studentId])
+    }, [studentId, schoolId])
 
     const filteredEvents = events.filter(event => {
         if (filter === 'all') return true

@@ -95,7 +95,7 @@ export function ParentProfile({ parent, onClose, onParentUpdated }: ParentProfil
             <div className={cn("px-6 -mt-12 flex flex-col items-center transition-all", activeTab === 'finance' && "-mt-8")}>
                 <div className="relative">
                     <Avatar className={cn("border-4 border-[#161B22] shadow-xl transition-all", activeTab === 'finance' ? "w-16 h-16" : "w-24 h-24")}>
-                        <AvatarImage src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${parent.name}`} />
+                        <AvatarImage src={parent.avatar_url || `https://api.dicebear.com/7.x/avataaars/svg?seed=${parent.name}`} />
                         <AvatarFallback>{parent.name.substring(0, 2)}</AvatarFallback>
                     </Avatar>
                 </div>
@@ -175,14 +175,22 @@ export function ParentProfile({ parent, onClose, onParentUpdated }: ParentProfil
                                     parent.children.map((child: any) => (
                                         <div key={child.id} className="flex items-center gap-3 p-3 rounded-xl bg-[#0D1117] border border-white/5 hover:border-white/10 transition-colors group">
                                             <Avatar className="w-10 h-10 rounded-lg border border-white/5">
-                                                <AvatarImage src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${child.name}`} />
+                                                <AvatarImage src={child.avatar || `https://api.dicebear.com/7.x/avataaars/svg?seed=${child.name}`} />
                                                 <AvatarFallback>{child.name[0]}</AvatarFallback>
                                             </Avatar>
                                             <div className="flex-1 min-w-0">
-                                                <h4 className="text-sm font-semibold text-gray-200">{child.name}</h4>
-                                                {child.class_name && (
-                                                    <p className="text-xs text-gray-500 truncate">{child.class_name}</p>
-                                                )}
+                                                <h4 className="text-sm font-semibold text-gray-200">{child.fullName || child.name}</h4>
+                                                <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 mt-0.5">
+                                                    {child.class_name && (
+                                                        <span className="text-xs text-emerald-400 font-medium">{child.class_name}</span>
+                                                    )}
+                                                    {child.class_name && child.national_id && (
+                                                        <span className="text-gray-600 text-[10px]">•</span>
+                                                    )}
+                                                    {child.national_id && (
+                                                        <span className="text-xs text-gray-400 font-mono">NNI: {child.national_id}</span>
+                                                    )}
+                                                </div>
                                             </div>
                                         </div>
                                     ))
@@ -219,17 +227,17 @@ export function ParentProfile({ parent, onClose, onParentUpdated }: ParentProfil
                                 <div key={child.id} className="bg-[#0D1117] border border-white/5 rounded-3xl p-6 space-y-4">
                                     <div className="flex items-center gap-3 pb-4 border-b border-white/5">
                                         <Avatar className="w-10 h-10 border border-white/5 bg-[#161B22]">
-                                            <AvatarImage src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${child.name}`} />
+                                            <AvatarImage src={child.avatar || `https://api.dicebear.com/7.x/avataaars/svg?seed=${child.name}`} />
                                             <AvatarFallback>{child.name[0]}</AvatarFallback>
                                         </Avatar>
                                         <div>
-                                            <h4 className="text-sm font-bold text-white">{child.name}</h4>
+                                            <h4 className="text-sm font-bold text-white">{child.fullName || child.name}</h4>
                                             <Badge variant="secondary" className="text-[10px] h-4 bg-white/5 text-gray-400">
                                                 {child.class_name || t('admin.students.list.unassigned') || 'Sans classe'}
                                             </Badge>
                                         </div>
                                     </div>
-                                    <StudentPayments studentId={child.id} studentName={child.name} />
+                                    <StudentPayments studentId={child.id} studentName={child.fullName || child.name} />
                                 </div>
                             ))
                         )}

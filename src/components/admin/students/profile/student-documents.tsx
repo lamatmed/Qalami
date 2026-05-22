@@ -15,6 +15,8 @@ import { useLanguage } from '@/i18n'
 interface StudentDocumentsProps {
     studentId?: string
     classId?: string
+    schoolId?: string
+    isArchived?: boolean
 }
 
 interface Document {
@@ -57,7 +59,7 @@ const requiredDocuments = [
     { name: 'Bulletin Précédent', labelKey: 'admin.students.profile.documentsReqPreviousReport', icon: FileText,  color: 'text-orange-400' },
 ]
 
-export function StudentDocuments({ studentId, classId }: StudentDocumentsProps) {
+export function StudentDocuments({ studentId, classId, schoolId, isArchived }: StudentDocumentsProps) {
     const { t } = useLanguage()
     const [documents, setDocuments] = useState<Document[]>([])
     const [loading, setLoading] = useState(true)
@@ -68,12 +70,38 @@ export function StudentDocuments({ studentId, classId }: StudentDocumentsProps) 
     const [uploadTarget, setUploadTarget] = useState<string>('')
 
     // Pedagogical docs
+    const [resolvedClassId, setResolvedClassId] = useState<string | undefined>(classId)
     const [pedaDocs, setPedaDocs] = useState<PedaDocument[]>([])
     const [pedaLoading, setPedaLoading] = useState(false)
     const [typeFilter, setTypeFilter] = useState<string>('all')
     const [subjectFilter, setSubjectFilter] = useState<string>('all')
     const [subjects, setSubjects] = useState<{ id: string; name: string }[]>([])
     const [uploadDialogOpen, setUploadDialogOpen] = useState(false)
+
+    // Resolve classId if schoolId is provided and classId is not
+    useEffect(() => {
+        if (classId) {
+            setResolvedClassId(classId)
+            return
+        }
+        if (!studentId || !schoolId) return
+
+        async function fetchClass() {
+            const supabase = createClient()
+            const { data: enrollment } = await supabase
+                .from('enrollments')
+                .select('class_id, status')
+                .eq('student_id', studentId)
+                .eq('school_id', schoolId)
+                .order('created_at', { ascending: false })
+            
+            const activeEnrollment = enrollment?.find(e => e.status === 'active') || enrollment?.[0]
+            if (activeEnrollment?.class_id) {
+                setResolvedClassId(activeEnrollment.class_id)
+            }
+        }
+        fetchClass()
+    }, [studentId, schoolId, classId])
 
     const fetchDocuments = async () => {
         if (!studentId) {
@@ -143,13 +171,13 @@ export function StudentDocuments({ studentId, classId }: StudentDocumentsProps) 
     }, [studentId])
 
     const fetchPedaDocs = async () => {
-        if (!classId) return
+        if (!resolvedClassId) return
         setPedaLoading(true)
         const supabase = createClient()
         const { data } = await supabase
             .from('documents')
             .select('id, name, file_url, file_type, file_size_bytes, document_type, subject_id, subjects(name, icon), created_at')
-            .eq('class_id', classId)
+            .eq('class_id', resolvedClassId)
             .in('document_type', ['course', 'exercise', 'exam', 'devoirs', 'correction', 'resource', 'general'])
             .order('created_at', { ascending: false })
 
@@ -181,7 +209,7 @@ export function StudentDocuments({ studentId, classId }: StudentDocumentsProps) 
 
     useEffect(() => {
         fetchPedaDocs()
-    }, [classId])
+    }, [resolvedClassId])
 
     const handleUploadForDocument = (docName: string) => {
         setUploadTarget(docName)
@@ -300,7 +328,7 @@ export function StudentDocuments({ studentId, classId }: StudentDocumentsProps) 
                 isOpen={uploadDialogOpen}
                 onClose={() => setUploadDialogOpen(false)}
                 onSuccess={fetchPedaDocs}
-                defaultClassId={classId}
+                defaultClassId={resolvedClassId}
             />
             {/* Hidden file inputs */}
             <input
@@ -415,9 +443,13 @@ export function StudentDocuments({ studentId, classId }: StudentDocumentsProps) 
                                             {uploading === doc.name ? (
                                                 <Loader2 className="w-5 h-5 text-emerald-500 animate-spin" />
                                             ) : doc.status === 'missing' ? (
-                                                <Button size="sm" className="bg-emerald-500 hover:bg-emerald-600 text-black font-bold h-8 rounded-lg gap-1" onClick={() => handleUploadForDocument(doc.name)}>
-                                                    <Upload className="w-3 h-3" /> {t('admin.students.profile.documentsAddUpper')}
-                                                </Button>
+                                                !isArchived ? (
+                                                    <Button size="sm" className="bg-emerald-500 hover:bg-emerald-600 text-black font-bold h-8 rounded-lg gap-1" onClick={() => handleUploadForDocument(doc.name)}>
+                                                        <Upload className="w-3 h-3" /> {t('admin.students.profile.documentsAddUpper')}
+                                                    </Button>
+                                                ) : (
+                                                    <span className="text-xs text-red-400 font-semibold">{t('admin.students.profile.documentsMissing')}</span>
+                                                )
                                             ) : (
                                                 <Button size="icon" variant="ghost" className="text-gray-500 hover:text-white" onClick={() => handleViewDocument(doc.file_url)}>
                                                     <Eye className="w-5 h-5" />
@@ -430,14 +462,16 @@ export function StudentDocuments({ studentId, classId }: StudentDocumentsProps) 
                         )}
                     </div>
 
-                    <div className="grid grid-cols-2 gap-3 pt-2">
-                        <Button variant="outline" className="bg-[#0F1720] border-white/5 hover:bg-[#1A2530] text-gray-300 gap-2 h-10" onClick={handleCameraCapture}>
-                            <Camera className="w-4 h-4" /> {t('admin.students.profile.documentsTakePhoto')}
-                        </Button>
-                        <Button variant="outline" className="bg-[#0F1720] border-white/5 hover:bg-[#1A2530] text-gray-300 gap-2 h-10" onClick={handleGeneralUpload}>
-                            <Upload className="w-4 h-4" /> {t('admin.students.profile.documentsImportPdf')}
-                        </Button>
-                    </div>
+                    {!isArchived && (
+                        <div className="grid grid-cols-2 gap-3 pt-2">
+                            <Button variant="outline" className="bg-[#0F1720] border-white/5 hover:bg-[#1A2530] text-gray-300 gap-2 h-10" onClick={handleCameraCapture}>
+                                <Camera className="w-4 h-4" /> {t('admin.students.profile.documentsTakePhoto')}
+                            </Button>
+                            <Button variant="outline" className="bg-[#0F1720] border-white/5 hover:bg-[#1A2530] text-gray-300 gap-2 h-10" onClick={handleGeneralUpload}>
+                                <Upload className="w-4 h-4" /> {t('admin.students.profile.documentsImportPdf')}
+                            </Button>
+                        </div>
+                    )}
 
                     <div className="flex justify-center pt-2">
                         <div className="flex items-center gap-2 text-[10px] text-gray-500">
@@ -451,9 +485,11 @@ export function StudentDocuments({ studentId, classId }: StudentDocumentsProps) 
                 <TabsContent value="ressources" className="space-y-4">
                     <div className="flex items-center justify-between">
                         <h3 className="font-bold text-white text-sm">{t('admin.students.profile.documentsClassResourcesTitle')}</h3>
-                        <Button size="sm" className="bg-cyan-600 hover:bg-cyan-700 text-white font-bold gap-1 h-8" onClick={() => setUploadDialogOpen(true)}>
-                            <Plus className="w-3.5 h-3.5" /> {t('admin.students.profile.documentsAdd')}
-                        </Button>
+                        {!isArchived && (
+                            <Button size="sm" className="bg-cyan-600 hover:bg-cyan-700 text-white font-bold gap-1 h-8" onClick={() => setUploadDialogOpen(true)}>
+                                <Plus className="w-3.5 h-3.5" /> {t('admin.students.profile.documentsAdd')}
+                            </Button>
+                        )}
                     </div>
 
                     {/* Filters */}
@@ -492,7 +528,7 @@ export function StudentDocuments({ studentId, classId }: StudentDocumentsProps) 
                         <div className="text-center py-10 text-gray-500">
                             <BookOpen className="w-10 h-10 mx-auto mb-3 opacity-30" />
                             <p className="text-sm">{t('admin.students.profile.documentsNoneAvailable')}</p>
-                            {!classId && <p className="text-xs mt-1">{t('admin.students.profile.documentsAssignClassHint')}</p>}
+                            {!resolvedClassId && <p className="text-xs mt-1">{t('admin.students.profile.documentsAssignClassHint')}</p>}
                         </div>
                     ) : (
                         <div className="space-y-2">

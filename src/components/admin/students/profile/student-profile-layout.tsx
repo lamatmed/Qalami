@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { Button } from '@/components/ui/button'
-import { ArrowLeft, Calendar, User, Phone, CreditCard, Home, ShieldAlert, Loader2, KeyRound } from 'lucide-react'
+import { ArrowLeft, Calendar, User, Phone, CreditCard, Home, ShieldAlert, Loader2, KeyRound, ArrowLeftRight, RotateCcw } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 import { cn } from '@/lib/utils'
 import { StudentDocuments } from './student-documents'
@@ -18,9 +18,13 @@ import { ChangePasswordDialog } from '@/components/admin/shared/change-password-
 import { ChangeEnrollmentStatus } from '@/components/admin/students/change-enrollment-status'
 import { AssignClassDialog } from '@/components/admin/students/assign-class-dialog'
 import { AssignParentsDialog } from '@/components/admin/students/assign-parents-dialog'
+import { TransferStudentDialog } from '@/components/admin/students/transfer-student-dialog'
+import { revertStudentTransfer } from '@/app/admin/students/actions'
+import { updateProfileStatus } from '@/app/auth/actions'
 import { createClient } from '@/utils/supabase/client'
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { useLanguage } from '@/i18n'
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
+import { toast } from 'sonner'
 
 interface ParentInfo {
     id: string
@@ -29,6 +33,7 @@ interface ParentInfo {
 }
 
 interface StudentProfile {
+    school_id: string | null
     full_name: string
     phone: string | null
     status: string
@@ -51,12 +56,15 @@ export function StudentProfileLayout({ id }: { id: string }) {
     const router = useRouter()
     const [activeTab, setActiveTab] = useState('grades')
     const [student, setStudent] = useState<StudentProfile | null>(null)
+    const [currentSchoolId, setCurrentSchoolId] = useState<string | null>(null)
     const [loading, setLoading] = useState(true)
     const [statusDialogOpen, setStatusDialogOpen] = useState(false)
     const [passwordDialogOpen, setPasswordDialogOpen] = useState(false)
     const [enrollmentDialogOpen, setEnrollmentDialogOpen] = useState(false)
     const [assignClassOpen, setAssignClassOpen] = useState(false)
     const [assignParentsOpen, setAssignParentsOpen] = useState(false)
+    const [transferDialogOpen, setTransferDialogOpen] = useState(false)
+    const [reverting, setReverting] = useState(false)
     const tabs = [
         { id: 'grades', label: t('student.grades.title') },
         { id: 'attendance', label: t('common.attendance') },
@@ -70,10 +78,23 @@ export function StudentProfileLayout({ id }: { id: string }) {
     useEffect(() => {
         async function fetchStudent() {
             const supabase = createClient()
+            const { data: { user } } = await supabase.auth.getUser()
+            if (!user) { setLoading(false); return }
+
+            const { data: adminProfile } = await supabase
+                .from('profiles')
+                .select('school_id')
+                .eq('id', user.id)
+                .single()
+
+            const activeSchoolId = adminProfile?.school_id
+            if (!activeSchoolId) { setLoading(false); return }
+            setCurrentSchoolId(activeSchoolId)
 
             const { data: profile } = await supabase
                 .from('profiles')
                 .select(`
+                    school_id,
                     full_name,
                     phone,
                     status,
@@ -87,6 +108,7 @@ export function StudentProfileLayout({ id }: { id: string }) {
                         id,
                         status,
                         academic_year_id,
+                        school_id,
                         academic_years ( name ),
                         classes ( name )
                     ),
@@ -102,7 +124,8 @@ export function StudentProfileLayout({ id }: { id: string }) {
                 .single()
 
             if (profile) {
-                const enrollments = profile.enrollments as any[]
+                const rawEnrollments = profile.enrollments as any[] || []
+                const enrollments = rawEnrollments.filter(e => e.school_id === activeSchoolId)
                 const links = profile.parent_student_links as any[]
                 const parents: ParentInfo[] = (links || [])
                     .map(link => link.profiles)
@@ -115,6 +138,7 @@ export function StudentProfileLayout({ id }: { id: string }) {
 
                 const firstEnrollment = enrollments?.[0]
                 setStudent({
+                    school_id: profile.school_id,
                     full_name: profile.full_name || t('common.student'),
                     phone: (profile as any).phone || null,
                     status: (profile as any).status || 'active',
@@ -135,6 +159,36 @@ export function StudentProfileLayout({ id }: { id: string }) {
         }
         fetchStudent()
     }, [id])
+
+    const handleRevertTransfer = async () => {
+        if (!confirm(t('admin.students.transferDialog.revertConfirmMessage'))) return
+        setReverting(true)
+        const result = await revertStudentTransfer(id)
+        setReverting(false)
+        if (result.error) {
+            toast.error(result.error)
+        } else {
+            toast.success(t('admin.students.transferDialog.revertSuccessMessage'))
+            window.location.reload()
+        }
+    }
+
+    const handleUnarchive = async () => {
+        if (!confirm(t('admin.students.transferDialog.unarchiveConfirmMessage') || 'Voulez-vous désarchiver cet élève et le réactiver ?')) return
+        setReverting(true)
+        const result = await updateProfileStatus({
+            userId: id,
+            status: 'active',
+            reason: 'Annulation de l\'archivage',
+        })
+        setReverting(false)
+        if (result.error) {
+            toast.error(result.error)
+        } else {
+            toast.success(t('admin.students.transferDialog.unarchiveSuccessMessage') || 'L\'élève a été désarchivé avec succès.')
+            window.location.reload()
+        }
+    }
 
     const formatDate = (dateStr: string | null) => {
         if (!dateStr) return '—'
@@ -159,6 +213,8 @@ export function StudentProfileLayout({ id }: { id: string }) {
         ? student.full_name.split(' ').slice(0, 2).map(p => p[0]).join('').toUpperCase()
         : 'EL'
 
+    const isArchived = student && currentSchoolId ? (student.school_id !== currentSchoolId) : false
+
     return (
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 h-full max-w-[1600px] mx-auto">
             {/* Left Column */}
@@ -171,26 +227,72 @@ export function StudentProfileLayout({ id }: { id: string }) {
                         </Button>
                         <h3 className="font-bold text-white mt-2">{t('admin.students.profile.studentFile')}</h3>
                         <div className="flex items-center gap-1 -mr-2">
-                            {student?.phone && (
+                            {isArchived ? (
                                 <Button
                                     variant="ghost"
                                     size="icon"
                                     className="text-gray-400 hover:text-emerald-400"
-                                    title={t('admin.users.changePassword') || 'Modifier le mot de passe'}
-                                    onClick={() => setPasswordDialogOpen(true)}
+                                    title={t('admin.students.transferDialog.revertTransfer') || 'Annuler le transfert'}
+                                    onClick={handleRevertTransfer}
+                                    disabled={reverting}
                                 >
-                                    <KeyRound className="w-5 h-5" />
+                                    {reverting ? (
+                                        <Loader2 className="w-5 h-5 animate-spin" />
+                                    ) : (
+                                        <RotateCcw className="w-5 h-5" />
+                                    )}
                                 </Button>
+                            ) : (
+                                <>
+                                    {student?.status === 'archived' && (
+                                        <Button
+                                            variant="ghost"
+                                            size="icon"
+                                            className="text-gray-400 hover:text-emerald-400"
+                                            title={t('admin.students.transferDialog.unarchive') || 'Désarchiver'}
+                                            onClick={handleUnarchive}
+                                            disabled={reverting}
+                                        >
+                                            {reverting ? (
+                                                <Loader2 className="w-5 h-5 animate-spin" />
+                                            ) : (
+                                                <RotateCcw className="w-5 h-5" />
+                                            )}
+                                        </Button>
+                                    )}
+                                    {student?.status === 'active' && (
+                                        <Button
+                                            variant="ghost"
+                                            size="icon"
+                                            className="text-gray-400 hover:text-emerald-400"
+                                            title={t('admin.students.transferDialog.transfer') || 'Transférer'}
+                                            onClick={() => setTransferDialogOpen(true)}
+                                        >
+                                            <ArrowLeftRight className="w-5 h-5" />
+                                        </Button>
+                                    )}
+                                    {student?.phone && (
+                                        <Button
+                                            variant="ghost"
+                                            size="icon"
+                                            className="text-gray-400 hover:text-emerald-400"
+                                            title={t('admin.users.changePassword') || 'Modifier le mot de passe'}
+                                            onClick={() => setPasswordDialogOpen(true)}
+                                        >
+                                            <KeyRound className="w-5 h-5" />
+                                        </Button>
+                                    )}
+                                    <Button
+                                        variant="ghost"
+                                        size="icon"
+                                        className="text-gray-400 hover:text-orange-400"
+                                        title={t('admin.students.changeStatus')}
+                                        onClick={() => setStatusDialogOpen(true)}
+                                    >
+                                        <ShieldAlert className="w-5 h-5" />
+                                    </Button>
+                                </>
                             )}
-                            <Button
-                                variant="ghost"
-                                size="icon"
-                                className="text-gray-400 hover:text-orange-400"
-                                title={t('admin.students.changeStatus')}
-                                onClick={() => setStatusDialogOpen(true)}
-                            >
-                                <ShieldAlert className="w-5 h-5" />
-                            </Button>
                         </div>
                     </div>
 
@@ -201,18 +303,24 @@ export function StudentProfileLayout({ id }: { id: string }) {
                         </Avatar>
                         <h1 className="text-xl font-bold text-white">{student?.full_name}</h1>
                         <div className="mt-2">
-                            <StatusBadge status={student?.status ?? 'active'} />
+                            <StatusBadge status={isArchived ? 'archived' : (student?.status ?? 'active')} />
                         </div>
-                        <button
-                            className="text-gray-400 text-sm mt-1 hover:text-emerald-400 transition-colors flex items-center gap-1.5 group"
-                            onClick={() => setAssignClassOpen(true)}
-                            title={t('admin.students.assignToClass')}
-                        >
-                            {t('admin.students.class')} : <span className={cn(
-                                "font-medium",
-                                !student?.className ? "text-amber-400 group-hover:text-emerald-400" : "text-white group-hover:text-emerald-400"
-                            )}>{student?.className || t('admin.students.unassigned')}</span>
-                        </button>
+                        {isArchived ? (
+                            <div className="text-gray-400 text-sm mt-1 flex items-center gap-1.5">
+                                {t('admin.students.class')} : <span className="font-medium text-white">{student?.className || t('admin.students.unassigned')}</span>
+                            </div>
+                        ) : (
+                            <button
+                                className="text-gray-400 text-sm mt-1 hover:text-emerald-400 transition-colors flex items-center gap-1.5 group"
+                                onClick={() => setAssignClassOpen(true)}
+                                title={t('admin.students.assignToClass')}
+                            >
+                                {t('admin.students.class')} : <span className={cn(
+                                    "font-medium",
+                                    !student?.className ? "text-amber-400 group-hover:text-emerald-400" : "text-white group-hover:text-emerald-400"
+                                )}>{student?.className || t('admin.students.unassigned')}</span>
+                            </button>
+                        )}
                         {student?.academicYear && (
                             <div className="mt-2 flex items-center gap-2">
                                 <span className="text-[10px] font-mono text-gray-500 bg-white/5 px-2 py-0.5 rounded border border-white/5">
@@ -223,7 +331,7 @@ export function StudentProfileLayout({ id }: { id: string }) {
                                         {student.enrollmentStatus}
                                     </span>
                                 )}
-                                {student.enrollmentId && (
+                                {student.enrollmentId && !isArchived && (
                                     <button
                                         className="text-[10px] text-gray-500 hover:text-emerald-400 underline transition-colors"
                                         onClick={() => setEnrollmentDialogOpen(true)}
@@ -322,14 +430,16 @@ export function StudentProfileLayout({ id }: { id: string }) {
                         <h4 className="text-sm font-bold text-white">
                             {t('admin.students.register.parents.title') || 'Contacts parents'}
                         </h4>
-                        <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => setAssignParentsOpen(true)}
-                            className="text-emerald-500 hover:text-emerald-400 hover:bg-emerald-500/10 font-semibold text-xs h-7 px-2"
-                        >
-                            {t('common.edit') || 'Gérer'}
-                        </Button>
+                        {!isArchived && (
+                            <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => setAssignParentsOpen(true)}
+                                className="text-emerald-500 hover:text-emerald-400 hover:bg-emerald-500/10 font-semibold text-xs h-7 px-2"
+                            >
+                                {t('common.edit') || 'Gérer'}
+                            </Button>
+                        )}
                     </div>
 
                     {(!student?.parents || student.parents.length === 0) ? (
@@ -374,13 +484,13 @@ export function StudentProfileLayout({ id }: { id: string }) {
 
             {/* Center/Right Column */}
             <div className="lg:col-span-2 h-full">
-                {activeTab === 'grades'     && <StudentGrades     studentId={id} />}
-                {activeTab === 'attendance' && <StudentAttendance studentId={id} />}
-                {activeTab === 'schedule'   && <StudentSchedule   studentId={id} />}
-                {activeTab === 'payments'   && <StudentPayments   studentId={id} />}
-                {activeTab === 'remarks'    && <StudentRemarks    studentId={id} />}
-                {activeTab === 'documents'  && <StudentDocuments  studentId={id} />}
-                {activeTab === 'history'    && <StudentHistory    studentId={id} />}
+                {activeTab === 'grades'     && <StudentGrades     studentId={id} schoolId={currentSchoolId!} />}
+                {activeTab === 'attendance' && <StudentAttendance studentId={id} schoolId={currentSchoolId!} />}
+                {activeTab === 'schedule'   && <StudentSchedule   studentId={id} schoolId={currentSchoolId!} />}
+                {activeTab === 'payments'   && <StudentPayments   studentId={id} schoolId={currentSchoolId!} isArchived={isArchived} studentName={student?.full_name} />}
+                {activeTab === 'remarks'    && <StudentRemarks    studentId={id} schoolId={currentSchoolId!} isArchived={isArchived} />}
+                {activeTab === 'documents'  && <StudentDocuments  studentId={id} schoolId={currentSchoolId!} isArchived={isArchived} />}
+                {activeTab === 'history'    && <StudentHistory    studentId={id} schoolId={currentSchoolId!} />}
             </div>
 
             <ChangeStatusDialog
@@ -427,6 +537,16 @@ export function StudentProfileLayout({ id }: { id: string }) {
                 currentParents={student?.parents ?? []}
                 onSuccess={(newParents) => setStudent(s => s ? { ...s, parents: newParents } : s)}
             />
+
+            {transferDialogOpen && student && (
+                <TransferStudentDialog
+                    open={transferDialogOpen}
+                    onOpenChange={setTransferDialogOpen}
+                    studentId={id}
+                    studentName={student.full_name}
+                    onSuccess={() => window.location.reload()}
+                />
+            )}
         </div>
     )
 }

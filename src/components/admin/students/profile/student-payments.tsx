@@ -14,6 +14,8 @@ import { useLanguage } from '@/i18n'
 interface StudentPaymentsProps {
     studentId?: string
     studentName?: string
+    schoolId: string
+    isArchived?: boolean
 }
 
 interface Payment {
@@ -27,7 +29,7 @@ interface Payment {
     receipt_number?: string | null
 }
 
-export function StudentPayments({ studentId, studentName }: StudentPaymentsProps) {
+export function StudentPayments({ studentId, studentName, schoolId, isArchived }: StudentPaymentsProps) {
     const { t, language } = useLanguage()
     const [payments, setPayments] = useState<Payment[]>([])
     const [loading, setLoading] = useState(true)
@@ -59,6 +61,7 @@ export function StudentPayments({ studentId, studentName }: StudentPaymentsProps
             .from('payments')
             .select('id, amount, payment_type, payment_status, due_date, paid_at, description, receipt_number')
             .eq('student_id', studentId)
+            .eq('school_id', schoolId)
             .order('due_date', { ascending: false })
 
         if (error) {
@@ -146,7 +149,7 @@ export function StudentPayments({ studentId, studentName }: StudentPaymentsProps
 
         fetchPayments()
         fetchStudentDetails()
-    }, [studentId])
+    }, [studentId, schoolId])
 
     const totalDue = payments.reduce((sum, p) => sum + Number(p.amount), 0)
     const totalPaid = payments.filter(p => p.payment_status === 'paid').reduce((sum, p) => sum + Number(p.amount), 0)
@@ -762,25 +765,27 @@ export function StudentPayments({ studentId, studentName }: StudentPaymentsProps
             )}
 
             {/* Action Bar */}
-            <div className="grid grid-cols-2 gap-4">
-                <Button
-                    className="bg-[#1A2530] hover:bg-[#253545] text-white border border-white/5 h-12 rounded-xl"
-                    onClick={() => setShowPaymentForm(true)}
-                >
-                    <CreditCard className="w-4 h-4 mr-2 text-emerald-500" /> {t('admin.students.profile.registerPayment')}
-                </Button>
-                <Button
-                    className="bg-[#1A2530] hover:bg-[#253545] text-white border border-white/5 h-12 rounded-xl"
-                    onClick={handleSendReminder}
-                    disabled={sendingReminder}
-                >
-                    {sendingReminder ? (
-                        <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> {t('admin.students.profile.sending')}</>
-                    ) : (
-                        <><Send className="w-4 h-4 mr-2 text-orange-500" /> {t('admin.students.profile.sendReminder')}</>
-                    )}
-                </Button>
-            </div>
+            {!isArchived && (
+                <div className="grid grid-cols-2 gap-4">
+                    <Button
+                        className="bg-[#1A2530] hover:bg-[#253545] text-white border border-white/5 h-12 rounded-xl"
+                        onClick={() => setShowPaymentForm(true)}
+                    >
+                        <CreditCard className="w-4 h-4 mr-2 text-emerald-500" /> {t('admin.students.profile.registerPayment')}
+                    </Button>
+                    <Button
+                        className="bg-[#1A2530] hover:bg-[#253545] text-white border border-white/5 h-12 rounded-xl"
+                        onClick={handleSendReminder}
+                        disabled={sendingReminder}
+                    >
+                        {sendingReminder ? (
+                            <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> {t('admin.students.profile.sending')}</>
+                        ) : (
+                            <><Send className="w-4 h-4 mr-2 text-orange-500" /> {t('admin.students.profile.sendReminder')}</>
+                        )}
+                    </Button>
+                </div>
+            )}
 
             {/* History List */}
             <div className="bg-[#1A2530] rounded-3xl border border-white/5 overflow-hidden">

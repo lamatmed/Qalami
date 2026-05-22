@@ -30,7 +30,7 @@ interface ParentGradesProps {
 }
 
 export function ParentGrades({ studentId }: ParentGradesProps = {}) {
-    const { selectedChild, loading } = useParent()
+    const { selectedChild, loading, childrenList } = useParent()
     const [subjectGrades, setSubjectGrades] = useState<SubjectGrade[]>([])
     const [loadingGrades, setLoadingGrades] = useState(false)
     const [overallAverage, setOverallAverage] = useState<number | null>(null)
@@ -38,6 +38,8 @@ export function ParentGrades({ studentId }: ParentGradesProps = {}) {
 
     // Use provided studentId or fall back to selectedChild from context
     const effectiveStudentId = studentId || selectedChild?.id
+    const child = childrenList.find(c => c.id === effectiveStudentId) || selectedChild
+    const schoolId = child?.schoolId
 
     useEffect(() => {
         async function fetchGrades() {
@@ -48,7 +50,7 @@ export function ParentGrades({ studentId }: ParentGradesProps = {}) {
 
             try {
                 // Fetch grades with subject info
-                const { data: grades } = await supabase
+                let gradesQuery = supabase
                     .from('grades')
                     .select(`
                         id,
@@ -68,7 +70,32 @@ export function ParentGrades({ studentId }: ParentGradesProps = {}) {
                         )
                     `)
                     .eq('student_id', effectiveStudentId)
-                    .order('created_at', { ascending: false })
+
+                if (schoolId) {
+                    gradesQuery = supabase
+                        .from('grades')
+                        .select(`
+                            id,
+                            value,
+                            max_value,
+                            coefficient,
+                            assessment_type,
+                            term_id,
+                            terms!inner (id, name, school_id),
+                            created_at,
+                            updated_at,
+                            subjects (
+                                id,
+                                name,
+                                icon,
+                                coefficient
+                            )
+                        `)
+                        .eq('student_id', effectiveStudentId)
+                        .eq('terms.school_id', schoolId)
+                }
+
+                const { data: grades } = await gradesQuery.order('created_at', { ascending: false })
 
                 // Filter client-side for T1 (premier trimestre)
                 const t1Grades = (grades || []).filter((g: { terms: { name: string } | null }) => g.terms?.name === 'T1')

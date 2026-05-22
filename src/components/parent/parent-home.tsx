@@ -67,11 +67,22 @@ export function ParentHome() {
 
             try {
                 // Fetch grades for the selected child
-                const { data: grades } = await supabase
+                let gradesQuery = supabase
                     .from('grades')
                     .select('value, max_value, coefficient')
                     .eq('student_id', selectedChild.id)
                     .eq('term', 'T1')
+
+                if (selectedChild.schoolId) {
+                    gradesQuery = supabase
+                        .from('grades')
+                        .select('value, max_value, coefficient, terms!inner(school_id)')
+                        .eq('student_id', selectedChild.id)
+                        .eq('term', 'T1')
+                        .eq('terms.school_id', selectedChild.schoolId)
+                }
+
+                const { data: grades } = await gradesQuery
 
                 if (grades && grades.length > 0) {
                     // Calculate weighted average
@@ -91,10 +102,20 @@ export function ParentHome() {
                 }
 
                 // Fetch attendance rate (if we have attendance data)
-                const { data: attendance } = await supabase
+                let attendanceQuery = supabase
                     .from('attendance')
                     .select('status')
                     .eq('student_id', selectedChild.id)
+
+                if (selectedChild.schoolId) {
+                    attendanceQuery = supabase
+                        .from('attendance')
+                        .select('status, classes!inner(school_id)')
+                        .eq('student_id', selectedChild.id)
+                        .eq('classes.school_id', selectedChild.schoolId)
+                }
+
+                const { data: attendance } = await attendanceQuery
 
                 if (attendance && attendance.length > 0) {
                     const present = attendance.filter(a => a.status === 'present').length
@@ -172,7 +193,7 @@ export function ParentHome() {
                 const activities: RecentActivity[] = []
 
                 // Recent grades
-                const { data: recentGrades } = await supabase
+                let recentGradesQuery = supabase
                     .from('grades')
                     .select(`
                         id,
@@ -180,6 +201,21 @@ export function ParentHome() {
                         subjects (name)
                     `)
                     .eq('student_id', selectedChild.id)
+
+                if (selectedChild.schoolId) {
+                    recentGradesQuery = supabase
+                        .from('grades')
+                        .select(`
+                            id,
+                            created_at,
+                            subjects (name),
+                            terms!inner (school_id)
+                        `)
+                        .eq('student_id', selectedChild.id)
+                        .eq('terms.school_id', selectedChild.schoolId)
+                }
+
+                const { data: recentGrades } = await recentGradesQuery
                     .order('created_at', { ascending: false })
                     .limit(2)
 
@@ -196,11 +232,22 @@ export function ParentHome() {
                 }
 
                 // Recent attendance issues
-                const { data: recentAttendance } = await supabase
+                let recentAttendanceQuery = supabase
                     .from('attendance')
                     .select('id, date, status')
                     .eq('student_id', selectedChild.id)
                     .neq('status', 'present')
+
+                if (selectedChild.schoolId) {
+                    recentAttendanceQuery = supabase
+                        .from('attendance')
+                        .select('id, date, status, classes!inner(school_id)')
+                        .eq('student_id', selectedChild.id)
+                        .neq('status', 'present')
+                        .eq('classes.school_id', selectedChild.schoolId)
+                }
+
+                const { data: recentAttendance } = await recentAttendanceQuery
                     .order('date', { ascending: false })
                     .limit(1)
 

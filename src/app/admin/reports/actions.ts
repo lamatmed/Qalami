@@ -9,6 +9,7 @@ export interface StudentReport {
     studentId: string
     studentName: string
     studentNNI?: string
+    enrollmentStatus?: string
     subjects: { subjectId: string; subjectName: string; coefficient: number; average: number | null }[]
     generalAverage: number | null
 }
@@ -50,9 +51,11 @@ export async function calculateReportCards(classId: string, termId: string) {
         ? sameNamedTerms.map(t => t.id) 
         : [termId]
 
-    const { data: enrollments, error: enrollError } = await supabase
+    const admin = createAdminClient()
+
+    const { data: enrollments, error: enrollError } = await admin
         .from('enrollments')
-        .select('student_id, profiles!enrollments_student_id_fkey(id, full_name, national_id)')
+        .select('student_id, status, profiles!enrollments_student_id_fkey(id, full_name, national_id)')
         .eq('class_id', classId)
         .eq('school_id', schoolId)
 
@@ -60,9 +63,6 @@ export async function calculateReportCards(classId: string, termId: string) {
     if (!enrollments || enrollments.length === 0) return { error: 'Aucun élève inscrit dans cette classe' }
 
     const studentIds = enrollments.map(e => e.student_id)
-
-    // Bypass restrictive RLS policies to guarantee historical recovery of grades/attendance recorded with NULL school_id
-    const admin = createAdminClient()
 
     let attendanceQuery = admin
         .from('attendance')
@@ -104,8 +104,9 @@ export async function calculateReportCards(classId: string, termId: string) {
 
     const { data: rawGrades, error: gradesError } = await admin
         .from('grades')
-        .select('student_id, value, max_value, coefficient, subjects(id, name), term_id, created_at')
+        .select('student_id, value, max_value, coefficient, subjects(id, name), term_id, created_at, terms!inner(school_id)')
         .in('student_id', studentIds)
+        .eq('terms.school_id', schoolId)
 
     if (gradesError) return { error: gradesError.message }
 
@@ -178,6 +179,7 @@ export async function calculateReportCards(classId: string, termId: string) {
             studentId:   enrollment.student_id,
             studentName: profile?.full_name ?? '—',
             studentNNI:  profile?.national_id ?? undefined,
+            enrollmentStatus: enrollment.status,
             subjects,
             generalAverage,
         }
@@ -190,26 +192,28 @@ export async function calculateReportCards(classId: string, termId: string) {
         ? validReports.reduce((s, r) => s + (r.generalAverage ?? 0), 0) / validReports.length
         : null
 
-    const rows = reports
-        .filter(r => r.generalAverage !== null)
-        .map((r, index) => {
-            const att = attMap.get(r.studentId) ?? { present: 0, absent: 0, late: 0 }
-            return {
-                school_id:        schoolId,
-                student_id:       r.studentId,
-                class_id:         classId,
-                term_id:          termId,
-                academic_year_id: termRecord.academic_year_id,
-                overall_average:  r.generalAverage,
-                rank:             index + 1,
-                class_size:       reports.length,
-                class_average:    classAvg,
-                subject_averages: r.subjects,
-                status:           'draft',
-                attendance_days:  att.present + att.late,
-                absence_days:     att.absent,
-            }
-        })
+    let currentRank = 1
+    const rows = reports.map((r) => {
+        const att = attMap.get(r.studentId) ?? { present: 0, absent: 0, late: 0 }
+        const hasAvg = r.generalAverage !== null
+        const rankVal = hasAvg ? currentRank++ : null
+
+        return {
+            school_id:        schoolId,
+            student_id:       r.studentId,
+            class_id:         classId,
+            term_id:          termId,
+            academic_year_id: termRecord.academic_year_id,
+            overall_average:  r.generalAverage,
+            rank:             rankVal,
+            class_size:       reports.length,
+            class_average:    classAvg,
+            subject_averages: r.subjects,
+            status:           'draft',
+            attendance_days:  att.present + att.late,
+            absence_days:     att.absent,
+        }
+    })
 
     if (rows.length > 0) {
         await supabase
@@ -428,30 +432,44 @@ export async function publishReportCards(classId: string, termId: string) {
 export async function getStudentInfoByNNI(nni: string) {
     const ctx = await getActionContext()
     if (!ctx) return { error: 'Non authentifié' }
-    const { supabase, schoolId } = ctx
+    const { schoolId } = ctx
+    const adminClient = createAdminClient()
 
-    const { data: profile, error: profileError } = await supabase
+    // 1. Fetch profile using admin client to bypass school_id RLS if student was transferred
+    const { data: profile, error: profileError } = await adminClient
         .from('profiles')
         .select('id, full_name, national_id')
         .eq('national_id', nni)
-        .eq('school_id', schoolId)
         .eq('role', 'student')
         .maybeSingle()
 
     if (profileError || !profile) return { error: 'Élève introuvable avec ce NNI' }
 
-    const { data: enrollment, error: enrollError } = await supabase
+    // 2. Authorize: Check if student has ever been linked to this school
+    const { data: schoolLink, error: linkError } = await adminClient
+        .from('profile_schools')
+        .select('id')
+        .eq('profile_id', profile.id)
+        .eq('school_id', schoolId)
+        .eq('role', 'student')
+        .maybeSingle()
+
+    if (linkError || !schoolLink) {
+        return { error: 'Élève introuvable avec ce NNI dans votre établissement' }
+    }
+
+    // 3. Fetch latest enrollment at this school (active or transferred)
+    const { data: enrollment, error: enrollError } = await adminClient
         .from('enrollments')
         .select('class_id, academic_year_id')
         .eq('student_id', profile.id)
         .eq('school_id', schoolId)
-        .eq('status', 'active')
         .order('created_at', { ascending: false })
         .limit(1)
         .maybeSingle()
 
     if (enrollError) return { error: enrollError.message }
-    if (!enrollment) return { error: 'Cet élève n\'est inscrit dans aucune classe active' }
+    if (!enrollment) return { error: 'Cet élève n\'est inscrit dans aucune classe dans votre établissement' }
 
     return { student: profile, enrollment }
 }
