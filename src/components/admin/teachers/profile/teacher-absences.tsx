@@ -2,10 +2,11 @@
 
 import { useState, useEffect, useMemo } from 'react'
 import { createClient } from '@/utils/supabase/client'
-import { XCircle, Clock, CheckCircle2, RefreshCw, Loader2, CalendarDays, StickyNote } from 'lucide-react'
+import { XCircle, Clock, CheckCircle2, RefreshCw, Loader2, CalendarDays, StickyNote, Plus, X, Check } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useLanguage } from '@/i18n'
 import { getMySchoolContext } from '@/app/admin/actions'
+import { toast } from 'sonner'
 
 interface AbsenceRecord {
     id: string
@@ -26,12 +27,27 @@ export function TeacherAbsences({ teacherId }: { teacherId: string }) {
     const [loading, setLoading] = useState(true)
     const [tableExists, setTableExists] = useState(true)
     const [filter, setFilter] = useState<FilterType>('all')
+    const [schoolId, setSchoolId] = useState<string | null>(null)
+
+    // Add form state
+    const [addFormOpen, setAddFormOpen] = useState(false)
+    const [addDate, setAddDate] = useState(() => new Date().toISOString().split('T')[0])
+    const [addStatus, setAddStatus] = useState<'absent' | 'late'>('absent')
+    const [addJustified, setAddJustified] = useState(false)
+    const [addNote, setAddNote] = useState('')
+    const [adding, setAdding] = useState(false)
+
+    // Justify inline state
+    const [justifyId, setJustifyId] = useState<string | null>(null)
+    const [justifyNote, setJustifyNote] = useState('')
+    const [justifying, setJustifying] = useState(false)
 
     useEffect(() => {
         async function load() {
             const supabase = createClient()
             const ctx = await getMySchoolContext()
             const currentSchoolId = ctx?.school_id
+            setSchoolId(currentSchoolId || null)
 
             const { data, error } = await supabase
                 .from('teacher_attendance' as any)
@@ -55,6 +71,75 @@ export function TeacherAbsences({ teacherId }: { teacherId: string }) {
         }
         load()
     }, [teacherId])
+
+    const handleAddAbsence = async () => {
+        if (!schoolId) return
+        setAdding(true)
+        try {
+            const supabase = createClient()
+            const { data: { user } } = await supabase.auth.getUser()
+
+            const { data, error } = await supabase
+                .from('teacher_attendance' as any)
+                .insert({
+                    teacher_id: teacherId,
+                    school_id: schoolId,
+                    date: addDate,
+                    status: addStatus,
+                    justified: addJustified,
+                    justification_note: addNote.trim() || null,
+                    made_up: false,
+                    recorded_by: user?.id || null,
+                })
+                .select(`
+                    id, date, status, justified, justification_note,
+                    made_up, made_up_date,
+                    recorder:profiles!teacher_attendance_recorded_by_fkey ( full_name )
+                `)
+                .single()
+
+            if (error) throw error
+
+            setRecords(prev => [data as unknown as AbsenceRecord, ...prev].sort((a, b) => b.date.localeCompare(a.date)))
+            setAddFormOpen(false)
+            setAddDate(new Date().toISOString().split('T')[0])
+            setAddStatus('absent')
+            setAddJustified(false)
+            setAddNote('')
+            toast.success(t('admin.teachers.absences.addSuccess'))
+        } catch (err: any) {
+            console.error('[TeacherAbsences] add error:', err)
+            toast.error(t('admin.teachers.absences.addError'))
+        } finally {
+            setAdding(false)
+        }
+    }
+
+    const handleMarkJustified = async (id: string) => {
+        setJustifying(true)
+        try {
+            const supabase = createClient()
+            const { error } = await supabase
+                .from('teacher_attendance' as any)
+                .update({ justified: true, justification_note: justifyNote.trim() || null })
+                .eq('id', id)
+
+            if (error) throw error
+
+            setRecords(prev => prev.map(r => r.id === id
+                ? { ...r, justified: true, justification_note: justifyNote.trim() || null }
+                : r
+            ))
+            setJustifyId(null)
+            setJustifyNote('')
+            toast.success(t('admin.teachers.absences.justifySuccess'))
+        } catch (err: any) {
+            console.error('[TeacherAbsences] justify error:', err)
+            toast.error(t('admin.teachers.absences.justifyError'))
+        } finally {
+            setJustifying(false)
+        }
+    }
 
     const stats = useMemo(() => {
         const unjustified = records.filter(r => r.status === 'absent' && !r.justified)
@@ -97,6 +182,99 @@ export function TeacherAbsences({ teacherId }: { teacherId: string }) {
     return (
         <div className="space-y-5 animate-in fade-in slide-in-from-bottom-4 duration-500">
 
+            {/* Header with Add button */}
+            <div className="flex items-center justify-between">
+                <div>
+                    <h3 className="text-lg font-bold text-white">{t('admin.teachers.absences.title')}</h3>
+                </div>
+                <button
+                    type="button"
+                    onClick={() => { setAddFormOpen(v => !v); setJustifyId(null) }}
+                    className={cn(
+                        "flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all border",
+                        addFormOpen
+                            ? "bg-white/5 border-white/10 text-gray-400 hover:text-red-400"
+                            : "bg-emerald-500/10 border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/20"
+                    )}
+                >
+                    {addFormOpen ? <X className="w-3.5 h-3.5" /> : <Plus className="w-3.5 h-3.5" />}
+                    {addFormOpen ? t('common.cancel') : t('admin.teachers.absences.addAbsence')}
+                </button>
+            </div>
+
+            {/* Add Absence Form */}
+            {addFormOpen && (
+                <div className="bg-[#1A2530] rounded-2xl border border-emerald-500/20 p-5 space-y-4 animate-in fade-in slide-in-from-top-2 duration-200">
+                    <h4 className="text-sm font-bold text-white">{t('admin.teachers.absences.addAbsenceTitle')}</h4>
+                    <div className="grid grid-cols-2 gap-4">
+                        <div className="space-y-1.5">
+                            <label className="text-[10px] text-gray-500 uppercase font-bold">{t('admin.teachers.absences.formDate')}</label>
+                            <input
+                                type="date"
+                                value={addDate}
+                                onChange={e => setAddDate(e.target.value)}
+                                className="w-full bg-[#0D1117] border border-white/10 rounded-xl px-3 py-2 text-sm text-white focus:outline-none focus:border-emerald-500/50"
+                            />
+                        </div>
+                        <div className="space-y-1.5">
+                            <label className="text-[10px] text-gray-500 uppercase font-bold">{t('admin.teachers.absences.formStatus')}</label>
+                            <select
+                                value={addStatus}
+                                onChange={e => setAddStatus(e.target.value as 'absent' | 'late')}
+                                title={t('admin.teachers.absences.formStatus')}
+                                className="w-full bg-[#0D1117] border border-white/10 rounded-xl px-3 py-2 text-sm text-white focus:outline-none focus:border-emerald-500/50"
+                            >
+                                <option value="absent">{t('admin.teachers.absences.absent')}</option>
+                                <option value="late">{t('admin.teachers.absences.late')}</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <label className="flex items-center gap-3 cursor-pointer group">
+                        <div
+                            onClick={() => setAddJustified(v => !v)}
+                            className={cn(
+                                "w-5 h-5 rounded-md border-2 flex items-center justify-center transition-all shrink-0",
+                                addJustified ? "bg-emerald-500 border-emerald-500" : "border-white/20 bg-white/5 group-hover:border-emerald-500/50"
+                            )}
+                        >
+                            {addJustified && <Check className="w-3 h-3 text-black" strokeWidth={3} />}
+                        </div>
+                        <span className="text-sm text-gray-300">{t('admin.teachers.absences.formJustified')}</span>
+                    </label>
+
+                    <div className="space-y-1.5">
+                        <label className="text-[10px] text-gray-500 uppercase font-bold">{t('admin.teachers.absences.formNote')}</label>
+                        <textarea
+                            value={addNote}
+                            onChange={e => setAddNote(e.target.value)}
+                            placeholder={t('admin.teachers.absences.formNotePlaceholder')}
+                            rows={2}
+                            className="w-full bg-[#0D1117] border border-white/10 rounded-xl px-3 py-2 text-sm text-white placeholder-gray-600 focus:outline-none focus:border-emerald-500/50 resize-none"
+                        />
+                    </div>
+
+                    <div className="flex justify-end gap-2">
+                        <button
+                            type="button"
+                            onClick={() => setAddFormOpen(false)}
+                            className="px-4 py-2 rounded-xl text-xs font-bold text-gray-400 hover:text-white border border-white/10 hover:bg-white/5 transition-all"
+                        >
+                            {t('common.cancel')}
+                        </button>
+                        <button
+                            type="button"
+                            onClick={handleAddAbsence}
+                            disabled={adding || !addDate}
+                            className="flex items-center gap-2 px-5 py-2 rounded-xl text-xs font-bold bg-emerald-600 hover:bg-emerald-500 text-black transition-all disabled:opacity-50"
+                        >
+                            {adding && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
+                            {adding ? t('admin.teachers.absences.adding') : t('common.save')}
+                        </button>
+                    </div>
+                </div>
+            )}
+
             {/* Stats */}
             <div className="grid grid-cols-4 gap-3">
                 <div className="bg-[#1A2530] rounded-2xl border border-red-500/20 p-4 text-center">
@@ -135,11 +313,12 @@ export function TeacherAbsences({ teacherId }: { teacherId: string }) {
                     { key: 'all',         label: t('admin.teachers.absences.all'),          count: stats.total },
                     { key: 'unjustified', label: t('admin.teachers.absences.unjustified'),  count: stats.unjustified },
                     { key: 'justified',   label: t('admin.teachers.absences.justified'),    count: stats.justified },
-                    { key: 'late',        label: t('admin.teachers.absences.lates'),       count: stats.late },
-                    { key: 'made_up',     label: t('admin.teachers.absences.madeUp'),    count: stats.made_up },
+                    { key: 'late',        label: t('admin.teachers.absences.lates'),        count: stats.late },
+                    { key: 'made_up',     label: t('admin.teachers.absences.madeUp'),       count: stats.made_up },
                 ] as { key: FilterType; label: string; count: number }[]).map(f => (
                     <button
                         key={f.key}
+                        type="button"
                         onClick={() => setFilter(f.key)}
                         className={cn(
                             "px-3 py-1.5 rounded-lg text-xs font-bold border transition-all",
@@ -170,41 +349,90 @@ export function TeacherAbsences({ teacherId }: { teacherId: string }) {
                         {filtered.map(r => {
                             const isLate = r.status === 'late'
                             const isJustified = r.status === 'absent' && r.justified
+                            const isUnjustified = r.status === 'absent' && !r.justified
                             const cfg = isLate
                                 ? { icon: Clock,        color: 'text-blue-400',   bg: 'bg-blue-500/10 border-blue-500/20',     label: t('admin.teachers.absences.lateSingle') }
                                 : isJustified
                                 ? { icon: CheckCircle2, color: 'text-amber-400',  bg: 'bg-amber-500/10 border-amber-500/20',   label: t('admin.teachers.absences.justifiedSingle') }
                                 : { icon: XCircle,      color: 'text-red-400',    bg: 'bg-red-500/10 border-red-500/20',       label: t('admin.teachers.absences.unjustifiedSingle') }
                             const Icon = cfg.icon
+
+                            const isJustifying = justifyId === r.id
+
                             return (
-                                <div key={r.id} className="flex items-start gap-4 p-4 hover:bg-[#0F1720] transition-colors">
-                                    <div className={cn("w-9 h-9 rounded-xl flex items-center justify-center shrink-0 border mt-0.5", cfg.bg)}>
-                                        <Icon className={cn("w-4 h-4", cfg.color)} />
-                                    </div>
-                                    <div className="flex-1 min-w-0">
-                                        <div className="flex items-center justify-between gap-2">
-                                            <div className="flex items-center gap-2 flex-wrap">
-                                                <p className={cn("text-sm font-bold", cfg.color)}>{cfg.label}</p>
-                                                {r.made_up && (
-                                                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 flex items-center gap-1">
-                                                        <RefreshCw className="w-2.5 h-2.5" /> {t('admin.teachers.absences.madeUpLabel')}
-                                                        {r.made_up_date && ` ${t('admin.teachers.absences.madeUpOn')} ${new Date(r.made_up_date).toLocaleDateString(t('common.locale') || 'fr-FR', { day: '2-digit', month: 'short' })}`}
-                                                    </span>
-                                                )}
-                                            </div>
-                                            <p className="text-xs text-gray-600 shrink-0">
-                                                {new Date(r.date).toLocaleDateString(t('common.locale') || 'fr-FR', { weekday: 'short', day: '2-digit', month: 'short', year: 'numeric' })}
-                                            </p>
+                                <div key={r.id} className="p-4 hover:bg-[#0F1720] transition-colors">
+                                    <div className="flex items-start gap-4">
+                                        <div className={cn("w-9 h-9 rounded-xl flex items-center justify-center shrink-0 border mt-0.5", cfg.bg)}>
+                                            <Icon className={cn("w-4 h-4", cfg.color)} />
                                         </div>
-                                        {r.recorder?.full_name && (
-                                            <p className="text-xs text-gray-600 mt-0.5">{t('admin.teachers.absences.recordedBy')} {r.recorder.full_name}</p>
-                                        )}
-                                        {r.justification_note && (
-                                            <div className="mt-2 flex items-start gap-1.5 bg-white/5 rounded-lg px-3 py-2">
-                                                <StickyNote className="w-3 h-3 text-gray-500 shrink-0 mt-0.5" />
-                                                <p className="text-xs text-gray-400 italic">{r.justification_note}</p>
+                                        <div className="flex-1 min-w-0">
+                                            <div className="flex items-center justify-between gap-2 flex-wrap">
+                                                <div className="flex items-center gap-2 flex-wrap">
+                                                    <p className={cn("text-sm font-bold", cfg.color)}>{cfg.label}</p>
+                                                    {r.made_up && (
+                                                        <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 flex items-center gap-1">
+                                                            <RefreshCw className="w-2.5 h-2.5" /> {t('admin.teachers.absences.madeUpLabel')}
+                                                            {r.made_up_date && ` ${t('admin.teachers.absences.madeUpOn')} ${new Date(r.made_up_date).toLocaleDateString(t('common.locale') || 'fr-FR', { day: '2-digit', month: 'short' })}`}
+                                                        </span>
+                                                    )}
+                                                </div>
+                                                <div className="flex items-center gap-2 shrink-0">
+                                                    {isUnjustified && !isJustifying && (
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => { setJustifyId(r.id); setJustifyNote(''); setAddFormOpen(false) }}
+                                                            className="text-[10px] font-bold px-2.5 py-1 rounded-lg bg-amber-500/10 border border-amber-500/20 text-amber-400 hover:bg-amber-500/20 transition-all"
+                                                        >
+                                                            {t('admin.teachers.absences.markAsJustified')}
+                                                        </button>
+                                                    )}
+                                                    <p className="text-xs text-gray-600">
+                                                        {new Date(r.date).toLocaleDateString(t('common.locale') || 'fr-FR', { weekday: 'short', day: '2-digit', month: 'short', year: 'numeric' })}
+                                                    </p>
+                                                </div>
                                             </div>
-                                        )}
+                                            {r.recorder?.full_name && (
+                                                <p className="text-xs text-gray-600 mt-0.5">{t('admin.teachers.absences.recordedBy')} {r.recorder.full_name}</p>
+                                            )}
+                                            {r.justification_note && (
+                                                <div className="mt-2 flex items-start gap-1.5 bg-white/5 rounded-lg px-3 py-2">
+                                                    <StickyNote className="w-3 h-3 text-gray-500 shrink-0 mt-0.5" />
+                                                    <p className="text-xs text-gray-400 italic">{r.justification_note}</p>
+                                                </div>
+                                            )}
+
+                                            {/* Inline justify form */}
+                                            {isJustifying && (
+                                                <div className="mt-3 space-y-2 animate-in fade-in slide-in-from-top-1 duration-150">
+                                                    <textarea
+                                                        autoFocus
+                                                        value={justifyNote}
+                                                        onChange={e => setJustifyNote(e.target.value)}
+                                                        placeholder={t('admin.teachers.absences.justifyNotePlaceholder')}
+                                                        rows={2}
+                                                        className="w-full bg-[#0D1117] border border-amber-500/20 rounded-xl px-3 py-2 text-xs text-white placeholder-gray-600 focus:outline-none focus:border-amber-500/50 resize-none"
+                                                    />
+                                                    <div className="flex gap-2">
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => setJustifyId(null)}
+                                                            className="px-3 py-1.5 rounded-lg text-[10px] font-bold text-gray-500 hover:text-white border border-white/10 hover:bg-white/5 transition-all"
+                                                        >
+                                                            {t('common.cancel')}
+                                                        </button>
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => handleMarkJustified(r.id)}
+                                                            disabled={justifying}
+                                                            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[10px] font-bold bg-amber-500/20 border border-amber-500/30 text-amber-400 hover:bg-amber-500/30 transition-all disabled:opacity-50"
+                                                        >
+                                                            {justifying ? <Loader2 className="w-3 h-3 animate-spin" /> : <Check className="w-3 h-3" />}
+                                                            {justifying ? t('admin.teachers.absences.justifying') : t('admin.teachers.absences.confirmJustify')}
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                            )}
+                                        </div>
                                     </div>
                                 </div>
                             )

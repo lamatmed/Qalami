@@ -7,7 +7,7 @@ import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import {
     Search, UserPlus, X, Loader2, ShieldAlert, GraduationCap,
-    LayoutList, LayoutGrid, Square, CheckSquare2, ChevronDown, Upload, KeyRound
+    LayoutList, LayoutGrid, Square, CheckSquare2, ChevronDown, Upload, KeyRound, Pencil
 } from 'lucide-react'
 import { StatusBadge } from '@/components/admin/shared/status-badge'
 import { ChangeStatusDialog } from '@/components/admin/shared/change-status-dialog'
@@ -276,10 +276,14 @@ export function StudentDirectory() {
             const matchesName = s.name.toLowerCase().includes(q)
             const matchesClass = s.className.toLowerCase().includes(q)
             const matchesNNI = s.nationalId ? s.nationalId.toLowerCase().includes(q) : false
-            
             if (!matchesName && !matchesClass && !matchesNNI) return false
         }
-        if (selectedClass !== 'all' && s.classId !== selectedClass) return false
+        if (selectedClass === 'unassigned') {
+            if (s.classId) return false
+            if (s.status === 'archived') return false
+        } else if (selectedClass !== 'all') {
+            if (s.classId !== selectedClass) return false
+        }
         if (selectedStatus !== 'all' && s.status !== selectedStatus) return false
         if (selectedGender !== 'all' && s.gender !== selectedGender) return false
         if (selectedPayment === 'overdue' && s.paymentStatus !== 'overdue') return false
@@ -405,12 +409,18 @@ export function StudentDirectory() {
 
                 {/* Classe */}
                 <FilterDropdown
-                    label={selectedClass === 'all' ? t('admin.students.class') : classes.find(c => c.id === selectedClass)?.name ?? t('admin.students.class')}
+                    label={
+                        selectedClass === 'all' ? t('admin.students.class') :
+                        selectedClass === 'unassigned' ? t('admin.students.list.unassigned') :
+                        classes.find(c => c.id === selectedClass)?.name ?? t('admin.students.class')
+                    }
                     active={selectedClass !== 'all'}
                     open={openDropdown === 'class'}
                     onToggle={() => toggleDropdown('class')}
                 >
                     <DropItem label={t('admin.students.allClasses')} active={selectedClass === 'all'} onClick={() => { setSelectedClass('all'); setOpenDropdown(null) }} />
+                    <DropItem label={t('admin.students.list.unassigned')} active={selectedClass === 'unassigned'} onClick={() => { setSelectedClass('unassigned'); setOpenDropdown(null) }} />
+                    {classes.length > 0 && <div className="mx-3 my-1 h-px bg-white/5" />}
                     {classes.map(cls => (
                         <DropItem key={cls.id} label={cls.name} active={selectedClass === cls.id} onClick={() => { setSelectedClass(cls.id); setOpenDropdown(null) }} />
                     ))}
@@ -536,8 +546,22 @@ export function StudentDirectory() {
                                     </div>
                                     <div className="min-w-0 flex-1">
                                         <p className="font-semibold text-sm text-white group-hover:text-emerald-400 transition-colors truncate">{student.name}</p>
-                                        <p className="text-xs text-gray-500 truncate flex flex-wrap gap-x-1">
-                                            <span>{student.className || t('admin.students.unassigned')}</span>
+                                        <p className="text-xs text-gray-500 truncate flex flex-wrap gap-x-1 items-center">
+                                            {student.status !== 'archived' ? (
+                                                <button
+                                                    type="button"
+                                                    onClick={(e) => { e.preventDefault(); e.stopPropagation(); setAssignDialog({ open: true, student }) }}
+                                                    className="flex items-center gap-0.5 hover:text-emerald-400 transition-colors group/cls"
+                                                    title={t('admin.students.assignClassDialog.changeClass')}
+                                                >
+                                                    <span className={cn(!student.classId && "text-amber-400 group-hover/cls:text-emerald-400")}>
+                                                        {student.className || t('admin.students.unassigned')}
+                                                    </span>
+                                                    <Pencil className="w-2.5 h-2.5 opacity-0 group-hover/cls:opacity-100 transition-opacity shrink-0" />
+                                                </button>
+                                            ) : (
+                                                <span>{student.className || t('admin.students.unassigned')}</span>
+                                            )}
                                             {student.gender && genderLabel(student.gender) && <><span>·</span> <span>{t(genderLabel(student.gender) as string)}</span></>}
                                             {student.nationalId && <><span>·</span> <span className="font-mono bg-white/5 px-1 rounded text-[10px]">{student.nationalId}</span></>}
                                             {student.paymentStatus === 'overdue' && <><span>·</span> <span className="text-red-400">{t('common.overdue')}</span></>}
@@ -547,16 +571,27 @@ export function StudentDirectory() {
                                 </Link>
 
                                 {/* Row actions */}
-                                <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
+                                <div className={cn(
+                                    "flex items-center gap-0.5 shrink-0 transition-opacity",
+                                    selectedClass === 'unassigned' ? "opacity-100" : "opacity-0 group-hover:opacity-100"
+                                )}>
                                     {student.status !== 'archived' && (
                                         <>
                                             {!student.classId && (
                                                 <button
-                                                    className="p-1.5 rounded-lg text-amber-500 hover:bg-amber-500/10 transition-colors"
+                                                    className={cn(
+                                                        "rounded-lg text-amber-500 hover:bg-amber-500/10 transition-colors flex items-center gap-1.5",
+                                                        selectedClass === 'unassigned'
+                                                            ? "px-2.5 py-1.5 border border-amber-500/30 bg-amber-500/10 text-xs font-semibold"
+                                                            : "p-1.5"
+                                                    )}
                                                     title={t('admin.students.assignToClass')}
                                                     onClick={(e) => { e.preventDefault(); setAssignDialog({ open: true, student }) }}
                                                 >
-                                                    <GraduationCap className="w-3.5 h-3.5" />
+                                                    <GraduationCap className="w-3.5 h-3.5 shrink-0" />
+                                                    {selectedClass === 'unassigned' && (
+                                                        <span>{t('admin.students.assign')}</span>
+                                                    )}
                                                 </button>
                                             )}
                                              {student.phone && (
@@ -570,7 +605,7 @@ export function StudentDirectory() {
                                              )}
                                         </>
                                     )}
-                                    {!student.isTransferred && (
+                                    {!student.isTransferred && selectedClass !== 'unassigned' && (
                                         <button
                                             className="p-1.5 rounded-lg text-gray-600 hover:text-orange-400 hover:bg-orange-500/10 transition-colors"
                                             title={t('admin.students.changeStatus')}
@@ -628,7 +663,23 @@ export function StudentDirectory() {
                                                 <span className="text-sm font-medium text-white group-hover/link:text-emerald-400 transition-colors truncate">{student.name}</span>
                                             </Link>
                                         </td>
-                                        <td className="px-3 py-2.5 hidden md:table-cell text-sm text-gray-400">{student.className || t('admin.students.unassigned')}</td>
+                                        <td className="px-3 py-2.5 hidden md:table-cell">
+                                            {student.status !== 'archived' ? (
+                                                <button
+                                                    type="button"
+                                                    onClick={() => setAssignDialog({ open: true, student })}
+                                                    className="flex items-center gap-1 text-sm text-gray-400 hover:text-emerald-400 transition-colors group/cls"
+                                                    title={t('admin.students.assignClassDialog.changeClass')}
+                                                >
+                                                    <span className={cn(!student.classId && "text-amber-400 group-hover/cls:text-emerald-400")}>
+                                                        {student.className || t('admin.students.unassigned')}
+                                                    </span>
+                                                    <Pencil className="w-3 h-3 opacity-0 group-hover/cls:opacity-100 transition-opacity shrink-0" />
+                                                </button>
+                                            ) : (
+                                                <span className="text-sm text-gray-400">{student.className || t('admin.students.unassigned')}</span>
+                                            )}
+                                        </td>
                                         <td className="px-3 py-2.5 hidden sm:table-cell"><StatusBadge status={student.status} /></td>
                                         <td className="px-3 py-2.5 hidden lg:table-cell text-xs text-gray-500">{genderLabel(student.gender) ? t(genderLabel(student.gender) as string) : '—'}</td>
                                         <td className="px-3 py-2.5 hidden lg:table-cell">
@@ -638,12 +689,26 @@ export function StudentDirectory() {
                                             }
                                         </td>
                                          <td className="px-3 py-2.5">
-                                             <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                                             <div className={cn(
+                                                 "flex items-center gap-0.5 transition-opacity",
+                                                 selectedClass === 'unassigned' ? "opacity-100" : "opacity-0 group-hover:opacity-100"
+                                             )}>
                                                  {student.status !== 'archived' && (
                                                      <>
                                                          {!student.classId && (
-                                                             <button className="p-1.5 rounded-lg text-amber-500 hover:bg-amber-500/10 transition-colors" onClick={() => setAssignDialog({ open: true, student })}>
-                                                                 <GraduationCap className="w-3.5 h-3.5" />
+                                                             <button
+                                                                 className={cn(
+                                                                     "rounded-lg text-amber-500 hover:bg-amber-500/10 transition-colors flex items-center gap-1.5",
+                                                                     selectedClass === 'unassigned'
+                                                                         ? "px-2.5 py-1.5 border border-amber-500/30 bg-amber-500/10 text-xs font-semibold"
+                                                                         : "p-1.5"
+                                                                 )}
+                                                                 onClick={() => setAssignDialog({ open: true, student })}
+                                                             >
+                                                                 <GraduationCap className="w-3.5 h-3.5 shrink-0" />
+                                                                 {selectedClass === 'unassigned' && (
+                                                                     <span>{t('admin.students.assign')}</span>
+                                                                 )}
                                                              </button>
                                                          )}
                                                          {student.phone && (
@@ -657,7 +722,7 @@ export function StudentDirectory() {
                                                          )}
                                                      </>
                                                  )}
-                                                 {!student.isTransferred && (
+                                                 {!student.isTransferred && selectedClass !== 'unassigned' && (
                                                      <button
                                                          className="p-1.5 rounded-lg text-gray-600 hover:text-orange-400 hover:bg-orange-500/10 transition-colors"
                                                          title={t('admin.students.changeStatus')}
@@ -731,8 +796,8 @@ export function StudentDirectory() {
                     studentId={assignDialog.student.id}
                     studentName={assignDialog.student.name}
                     currentClassId={assignDialog.student.classId || null}
-                    onSuccess={(className) => {
-                        setStudents(prev => prev.map(s => s.id === assignDialog.student?.id ? { ...s, className } : s))
+                    onSuccess={(className, classId) => {
+                        setStudents(prev => prev.map(s => s.id === assignDialog.student?.id ? { ...s, className, classId } : s))
                     }}
                 />
             )}

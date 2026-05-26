@@ -8,6 +8,7 @@ import { cn } from '@/lib/utils'
 import { createClient } from '@/utils/supabase/client'
 import { getMySchoolContext } from '@/app/admin/actions'
 import { createSubject, upsertGlobalSubjectCoefficient } from '@/app/admin/subjects/actions'
+import { updateDefaultGradingScaleAction } from '@/app/admin/settings/actions'
 import { useLanguage } from '@/i18n'
 import { toast } from 'sonner'
 
@@ -36,6 +37,10 @@ export function SubjectsGrading() {
     const [newIcon, setNewIcon] = useState('')
     const [adding, setAdding] = useState(false)
 
+    // Grading scale
+    const [gradeScale, setGradeScale] = useState<number>(20)
+    const [savingScale, setSavingScale] = useState(false)
+
     // Per-subject coefficient editing
     const [editingCoef, setEditingCoef] = useState<string | null>(null)
     const [coefDraft, setCoefDraft] = useState('')
@@ -47,11 +52,12 @@ export function SubjectsGrading() {
         if (!ctx) return
         const supabase = createClient()
 
-        const { data } = await supabase
-            .from('subjects')
-            .select('id, name')
-            .eq('school_id', ctx.school_id)
-            .order('name')
+        const [{ data }, settingsRes] = await Promise.all([
+            supabase.from('subjects').select('id, name').eq('school_id', ctx.school_id).order('name'),
+            supabase.from('school_settings').select('default_grading_scale').eq('school_id', ctx.school_id).maybeSingle(),
+        ])
+        const savedScale = (settingsRes.data as any)?.default_grading_scale
+        if (savedScale) setGradeScale(savedScale)
 
         const subjectIds = (data || []).map((s: any) => s.id)
 
@@ -138,6 +144,24 @@ export function SubjectsGrading() {
         }
     }
 
+    // ── Grading scale ────────────────────────────────────────────────────────────
+    const handleScaleChange = async (scale: number) => {
+        if (scale === gradeScale) return
+        setSavingScale(true)
+        const result = await updateDefaultGradingScaleAction(scale)
+        setSavingScale(false)
+        if (result.error) {
+            if (result.error.includes('default_grading_scale')) {
+                toast.error('Migration requise — exécutez dans Supabase SQL Editor : ALTER TABLE school_settings ADD COLUMN IF NOT EXISTS default_grading_scale integer DEFAULT 20;')
+            } else {
+                toast.error(result.error)
+            }
+        } else {
+            setGradeScale(scale)
+            toast.success(t('admin.settings.subjects.scaleSaved') || `Barème /${scale} enregistré`)
+        }
+    }
+
     return (
         <div className="space-y-8 animate-in fade-in duration-500">
             {/* Header */}
@@ -207,9 +231,25 @@ export function SubjectsGrading() {
                     </div>
                 </div>
                 <div className="flex bg-[#0F1720] p-1 rounded-xl w-full max-w-md">
-                    <button type="button" className="flex-1 py-1.5 text-xs font-bold text-gray-400 hover:text-white transition-colors">/10</button>
-                    <button type="button" className="flex-1 py-1.5 text-xs font-bold bg-[#1A2530] text-emerald-500 shadow-sm rounded-lg border border-white/5">/20</button>
-                    <button type="button" className="flex-1 py-1.5 text-xs font-bold text-gray-400 hover:text-white transition-colors">/100</button>
+                    {savingScale ? (
+                        <div className="flex-1 flex items-center justify-center py-1.5">
+                            <Loader2 className="w-3.5 h-3.5 animate-spin text-emerald-500" />
+                        </div>
+                    ) : ([10, 20, 100] as const).map(scale => (
+                        <button
+                            key={scale}
+                            type="button"
+                            onClick={() => handleScaleChange(scale)}
+                            className={cn(
+                                'flex-1 py-1.5 text-xs font-bold transition-colors rounded-lg',
+                                gradeScale === scale
+                                    ? 'bg-[#1A2530] text-emerald-500 shadow-sm border border-white/5'
+                                    : 'text-gray-400 hover:text-white'
+                            )}
+                        >
+                            /{scale}
+                        </button>
+                    ))}
                 </div>
             </div>
 
@@ -258,6 +298,7 @@ export function SubjectsGrading() {
                                         <input
                                             ref={coefInputRef}
                                             type="number"
+                                            title={t('admin.settings.subjects.coef')}
                                             min="0.1"
                                             step="0.5"
                                             value={coefDraft}

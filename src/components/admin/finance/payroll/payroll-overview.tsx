@@ -12,6 +12,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { createClient } from '@/utils/supabase/client'
 import { Skeleton } from '@/components/ui/skeleton'
 import { useLanguage } from '@/i18n'
+import { toast } from 'sonner'
 
 interface PayrollEmployee {
     id: string
@@ -190,6 +191,99 @@ export function PayrollOverview({ onSelectTeacher, refreshKey }: { onSelectTeach
         }
     }
 
+    const handleExport = () => {
+        const rows = filteredEmployees
+        if (rows.length === 0) {
+            toast.error(t('admin.payroll.noEmployeeFound'))
+            return
+        }
+        const headers = ['Nom', 'Poste', 'Type de contrat', 'Statut', 'Salaire de base (MRU)', 'Primes (MRU)', 'Déductions (MRU)', 'Salaire net (MRU)']
+        const csvRows = [
+            headers.join(','),
+            ...rows.map(e => [
+                `"${e.employeeName}"`,
+                `"${e.position}"`,
+                `"${e.contractType}"`,
+                e.status === 'paid' ? 'Payé' : e.status === 'cancelled' ? 'Annulé' : 'En attente',
+                e.baseSalary,
+                e.bonuses,
+                e.deductions,
+                e.netSalary,
+            ].join(','))
+        ]
+        const csvContent = '﻿' + csvRows.join('\n')
+        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' })
+        const url = URL.createObjectURL(blob)
+        const a = document.createElement('a')
+        a.href = url
+        a.download = `paie-${monthName}-${currentYear}.csv`
+        a.click()
+        URL.revokeObjectURL(url)
+        toast.success(t('admin.payroll.exportSuccess'))
+    }
+
+    const handlePrint = () => {
+        const rows = filteredEmployees
+        if (rows.length === 0) {
+            toast.error(t('admin.payroll.noEmployeeFound'))
+            return
+        }
+        const tableRows = rows.map(e => `
+            <tr>
+                <td>${e.employeeName}</td>
+                <td>${e.position}</td>
+                <td>${e.contractType}</td>
+                <td class="${e.status === 'paid' ? 'paid' : 'pending'}">${e.status === 'paid' ? 'Payé' : e.status === 'cancelled' ? 'Annulé' : 'En attente'}</td>
+                <td class="num">${e.baseSalary.toLocaleString()}</td>
+                <td class="num">${e.bonuses.toLocaleString()}</td>
+                <td class="num">${e.deductions.toLocaleString()}</td>
+                <td class="num bold">${e.netSalary.toLocaleString()}</td>
+            </tr>
+        `).join('')
+        const totalNet = rows.reduce((s, e) => s + e.netSalary, 0)
+        const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Fiche de paie — ${monthName} ${currentYear}</title>
+        <style>
+            body { font-family: Arial, sans-serif; font-size: 12px; color: #111; margin: 24px; }
+            h1 { font-size: 16px; margin-bottom: 4px; }
+            p.sub { font-size: 11px; color: #555; margin-bottom: 16px; }
+            table { width: 100%; border-collapse: collapse; }
+            th { background: #1a1a2e; color: #fff; padding: 8px 10px; text-align: left; font-size: 11px; }
+            td { padding: 7px 10px; border-bottom: 1px solid #e5e7eb; font-size: 11px; }
+            tr:nth-child(even) td { background: #f9fafb; }
+            .num { text-align: right; }
+            .bold { font-weight: bold; }
+            .paid { color: #059669; font-weight: bold; }
+            .pending { color: #d97706; font-weight: bold; }
+            tfoot td { font-weight: bold; background: #f3f4f6; border-top: 2px solid #d1d5db; }
+            @media print { body { margin: 0; } }
+        </style></head><body>
+        <h1>Fiche de paie — ${monthName} ${currentYear}</h1>
+        <p class="sub">Généré le ${new Date().toLocaleDateString('fr-FR')} · ${rows.length} employé(s)</p>
+        <table>
+            <thead><tr>
+                <th>Nom</th><th>Poste</th><th>Contrat</th><th>Statut</th>
+                <th style="text-align:right">Base (MRU)</th>
+                <th style="text-align:right">Primes (MRU)</th>
+                <th style="text-align:right">Déductions (MRU)</th>
+                <th style="text-align:right">Net (MRU)</th>
+            </tr></thead>
+            <tbody>${tableRows}</tbody>
+            <tfoot><tr>
+                <td colspan="7" style="text-align:right">Total net</td>
+                <td class="num">${totalNet.toLocaleString()} MRU</td>
+            </tr></tfoot>
+        </table>
+        </body></html>`
+        const win = window.open('', '_blank', 'width=900,height=650')
+        if (!win) {
+            toast.error('Le navigateur a bloqué la fenêtre popup. Autorisez les popups pour ce site.')
+            return
+        }
+        win.document.write(html)
+        win.document.close()
+        setTimeout(() => { win.focus(); win.print() }, 400)
+    }
+
     if (loading) {
         return (
             <div className="space-y-6 animate-in fade-in duration-500 pb-20">
@@ -272,10 +366,10 @@ export function PayrollOverview({ onSelectTeacher, refreshKey }: { onSelectTeach
                 </div>
 
                 <div className="flex gap-2 w-full sm:w-auto">
-                    <Button variant="outline" className="bg-[#161B22] border-white/5 text-gray-400 hover:text-white flex-1 sm:flex-none gap-2">
+                    <Button onClick={handlePrint} variant="outline" className="bg-[#161B22] border-white/5 text-gray-400 hover:text-white flex-1 sm:flex-none gap-2">
                         <Printer className="w-4 h-4" /> <span className="hidden sm:inline">{t('admin.payroll.print')}</span>
                     </Button>
-                    <Button variant="outline" className="bg-[#161B22] border-white/5 text-gray-400 hover:text-white flex-1 sm:flex-none gap-2">
+                    <Button onClick={handleExport} variant="outline" className="bg-[#161B22] border-white/5 text-gray-400 hover:text-white flex-1 sm:flex-none gap-2">
                         <Download className="w-4 h-4" /> <span className="hidden sm:inline">{t('admin.payroll.export')}</span>
                     </Button>
                 </div>

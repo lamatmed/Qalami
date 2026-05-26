@@ -2,6 +2,7 @@
 
 import { getActionContext } from '@/lib/auth-action'
 import { revalidatePath } from 'next/cache'
+import { logActivity } from '@/lib/activity-log'
 
 function termDates(yearName: string, term: 'T1' | 'T2' | 'T3') {
     const [startYear, endYear] = yearName.split('-').map(Number)
@@ -105,6 +106,7 @@ export async function createAcademicYear(name: string) {
         .insert(terms)
     if (termsError) return { error: termsError.message }
 
+    logActivity({ actorId: ctx.userId, schoolId, action: 'create_academic_year', entityType: 'academic_year', entityId: newYearId, details: `Année scolaire créée: ${name}` })
     revalidatePath('/admin/terms')
     return { success: true }
 }
@@ -124,6 +126,7 @@ export async function setCurrentAcademicYear(yearId: string) {
 
     if (error) return { error: error.message }
 
+    logActivity({ actorId: ctx.userId, schoolId, action: 'set_current_year', entityType: 'academic_year', entityId: yearId, details: `Année scolaire définie comme actuelle` })
     revalidatePath('/admin/terms')
     return { success: true }
 }
@@ -152,6 +155,7 @@ export async function deleteAcademicYear(yearId: string) {
 
     if (error) return { error: error.message }
 
+    logActivity({ actorId: ctx.userId, schoolId, action: 'delete_academic_year', entityType: 'academic_year', entityId: yearId, details: `Année scolaire supprimée (id: ${yearId})` })
     revalidatePath('/admin/terms')
     return { success: true }
 }

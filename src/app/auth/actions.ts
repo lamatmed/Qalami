@@ -34,7 +34,7 @@ export async function login(formData: z.infer<typeof LoginSchema>) {
 
 export async function signout() {
     const supabase = await createClient()
-    await supabase.auth.signOut()
+    await supabase.auth.signOut({ scope: 'local' })
     revalidatePath('/', 'layout')
     redirect('/login')
 }

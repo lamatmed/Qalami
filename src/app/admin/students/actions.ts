@@ -3,6 +3,7 @@
 import { getActionContext } from '@/lib/auth-action'
 import { createAdminClient } from '@/utils/supabase/admin'
 import { revalidatePath } from 'next/cache'
+import { logActivity } from '@/lib/activity-log'
 
 export async function assignStudentToClass(studentId: string, classId: string) {
     const ctx = await getActionContext()
@@ -56,9 +57,30 @@ export async function assignStudentToClass(studentId: string, classId: string) {
         if (error) return { error: error.message }
     }
 
+    logActivity({ actorId: ctx.userId, schoolId: school_id, action: 'assign_student', entityType: 'student', entityId: studentId, details: `Élève affecté à la classe: ${classData.name}` })
     revalidatePath(`/admin/students/${studentId}`)
     revalidatePath('/admin/students')
     return { success: true, className: classData.name }
+}
+
+export async function removeStudentFromClass(studentId: string, classId: string) {
+    const ctx = await getActionContext()
+    if (!ctx) return { error: 'Non authentifié' }
+    const { supabase, schoolId: school_id } = ctx
+
+    const { error } = await supabase
+        .from('enrollments')
+        .delete()
+        .eq('student_id', studentId)
+        .eq('class_id', classId)
+        .eq('school_id', school_id)
+        .eq('status', 'active')
+
+    if (error) return { error: error.message }
+
+    logActivity({ actorId: ctx.userId, schoolId: school_id, action: 'remove_student_from_class', entityType: 'student', entityId: studentId, details: `Élève retiré de la classe ${classId}` })
+    revalidatePath('/admin/students')
+    return { success: true }
 }
 
 // ─── Bulk import from CSV ─────────────────────────────────────────────────────
@@ -138,6 +160,7 @@ export async function bulkImportStudents(rows: ImportRow[]): Promise<{
         created++
     }
 
+    if (created > 0) logActivity({ actorId: ctx.userId, schoolId, action: 'bulk_import_students', entityType: 'student', entityId: schoolId, details: `Import en masse: ${created} élève(s) créé(s)${errors.length > 0 ? `, ${errors.length} erreur(s)` : ''}` })
     revalidatePath('/admin/students')
     return { created, errors }
 }
@@ -145,6 +168,7 @@ export async function bulkImportStudents(rows: ImportRow[]): Promise<{
 export async function assignParentsToStudent(studentId: string, parentIds: string[]) {
     const ctx = await getActionContext()
     if (!ctx) return { error: 'Non authentifié' }
+    const { userId, schoolId } = ctx
     const adminClient = createAdminClient()
 
     // 1. Delete all existing parent-student links for this student
@@ -158,7 +182,7 @@ export async function assignParentsToStudent(studentId: string, parentIds: strin
         return { error: deleteError.message }
     }
 
-    // 2. Insert new parent-student links
+    // 2. Insert new parent-student links (supports up to 2 parents)
     for (let i = 0; i < parentIds.length; i++) {
         const parentId = parentIds[i]
         const { error: linkError } = await adminClient
@@ -175,6 +199,14 @@ export async function assignParentsToStudent(studentId: string, parentIds: strin
         }
     }
 
+    logActivity({
+        actorId: userId,
+        schoolId,
+        action: 'assign_parents',
+        entityType: 'student',
+        entityId: studentId,
+        details: `${parentIds.length} parent(s) affecté(s) à l'élève`,
+    })
     revalidatePath(`/admin/students/${studentId}`)
     revalidatePath('/admin/students')
     return { success: true }
@@ -334,6 +366,7 @@ export async function transferStudentToSchool(studentId: string, targetSchoolId:
         }
     }
 
+    logActivity({ actorId: ctx.userId, schoolId, action: 'transfer_student', entityType: 'student', entityId: studentId, details: `Élève transféré vers établissement ${targetSchoolId}` })
     revalidatePath(`/admin/students/${studentId}`)
     revalidatePath('/admin/students')
     return { success: true }

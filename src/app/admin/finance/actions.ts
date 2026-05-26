@@ -37,3 +37,58 @@ export async function getTransactionsAction(params: {
 
     return { data: data ?? [], error: null }
 }
+
+export async function updateTransactionAction(id: string, updates: {
+    type?: string
+    category?: string
+    description?: string
+    amount?: number
+    status?: string
+    transaction_date?: string
+}) {
+    const supabase = await createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return { error: 'Non authentifié' }
+
+    const { data: profile } = await supabase
+        .from('profiles')
+        .select('school_id')
+        .eq('id', user.id)
+        .single()
+
+    if (!profile?.school_id) return { error: 'École introuvable' }
+
+    const admin = createAdminClient()
+    const { error } = await admin
+        .from('transactions')
+        .update(updates)
+        .eq('id', id)
+        .eq('school_id', profile.school_id)
+
+    if (error) return { error: error.message }
+    return { success: true }
+}
+
+export async function deleteTransactionAction(id: string) {
+    const supabase = await createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return { error: 'Non authentifié' }
+
+    const { data: profile } = await supabase
+        .from('profiles')
+        .select('school_id')
+        .eq('id', user.id)
+        .single()
+
+    if (!profile?.school_id) return { error: 'École introuvable' }
+
+    const admin = createAdminClient()
+    const { error } = await admin
+        .from('transactions')
+        .delete()
+        .eq('id', id)
+        .eq('school_id', profile.school_id)
+
+    if (error) return { error: error.message }
+    return { success: true }
+}

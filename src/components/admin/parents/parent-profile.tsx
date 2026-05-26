@@ -4,7 +4,9 @@ import { useState, useEffect } from 'react'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { Phone, MessageSquare, Mail, MapPin, X, Banknote, User, ShieldAlert, Plus, KeyRound } from 'lucide-react'
+import { Phone, MessageSquare, Mail, MapPin, X, Banknote, User, ShieldAlert, Plus, KeyRound, FileText } from 'lucide-react'
+import Link from 'next/link'
+import { ParentDocuments } from './parent-documents'
 import { cn } from '@/lib/utils'
 import { toast } from 'sonner'
 import { useLanguage } from '@/i18n'
@@ -16,6 +18,7 @@ import { ChangePasswordDialog } from '@/components/admin/shared/change-password-
 
 interface ParentProfileProps {
     parent: any
+    schoolId?: string
     onClose?: () => void
     onParentUpdated?: () => void
 }
@@ -23,12 +26,12 @@ interface ParentProfileProps {
 
 
 
-export function ParentProfile({ parent, onClose, onParentUpdated }: ParentProfileProps) {
+export function ParentProfile({ parent, schoolId = '', onClose, onParentUpdated }: ParentProfileProps) {
     const { t } = useLanguage()
     const [statusDialogOpen, setStatusDialogOpen] = useState(false)
     const [passwordDialogOpen, setPasswordDialogOpen] = useState(false)
     const [currentStatus, setCurrentStatus] = useState<string>(parent?.status || 'active')
-    const [activeTab, setActiveTab] = useState<'info' | 'finance'>('info')
+    const [activeTab, setActiveTab] = useState<'info' | 'finance' | 'documents'>('info')
 
     if (!parent) return null
 
@@ -77,7 +80,7 @@ export function ParentProfile({ parent, onClose, onParentUpdated }: ParentProfil
             {/* Header / Cover */}
             <div className={cn(
                 "relative transition-all duration-300",
-                activeTab === 'finance' ? "h-24 bg-indigo-900/20" : "h-32 bg-gray-900/40"
+                activeTab === 'info' ? "h-32 bg-gray-900/40" : "h-24 bg-indigo-900/20"
             )}>
                 <div className="absolute top-4 right-4 flex gap-2">
                     <Button
@@ -92,7 +95,7 @@ export function ParentProfile({ parent, onClose, onParentUpdated }: ParentProfil
             </div>
 
             {/* Profile Info - Compact in Finance View */}
-            <div className={cn("px-6 -mt-12 flex flex-col items-center transition-all", activeTab === 'finance' && "-mt-8")}>
+            <div className={cn("px-6 -mt-12 flex flex-col items-center transition-all", activeTab !== 'info' && "-mt-8")}>
                 <div className="relative">
                     <Avatar className={cn("border-4 border-[#161B22] shadow-xl transition-all", activeTab === 'finance' ? "w-16 h-16" : "w-24 h-24")}>
                         <AvatarImage src={parent.avatar_url || `https://api.dicebear.com/7.x/avataaars/svg?seed=${parent.name}`} />
@@ -140,6 +143,12 @@ export function ParentProfile({ parent, onClose, onParentUpdated }: ParentProfil
                         icon={Banknote}
                         onClick={() => setActiveTab('finance')}
                     />
+                    <TabButton
+                        active={activeTab === 'documents'}
+                        label={t('admin.parents.documentsTab')}
+                        icon={FileText}
+                        onClick={() => setActiveTab('documents')}
+                    />
                 </div>
 
                 {/* Actions Grid - Only Show Call/Msg in Info Tab */}
@@ -156,7 +165,13 @@ export function ParentProfile({ parent, onClose, onParentUpdated }: ParentProfil
             {/* Scrollable Content */}
             <div className="flex-1 overflow-y-auto p-6 space-y-6 custom-scrollbar">
 
-                {activeTab === 'info' ? (
+                {activeTab === 'documents' ? (
+                    <ParentDocuments
+                        parentId={parent.id}
+                        parentName={parent.name}
+                        schoolId={schoolId}
+                    />
+                ) : activeTab === 'info' ? (
                     <>
                         {/* Linked Children */}
                         <div className="space-y-3">
@@ -173,13 +188,13 @@ export function ParentProfile({ parent, onClose, onParentUpdated }: ParentProfil
                                     </div>
                                 ) : (
                                     parent.children.map((child: any) => (
-                                        <div key={child.id} className="flex items-center gap-3 p-3 rounded-xl bg-[#0D1117] border border-white/5 hover:border-white/10 transition-colors group">
+                                        <Link key={child.id} href={`/admin/students/${child.id}`} className="flex items-center gap-3 p-3 rounded-xl bg-[#0D1117] border border-white/5 hover:border-white/10 transition-colors group">
                                             <Avatar className="w-10 h-10 rounded-lg border border-white/5">
                                                 <AvatarImage src={child.avatar || `https://api.dicebear.com/7.x/avataaars/svg?seed=${child.name}`} />
                                                 <AvatarFallback>{child.name[0]}</AvatarFallback>
                                             </Avatar>
                                             <div className="flex-1 min-w-0">
-                                                <h4 className="text-sm font-semibold text-gray-200">{child.fullName || child.name}</h4>
+                                                <h4 className="text-sm font-semibold text-gray-200 group-hover:text-emerald-400 transition-colors">{child.fullName || child.name}</h4>
                                                 <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 mt-0.5">
                                                     {child.class_name && (
                                                         <span className="text-xs text-emerald-400 font-medium">{child.class_name}</span>
@@ -192,7 +207,7 @@ export function ParentProfile({ parent, onClose, onParentUpdated }: ParentProfil
                                                     )}
                                                 </div>
                                             </div>
-                                        </div>
+                                        </Link>
                                     ))
                                 )}
                             </div>
@@ -231,13 +246,15 @@ export function ParentProfile({ parent, onClose, onParentUpdated }: ParentProfil
                                             <AvatarFallback>{child.name[0]}</AvatarFallback>
                                         </Avatar>
                                         <div>
-                                            <h4 className="text-sm font-bold text-white">{child.fullName || child.name}</h4>
+                                            <Link href={`/admin/students/${child.id}`} className="text-sm font-bold text-white hover:text-emerald-400 transition-colors">
+                                                {child.fullName || child.name}
+                                            </Link>
                                             <Badge variant="secondary" className="text-[10px] h-4 bg-white/5 text-gray-400">
                                                 {child.class_name || t('admin.students.list.unassigned') || 'Sans classe'}
                                             </Badge>
                                         </div>
                                     </div>
-                                    <StudentPayments studentId={child.id} studentName={child.fullName || child.name} />
+                                    <StudentPayments studentId={child.id} studentName={child.fullName || child.name} schoolId={schoolId} />
                                 </div>
                             ))
                         )}

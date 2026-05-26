@@ -11,6 +11,7 @@ import { TeacherInfo } from './teacher-info'
 import { TeacherDocuments } from './teacher-documents'
 import { TeacherContract } from './teacher-contract'
 import { TeacherAbsences } from './teacher-absences'
+import { TeacherFinances } from './teacher-finances'
 import { TeacherEvaluations } from './teacher-evaluations'
 import { TeacherClassAverages } from './teacher-class-averages'
 import { TeacherRemarksList } from './teacher-remarks-list'
@@ -32,6 +33,7 @@ const tabs = [
     { id: 'documents', label: 'Documents' },
     { id: 'infos',     label: 'Infos' },
     { id: 'contract',  label: 'Contrat' },
+    { id: 'finances',  label: 'Finances' },
 ]
 
 interface TeacherProfile {
@@ -269,6 +271,7 @@ export function TeacherProfileLayout({ id }: { id: string }) {
                 {activeTab === 'evaluations' && <TeacherEvaluations teacherId={id} />}
                 {activeTab === 'documents'   && <TeacherDocuments teacherId={id} />}
                 {activeTab === 'contract'    && <TeacherContract teacherId={id} />}
+                {activeTab === 'finances'    && <TeacherFinances teacherId={id} />}
             </div>
         </div>
         <ChangeStatusDialog

@@ -13,7 +13,8 @@ import {
     ChevronLeft,
     ChevronRight,
     Settings,
-    Bell
+    Bell,
+    FolderOpen
 } from 'lucide-react'
 import { createClient } from '@/utils/supabase/client'
 import { useLanguage } from '@/i18n'
@@ -28,6 +29,7 @@ export function useTeacherSidebarItems() {
         { icon: Calendar, label: t('teacher.sidebar.schedule'), href: '/teacher/schedule' },
         { icon: BrainCircuit, label: t('teacher.sidebar.quizzes'), href: '/teacher/quizzes' },
         { icon: AlertTriangle, label: t('teacher.sidebar.attendance'), href: '/teacher/remarks' },
+        { icon: FolderOpen, label: t('teacher.sidebar.documents') || 'Documents', href: '/teacher/documents' },
         { icon: Bell, label: t('teacher.sidebar.community') || 'Communauté', href: '/teacher/community' },
         { icon: Settings, label: t('teacher.sidebar.settings') || 'Paramètres', href: '/teacher/settings' },
     ]
@@ -39,6 +41,7 @@ export const sidebarItems = [
     { icon: Calendar, label: 'teacher.sidebar.schedule', href: '/teacher/schedule' },
     { icon: BrainCircuit, label: 'teacher.sidebar.quizzes', href: '/teacher/quizzes' },
     { icon: AlertTriangle, label: 'teacher.sidebar.attendance', href: '/teacher/remarks' },
+    { icon: FolderOpen, label: 'teacher.sidebar.documents', href: '/teacher/documents' },
     { icon: Bell, label: 'teacher.sidebar.community', href: '/teacher/community' },
     { icon: Settings, label: 'teacher.sidebar.settings', href: '/teacher/settings' },
 ]
@@ -51,7 +54,7 @@ export function TeacherSidebar({ isCollapsed = false, onToggle }: { isCollapsed?
 
     const handleLogout = async () => {
         const supabase = createClient()
-        await supabase.auth.signOut()
+        await supabase.auth.signOut({ scope: 'local' })
         sessionStorage.removeItem('superAdminViewingAs')
         router.push('/login')
     }
@@ -71,7 +74,7 @@ export function TeacherSidebar({ isCollapsed = false, onToggle }: { isCollapsed?
                         direction === 'rtl' ? "-left-3" : "-right-3"
                     )}
                 >
-                    {isCollapsed 
+                    {isCollapsed
                         ? (direction === 'rtl' ? <ChevronLeft className="h-3.5 w-3.5" /> : <ChevronRight className="h-3.5 w-3.5" />)
                         : (direction === 'rtl' ? <ChevronRight className="h-3.5 w-3.5" /> : <ChevronLeft className="h-3.5 w-3.5" />)
                     }
@@ -80,7 +83,7 @@ export function TeacherSidebar({ isCollapsed = false, onToggle }: { isCollapsed?
 
             {/* Sidebar Header Logo */}
             <div className={cn(
-                "p-6 flex items-center border-b border-slate-50 dark:border-white/5",
+                "p-6 flex items-center border-b border-slate-50 dark:border-white/5 shrink-0",
                 isCollapsed ? "justify-center" : "gap-3"
             )}>
                 <div className="relative w-10 h-10 shrink-0 overflow-hidden rounded-xl shadow-[0_4px_12px_rgba(79,70,229,0.15)] border border-indigo-50 dark:border-indigo-500/20 bg-white flex items-center justify-center transition-transform duration-300 hover:scale-105">
@@ -94,8 +97,8 @@ export function TeacherSidebar({ isCollapsed = false, onToggle }: { isCollapsed?
                 )}
             </div>
 
-            {/* Navigation links */}
-            <nav className={cn("flex-1 py-6 space-y-1.5", isCollapsed ? "px-2.5" : "px-4")}>
+            {/* Navigation links — scrollable so footer logout is always visible */}
+            <nav className={cn("flex-1 py-6 space-y-1.5 overflow-y-auto", isCollapsed ? "px-2.5" : "px-4")}>
                 {items.map((item) => {
                     const isActive = pathname.startsWith(item.href) && (item.href !== '/teacher' || pathname === '/teacher')
                     return (
@@ -124,7 +127,7 @@ export function TeacherSidebar({ isCollapsed = false, onToggle }: { isCollapsed?
                         </Link>
                     )
                 })}
-                
+
                 {!isCollapsed ? (
                     <div className="pt-4 border-t border-slate-50 dark:border-white/5 mt-4 space-y-2">
                         <LanguageSwitcher variant="full" className="text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-white/5 font-bold" />
@@ -138,8 +141,8 @@ export function TeacherSidebar({ isCollapsed = false, onToggle }: { isCollapsed?
                 )}
             </nav>
 
-            {/* Footer Logout */}
-            <div className={cn("p-4 border-t border-slate-50 dark:border-white/5", isCollapsed ? "flex justify-center" : "")}>
+            {/* Footer Logout — always visible, never pushed off-screen */}
+            <div className={cn("shrink-0 p-4 border-t border-slate-50 dark:border-white/5", isCollapsed ? "flex justify-center" : "")}>
                 <button
                     onClick={handleLogout}
                     title={isCollapsed ? t('common.logout') : undefined}

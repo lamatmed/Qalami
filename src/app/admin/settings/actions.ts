@@ -2,6 +2,7 @@
 
 import { createAdminClient } from '@/utils/supabase/admin'
 import { createClient } from '@/utils/supabase/server'
+import { logActivity } from '@/lib/activity-log'
 
 export async function getFeeStructuresAction() {
     const supabase = await createClient()
@@ -93,6 +94,15 @@ export async function deleteStaffMember(profileId: string) {
 
     if (deleteError) return { error: `${deleteError.message} (${deleteError.code})` }
     if (count === 0) return { error: `Aucune ligne supprimée (id=${profileId})` }
+
+    logActivity({
+        actorId: user.id,
+        schoolId: callerProfile.school_id,
+        action: 'delete_personnel',
+        entityType: 'profile',
+        entityId: profileId,
+        details: `Suppression du personnel: ${staffProfile.full_name}`,
+    })
 
     return { error: null }
 }
@@ -210,6 +220,15 @@ export async function addStaffMemberAction(payload: {
 
     if (contractError) return { error: contractError.message }
 
+    logActivity({
+        actorId: user.id,
+        schoolId: me.school_id,
+        action: 'add_personnel',
+        entityType: 'profile',
+        entityId: newProfile.id,
+        details: `Ajout du personnel: ${payload.name} — ${payload.role} (${payload.contractType})`,
+    })
+
     return {
         error: null,
         member: {
@@ -311,6 +330,15 @@ export async function saveFeeStructuresAction(payload: {
         }
     }
 
+    logActivity({
+        actorId: user.id,
+        schoolId: payload.schoolId,
+        action: 'save_fees',
+        entityType: 'fee_structures',
+        entityId: payload.academicYearId,
+        details: `Structures tarifaires enregistrées pour l'année ${payload.academicYearId} (${payload.activeFees.length} frais actifs)`,
+    })
+
     return { success: true }
 }
 
@@ -395,5 +423,37 @@ export async function updateSchoolIdentityAction(data: {
         return { error: `Erreur table school_settings: ${settingsError.message}` }
     }
 
+    logActivity({
+        actorId: user.id,
+        schoolId: data.school_id,
+        action: 'update_school',
+        entityType: 'school',
+        entityId: data.school_id,
+        details: `Identité école mise à jour: ${data.name}`,
+    })
+
+    return { success: true }
+}
+
+export async function updateDefaultGradingScaleAction(scale: number) {
+    const supabase = await createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return { error: 'Non authentifié' }
+
+    const { data: profile } = await supabase
+        .from('profiles')
+        .select('school_id')
+        .eq('id', user.id)
+        .single()
+
+    if (!profile?.school_id) return { error: 'École introuvable' }
+
+    const admin = createAdminClient()
+    const { error } = await admin
+        .from('school_settings')
+        .update({ default_grading_scale: scale })
+        .eq('school_id', profile.school_id)
+
+    if (error) return { error: error.message }
     return { success: true }
 }

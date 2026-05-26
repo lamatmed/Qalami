@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import { Button } from '@/components/ui/button'
 import { ArrowLeft, Calendar, User, Phone, CreditCard, Home, ShieldAlert, Loader2, KeyRound, ArrowLeftRight, RotateCcw } from 'lucide-react'
 import { useRouter } from 'next/navigation'
+import Link from 'next/link'
 import { cn } from '@/lib/utils'
 import { StudentDocuments } from './student-documents'
 import { StudentHistory } from './student-history'
@@ -427,25 +428,53 @@ export function StudentProfileLayout({ id }: { id: string }) {
                 {/* Parents/Responsables Section */}
                 <div className="bg-[#1A2530] rounded-3xl border border-white/5 p-6 space-y-4">
                     <div className="flex items-center justify-between">
-                        <h4 className="text-sm font-bold text-white">
-                            {t('admin.students.register.parents.title') || 'Contacts parents'}
-                        </h4>
+                        <div className="flex items-center gap-2">
+                            <h4 className="text-sm font-bold text-white">
+                                {t('admin.students.register.parents.title') || 'Contacts parents'}
+                            </h4>
+                            <span className={cn(
+                                'text-[10px] font-bold px-1.5 py-0.5 rounded-full border',
+                                (student?.parents?.length ?? 0) >= 2
+                                    ? 'text-emerald-400 bg-emerald-500/10 border-emerald-500/20'
+                                    : 'text-gray-500 bg-white/5 border-white/10'
+                            )}>
+                                {student?.parents?.length ?? 0}/2
+                            </span>
+                        </div>
                         {!isArchived && (
                             <Button
                                 variant="ghost"
                                 size="sm"
                                 onClick={() => setAssignParentsOpen(true)}
-                                className="text-emerald-500 hover:text-emerald-400 hover:bg-emerald-500/10 font-semibold text-xs h-7 px-2"
+                                className={cn(
+                                    'font-semibold text-xs h-7 px-2',
+                                    (student?.parents?.length ?? 0) < 2
+                                        ? 'text-emerald-500 hover:text-emerald-400 hover:bg-emerald-500/10'
+                                        : 'text-gray-400 hover:text-white hover:bg-white/5'
+                                )}
                             >
-                                {t('common.edit') || 'Gérer'}
+                                {(student?.parents?.length ?? 0) === 0
+                                    ? (t('admin.students.assignParentsDialog.addParent') || '+ Ajouter')
+                                    : (student?.parents?.length ?? 0) < 2
+                                        ? (t('admin.students.assignParentsDialog.addSecondParent') || '+ 2e parent')
+                                        : (t('common.edit') || 'Modifier')}
                             </Button>
                         )}
                     </div>
 
                     {(!student?.parents || student.parents.length === 0) ? (
-                        <div className="text-center py-6 text-gray-500 text-xs border border-dashed border-white/5 rounded-2xl bg-[#0F1720]/30">
+                        <button
+                            type="button"
+                            onClick={() => !isArchived && setAssignParentsOpen(true)}
+                            disabled={isArchived}
+                            className={cn(
+                                'w-full text-center py-6 text-gray-500 text-xs border border-dashed border-white/10 rounded-2xl bg-[#0F1720]/30 transition-colors',
+                                !isArchived && 'hover:border-emerald-500/30 hover:text-emerald-500 cursor-pointer'
+                            )}
+                        >
                             {t('admin.students.register.parents.noContact') || 'Aucun contact associé'}
-                        </div>
+                            {!isArchived && <span className="block text-[11px] mt-1 opacity-60">Cliquez pour ajouter</span>}
+                        </button>
                     ) : (
                         <div className="space-y-3">
                             {student.parents.map((p, index) => (
@@ -456,16 +485,21 @@ export function StudentProfileLayout({ id }: { id: string }) {
                                                 <User className="w-5 h-5" />
                                             </div>
                                             <div>
-                                                <p className="text-sm font-bold text-white">{p.full_name}</p>
+                                                <Link
+                                                    href={`/admin/parents?id=${p.id}`}
+                                                    className="text-sm font-bold text-white hover:text-emerald-400 transition-colors"
+                                                >
+                                                    {p.full_name}
+                                                </Link>
                                                 <p className="text-[10px] text-gray-500">
-                                                    {index === 0 
+                                                    {index === 0
                                                         ? (t('admin.students.register.parents.primaryParent') || 'Parent principal')
                                                         : (t('admin.students.register.parents.secondaryParent') || 'Parent secondaire')}
                                                 </p>
                                             </div>
                                         </div>
                                         {p.phone && (
-                                            <a href={`tel:${p.phone}`}>
+                                            <a href={`tel:${p.phone}`} title={p.phone} aria-label={p.phone}>
                                                 <Button size="icon" className="bg-emerald-500 hover:bg-emerald-600 rounded-full text-black h-10 w-10 shadow-lg shadow-emerald-500/20 shrink-0">
                                                     <Phone className="w-5 h-5" />
                                                 </Button>
@@ -477,6 +511,27 @@ export function StudentProfileLayout({ id }: { id: string }) {
                                     )}
                                 </div>
                             ))}
+
+                            {/* Second parent slot — show add prompt if only 1 parent */}
+                            {student.parents.length === 1 && !isArchived && (
+                                <button
+                                    type="button"
+                                    onClick={() => setAssignParentsOpen(true)}
+                                    className="w-full flex items-center gap-3 bg-[#0F1720]/50 border border-dashed border-white/10 hover:border-emerald-500/30 rounded-2xl px-4 py-3 text-left transition-colors group"
+                                >
+                                    <div className="h-10 w-10 bg-white/5 rounded-full flex items-center justify-center border border-white/10 group-hover:border-emerald-500/30 shrink-0">
+                                        <span className="text-gray-500 group-hover:text-emerald-500 text-lg leading-none">+</span>
+                                    </div>
+                                    <div>
+                                        <p className="text-xs font-semibold text-gray-500 group-hover:text-emerald-400 transition-colors">
+                                            {t('admin.students.register.parents.secondaryParent') || 'Parent secondaire'}
+                                        </p>
+                                        <p className="text-[10px] text-gray-600">
+                                            {t('admin.students.assignParentsDialog.addSecondParentHint') || 'Cliquez pour ajouter un 2e parent'}
+                                        </p>
+                                    </div>
+                                </button>
+                            )}
                         </div>
                     )}
                 </div>

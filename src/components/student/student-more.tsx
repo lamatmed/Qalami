@@ -16,7 +16,7 @@ export function StudentMore() {
 
     const handleLogout = async () => {
         const supabase = createClient()
-        await supabase.auth.signOut()
+        await supabase.auth.signOut({ scope: 'local' })
         sessionStorage.removeItem('superAdminViewingAs')
         router.push('/login')
     }

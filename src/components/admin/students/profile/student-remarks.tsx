@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { MessageCircle, Star, AlertTriangle, TrendingUp, Hand, Loader2, School, UserRound, PlusCircle, X, Send } from 'lucide-react'
+import { MessageCircle, Star, AlertTriangle, TrendingUp, Hand, Loader2, School, UserRound, PlusCircle, X, Send, Pencil, Trash2, Check } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { createClient } from '@/utils/supabase/client'
 import { toast } from 'sonner'
@@ -70,12 +70,23 @@ export function StudentRemarks({ studentId, schoolId, isArchived }: { studentId:
     const [showForm, setShowForm]         = useState(false)
     const [sending, setSending]           = useState(false)
 
-    // Form state
+    // Create form state
     const [formType, setFormType]         = useState('positive')
     const [formCategory, setFormCategory] = useState('general')
     const [formMessage, setFormMessage]   = useState('')
     const [visibleToParent, setVisibleToParent] = useState(true)
     const [visibleToStudent, setVisibleToStudent] = useState(true)
+
+    // Edit state
+    const [editingId, setEditingId]           = useState<string | null>(null)
+    const [editType, setEditType]             = useState('positive')
+    const [editCategory, setEditCategory]     = useState('general')
+    const [editMessage, setEditMessage]       = useState('')
+    const [editVisParent, setEditVisParent]   = useState(true)
+    const [editVisStudent, setEditVisStudent] = useState(true)
+    const [saving, setSaving]                 = useState(false)
+    const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null)
+    const [deleting, setDeleting]             = useState(false)
 
     /* ─── Fetch ─── */
 
@@ -161,6 +172,68 @@ export function StudentRemarks({ studentId, schoolId, isArchived }: { studentId:
         setSending(false)
     }
 
+    /* ─── Edit remark ─── */
+
+    function startEdit(remark: Remark) {
+        setEditingId(remark.id)
+        setEditType(remark.type)
+        setEditCategory(remark.category || 'general')
+        setEditMessage(remark.message)
+        setEditVisParent(remark.is_visible_to_parent)
+        setEditVisStudent(remark.is_visible_to_student)
+        setDeleteConfirmId(null)
+    }
+
+    function cancelEdit() {
+        setEditingId(null)
+    }
+
+    async function handleSaveEdit() {
+        if (!editingId || !editMessage.trim()) return
+        setSaving(true)
+        const supabase = createClient()
+        const { error } = await supabase
+            .from('remarks')
+            .update({
+                type: editType,
+                category: editCategory,
+                message: editMessage.trim(),
+                is_visible_to_parent: editVisParent,
+                is_visible_to_student: editVisStudent,
+            })
+            .eq('id', editingId)
+
+        if (error) {
+            toast.error(t('admin.students.profile.remarksSaveError'))
+        } else {
+            toast.success(t('admin.students.profile.remarksSaved'))
+            setEditingId(null)
+            setLoading(true)
+            await fetchRemarks()
+        }
+        setSaving(false)
+    }
+
+    /* ─── Delete remark ─── */
+
+    async function handleDelete(id: string) {
+        setDeleting(true)
+        const supabase = createClient()
+        const { error } = await supabase
+            .from('remarks')
+            .delete()
+            .eq('id', id)
+
+        if (error) {
+            toast.error(t('admin.students.profile.remarksDeleteError'))
+        } else {
+            toast.success(t('admin.students.profile.remarksDeleted'))
+            setDeleteConfirmId(null)
+            setRemarks(prev => prev.filter(r => r.id !== id))
+        }
+        setDeleting(false)
+    }
+
     /* ─── Derived ─── */
 
     const filteredRemarks = categoryFilter
@@ -188,6 +261,7 @@ export function StudentRemarks({ studentId, schoolId, isArchived }: { studentId:
                 </h3>
                 {!isArchived && (
                     <button
+                        type="button"
                         onClick={() => setShowForm(v => !v)}
                         className={cn(
                             'flex items-center gap-1.5 text-xs font-bold px-3 py-1.5 rounded-lg border transition-all',
@@ -217,6 +291,7 @@ export function StudentRemarks({ studentId, schoolId, isArchived }: { studentId:
                             <label className="text-[10px] text-gray-500 uppercase font-bold mb-1 block">{t('admin.students.profile.remarksTypeLabel')}</label>
                             <select
                                 value={formType}
+                                title={t('admin.students.profile.remarksTypeLabel')}
                                 onChange={e => setFormType(e.target.value)}
                                 className="w-full bg-[#1A2530] border border-white/10 text-xs text-white rounded-lg px-2 py-1.5 focus:outline-none focus:ring-1 focus:ring-emerald-500/50"
                             >
@@ -229,6 +304,7 @@ export function StudentRemarks({ studentId, schoolId, isArchived }: { studentId:
                             <label className="text-[10px] text-gray-500 uppercase font-bold mb-1 block">{t('admin.students.profile.remarksCategoryLabel')}</label>
                             <select
                                 value={formCategory}
+                                title={t('admin.students.profile.remarksCategoryLabel')}
                                 onChange={e => setFormCategory(e.target.value)}
                                 className="w-full bg-[#1A2530] border border-white/10 text-xs text-white rounded-lg px-2 py-1.5 focus:outline-none focus:ring-1 focus:ring-emerald-500/50"
                             >
@@ -288,6 +364,7 @@ export function StudentRemarks({ studentId, schoolId, isArchived }: { studentId:
                         </div>
 
                         <button
+                            type="button"
                             onClick={handleSend}
                             disabled={sending || !formMessage.trim()}
                             className="flex items-center gap-1.5 px-4 py-1.5 bg-emerald-500 hover:bg-emerald-400 disabled:opacity-50 disabled:cursor-not-allowed text-black text-xs font-bold rounded-lg transition-colors self-end sm:self-auto"
@@ -302,6 +379,7 @@ export function StudentRemarks({ studentId, schoolId, isArchived }: { studentId:
             {/* Category Filters */}
             <div className="flex flex-wrap gap-1.5 mb-4">
                 <button
+                    type="button"
                     onClick={() => setCategoryFilter('')}
                     className={cn(
                         'px-3 py-1 rounded-full text-xs font-bold border transition-all',
@@ -312,6 +390,7 @@ export function StudentRemarks({ studentId, schoolId, isArchived }: { studentId:
                 >{t('admin.students.profile.remarksFilterAll')}</button>
                 {Object.entries(CATEGORY_CONFIG).map(([key, cfg]) => (
                     <button
+                        type="button"
                         key={key}
                         onClick={() => setCategoryFilter(categoryFilter === key ? '' : key)}
                         className={cn(
@@ -336,52 +415,184 @@ export function StudentRemarks({ studentId, schoolId, isArchived }: { studentId:
                     </div>
                 ) : (
                     filteredRemarks.map(remark => {
-                        const typeInfo = getTypeInfo(remark.type)
-                        const catInfo  = remark.category ? CATEGORY_CONFIG[remark.category] : null
-                        const Icon     = typeInfo.icon
+                        const typeInfo   = getTypeInfo(remark.type)
+                        const catInfo    = remark.category ? CATEGORY_CONFIG[remark.category] : null
+                        const Icon       = typeInfo.icon
+                        const isEditing  = editingId === remark.id
+                        const isDeleting = deleteConfirmId === remark.id
+                        const canEdit    = !isArchived && remark.sender_type === 'school'
 
                         return (
-                            <div key={remark.id} className="p-4 bg-[#0F1720] rounded-xl border border-white/5 hover:border-white/10 transition-all">
-                                <div className="flex gap-3">
-                                    <div className={cn('w-10 h-10 rounded-xl flex items-center justify-center shrink-0', typeInfo.bg)}>
-                                        <Icon className={cn('w-5 h-5', typeInfo.color)} />
+                            <div key={remark.id} className="group/card bg-[#0F1720] rounded-xl border border-white/5 hover:border-white/10 transition-all overflow-hidden">
+
+                                {/* ── Edit form ── */}
+                                {isEditing ? (
+                                    <div className="p-4 space-y-3 animate-in fade-in duration-150">
+                                        <div className="grid grid-cols-2 gap-2">
+                                            <div>
+                                                <label className="text-[10px] text-gray-500 uppercase font-bold mb-1 block">{t('admin.students.profile.remarksTypeLabel')}</label>
+                                                <select
+                                                    value={editType}
+                                                    title={t('admin.students.profile.remarksTypeLabel')}
+                                                    onChange={e => setEditType(e.target.value)}
+                                                    className="w-full bg-[#1A2530] border border-white/10 text-xs text-white rounded-lg px-2 py-1.5 focus:outline-none focus:ring-1 focus:ring-emerald-500/50"
+                                                >
+                                                    {Object.entries(TYPE_CONFIG).filter(([k]) => k !== 'default').map(([k, v]) => (
+                                                        <option key={k} value={k}>{v.label}</option>
+                                                    ))}
+                                                </select>
+                                            </div>
+                                            <div>
+                                                <label className="text-[10px] text-gray-500 uppercase font-bold mb-1 block">{t('admin.students.profile.remarksCategoryLabel')}</label>
+                                                <select
+                                                    value={editCategory}
+                                                    title={t('admin.students.profile.remarksCategoryLabel')}
+                                                    onChange={e => setEditCategory(e.target.value)}
+                                                    className="w-full bg-[#1A2530] border border-white/10 text-xs text-white rounded-lg px-2 py-1.5 focus:outline-none focus:ring-1 focus:ring-emerald-500/50"
+                                                >
+                                                    {Object.entries(CATEGORY_CONFIG).map(([k, v]) => (
+                                                        <option key={k} value={k}>{t(v.labelKey)}</option>
+                                                    ))}
+                                                </select>
+                                            </div>
+                                        </div>
+
+                                        <textarea
+                                            value={editMessage}
+                                            onChange={e => setEditMessage(e.target.value)}
+                                            rows={3}
+                                            className="w-full bg-[#1A2530] border border-white/10 text-sm text-white rounded-xl px-3 py-2 resize-none placeholder:text-gray-600 focus:outline-none focus:ring-1 focus:ring-emerald-500/50"
+                                        />
+
+                                        <div className="flex items-center justify-between gap-3">
+                                            <div className="flex flex-wrap gap-4">
+                                                <label className="flex items-center gap-2 cursor-pointer">
+                                                    <div
+                                                        onClick={() => setEditVisParent(v => !v)}
+                                                        className={cn('w-8 h-4 rounded-full transition-colors relative', editVisParent ? 'bg-emerald-500' : 'bg-white/10')}
+                                                    >
+                                                        <div className={cn('absolute top-0.5 w-3 h-3 rounded-full bg-white transition-transform', editVisParent ? 'translate-x-4' : 'translate-x-0.5')} />
+                                                    </div>
+                                                    <span className="text-[10px] text-gray-400">{t('admin.students.profile.remarksVisibleToParents')}</span>
+                                                </label>
+                                                <label className="flex items-center gap-2 cursor-pointer">
+                                                    <div
+                                                        onClick={() => setEditVisStudent(v => !v)}
+                                                        className={cn('w-8 h-4 rounded-full transition-colors relative', editVisStudent ? 'bg-emerald-500' : 'bg-white/10')}
+                                                    >
+                                                        <div className={cn('absolute top-0.5 w-3 h-3 rounded-full bg-white transition-transform', editVisStudent ? 'translate-x-4' : 'translate-x-0.5')} />
+                                                    </div>
+                                                    <span className="text-[10px] text-gray-400">{t('admin.students.profile.remarksVisibleToStudent')}</span>
+                                                </label>
+                                            </div>
+                                            <div className="flex gap-2 shrink-0">
+                                                <button
+                                                    type="button"
+                                                    onClick={cancelEdit}
+                                                    disabled={saving}
+                                                    className="px-3 py-1.5 text-xs font-bold rounded-lg border border-white/10 text-gray-400 hover:text-white transition-colors"
+                                                >
+                                                    <X className="w-3.5 h-3.5" />
+                                                </button>
+                                                <button
+                                                    type="button"
+                                                    onClick={handleSaveEdit}
+                                                    disabled={saving || !editMessage.trim()}
+                                                    className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-500 hover:bg-emerald-400 disabled:opacity-50 disabled:cursor-not-allowed text-black text-xs font-bold rounded-lg transition-colors"
+                                                >
+                                                    {saving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Check className="w-3.5 h-3.5" />}
+                                                    {t('admin.students.profile.remarksSaveEdit')}
+                                                </button>
+                                            </div>
+                                        </div>
                                     </div>
-                                    <div className="flex-1 min-w-0">
-                                        {/* Top row */}
-                                        <div className="flex items-start justify-between gap-2 mb-1.5">
-                                            <div className="flex items-center gap-1.5 flex-wrap">
-                                                {/* Sender badge */}
-                                                <SenderBadge
-                                                    senderType={remark.sender_type}
-                                                    teacherName={remark.teacherName}
-                                                />
-                                                {catInfo && (
-                                                    <span className={cn('text-[10px] font-bold px-1.5 py-0.5 rounded-md', catInfo.bg, catInfo.color)}>
-                                                        {t(catInfo.labelKey)}
-                                                    </span>
+                                ) : (
+                                    <div className="p-4">
+                                        <div className="flex gap-3">
+                                            <div className={cn('w-10 h-10 rounded-xl flex items-center justify-center shrink-0', typeInfo.bg)}>
+                                                <Icon className={cn('w-5 h-5', typeInfo.color)} />
+                                            </div>
+                                            <div className="flex-1 min-w-0">
+                                                {/* Top row */}
+                                                <div className="flex items-start justify-between gap-2 mb-1.5">
+                                                    <div className="flex items-center gap-1.5 flex-wrap">
+                                                        <SenderBadge senderType={remark.sender_type} teacherName={remark.teacherName} />
+                                                        {catInfo && (
+                                                            <span className={cn('text-[10px] font-bold px-1.5 py-0.5 rounded-md', catInfo.bg, catInfo.color)}>
+                                                                {t(catInfo.labelKey)}
+                                                            </span>
+                                                        )}
+                                                        {remark.subjectName && (
+                                                            <span className="text-[10px] text-gray-500 bg-white/5 px-1.5 py-0.5 rounded-md">
+                                                                {remark.subjectName}
+                                                            </span>
+                                                        )}
+                                                    </div>
+                                                    <div className="flex items-center gap-1.5 shrink-0">
+                                                        <span className="text-[10px] text-gray-500">{formatDate(remark.created_at)}</span>
+                                                        {canEdit && (
+                                                            <>
+                                                                <button
+                                                                    type="button"
+                                                                    onClick={() => startEdit(remark)}
+                                                                    title={t('admin.students.profile.remarksEdit')}
+                                                                    className="opacity-0 group-hover/card:opacity-100 transition-opacity p-1 rounded text-gray-500 hover:text-emerald-400 hover:bg-emerald-500/10"
+                                                                >
+                                                                    <Pencil className="w-3 h-3" />
+                                                                </button>
+                                                                <button
+                                                                    type="button"
+                                                                    onClick={() => setDeleteConfirmId(remark.id)}
+                                                                    title={t('admin.students.profile.remarksDelete')}
+                                                                    className="opacity-0 group-hover/card:opacity-100 transition-opacity p-1 rounded text-gray-500 hover:text-red-400 hover:bg-red-500/10"
+                                                                >
+                                                                    <Trash2 className="w-3 h-3" />
+                                                                </button>
+                                                            </>
+                                                        )}
+                                                    </div>
+                                                </div>
+
+                                                <p className="text-sm text-gray-300">{remark.message}</p>
+
+                                                {/* Delete confirmation */}
+                                                {isDeleting && (
+                                                    <div className="mt-2 flex items-center gap-2 animate-in fade-in duration-150">
+                                                        <span className="text-xs text-red-400">{t('admin.students.profile.remarksDeleteConfirm')}</span>
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => handleDelete(remark.id)}
+                                                            disabled={deleting}
+                                                            className="px-2 py-0.5 text-xs font-bold bg-red-500/15 border border-red-500/30 text-red-400 rounded hover:bg-red-500/25 transition-colors disabled:opacity-50"
+                                                        >
+                                                            {deleting ? <Loader2 className="w-3 h-3 animate-spin" /> : t('admin.students.profile.remarksDeleteConfirmYes')}
+                                                        </button>
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => setDeleteConfirmId(null)}
+                                                            disabled={deleting}
+                                                            className="px-2 py-0.5 text-xs font-bold bg-white/5 border border-white/10 text-gray-400 rounded hover:text-white transition-colors"
+                                                        >
+                                                            {t('admin.students.profile.remarksDeleteConfirmNo')}
+                                                        </button>
+                                                    </div>
                                                 )}
-                                                {remark.subjectName && (
-                                                    <span className="text-[10px] text-gray-500 bg-white/5 px-1.5 py-0.5 rounded-md">
-                                                        {remark.subjectName}
-                                                    </span>
+
+                                                {/* Visibility indicators */}
+                                                {!isDeleting && (
+                                                    <div className="flex flex-col gap-0.5 mt-1.5">
+                                                        {!remark.is_visible_to_parent && (
+                                                            <p className="text-[10px] text-gray-600 italic">{t('admin.students.profile.remarksNotVisibleToParents')}</p>
+                                                        )}
+                                                        {!remark.is_visible_to_student && (
+                                                            <p className="text-[10px] text-gray-600 italic">{t('admin.students.profile.remarksNotVisibleToStudent')}</p>
+                                                        )}
+                                                    </div>
                                                 )}
                                             </div>
-                                            <span className="text-[10px] text-gray-500 shrink-0">{formatDate(remark.created_at)}</span>
-                                        </div>
-
-                                        <p className="text-sm text-gray-300">{remark.message}</p>
-
-                                        {/* Visibility indicators */}
-                                        <div className="flex flex-col gap-0.5 mt-1.5">
-                                            {!remark.is_visible_to_parent && (
-                                                <p className="text-[10px] text-gray-600 italic">{t('admin.students.profile.remarksNotVisibleToParents')}</p>
-                                            )}
-                                            {!remark.is_visible_to_student && (
-                                                <p className="text-[10px] text-gray-600 italic">{t('admin.students.profile.remarksNotVisibleToStudent')}</p>
-                                            )}
                                         </div>
                                     </div>
-                                </div>
+                                )}
                             </div>
                         )
                     })

@@ -2,6 +2,7 @@
 
 import { getActionContext } from '@/lib/auth-action'
 import { createAdminClient } from '@/utils/supabase/admin'
+import { logActivity } from '@/lib/activity-log'
 
 // ─── Types ─────────────────────────────────────────────────────────────────────
 
@@ -21,6 +22,7 @@ export interface ReportCardExtra {
     attendanceDays: number | null
     absenceDays: number | null
     status: string
+    subjectAppreciations: { subjectId: string; appreciation: string }[]
 }
 
 // ─── Calculate averages for a class + termId (UUID) ───────────────────────────
@@ -192,11 +194,29 @@ export async function calculateReportCards(classId: string, termId: string) {
         ? validReports.reduce((s, r) => s + (r.generalAverage ?? 0), 0) / validReports.length
         : null
 
+    // Preserve existing subject appreciations before recalculating
+    const { data: existingCards } = await supabase
+        .from('report_cards' as any)
+        .select('student_id, subject_averages')
+        .eq('class_id', classId)
+        .in('term_id', allTermIds)
+        .eq('school_id', schoolId)
+
+    const existingApprMap = new Map<string, Map<string, string>>()
+    ;(existingCards ?? []).forEach((card: any) => {
+        const apprMap = new Map<string, string>()
+        ;(card.subject_averages ?? []).forEach((s: any) => {
+            if (s.appreciation) apprMap.set(s.subjectId, s.appreciation)
+        })
+        existingApprMap.set(card.student_id, apprMap)
+    })
+
     let currentRank = 1
     const rows = reports.map((r) => {
         const att = attMap.get(r.studentId) ?? { present: 0, absent: 0, late: 0 }
         const hasAvg = r.generalAverage !== null
         const rankVal = hasAvg ? currentRank++ : null
+        const apprMap = existingApprMap.get(r.studentId)
 
         return {
             school_id:        schoolId,
@@ -208,7 +228,10 @@ export async function calculateReportCards(classId: string, termId: string) {
             rank:             rankVal,
             class_size:       reports.length,
             class_average:    classAvg,
-            subject_averages: r.subjects,
+            subject_averages: r.subjects.map(s => ({
+                ...s,
+                appreciation: apprMap?.get(s.subjectId) ?? null,
+            })),
             status:           'draft',
             attendance_days:  att.present + att.late,
             absence_days:     att.absent,
@@ -254,7 +277,7 @@ export async function getReportCardExtras(classId: string, termId: string): Prom
 
     const { data } = await supabase
         .from('report_cards' as any)
-        .select('student_id, conduct_grade, general_comment, attendance_days, absence_days, status')
+        .select('student_id, conduct_grade, general_comment, attendance_days, absence_days, status, subject_averages')
         .eq('class_id', classId)
         .in('term_id', allTermIds)
         .eq('school_id', schoolId)
@@ -266,6 +289,9 @@ export async function getReportCardExtras(classId: string, termId: string): Prom
         attendanceDays: row.attendance_days ?? null,
         absenceDays:    row.absence_days    ?? null,
         status:         row.status          ?? 'draft',
+        subjectAppreciations: (row.subject_averages ?? [])
+            .filter((s: any) => s.appreciation)
+            .map((s: any) => ({ subjectId: s.subjectId, appreciation: s.appreciation })),
     }))
 }
 
@@ -405,6 +431,11 @@ export async function validateReportCards(classId: string, termId: string) {
         if (error.code === '42P01') return { error: 'Table report_cards introuvable.' }
         return { error: error.message }
     }
+    const [{ data: cls }, { data: term }] = await Promise.all([
+        supabase.from('classes').select('name').eq('id', classId).single(),
+        supabase.from('terms').select('name').eq('id', termId).single(),
+    ])
+    logActivity({ actorId: ctx.userId, schoolId, action: 'validate_reports', entityType: 'report_cards', entityId: classId, details: `Bulletins validés — Classe: ${cls?.name ?? classId}, Trimestre: ${term?.name ?? termId}` })
     return { success: true }
 }
 
@@ -426,7 +457,123 @@ export async function publishReportCards(classId: string, termId: string) {
         if (error.code === '42P01') return { error: "Table report_cards inexistante. Calculez d'abord les moyennes." }
         return { error: error.message }
     }
+    const [{ data: cls }, { data: term }] = await Promise.all([
+        supabase.from('classes').select('name').eq('id', classId).single(),
+        supabase.from('terms').select('name').eq('id', termId).single(),
+    ])
+    logActivity({ actorId: ctx.userId, schoolId, action: 'publish_reports', entityType: 'report_cards', entityId: classId, details: `Bulletins publiés — Classe: ${cls?.name ?? classId}, Trimestre: ${term?.name ?? termId}` })
     return { success: true }
+}
+
+// ─── Save per-subject appreciations into subject_averages JSONB ───────────────
+
+export async function saveSubjectAppreciations(
+    classId: string,
+    termId: string,
+    appreciations: { studentId: string; subjectId: string; appreciation: string }[]
+) {
+    const ctx = await getActionContext()
+    if (!ctx) return { error: 'Non authentifié' }
+    const { supabase, schoolId } = ctx
+
+    const { data: targetTerm } = await supabase
+        .from('terms')
+        .select('name, academic_year_id')
+        .eq('id', termId)
+        .eq('school_id', schoolId)
+        .single()
+
+    let allTermIds = [termId]
+    if (targetTerm) {
+        const { data: sisterTerms } = await supabase
+            .from('terms')
+            .select('id')
+            .eq('school_id', schoolId)
+            .eq('academic_year_id', targetTerm.academic_year_id)
+            .eq('name', targetTerm.name)
+        if (sisterTerms && sisterTerms.length > 0) allTermIds = sisterTerms.map(t => t.id)
+    }
+
+    const byStudent = new Map<string, Map<string, string>>()
+    appreciations.forEach(a => {
+        if (!byStudent.has(a.studentId)) byStudent.set(a.studentId, new Map())
+        byStudent.get(a.studentId)!.set(a.subjectId, a.appreciation)
+    })
+
+    const promises = Array.from(byStudent.entries()).map(async ([studentId, apprMap]) => {
+        const { data } = await supabase
+            .from('report_cards' as any)
+            .select('subject_averages')
+            .eq('school_id', schoolId)
+            .eq('class_id', classId)
+            .in('term_id', allTermIds)
+            .eq('student_id', studentId)
+            .maybeSingle()
+
+        const existing: any[] = (data as any)?.subject_averages ?? []
+        const updated = existing.map((s: any) => ({
+            ...s,
+            appreciation: apprMap.has(s.subjectId) ? apprMap.get(s.subjectId) : (s.appreciation ?? null),
+        }))
+
+        return supabase
+            .from('report_cards' as any)
+            .update({ subject_averages: updated })
+            .eq('school_id', schoolId)
+            .eq('class_id', classId)
+            .eq('term_id', termId)
+            .eq('student_id', studentId)
+    })
+
+    const results = await Promise.all(promises)
+    const firstError = results.find(r => r.error)?.error
+    if (firstError) return { error: firstError.message }
+    return { success: true }
+}
+
+// ─── Search students by name ───────────────────────────────────────────────────
+
+export async function getStudentsByName(query: string) {
+    const ctx = await getActionContext()
+    if (!ctx) return { error: 'Non authentifié' }
+    const { schoolId } = ctx
+    const adminClient = createAdminClient()
+
+    const { data: links } = await adminClient
+        .from('profile_schools')
+        .select('profile_id')
+        .eq('school_id', schoolId)
+        .eq('role', 'student')
+
+    if (!links || links.length === 0) return { students: [] }
+
+    const profileIds = (links as any[]).map((l: any) => l.profile_id)
+
+    const { data: profiles, error } = await adminClient
+        .from('profiles')
+        .select('id, full_name, national_id')
+        .in('id', profileIds)
+        .ilike('full_name', `%${query}%`)
+        .eq('role', 'student')
+        .limit(10)
+
+    if (error) return { error: error.message }
+    if (!profiles || profiles.length === 0) return { students: [] }
+
+    const students = await Promise.all((profiles as any[]).map(async (profile: any) => {
+        const { data: enrollment } = await adminClient
+            .from('enrollments')
+            .select('class_id, academic_year_id')
+            .eq('student_id', profile.id)
+            .eq('school_id', schoolId)
+            .order('created_at', { ascending: false })
+            .limit(1)
+            .maybeSingle()
+
+        return { profile, enrollment }
+    }))
+
+    return { students: students.filter(s => s.enrollment) }
 }
 
 export async function getStudentInfoByNNI(nni: string) {

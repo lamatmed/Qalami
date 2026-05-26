@@ -39,6 +39,7 @@ import {
     ChevronRight,
     Megaphone,
     CalendarDays,
+    Activity,
 } from 'lucide-react'
 
 import { createClient } from '@/utils/supabase/client'
@@ -94,6 +95,7 @@ export const sidebarItems = [
     { icon: ShieldCheck, label: 'admin.sidebar.users', href: '/admin/users' },
     { icon: FileText, label: 'admin.sidebar.archives', href: '/admin/documents' },
     { icon: Settings, label: 'admin.sidebar.settings', href: '/admin/settings' },
+    { icon: Activity, label: 'admin.sidebar.activity', href: '/admin/activity' },
 ]
 
 // ─── Sidebar Component ────────────────────────────────────────────────────────
@@ -311,6 +313,7 @@ export function AdminSidebar() {
                 { icon: ShieldCheck, label: t('admin.sidebar.users'), href: '/admin/users' },
                 { icon: FileText, label: t('admin.sidebar.archives'), href: '/admin/documents' },
                 { icon: Settings, label: t('admin.sidebar.settings'), href: '/admin/settings' },
+                ...(!isStaff ? [{ icon: Activity, label: t('admin.sidebar.activity'), href: '/admin/activity' }] : []),
             ],
         },
 
@@ -344,7 +347,7 @@ export function AdminSidebar() {
 
     const handleLogout = async () => {
         const supabase = createClient()
-        await supabase.auth.signOut()
+        await supabase.auth.signOut({ scope: 'local' })
         sessionStorage.removeItem('superAdminViewingAs')
         router.push('/login')
     }

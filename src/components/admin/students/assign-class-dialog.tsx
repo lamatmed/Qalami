@@ -36,7 +36,7 @@ interface AssignClassDialogProps {
     studentId: string
     studentName: string
     currentClassId?: string | null
-    onSuccess?: (className: string) => void
+    onSuccess?: (className: string, classId: string) => void
 }
 
 export function AssignClassDialog({
@@ -115,7 +115,7 @@ export function AssignClassDialog({
                     .replace('{name}', studentName)
                     .replace('{className}', result.className || '')
             )
-            onSuccess?.(result.className!)
+            onSuccess?.(result.className!, selectedClassId)
             onOpenChange(false)
         }
     }

@@ -2,6 +2,7 @@
 
 import { createAdminClient } from '@/utils/supabase/admin'
 import { createClient } from '@/utils/supabase/server'
+import { logActivity } from '@/lib/activity-log'
 
 export async function confirmPaymentAction(payload: {
     employeeId: string
@@ -102,6 +103,15 @@ export async function confirmPaymentAction(payload: {
         })
         if (txErr) return { error: txErr.message }
     }
+
+    logActivity({
+        actorId: user.id,
+        schoolId: me.school_id,
+        action: 'confirm_payroll',
+        entityType: 'payroll',
+        entityId: payload.employeeId,
+        details: `Salaire versé à ${payload.employeeName} — Net: ${payload.netSalary.toLocaleString('fr-FR')} MRU (${month}/${year}) · Réf: ${payload.transactionRef}`,
+    })
 
     return { success: true }
 }

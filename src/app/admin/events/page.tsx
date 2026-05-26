@@ -96,8 +96,10 @@ function Modal({ open, onClose, onSaved, editing, classes, schoolId, userId }: {
     const [title, setTitle] = useState('')
     const [description, setDescription] = useState('')
     const [type, setType] = useState('meeting')
-    const [startDate, setStartDate] = useState('')
-    const [endDate, setEndDate] = useState('')
+    const [startDate, setStartDate] = useState('')   // "YYYY-MM-DD"
+    const [startTime, setStartTime] = useState('')   // "HH:MM" optional
+    const [endDate, setEndDate] = useState('')       // "YYYY-MM-DD" optional
+    const [endTime, setEndTime] = useState('')       // "HH:MM" optional
     const [allDay, setAllDay] = useState(false)
     const [location, setLocation] = useState('')
     const [saving, setSaving] = useState(false)
@@ -112,8 +114,10 @@ function Modal({ open, onClose, onSaved, editing, classes, schoolId, userId }: {
         if (editing) {
             setTitle(editing.title); setDescription(editing.description || '')
             setType(editing.event_type)
-            setStartDate(editing.start_date.slice(0, 16))
-            setEndDate(editing.end_date ? editing.end_date.slice(0, 16) : '')
+            setStartDate(editing.start_date.slice(0, 10))
+            setStartTime(editing.start_date.length > 10 ? editing.start_date.slice(11, 16) : '')
+            setEndDate(editing.end_date ? editing.end_date.slice(0, 10) : '')
+            setEndTime(editing.end_date && editing.end_date.length > 10 ? editing.end_date.slice(11, 16) : '')
             setAllDay(editing.all_day); setLocation(editing.location || '')
             const { roles: r, classIds } = decodeAudience(editing.visibility || [])
             setRoles(r.length ? r : ['all'])
@@ -121,7 +125,7 @@ function Modal({ open, onClose, onSaved, editing, classes, schoolId, userId }: {
             setScopeAll(classIds.length === 0)
         } else {
             setTitle(''); setDescription(''); setType('meeting')
-            setStartDate(''); setEndDate(''); setAllDay(false); setLocation('')
+            setStartDate(''); setStartTime(''); setEndDate(''); setEndTime(''); setAllDay(false); setLocation('')
             setRoles(['all']); setSelClasses([]); setScopeAll(true)
         }
     }, [editing, open])
@@ -138,13 +142,15 @@ function Modal({ open, onClose, onSaved, editing, classes, schoolId, userId }: {
     const handleSave = async () => {
         if (!title.trim()) { toast.error(t('adminEvents.titleRequiredToast')); return }
         if (!startDate) { toast.error(t('adminEvents.startDateRequiredToast')); return }
-        
-        const parsedStart = new Date(startDate)
+
+        const fullStart = startDate + 'T' + (startTime || '00:00')
+        const parsedStart = new Date(fullStart)
         if (isNaN(parsedStart.getTime())) { toast.error(t('adminEvents.startDateInvalidToast')); return }
-        
+
         let parsedEnd: Date | null = null
         if (endDate && endDate.trim() !== '') {
-            parsedEnd = new Date(endDate)
+            const fullEnd = endDate + 'T' + (endTime || '00:00')
+            parsedEnd = new Date(fullEnd)
             if (isNaN(parsedEnd.getTime())) { toast.error(t('adminEvents.endDateInvalidToast')); return }
         }
 
@@ -207,15 +213,25 @@ function Modal({ open, onClose, onSaved, editing, classes, schoolId, userId }: {
                             </div>
                         </div>
                         <div className="grid grid-cols-2 gap-4">
-                            <div>
-                                <label className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-1.5 block">{t('adminEvents.startDate')} *</label>
-                                <input type={allDay ? 'date' : 'datetime-local'} value={allDay ? startDate.slice(0, 10) : startDate} onChange={e => setStartDate(e.target.value)}
+                            <div className="space-y-2">
+                                <label className="text-xs font-semibold text-gray-400 uppercase tracking-wider block">{t('adminEvents.startDate')} *</label>
+                                <input type="date" value={startDate} onChange={e => setStartDate(e.target.value)}
                                     className="w-full bg-[#1A2530] border border-white/10 rounded-xl px-4 py-2 text-sm text-white focus:outline-none focus:border-blue-500/50 [color-scheme:dark]" />
+                                {!allDay && (
+                                    <input type="time" value={startTime} onChange={e => setStartTime(e.target.value)}
+                                        placeholder={t('adminEvents.timePlaceholder')}
+                                        className="w-full bg-[#1A2530] border border-white/10 rounded-xl px-4 py-2 text-sm text-white focus:outline-none focus:border-blue-500/50 [color-scheme:dark] placeholder:text-gray-600" />
+                                )}
                             </div>
-                            <div>
-                                <label className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-1.5 block">{t('adminEvents.endDate')}</label>
-                                <input type={allDay ? 'date' : 'datetime-local'} value={allDay ? endDate.slice(0, 10) : endDate} onChange={e => setEndDate(e.target.value)}
+                            <div className="space-y-2">
+                                <label className="text-xs font-semibold text-gray-400 uppercase tracking-wider block">{t('adminEvents.endDate')}</label>
+                                <input type="date" value={endDate} onChange={e => setEndDate(e.target.value)}
                                     className="w-full bg-[#1A2530] border border-white/10 rounded-xl px-4 py-2 text-sm text-white focus:outline-none focus:border-blue-500/50 [color-scheme:dark]" />
+                                {!allDay && (
+                                    <input type="time" value={endTime} onChange={e => setEndTime(e.target.value)}
+                                        placeholder={t('adminEvents.timePlaceholder')}
+                                        className="w-full bg-[#1A2530] border border-white/10 rounded-xl px-4 py-2 text-sm text-white focus:outline-none focus:border-blue-500/50 [color-scheme:dark] placeholder:text-gray-600" />
+                                )}
                             </div>
                         </div>
                         <div className="flex items-center gap-4">

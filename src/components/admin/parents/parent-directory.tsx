@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import { useSearchParams } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Search, Plus, Phone, User, X, Loader2, ShieldAlert, KeyRound } from 'lucide-react'
@@ -66,8 +67,18 @@ export function ParentDirectory() {
     const [foundExistingParent, setFoundExistingParent] = useState<{ fullName: string; id: string } | null>(null)
     const [verificationError, setVerificationError] = useState('')
     const [linkingParent, setLinkingParent] = useState(false)
-    
+    const [schoolId, setSchoolId] = useState('')
+
     const { t, direction } = useLanguage()
+    const searchParams = useSearchParams()
+
+    useEffect(() => {
+        if (loading) return
+        const id = searchParams.get('id')
+        if (!id) return
+        const found = parents.find(p => p.id === id)
+        if (found) setSelectedParent(found)
+    }, [loading, parents, searchParams])
 
     const COMMON_COUNTRIES = [
         { code: '+222', label: '🇲🇷 +222' },
@@ -84,6 +95,7 @@ export function ParentDirectory() {
         const ctx = await getMySchoolContext()
         if (!ctx) { setLoading(false); return }
         const currentSchoolId = ctx.school_id
+        setSchoolId(currentSchoolId)
         const supabase = createClient()
 
         // ─── DISCOVERY 1: Parents directly assigned to this school
@@ -620,7 +632,7 @@ export function ParentDirectory() {
                     {/* Profile Detail Column */}
                     <div className={cn("lg:col-span-8 h-full", !selectedParent ? "hidden lg:block" : "block")}>
                         {selectedParent ? (
-                            <ParentProfile parent={selectedParent} onClose={() => setSelectedParent(null)} />
+                            <ParentProfile parent={selectedParent} schoolId={schoolId} onClose={() => setSelectedParent(null)} />
                         ) : (
                             <div className="h-full bg-[#161B22] border border-white/5 rounded-3xl p-6 flex flex-col items-center justify-center text-center">
                                 <div className="w-16 h-16 rounded-full bg-gray-800/50 flex items-center justify-center mb-4">

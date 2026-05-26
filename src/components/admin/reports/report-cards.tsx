@@ -9,8 +9,10 @@ import {
     getReportCardExtras,
     getAttendanceStatsForTerm,
     saveReportCardDetails,
+    saveSubjectAppreciations,
     saveAttendanceDays,
     getStudentInfoByNNI,
+    getStudentsByName,
     type StudentReport,
     type ReportCardExtra,
 } from '@/app/admin/reports/actions'
@@ -161,22 +163,22 @@ function StatusStepper({ status }: { status: ReportStatus }) {
     return (
         <div className="flex items-center gap-1">
             {steps.map((step, i) => {
-                const done = i < currentIdx
+                const reached = i <= currentIdx
                 const active = i === currentIdx
                 const Icon = step.icon
                 return (
                     <div key={step.key} className="flex items-center">
                         <div className={cn(
                             'flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold transition-all',
-                            done   ? 'bg-emerald-500/15 text-emerald-400' :
-                            active ? 'bg-indigo-500/15 text-indigo-400 ring-1 ring-indigo-500/30' :
-                                     'bg-white/5 text-gray-600'
+                            reached && active  ? 'bg-emerald-500/20 text-emerald-300 ring-1 ring-emerald-500/50' :
+                            reached && !active ? 'bg-emerald-500/15 text-emerald-400' :
+                                                 'bg-white/5 text-gray-600'
                         )}>
                             <Icon className="w-3 h-3" />
                             {step.label}
                         </div>
                         {i < steps.length - 1 && (
-                            <div className={cn('w-4 h-px mx-1', done ? 'bg-emerald-500/40' : 'bg-white/10')} />
+                            <div className={cn('w-4 h-px mx-1', reached ? 'bg-emerald-500/40' : 'bg-white/10')} />
                         )}
                     </div>
                 )
@@ -209,10 +211,20 @@ export function ReportCards() {
     const [conductGrades, setConductGrades] = useState<Map<string, string>>(new Map())
     const [generalComments, setGeneralComments] = useState<Map<string, string>>(new Map())
 
-    // NNI Search state
+    // Search state
+    const [searchMode, setSearchMode] = useState<'nni' | 'name'>('nni')
     const [nniQuery, setNniQuery] = useState('')
     const [isSearchingNni, setIsSearchingNni] = useState(false)
+    const [nameQuery, setNameQuery] = useState('')
+    const [isSearchingName, setIsSearchingName] = useState(false)
+    const [nameResults, setNameResults] = useState<{
+        profile: { id: string; full_name: string; national_id?: string }
+        enrollment: { class_id: string; academic_year_id: string } | null
+    }[]>([])
     const [filteredStudentId, setFilteredStudentId] = useState<string | null>(null)
+
+    // Per-subject appreciations: Map<studentId, Map<subjectId, string>>
+    const [subjectAppreciations, setSubjectAppreciations] = useState<Map<string, Map<string, string>>>(new Map())
 
     // Workflow status
     const [reportStatus, setReportStatus] = useState<ReportStatus>('draft')
@@ -299,9 +311,9 @@ export function ReportCards() {
         setAttendanceStats({})
         setConductGrades(new Map())
         setGeneralComments(new Map())
+        setSubjectAppreciations(new Map())
         setReportStatus('draft')
-        // Only clear the specific filter if we explicitly change selectors manually
-        // but don't clear it automatically if handleSearchNni called it.
+        setNameResults([])
     }
 
     useEffect(() => {
@@ -341,13 +353,16 @@ export function ReportCards() {
             const extrasMap = new Map<string, ReportCardExtra>()
             const conductMap = new Map<string, string>()
             const commentMap = new Map<string, string>()
+            const subjApprMap = new Map<string, Map<string, string>>()
             let overallStatus: ReportStatus = 'draft'
 
             extrasData.forEach(e => {
                 extrasMap.set(e.studentId, e)
                 if (e.conductGrade) conductMap.set(e.studentId, e.conductGrade)
                 if (e.generalComment) commentMap.set(e.studentId, e.generalComment)
-                // Use most advanced status found
+                if (e.subjectAppreciations.length > 0) {
+                    subjApprMap.set(e.studentId, new Map(e.subjectAppreciations.map(s => [s.subjectId, s.appreciation])))
+                }
                 if (e.status === 'published') overallStatus = 'published'
                 else if (e.status === 'validated' && overallStatus === 'draft') overallStatus = 'validated'
             })
@@ -355,6 +370,7 @@ export function ReportCards() {
             setExtras(extrasMap)
             setConductGrades(conductMap)
             setGeneralComments(commentMap)
+            setSubjectAppreciations(subjApprMap)
             setAttendanceStats(attStats)
             setReportStatus(overallStatus)
 
@@ -408,14 +424,63 @@ export function ReportCards() {
         }
     }
 
+    const handleSearchName = async (e?: React.FormEvent) => {
+        if (e) e.preventDefault()
+        if (!nameQuery.trim()) return
+        setIsSearchingName(true)
+        setNameResults([])
+        try {
+            const res = await getStudentsByName(nameQuery.trim())
+            if ('error' in res) {
+                toast.error(res.error)
+            } else if (res.students.length === 0) {
+                toast.error(t('reports.noStudentFound'))
+            } else if (res.students.length === 1) {
+                selectNameResult(res.students[0] as any)
+            } else {
+                setNameResults(res.students as any)
+            }
+        } catch {
+            toast.error(t('reports.searchError'))
+        } finally {
+            setIsSearchingName(false)
+        }
+    }
+
+    const selectNameResult = (student: { profile: { id: string; full_name: string; national_id?: string }; enrollment: { class_id: string; academic_year_id: string } | null }) => {
+        if (!student.enrollment) return
+        if (student.enrollment.academic_year_id) setSelectedYear(student.enrollment.academic_year_id)
+        setSelectedClass(student.enrollment.class_id)
+        setFilteredStudentId(student.profile.id)
+        setNameResults([])
+        toast.success(`${t('reports.eleveFound')} ${student.profile.full_name}`)
+        if (!selectedTerm) {
+            const currentForYear = terms.find(t => t.academic_year_id === student.enrollment!.academic_year_id && t.is_current)
+            if (currentForYear) setSelectedTerm(currentForYear.id)
+            else toast.info(t('reports.selectTermPrompt'))
+        }
+    }
+
     const handleClearFilter = () => {
         setFilteredStudentId(null)
         setNniQuery('')
+        setNameQuery('')
+        setNameResults([])
     }
 
     const displayReports = filteredStudentId 
         ? reports.filter(r => r.studentId === filteredStudentId)
         : reports
+
+    const collectSubjectAppreciations = () => {
+        const list: { studentId: string; subjectId: string; appreciation: string }[] = []
+        subjectAppreciations.forEach((subjMap, studentId) => {
+            subjMap.forEach((appreciation, subjectId) => {
+                list.push({ studentId, subjectId, appreciation })
+            })
+        })
+        return list
+    }
 
     const handleSaveDetails = async () => {
         if (reports.length === 0) return
@@ -427,8 +492,17 @@ export function ReportCards() {
             generalComment: generalComments.get(r.studentId) ?? '',
         }))
 
-        const result = await saveReportCardDetails(selectedClass, selectedTerm, details)
-        if (result.error) toast.error(result.error)
+        const appreciations = collectSubjectAppreciations()
+
+        const [detailsResult, apprResult] = await Promise.all([
+            saveReportCardDetails(selectedClass, selectedTerm, details),
+            appreciations.length > 0
+                ? saveSubjectAppreciations(selectedClass, selectedTerm, appreciations)
+                : Promise.resolve({ success: true }),
+        ])
+
+        if (detailsResult.error) toast.error(detailsResult.error)
+        else if (apprResult && 'error' in apprResult && apprResult.error) toast.error(apprResult.error)
         else toast.success(t('reports.saveSuccess'))
 
         setSavingDetails(false)
@@ -444,7 +518,11 @@ export function ReportCards() {
             conductGrade: conductGrades.get(r.studentId) ?? '',
             generalComment: generalComments.get(r.studentId) ?? '',
         }))
-        await saveReportCardDetails(selectedClass, selectedTerm, details)
+        const appreciations = collectSubjectAppreciations()
+        await Promise.all([
+            saveReportCardDetails(selectedClass, selectedTerm, details),
+            appreciations.length > 0 ? saveSubjectAppreciations(selectedClass, selectedTerm, appreciations) : Promise.resolve(),
+        ])
 
         const result = await validateReportCards(selectedClass, selectedTerm)
         if (result.error) toast.error(result.error)
@@ -1017,7 +1095,6 @@ export function ReportCards() {
                 {/* ── Header actions ──────────────────────────────────────── */}
                 {displayReports.length > 0 && (
                     <div className="no-print flex flex-wrap gap-2 items-center justify-end">
-                        <StatusStepper status={reportStatus} />
                         <Button
                             size="sm"
                             variant="outline"
@@ -1060,27 +1137,67 @@ export function ReportCards() {
 
                 {/* ── Selectors ──────────────────────────────────────────────── */}
                 <div className="bg-[#0F1720] border border-white/5 rounded-2xl p-5 no-print space-y-5">
-                    {/* Quick NNI search */}
-                    <form onSubmit={handleSearchNNI} className="flex flex-col sm:flex-row sm:items-end gap-3 border-b border-white/5 pb-5 mb-1">
+                    {/* Quick student search (NNI or Name) */}
+                    <form onSubmit={searchMode === 'nni' ? handleSearchNNI : handleSearchName} className="flex flex-col sm:flex-row sm:items-end gap-3 border-b border-white/5 pb-5 mb-1">
                         <div className="flex-1">
-                            <p className="text-[11px] font-bold text-gray-500 uppercase tracking-wider mb-1.5">{t('reports.nniSearchQuick')}</p>
+                            <div className="flex items-center gap-2 mb-1.5">
+                                <p className="text-[11px] font-bold text-gray-500 uppercase tracking-wider">{t('reports.searchQuick')}</p>
+                                <div className="flex rounded-lg overflow-hidden border border-white/10 text-[11px]">
+                                    <button
+                                        type="button"
+                                        onClick={() => { setSearchMode('nni'); setNameResults([]) }}
+                                        className={cn('px-2.5 py-1 font-bold transition-colors', searchMode === 'nni' ? 'bg-indigo-500 text-white' : 'bg-[#1A2530] text-gray-500 hover:text-gray-300')}
+                                    >NNI</button>
+                                    <button
+                                        type="button"
+                                        onClick={() => { setSearchMode('name'); setNameResults([]) }}
+                                        className={cn('px-2.5 py-1 font-bold transition-colors', searchMode === 'name' ? 'bg-indigo-500 text-white' : 'bg-[#1A2530] text-gray-500 hover:text-gray-300')}
+                                    >{t('reports.searchByName')}</button>
+                                </div>
+                            </div>
                             <div className="relative">
                                 <Search className="absolute start-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500" />
-                                <input 
-                                    type="text" 
-                                    placeholder={t('reports.nniSearchPlaceholder')}
-                                    value={nniQuery}
-                                    onChange={e => setNniQuery(e.target.value)}
-                                    className="w-full ps-9 pe-3 py-2.5 rounded-xl bg-[#1A2530] border border-white/10 text-white text-sm focus:border-indigo-500/50 outline-none placeholder:text-gray-600 transition-colors"
-                                />
+                                {searchMode === 'nni' ? (
+                                    <input
+                                        type="text"
+                                        placeholder={t('reports.nniSearchPlaceholder')}
+                                        value={nniQuery}
+                                        onChange={e => setNniQuery(e.target.value)}
+                                        className="w-full ps-9 pe-3 py-2.5 rounded-xl bg-[#1A2530] border border-white/10 text-white text-sm focus:border-indigo-500/50 outline-none placeholder:text-gray-600 transition-colors"
+                                    />
+                                ) : (
+                                    <input
+                                        type="text"
+                                        placeholder={t('reports.nameSearchPlaceholder')}
+                                        value={nameQuery}
+                                        onChange={e => setNameQuery(e.target.value)}
+                                        className="w-full ps-9 pe-3 py-2.5 rounded-xl bg-[#1A2530] border border-white/10 text-white text-sm focus:border-indigo-500/50 outline-none placeholder:text-gray-600 transition-colors"
+                                    />
+                                )}
+                                {/* Name search results dropdown */}
+                                {nameResults.length > 0 && (
+                                    <div className="absolute top-full start-0 end-0 mt-1.5 z-50 bg-[#1A2530] border border-white/10 rounded-xl shadow-xl overflow-hidden">
+                                        {nameResults.map(item => (
+                                            <button
+                                                key={item.profile.id}
+                                                type="button"
+                                                onClick={() => selectNameResult(item)}
+                                                className="w-full text-start px-3 py-2.5 text-sm text-gray-300 hover:bg-white/5 transition-colors border-b border-white/5 last:border-0"
+                                            >
+                                                <div className="font-semibold text-white">{item.profile.full_name}</div>
+                                                <div className="text-[11px] text-gray-500">NNI: {item.profile.national_id || '—'}</div>
+                                            </button>
+                                        ))}
+                                    </div>
+                                )}
                             </div>
                         </div>
-                        <Button 
-                            type="submit" 
-                            disabled={isSearchingNni || !nniQuery.trim()}
+                        <Button
+                            type="submit"
+                            disabled={(searchMode === 'nni' ? (isSearchingNni || !nniQuery.trim()) : (isSearchingName || !nameQuery.trim()))}
                             className="bg-white/5 hover:bg-white/10 border border-white/10 text-gray-300 font-medium shadow-none"
                         >
-                            {isSearchingNni ? <Loader2 className="w-4 h-4 me-2 animate-spin" /> : <Search className="w-4 h-4 me-2" />}
+                            {(searchMode === 'nni' ? isSearchingNni : isSearchingName) ? <Loader2 className="w-4 h-4 me-2 animate-spin" /> : <Search className="w-4 h-4 me-2" />}
                             {t('reports.nniSearchBtn')}
                         </Button>
                     </form>
@@ -1157,19 +1274,22 @@ export function ReportCards() {
                             )}
                         </div>
 
-                        {filteredStudentId && (
-                            <div className="flex items-center gap-2 bg-amber-500/10 border border-amber-500/20 rounded-lg px-3 py-1.5">
-                                <span className="text-xs text-amber-400 font-medium">{t('reports.nniModeFilter')}</span>
-                                <Button 
-                                    variant="ghost" 
-                                    size="sm" 
-                                    onClick={handleClearFilter}
-                                    className="h-6 py-0 px-2 text-[10px] text-amber-200 hover:text-white hover:bg-amber-500/20 font-bold"
-                                >
-                                    {t('reports.viewWholeClass')}
-                                </Button>
-                            </div>
-                        )}
+                        <div className="flex flex-wrap items-center gap-2">
+                            <StatusStepper status={reportStatus} />
+                            {filteredStudentId && (
+                                <div className="flex items-center gap-2 bg-amber-500/10 border border-amber-500/20 rounded-lg px-3 py-1.5">
+                                    <span className="text-xs text-amber-400 font-medium">{t('reports.nniModeFilter')}</span>
+                                    <Button
+                                        variant="ghost"
+                                        size="sm"
+                                        onClick={handleClearFilter}
+                                        className="h-6 py-0 px-2 text-[10px] text-amber-200 hover:text-white hover:bg-amber-500/20 font-bold"
+                                    >
+                                        {t('reports.viewWholeClass')}
+                                    </Button>
+                                </div>
+                            )}
+                        </div>
                     </div>
                 )}
 
@@ -1246,7 +1366,7 @@ export function ReportCards() {
                                                                 {rank}
                                                             </span>
                                                         )}
-                                                        <div className="flex flex-col">
+                                                        <div className="flex flex-col gap-0.5">
                                                             <div className="flex items-center gap-2">
                                                                 <span className="font-extrabold text-white tracking-wide truncate max-w-[160px] hover:text-indigo-200 transition-colors">
                                                                     {report.studentName}
@@ -1260,16 +1380,50 @@ export function ReportCards() {
                                                             <span className="text-[10px] text-gray-500 font-mono">
                                                                 NNI: {report.studentNNI || '—'}
                                                             </span>
+                                                            {/* Per-student status badge */}
+                                                            {(() => {
+                                                                const studentStatus = ext?.status ?? 'draft'
+                                                                return (
+                                                                    <span className={cn(
+                                                                        'self-start text-[9px] font-black px-1.5 py-0.5 rounded uppercase tracking-wide',
+                                                                        studentStatus === 'published' ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30' :
+                                                                        studentStatus === 'validated' ? 'bg-indigo-500/20 text-indigo-300 border border-indigo-500/30' :
+                                                                        'bg-white/5 text-gray-600 border border-white/10'
+                                                                    )}>
+                                                                        {t(`reports.${studentStatus}`)}
+                                                                    </span>
+                                                                )
+                                                            })()}
                                                         </div>
                                                     </div>
                                                 </td>
 
-                                                {/* Subject averages */}
+                                                {/* Subject averages + per-subject appreciations */}
                                                 {allSubjects.map(subj => {
                                                     const found = report.subjects.find(s => s.subjectId === subj.id)
+                                                    const appr = subjectAppreciations.get(report.studentId)?.get(subj.id) ?? ''
                                                     return (
-                                                        <td key={subj.id} className="px-4 py-4 text-center">
-                                                            <AvgBadge value={found?.average ?? null} />
+                                                        <td key={subj.id} className="px-3 py-3 text-center align-top">
+                                                            <div className="flex flex-col items-center gap-1.5">
+                                                                <AvgBadge value={found?.average ?? null} />
+                                                                {!isReadOnly ? (
+                                                                    <textarea
+                                                                        rows={2}
+                                                                        value={appr}
+                                                                        onChange={e => {
+                                                                            const outer = new Map(subjectAppreciations)
+                                                                            const inner = new Map(outer.get(report.studentId) ?? [])
+                                                                            inner.set(subj.id, e.target.value)
+                                                                            outer.set(report.studentId, inner)
+                                                                            setSubjectAppreciations(outer)
+                                                                        }}
+                                                                        placeholder={t('reports.subjectApprPlaceholder')}
+                                                                        className="w-full bg-[#121B24] border border-white/10 hover:border-indigo-500/30 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500/30 transition-all rounded-lg text-[10px] text-gray-300 px-2 py-1.5 resize-none outline-none placeholder:text-slate-700"
+                                                                    />
+                                                                ) : appr ? (
+                                                                    <span className="text-[10px] text-gray-400 italic text-center block leading-tight">{appr}</span>
+                                                                ) : null}
+                                                            </div>
                                                         </td>
                                                     )
                                                 })}
@@ -1587,11 +1741,11 @@ export function ReportCards() {
                                         </div>
                                         <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                                             <span style={{ color: '#64748b' }}>{t('reports.presencesLabel')} :</span>
-                                            <span>{(att?.present_days ?? ext?.attendanceDays) || 0}</span>
+                                            <span>{(att ? (att.present + att.late) : (ext?.attendanceDays ?? 0)) || 0}</span>
                                         </div>
                                         <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                                             <span style={{ color: '#64748b' }}>{t('reports.absencesLabel')} :</span>
-                                            <span style={{ color: '#dc2626', fontWeight: 700 }}>{(att?.absent_days ?? ext?.absenceDays) || 0}</span>
+                                            <span style={{ color: '#dc2626', fontWeight: 700 }}>{(att ? att.absent : (ext?.absenceDays ?? 0)) || 0}</span>
                                         </div>
                                     </div>
                                 </div>

@@ -70,7 +70,7 @@ interface ActivityLog {
     entity_type: string
     details: string
     created_at: string
-    profiles: { full_name: string } | null
+    profiles: { full_name: string; phone?: string | null } | null
 }
 
 type TabType = 'users' | 'logs'
@@ -485,28 +485,36 @@ export function UsersManagement() {
                         </div>
                     ) : (
                         <div className="space-y-2">
-                            {logs.map(log => (
-                                <div key={log.id} className="flex items-start gap-3 bg-white dark:bg-[#0F1720] border border-gray-200 dark:border-white/5 rounded-xl p-4">
-                                    <div className="w-8 h-8 bg-gray-100 dark:bg-[#1A2530] rounded-lg flex items-center justify-center shrink-0 mt-0.5">
-                                        <Clock className="w-4 h-4 text-gray-400" />
-                                    </div>
-                                    <div className="flex-1 min-w-0">
-                                        <p className="text-sm text-gray-800 dark:text-gray-200">{log.details}</p>
-                                        <div className="flex items-center gap-2 mt-1">
-                                            <span className="text-xs text-gray-400">
-                                                {(log.profiles as any)?.full_name || 'Admin'}
-                                            </span>
-                                            <span className="text-xs text-gray-300 dark:text-gray-600">·</span>
-                                            <span className="text-xs text-gray-400">
+                            {logs.map(log => {
+                                const actor = log.profiles as any
+                                const actorName = actor?.full_name || 'Admin'
+                                const actorPhone = actor?.phone as string | undefined
+                                return (
+                                    <div key={log.id} className="flex items-start gap-3 bg-white dark:bg-[#0F1720] border border-gray-200 dark:border-white/5 rounded-xl p-4">
+                                        <div className="w-8 h-8 bg-gray-100 dark:bg-[#1A2530] rounded-lg flex items-center justify-center shrink-0 mt-0.5">
+                                            <Clock className="w-4 h-4 text-gray-400" />
+                                        </div>
+                                        <div className="flex-1 min-w-0">
+                                            <div className="flex items-center gap-2 mb-1">
+                                                <span className="text-xs font-semibold text-emerald-600 dark:text-emerald-400">{actorName}</span>
+                                                {actorPhone && (
+                                                    <>
+                                                        <span className="text-gray-300 dark:text-gray-600 text-xs">·</span>
+                                                        <span className="text-xs font-mono text-gray-500">{actorPhone}</span>
+                                                    </>
+                                                )}
+                                            </div>
+                                            <p className="text-sm text-gray-800 dark:text-gray-200">{log.details}</p>
+                                            <span className="text-xs text-gray-400 mt-1 block">
                                                 {new Date(log.created_at).toLocaleString('fr-FR')}
                                             </span>
                                         </div>
+                                        <span className="text-[10px] bg-gray-100 dark:bg-[#1A2530] text-gray-500 px-2 py-0.5 rounded shrink-0 mt-0.5">
+                                            {t(`admin.activity.actionLabels.${log.action}`) || log.action}
+                                        </span>
                                     </div>
-                                    <span className="text-[10px] bg-gray-100 dark:bg-[#1A2530] text-gray-500 px-2 py-0.5 rounded shrink-0">
-                                        {log.action}
-                                    </span>
-                                </div>
-                            ))}
+                                )
+                            })}
                         </div>
                     )}
                 </div>

@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { Download, ArrowLeft, Loader2, BookOpen, Plus, X, Users, ClipboardList, UserPlus, Search, UserCheck, Pencil, Trash2, AlertTriangle, TrendingUp } from 'lucide-react'
+import { Download, ArrowLeft, Loader2, BookOpen, Plus, X, Users, ClipboardList, UserPlus, Search, UserCheck, Pencil, Trash2, AlertTriangle, TrendingUp, ArrowRightLeft, UserMinus } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { cn } from '@/lib/utils'
@@ -12,7 +12,7 @@ import { createClient } from '@/utils/supabase/client'
 import { useSchoolContext } from '@/lib/use-school-context'
 import { removeSubjectFromClass, addSubjectToClass } from '@/app/admin/subjects/actions'
 import { ClassPerformance } from './class-performance'
-import { assignStudentToClass } from '@/app/admin/students/actions'
+import { assignStudentToClass, removeStudentFromClass } from '@/app/admin/students/actions'
 import { updateClass, deleteClass } from '@/app/admin/classes/actions'
 import { toast } from 'sonner'
 
@@ -23,11 +23,12 @@ interface StudentRow {
     nni?: string
 }
 
-interface UnassignedStudent {
+interface AvailableStudent {
     id: string
     name: string
     avatar: string
     nni?: string
+    currentClass?: string
 }
 
 interface SubjectRow {
@@ -47,7 +48,7 @@ export function ClassDetails({ levelId, classId }: { levelId: string, classId: s
     const [loadingSubjects, setLoadingSubjects] = useState(false)
     const [className, setClassName] = useState('')
     const [resolvedClassId, setResolvedClassId] = useState('')
-    const [removingId, setRemovingId] = useState<string | null>(null)
+    const [removingSubjectId, setRemovingSubjectId] = useState<string | null>(null)
 
     // Add subject panel
     const [showAddSubject, setShowAddSubject] = useState(false)
@@ -64,12 +65,23 @@ export function ClassDetails({ levelId, classId }: { levelId: string, classId: s
     const [deleteOpen, setDeleteOpen] = useState(false)
     const [deleting, setDeleting] = useState(false)
 
-    // Unassigned students panel
+    // Available students panel (all students not in this class)
     const [showUnassigned, setShowUnassigned] = useState(false)
-    const [unassigned, setUnassigned] = useState<UnassignedStudent[]>([])
+    const [unassigned, setUnassigned] = useState<AvailableStudent[]>([])
     const [loadingUnassigned, setLoadingUnassigned] = useState(false)
     const [assigningId, setAssigningId] = useState<string | null>(null)
     const [searchQuery, setSearchQuery] = useState('')
+
+    // Remove student from class
+    const [removeConfirmId, setRemoveConfirmId] = useState<string | null>(null)
+    const [removingStudentFromClass, setRemovingStudentFromClass] = useState(false)
+
+    // Transfer student to another class
+    const [transferStudent, setTransferStudent] = useState<StudentRow | null>(null)
+    const [allClasses, setAllClasses] = useState<{ id: string; name: string }[]>([])
+    const [loadingClasses, setLoadingClasses] = useState(false)
+    const [transferringTo, setTransferringTo] = useState<string | null>(null)
+    const [classSearch, setClassSearch] = useState('')
 
     useEffect(() => {
         async function load() {
@@ -89,6 +101,7 @@ export function ClassDetails({ levelId, classId }: { levelId: string, classId: s
                     .from('enrollments')
                     .select('student_id, profiles!enrollments_student_id_fkey(id, full_name, national_id)')
                     .eq('class_id', classData.id)
+                    .eq('status', 'active')
 
                 setStudents((enrollments || []).map((e: any) => ({
                     id: e.profiles?.id || e.student_id,
@@ -102,47 +115,77 @@ export function ClassDetails({ levelId, classId }: { levelId: string, classId: s
         load()
     }, [classId])
 
-    // Load unassigned students
+    // Load classes for transfer modal
+    const loadAllClasses = useCallback(async () => {
+        if (!context || !resolvedClassId) return
+        setLoadingClasses(true)
+        const supabase = createClient()
+        const { data } = await supabase
+            .from('classes')
+            .select('id, name')
+            .eq('school_id', context.school_id)
+            .neq('id', resolvedClassId)
+            .order('name')
+        setAllClasses((data || []).map((c: any) => ({ id: c.id, name: c.name })))
+        setLoadingClasses(false)
+    }, [context, resolvedClassId])
+
+    useEffect(() => {
+        if (transferStudent) loadAllClasses()
+    }, [transferStudent, loadAllClasses])
+
+    // Load all available students (unassigned + in other classes)
     const loadUnassigned = useCallback(async () => {
-        if (!context) return
+        if (!context || !resolvedClassId) return
         setLoadingUnassigned(true)
         const supabase = createClient()
         const schoolId = context.school_id
 
-        const { data: allStudents } = await supabase
-            .from('profiles')
-            .select('id, full_name, national_id')
-            .eq('school_id', schoolId)
-            .eq('role', 'student')
-            .eq('status', 'active')
-            .order('full_name')
+        const [{ data: allStudents }, { data: enrollments }] = await Promise.all([
+            supabase
+                .from('profiles')
+                .select('id, full_name, national_id')
+                .eq('school_id', schoolId)
+                .eq('role', 'student')
+                .eq('status', 'active')
+                .order('full_name'),
+            supabase
+                .from('enrollments')
+                .select('student_id, class_id, classes(name)')
+                .eq('school_id', schoolId)
+                .eq('status', 'active'),
+        ])
 
-        const { data: enrollments } = await supabase
-            .from('enrollments')
-            .select('student_id')
-            .eq('school_id', schoolId)
-            .eq('status', 'active')
+        // Map: student_id → their current class name (if enrolled elsewhere)
+        const enrollmentMap = new Map<string, string>()
+        const thisClassStudentIds = new Set<string>()
+        for (const e of (enrollments || []) as any[]) {
+            if (e.class_id === resolvedClassId) {
+                thisClassStudentIds.add(e.student_id)
+            } else {
+                enrollmentMap.set(e.student_id, e.classes?.name || '')
+            }
+        }
 
-        const enrolledIds = new Set((enrollments || []).map((e: any) => e.student_id))
-
-        const unassignedList = (allStudents || [])
-            .filter((s: any) => !enrolledIds.has(s.id))
+        const available = (allStudents || [])
+            .filter((s: any) => !thisClassStudentIds.has(s.id))
             .map((s: any) => ({
                 id: s.id,
                 name: s.full_name || 'Inconnu',
                 avatar: (s.full_name || 'XX').split(' ').map((w: string) => w[0]).join('').substring(0, 2).toUpperCase(),
                 nni: s.national_id ?? undefined,
+                currentClass: enrollmentMap.get(s.id),
             }))
 
-        setUnassigned(unassignedList)
+        setUnassigned(available)
         setLoadingUnassigned(false)
-    }, [context])
+    }, [context, resolvedClassId])
 
     useEffect(() => {
         if (showUnassigned) loadUnassigned()
     }, [showUnassigned, loadUnassigned])
 
-    const handleAssign = async (student: UnassignedStudent) => {
+    const handleAssign = async (student: AvailableStudent) => {
         if (!resolvedClassId) return
         setAssigningId(student.id)
         const result = await assignStudentToClass(student.id, resolvedClassId)
@@ -151,9 +194,36 @@ export function ClassDetails({ levelId, classId }: { levelId: string, classId: s
         } else {
             toast.success(t('admin.structure.studentAssignedToClass').replace('{name}', student.name).replace('{className}', className))
             setUnassigned(prev => prev.filter(s => s.id !== student.id))
-            setStudents(prev => [...prev, student])
+            setStudents(prev => [...prev, { id: student.id, name: student.name, avatar: student.avatar, nni: student.nni }])
         }
         setAssigningId(null)
+    }
+
+    const handleRemoveStudent = async (studentId: string, studentName: string) => {
+        setRemovingStudentFromClass(true)
+        const result = await removeStudentFromClass(studentId, resolvedClassId)
+        if (result?.error) {
+            toast.error(result.error)
+        } else {
+            toast.success(t('admin.structure.studentRemovedFromClass').replace('{name}', studentName))
+            setStudents(prev => prev.filter(s => s.id !== studentId))
+            setRemoveConfirmId(null)
+        }
+        setRemovingStudentFromClass(false)
+    }
+
+    const handleTransferStudent = async (targetClassId: string, targetClassName: string) => {
+        if (!transferStudent) return
+        setTransferringTo(targetClassId)
+        const result = await assignStudentToClass(transferStudent.id, targetClassId)
+        if (result?.error) {
+            toast.error(result.error)
+        } else {
+            toast.success(t('admin.structure.studentTransferred').replace('{name}', transferStudent.name).replace('{className}', targetClassName))
+            setStudents(prev => prev.filter(s => s.id !== transferStudent.id))
+            setTransferStudent(null)
+        }
+        setTransferringTo(null)
     }
 
     const loadSubjects = useCallback(async () => {
@@ -209,8 +279,8 @@ export function ClassDetails({ levelId, classId }: { levelId: string, classId: s
         setAddingSubjectId(null)
     }
 
-    const handleRemove = async (subjectId: string, subjectName: string) => {
-        setRemovingId(subjectId)
+    const handleRemoveSubject = async (subjectId: string, subjectName: string) => {
+        setRemovingSubjectId(subjectId)
         const result = await removeSubjectFromClass(resolvedClassId, subjectId)
         if (result?.error) {
             toast.error(result.error)
@@ -218,7 +288,7 @@ export function ClassDetails({ levelId, classId }: { levelId: string, classId: s
             toast.success(t('admin.structure.subjectRemovedFromClass').replace('{name}', subjectName))
             setClassSubjects(prev => prev.filter(s => s.id !== subjectId))
         }
-        setRemovingId(null)
+        setRemovingSubjectId(null)
     }
 
     const handleEditOpen = () => {
@@ -288,6 +358,10 @@ export function ClassDetails({ levelId, classId }: { levelId: string, classId: s
     const filteredUnassigned = searchQuery.trim()
         ? unassigned.filter(s => s.name.toLowerCase().includes(searchQuery.toLowerCase()))
         : unassigned
+
+    const filteredClasses = classSearch.trim()
+        ? allClasses.filter(c => c.name.toLowerCase().includes(classSearch.toLowerCase()))
+        : allClasses
 
     return (
         <div className="h-full flex flex-col space-y-6 animate-in fade-in duration-500">
@@ -383,15 +457,11 @@ export function ClassDetails({ levelId, classId }: { levelId: string, classId: s
                 </button>
             </div>
 
-            {/* Tab: Students */}
+            {/* ── Tab: Students ── */}
             {activeTab === 'students' && (
                 <div className="flex-1 flex gap-5 min-h-0">
-
                     {/* Left: enrolled students */}
-                    <div className={cn(
-                        "flex flex-col transition-all duration-300",
-                        showUnassigned ? "flex-1" : "flex-1"
-                    )}>
+                    <div className="flex-1 flex flex-col">
                         <div className="bg-[#1A2530] rounded-2xl border border-white/5 p-5 flex flex-col flex-1">
                             <div className="flex justify-between items-center mb-4">
                                 <p className="text-[11px] font-bold text-gray-500 uppercase tracking-wider">
@@ -446,18 +516,65 @@ export function ClassDetails({ levelId, classId }: { levelId: string, classId: s
                                     )}
                                 </div>
                             ) : (
-                                <div className="space-y-2 overflow-y-auto">
+                                <div className="space-y-1.5 overflow-y-auto">
                                     {students.map((student) => (
-                                        <div key={student.id} className="flex items-center gap-3 p-3 bg-[#0F1720] rounded-xl border border-white/5 hover:border-white/10 transition-colors">
-                                            <div className="w-9 h-9 rounded-full bg-emerald-500/15 flex items-center justify-center text-emerald-400 font-bold text-xs shrink-0">
-                                                {student.avatar}
+                                        <div key={student.id}>
+                                            <div className={cn(
+                                                "group flex items-center gap-3 p-3 bg-[#0F1720] rounded-xl border border-white/5 hover:border-white/10 transition-colors",
+                                                removeConfirmId === student.id && "rounded-b-none border-b-0 border-red-500/20"
+                                            )}>
+                                                <div className="w-9 h-9 rounded-full bg-emerald-500/15 flex items-center justify-center text-emerald-400 font-bold text-xs shrink-0">
+                                                    {student.avatar}
+                                                </div>
+                                                <div className="min-w-0 flex-1">
+                                                    <p className="font-semibold text-gray-200 text-sm truncate">{student.name}</p>
+                                                    {student.nni && (
+                                                        <p className="text-[10px] text-gray-600 font-mono">{student.nni}</p>
+                                                    )}
+                                                </div>
+                                                <div className="flex items-center gap-1 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => { setTransferStudent(student); setClassSearch('') }}
+                                                        title={t('admin.structure.transferStudentTitle')}
+                                                        className="p-1.5 rounded-lg text-gray-600 hover:text-blue-400 hover:bg-blue-500/10 transition-colors"
+                                                    >
+                                                        <ArrowRightLeft className="w-3.5 h-3.5" />
+                                                    </button>
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => setRemoveConfirmId(prev => prev === student.id ? null : student.id)}
+                                                        title={t('admin.structure.removeStudentTitle')}
+                                                        className="p-1.5 rounded-lg text-gray-600 hover:text-red-400 hover:bg-red-500/10 transition-colors"
+                                                    >
+                                                        <UserMinus className="w-3.5 h-3.5" />
+                                                    </button>
+                                                </div>
                                             </div>
-                                            <div className="min-w-0">
-                                                <p className="font-semibold text-gray-200 text-sm truncate">{student.name}</p>
-                                                {student.nni && (
-                                                    <p className="text-[10px] text-gray-600 font-mono">{student.nni}</p>
-                                                )}
-                                            </div>
+                                            {/* Inline remove confirmation */}
+                                            {removeConfirmId === student.id && (
+                                                <div className="flex items-center justify-between px-3 py-2 rounded-b-xl bg-red-500/8 border border-red-500/20 border-t-0">
+                                                    <span className="text-xs text-red-400">{t('admin.structure.confirmRemoveStudent')}</span>
+                                                    <div className="flex gap-1.5">
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => setRemoveConfirmId(null)}
+                                                            className="px-2.5 py-1 text-[11px] text-gray-500 hover:text-white rounded-lg hover:bg-white/5 transition-colors"
+                                                        >
+                                                            {t('common.cancel')}
+                                                        </button>
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => handleRemoveStudent(student.id, student.name)}
+                                                            disabled={removingStudentFromClass}
+                                                            className="flex items-center gap-1 px-2.5 py-1 text-[11px] font-bold text-red-400 bg-red-500/20 rounded-lg hover:bg-red-500/30 disabled:opacity-50 transition-colors"
+                                                        >
+                                                            {removingStudentFromClass && <Loader2 className="w-3 h-3 animate-spin" />}
+                                                            {t('common.confirm')}
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                            )}
                                         </div>
                                     ))}
                                 </div>
@@ -465,7 +582,7 @@ export function ClassDetails({ levelId, classId }: { levelId: string, classId: s
                         </div>
                     </div>
 
-                    {/* Right: unassigned students panel */}
+                    {/* Right: available students panel */}
                     {showUnassigned && (
                         <div className="w-80 shrink-0 flex flex-col animate-in slide-in-from-right-4 duration-300">
                             <div className="bg-[#161B22] rounded-2xl border border-emerald-500/20 p-4 flex flex-col flex-1">
@@ -474,7 +591,7 @@ export function ClassDetails({ levelId, classId }: { levelId: string, classId: s
                                         <UserCheck className="w-3.5 h-3.5 text-emerald-400" />
                                     </div>
                                     <p className="text-[11px] font-bold text-emerald-400 uppercase tracking-wider">
-                                        {t('admin.structure.unassignedStudentsPanel')}
+                                        {t('admin.structure.availableStudentsPanel')}
                                     </p>
                                 </div>
 
@@ -496,27 +613,29 @@ export function ClassDetails({ levelId, classId }: { levelId: string, classId: s
                                     <div className="text-center py-8">
                                         <UserCheck className="w-8 h-8 text-gray-700 mx-auto mb-2" />
                                         <p className="text-xs text-gray-500">
-                                            {searchQuery ? t('admin.structure.noResults') : t('admin.structure.allStudentsAssigned')}
+                                            {searchQuery ? t('admin.structure.noResults') : t('admin.structure.noAvailableStudents')}
                                         </p>
                                     </div>
                                 ) : (
                                     <div className="space-y-1.5 overflow-y-auto flex-1">
                                         <p className="text-[10px] text-gray-600 mb-2">
-                                            {filteredUnassigned.length} élève{filteredUnassigned.length > 1 ? 's' : ''} non assigné{filteredUnassigned.length > 1 ? 's' : ''}
+                                            {filteredUnassigned.length} élève{filteredUnassigned.length > 1 ? 's' : ''} disponible{filteredUnassigned.length > 1 ? 's' : ''}
                                         </p>
                                         {filteredUnassigned.map(student => (
                                             <div
                                                 key={student.id}
-                                                className="flex items-center gap-2.5 p-2.5 rounded-xl bg-[#0D1117] border border-white/5 hover:border-emerald-500/20 transition-colors group"
+                                                className="flex items-center gap-2.5 p-2.5 rounded-xl bg-[#0D1117] border border-white/5 hover:border-emerald-500/20 transition-colors"
                                             >
                                                 <div className="w-8 h-8 rounded-full bg-white/5 flex items-center justify-center text-gray-400 font-bold text-[11px] shrink-0">
                                                     {student.avatar}
                                                 </div>
                                                 <div className="flex-1 min-w-0">
                                                     <p className="text-xs font-medium text-gray-300 truncate">{student.name}</p>
-                                                    {student.nni && (
+                                                    {student.currentClass ? (
+                                                        <p className="text-[10px] text-blue-400/70 font-medium truncate">↪ {student.currentClass}</p>
+                                                    ) : student.nni ? (
                                                         <p className="text-[10px] text-gray-600 font-mono">{student.nni}</p>
-                                                    )}
+                                                    ) : null}
                                                 </div>
                                                 <button
                                                     type="button"
@@ -539,7 +658,7 @@ export function ClassDetails({ levelId, classId }: { levelId: string, classId: s
                 </div>
             )}
 
-            {/* Tab: Subjects */}
+            {/* ── Tab: Subjects ── */}
             {activeTab === 'subjects' && (
                 <div className="flex-1 flex gap-5 min-h-0">
                     {/* Subjects list */}
@@ -587,7 +706,7 @@ export function ClassDetails({ levelId, classId }: { levelId: string, classId: s
                             ) : (
                                 <div className="space-y-2 overflow-y-auto">
                                     {classSubjects.map(subject => (
-                                        <div key={subject.id} className="flex items-center justify-between p-3 bg-[#0F1720] rounded-xl border border-white/5 hover:border-emerald-500/20 transition-all group">
+                                        <div key={subject.id} className="flex items-center justify-between p-3 bg-[#0F1720] rounded-xl border border-white/5 hover:border-red-500/10 transition-all group">
                                             <div className="flex items-center gap-3">
                                                 {subject.icon ? (
                                                     <span className="h-9 w-9 rounded-lg bg-emerald-500/10 flex items-center justify-center text-base">
@@ -602,14 +721,14 @@ export function ClassDetails({ levelId, classId }: { levelId: string, classId: s
                                             </div>
                                             <button
                                                 type="button"
-                                                className="p-1.5 rounded-lg text-gray-600 hover:text-red-400 hover:bg-red-500/10 transition-colors opacity-0 group-hover:opacity-100"
+                                                className="p-1.5 rounded-lg text-gray-600 hover:text-red-400 hover:bg-red-500/10 transition-colors"
                                                 title={t('admin.structure.removeSubjectTitle')}
-                                                onClick={() => handleRemove(subject.id, subject.name)}
-                                                disabled={removingId === subject.id}
+                                                onClick={() => handleRemoveSubject(subject.id, subject.name)}
+                                                disabled={removingSubjectId === subject.id}
                                             >
-                                                {removingId === subject.id
+                                                {removingSubjectId === subject.id
                                                     ? <Loader2 className="w-4 h-4 animate-spin" />
-                                                    : <X className="w-4 h-4" />
+                                                    : <Trash2 className="w-3.5 h-3.5" />
                                                 }
                                             </button>
                                         </div>
@@ -700,11 +819,78 @@ export function ClassDetails({ levelId, classId }: { levelId: string, classId: s
                 </div>
             )}
 
-            {/* Tab: Performance */}
+            {/* ── Tab: Performance ── */}
             {activeTab === 'performance' && resolvedClassId && (
-                <ClassPerformance
-                    resolvedClassId={resolvedClassId}
-                />
+                <ClassPerformance resolvedClassId={resolvedClassId} />
+            )}
+
+            {/* ── Transfer Student Modal ── */}
+            {transferStudent && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+                    <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => !transferringTo && setTransferStudent(null)} />
+                    <div className="relative w-full max-w-sm bg-[#161B22] rounded-2xl border border-white/8 shadow-2xl p-5 space-y-4 animate-in fade-in zoom-in-95 duration-200 flex flex-col max-h-[75vh]">
+                        <div className="flex items-center gap-3">
+                            <div className="w-9 h-9 rounded-xl bg-blue-500/15 flex items-center justify-center shrink-0">
+                                <ArrowRightLeft className="w-4 h-4 text-blue-400" />
+                            </div>
+                            <div className="flex-1 min-w-0">
+                                <h3 className="text-sm font-bold text-white">{t('admin.structure.transferDialogTitle')}</h3>
+                                <p className="text-xs text-gray-500 truncate">{transferStudent.name}</p>
+                            </div>
+                            <button
+                                type="button"
+                                onClick={() => setTransferStudent(null)}
+                                disabled={!!transferringTo}
+                                className="text-gray-600 hover:text-white transition-colors shrink-0 disabled:opacity-40"
+                            >
+                                <X className="w-4 h-4" />
+                            </button>
+                        </div>
+
+                        <div className="relative">
+                            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-600 pointer-events-none" />
+                            <Input
+                                placeholder={t('admin.structure.searchClassPlaceholder')}
+                                value={classSearch}
+                                onChange={e => setClassSearch(e.target.value)}
+                                className="pl-8 h-8 text-xs bg-[#0D1117] border-white/8 text-white placeholder:text-gray-700 rounded-lg"
+                            />
+                        </div>
+
+                        <div className="overflow-y-auto flex-1 space-y-1.5">
+                            {loadingClasses ? (
+                                <div className="flex items-center justify-center py-8">
+                                    <Loader2 className="w-5 h-5 animate-spin text-gray-500" />
+                                </div>
+                            ) : filteredClasses.length === 0 ? (
+                                <div className="text-center py-8">
+                                    <p className="text-xs text-gray-500">
+                                        {classSearch ? t('admin.structure.noResults') : t('admin.structure.noOtherClasses')}
+                                    </p>
+                                </div>
+                            ) : filteredClasses.map(cls => (
+                                <div key={cls.id} className="flex items-center gap-3 p-3 rounded-xl bg-[#0D1117] border border-white/5 hover:border-blue-500/20 transition-colors">
+                                    <div className="w-8 h-8 rounded-lg bg-blue-500/10 flex items-center justify-center shrink-0">
+                                        <Users className="w-3.5 h-3.5 text-blue-400" />
+                                    </div>
+                                    <p className="flex-1 text-sm font-medium text-gray-200">{cls.name}</p>
+                                    <button
+                                        type="button"
+                                        onClick={() => handleTransferStudent(cls.id, cls.name)}
+                                        disabled={!!transferringTo}
+                                        className="shrink-0 h-7 px-3 rounded-lg bg-blue-500/15 text-blue-400 text-[11px] font-semibold border border-blue-500/20 hover:bg-blue-500/25 transition-colors disabled:opacity-50 flex items-center gap-1.5"
+                                    >
+                                        {transferringTo === cls.id
+                                            ? <Loader2 className="w-3 h-3 animate-spin" />
+                                            : <ArrowRightLeft className="w-3 h-3" />
+                                        }
+                                        {t('admin.structure.transferBtn')}
+                                    </button>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                </div>
             )}
 
             {/* ── Edit Dialog ── */}

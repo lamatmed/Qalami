@@ -4,7 +4,7 @@ import { useState, useRef, useEffect } from 'react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { FileText, Download, Eye, Upload, CheckCircle2, AlertCircle, X, Loader2, BookOpen, Plus } from 'lucide-react'
+import { FileText, Download, Eye, Upload, CheckCircle2, AlertCircle, X, Loader2, BookOpen, Plus, Pencil, Trash2, Check } from 'lucide-react'
 import { toast } from 'sonner'
 import { createClient } from '@/utils/supabase/client'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
@@ -29,6 +29,7 @@ interface TeacherResource {
     file_type: string | null
     file_size_bytes: number | null
     document_type: string
+    subject_id: string | null
     subjectName: string | null
     subjectIcon: string | null
     className: string | null
@@ -52,6 +53,18 @@ export function TeacherDocuments({ teacherId }: TeacherDocumentsProps) {
     const [subjects, setSubjects] = useState<{ id: string; name: string }[]>([])
     const [uploadDialogOpen, setUploadDialogOpen] = useState(false)
 
+    // Edit state
+    const [editingId, setEditingId]       = useState<string | null>(null)
+    const [editName, setEditName]         = useState('')
+    const [editType, setEditType]         = useState('')
+    const [savingEdit, setSavingEdit]     = useState(false)
+    const [replaceFile, setReplaceFile]   = useState<File | null>(null)
+    const replaceFileRef                  = useRef<HTMLInputElement>(null)
+
+    // Delete state
+    const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null)
+    const [deleting, setDeleting]               = useState(false)
+
     const docTypeLabels: Record<string, string> = {
         course: t('admin.teachers.documents.types.course'),
         exercise: t('admin.teachers.documents.types.exercise'),
@@ -68,7 +81,7 @@ export function TeacherDocuments({ teacherId }: TeacherDocumentsProps) {
         const supabase = createClient()
         const { data } = await supabase
             .from('documents')
-            .select('id, name, file_url, file_type, file_size_bytes, document_type, academic_year, created_at, subjects(name, icon), classes(name)')
+            .select('id, name, file_url, file_type, file_size_bytes, document_type, subject_id, academic_year, created_at, subjects(name, icon), classes(name)')
             .eq('teacher_id', teacherId)
             .order('created_at', { ascending: false })
 
@@ -79,6 +92,7 @@ export function TeacherDocuments({ teacherId }: TeacherDocumentsProps) {
             file_type: d.file_type,
             file_size_bytes: d.file_size_bytes,
             document_type: d.document_type,
+            subject_id: d.subject_id || null,
             subjectName: d.subjects?.name || null,
             subjectIcon: d.subjects?.icon || null,
             className: d.classes?.name || null,
@@ -88,10 +102,10 @@ export function TeacherDocuments({ teacherId }: TeacherDocumentsProps) {
 
         setResources(mapped)
         const uniqueSubjects = mapped
-            .filter(d => d.subjectName)
+            .filter(d => d.subject_id && d.subjectName)
             .reduce((acc, d) => {
-                if (!acc.find(s => s.id === (d as any).subject_id)) {
-                    acc.push({ id: (d as any).subject_id, name: d.subjectName! })
+                if (!acc.find(s => s.id === d.subject_id)) {
+                    acc.push({ id: d.subject_id!, name: d.subjectName! })
                 }
                 return acc
             }, [] as { id: string; name: string }[])
@@ -170,6 +184,69 @@ export function TeacherDocuments({ teacherId }: TeacherDocumentsProps) {
         document.body.removeChild(link)
     }
 
+    const startEdit = (doc: TeacherResource) => {
+        setEditingId(doc.id)
+        setEditName(doc.name)
+        setEditType(doc.document_type)
+        setReplaceFile(null)
+        setDeleteConfirmId(null)
+    }
+
+    const cancelEdit = () => { setEditingId(null); setReplaceFile(null) }
+
+    const handleSaveEdit = async () => {
+        if (!editingId || !editName.trim()) return
+        setSavingEdit(true)
+        try {
+            const supabase = createClient()
+
+            let fileUrl: string | undefined
+            if (replaceFile) {
+                const ext  = replaceFile.name.split('.').pop()
+                const path = `teachers/${teacherId}/${editName.replace(/[^a-zA-Z0-9]/g, '_')}_${Date.now()}.${ext}`
+                const { error: storageErr } = await supabase.storage
+                    .from('documents')
+                    .upload(path, replaceFile, { upsert: true })
+                if (storageErr) throw storageErr
+                const { data: urlData } = supabase.storage.from('documents').getPublicUrl(path)
+                fileUrl = urlData.publicUrl
+            }
+
+            const update: Record<string, unknown> = { name: editName.trim(), document_type: editType }
+            if (fileUrl) update.file_url = fileUrl
+
+            const { error } = await supabase.from('documents').update(update).eq('id', editingId)
+            if (error) throw error
+
+            toast.success(t('admin.teachers.documents.editSaved'))
+            setEditingId(null)
+            setReplaceFile(null)
+            fetchResources()
+        } catch (err) {
+            console.error(err)
+            toast.error(t('admin.teachers.documents.editError'))
+        } finally {
+            setSavingEdit(false)
+        }
+    }
+
+    const handleDelete = async (id: string) => {
+        setDeleting(true)
+        try {
+            const supabase = createClient()
+            const { error } = await supabase.from('documents').delete().eq('id', id)
+            if (error) throw error
+            toast.success(t('admin.teachers.documents.deleted'))
+            setDeleteConfirmId(null)
+            setResources(prev => prev.filter(r => r.id !== id))
+        } catch (err) {
+            console.error(err)
+            toast.error(t('admin.teachers.documents.deleteError'))
+        } finally {
+            setDeleting(false)
+        }
+    }
+
     const verifiedCount = adminDocs.filter(d => d.status === 'verified').length
 
     const filteredResources = resources.filter(d => {
@@ -181,6 +258,7 @@ export function TeacherDocuments({ teacherId }: TeacherDocumentsProps) {
     return (
         <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-700">
             <input ref={fileInputRef} type="file" accept=".pdf,.jpg,.jpeg,.png,.doc,.docx" className="hidden" onChange={handleFileSelected} />
+            <input ref={replaceFileRef} type="file" accept=".pdf,.jpg,.jpeg,.png,.doc,.docx" className="hidden" onChange={e => setReplaceFile(e.target.files?.[0] || null)} />
 
             <UploadDocumentDialog
                 isOpen={uploadDialogOpen}
@@ -344,33 +422,140 @@ export function TeacherDocuments({ teacherId }: TeacherDocumentsProps) {
                         </div>
                     ) : (
                         <div className="space-y-2">
-                            {filteredResources.map(doc => (
-                                <div key={doc.id} className="flex items-center gap-3 p-3 bg-[#0F1720] rounded-xl border border-white/5 hover:border-cyan-500/30 transition-colors group">
-                                    <div className="h-9 w-9 rounded-lg bg-cyan-500/10 flex items-center justify-center shrink-0">
-                                        {doc.subjectIcon ? (
-                                            <span className="text-base">{doc.subjectIcon}</span>
+                            {filteredResources.map(doc => {
+                                const isEditing  = editingId === doc.id
+                                const isDeleting = deleteConfirmId === doc.id
+
+                                return (
+                                    <div key={doc.id} className="bg-[#0F1720] rounded-xl border border-white/5 hover:border-white/10 transition-colors group/res overflow-hidden">
+
+                                        {/* ── Edit form ── */}
+                                        {isEditing ? (
+                                            <div className="p-3 space-y-2 animate-in fade-in duration-150">
+                                                <input
+                                                    type="text"
+                                                    value={editName}
+                                                    onChange={e => setEditName(e.target.value)}
+                                                    placeholder={t('admin.teachers.documents.nameLabel')}
+                                                    className="w-full bg-[#1A2530] border border-white/10 text-sm text-white rounded-lg px-3 py-1.5 focus:outline-none focus:ring-1 focus:ring-cyan-500/50 placeholder:text-gray-600"
+                                                />
+                                                <select
+                                                    value={editType}
+                                                    title={t('admin.teachers.documents.allTypes')}
+                                                    onChange={e => setEditType(e.target.value)}
+                                                    className="w-full bg-[#1A2530] border border-white/10 text-xs text-white rounded-lg px-2 py-1.5 focus:outline-none focus:ring-1 focus:ring-cyan-500/50"
+                                                >
+                                                    {Object.entries(docTypeLabels).map(([v, l]) => (
+                                                        <option key={v} value={v}>{l}</option>
+                                                    ))}
+                                                </select>
+
+                                                {/* Optional file replacement */}
+                                                <div
+                                                    onClick={() => replaceFileRef.current?.click()}
+                                                    className={cn(
+                                                        'flex items-center gap-2 px-3 py-1.5 rounded-lg border border-dashed cursor-pointer transition-colors text-xs',
+                                                        replaceFile
+                                                            ? 'border-cyan-500/40 bg-cyan-500/5 text-cyan-400'
+                                                            : 'border-white/10 text-gray-500 hover:border-cyan-500/30'
+                                                    )}
+                                                >
+                                                    <Upload className="w-3.5 h-3.5 shrink-0" />
+                                                    <span className="truncate">
+                                                        {replaceFile ? replaceFile.name : t('admin.teachers.documents.replaceFile')}
+                                                    </span>
+                                                </div>
+
+                                                <div className="flex justify-end gap-2 pt-1">
+                                                    <button
+                                                        type="button"
+                                                        onClick={cancelEdit}
+                                                        disabled={savingEdit}
+                                                        className="p-1.5 text-gray-500 hover:text-white rounded-lg hover:bg-white/5 transition-colors"
+                                                    >
+                                                        <X className="w-3.5 h-3.5" />
+                                                    </button>
+                                                    <button
+                                                        type="button"
+                                                        onClick={handleSaveEdit}
+                                                        disabled={savingEdit || !editName.trim()}
+                                                        className="flex items-center gap-1.5 px-3 py-1.5 bg-cyan-600 hover:bg-cyan-500 disabled:opacity-50 disabled:cursor-not-allowed text-white text-xs font-bold rounded-lg transition-colors"
+                                                    >
+                                                        {savingEdit ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Check className="w-3.5 h-3.5" />}
+                                                        {t('admin.teachers.documents.saveEdit')}
+                                                    </button>
+                                                </div>
+                                            </div>
                                         ) : (
-                                            <FileText className="w-4 h-4 text-cyan-400" />
+                                            <div className="flex items-center gap-3 p-3">
+                                                <div className="h-9 w-9 rounded-lg bg-cyan-500/10 flex items-center justify-center shrink-0">
+                                                    {doc.subjectIcon
+                                                        ? <span className="text-base">{doc.subjectIcon}</span>
+                                                        : <FileText className="w-4 h-4 text-cyan-400" />
+                                                    }
+                                                </div>
+                                                <div className="flex-1 min-w-0">
+                                                    <p className="text-sm font-medium text-white truncate">{doc.name}</p>
+                                                    <p className="text-[10px] text-gray-500 mt-0.5">
+                                                        <span className="text-cyan-400 font-bold">{docTypeLabels[doc.document_type] || doc.document_type}</span>
+                                                        {doc.subjectName && ` · ${doc.subjectName}`}
+                                                        {doc.className && ` · ${doc.className}`}
+                                                        {doc.academic_year && ` · ${doc.academic_year}`}
+                                                    </p>
+                                                </div>
+                                                <div className="flex items-center gap-1 opacity-0 group-hover/res:opacity-100 transition-opacity shrink-0">
+                                                    {doc.file_url && (
+                                                        <a href={doc.file_url} target="_blank" rel="noopener noreferrer">
+                                                            <Button variant="ghost" size="icon" className="text-gray-500 hover:text-white h-7 w-7">
+                                                                <Download className="w-3.5 h-3.5" />
+                                                            </Button>
+                                                        </a>
+                                                    )}
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => startEdit(doc)}
+                                                        title={t('admin.teachers.documents.editResource')}
+                                                        className="p-1.5 rounded-lg text-gray-500 hover:text-cyan-400 hover:bg-cyan-500/10 transition-colors"
+                                                    >
+                                                        <Pencil className="w-3.5 h-3.5" />
+                                                    </button>
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => setDeleteConfirmId(doc.id)}
+                                                        title={t('admin.teachers.documents.deleteResource')}
+                                                        className="p-1.5 rounded-lg text-gray-500 hover:text-red-400 hover:bg-red-500/10 transition-colors"
+                                                    >
+                                                        <Trash2 className="w-3.5 h-3.5" />
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        )}
+
+                                        {/* ── Delete confirmation ── */}
+                                        {isDeleting && !isEditing && (
+                                            <div className="flex items-center gap-2 px-3 pb-3 animate-in fade-in duration-150">
+                                                <span className="text-xs text-red-400 flex-1">{t('admin.teachers.documents.deleteConfirm')}</span>
+                                                <button
+                                                    type="button"
+                                                    onClick={() => handleDelete(doc.id)}
+                                                    disabled={deleting}
+                                                    className="px-2 py-1 text-xs font-bold bg-red-500/15 border border-red-500/30 text-red-400 rounded hover:bg-red-500/25 transition-colors disabled:opacity-50"
+                                                >
+                                                    {deleting ? <Loader2 className="w-3 h-3 animate-spin" /> : t('admin.teachers.documents.deleteConfirmYes')}
+                                                </button>
+                                                <button
+                                                    type="button"
+                                                    onClick={() => setDeleteConfirmId(null)}
+                                                    disabled={deleting}
+                                                    className="px-2 py-1 text-xs font-bold bg-white/5 border border-white/10 text-gray-400 rounded hover:text-white transition-colors"
+                                                >
+                                                    {t('admin.teachers.documents.deleteConfirmNo')}
+                                                </button>
+                                            </div>
                                         )}
                                     </div>
-                                    <div className="flex-1 min-w-0">
-                                        <p className="text-sm font-medium text-white truncate">{doc.name}</p>
-                                        <p className="text-[10px] text-gray-500 mt-0.5">
-                                            <span className="text-cyan-400 font-bold">{docTypeLabels[doc.document_type] || doc.document_type}</span>
-                                            {doc.subjectName && ` · ${doc.subjectName}`}
-                                            {doc.className && ` · ${doc.className}`}
-                                            {doc.academic_year && ` · ${doc.academic_year}`}
-                                        </p>
-                                    </div>
-                                    {doc.file_url && (
-                                        <a href={doc.file_url} target="_blank" rel="noopener noreferrer" onClick={e => e.stopPropagation()}>
-                                            <Button variant="ghost" size="icon" className="text-gray-500 hover:text-white h-8 w-8 opacity-0 group-hover:opacity-100 transition-opacity">
-                                                <Download className="w-4 h-4" />
-                                            </Button>
-                                        </a>
-                                    )}
-                                </div>
-                            ))}
+                                )
+                            })}
                         </div>
                     )}
                 </TabsContent>

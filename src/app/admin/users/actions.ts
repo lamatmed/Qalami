@@ -2,6 +2,7 @@
 
 import { getActionContext } from '@/lib/auth-action'
 import { createAdminClient } from '@/utils/supabase/admin'
+import { logActivity } from '@/lib/activity-log'
 
 const PERMISSIONS = [
     'students', 'teachers', 'parents', 'finance', 'classes',
@@ -94,8 +95,7 @@ export async function createStaffUser(formData: {
         permissions: formData.permissions,
     }, { onConflict: 'user_id' })
 
-    await logActivity(supabase, userId, schoolId, 'create_staff', 'user', authUser.user.id,
-        `Création du compte staff: ${formData.fullName}`)
+    logActivity({ actorId: userId, schoolId, action: 'create_staff', entityType: 'user', entityId: authUser.user.id, details: `Création du compte staff: ${formData.fullName}` })
 
     return { success: true }
 }
@@ -114,8 +114,7 @@ export async function updateStaffPermissions(userId: string, permissions: Permis
 
     if (error) return { error: error.message }
 
-    await logActivity(supabase, actorId, schoolId, 'update_permissions', 'user', userId,
-        `Permissions mises à jour: ${permissions.join(', ')}`)
+    logActivity({ actorId, schoolId, action: 'update_permissions', entityType: 'user', entityId: userId, details: `Permissions mises à jour: ${permissions.join(', ')}` })
 
     return { success: true }
 }
@@ -138,8 +137,7 @@ export async function deleteStaffUser(userId: string) {
     await adminClient.from('profiles').delete().eq('id', userId)
     await adminClient.auth.admin.deleteUser(userId)
 
-    await logActivity(supabase, actorId, schoolId, 'delete_staff', 'user', userId,
-        `Suppression du compte staff: ${targetProfile.full_name}`)
+    logActivity({ actorId, schoolId, action: 'delete_staff', entityType: 'user', entityId: userId, details: `Suppression du compte staff: ${targetProfile.full_name}` })
 
     return { success: true }
 }
@@ -147,36 +145,43 @@ export async function deleteStaffUser(userId: string) {
 export async function getActivityLogs(limit = 50) {
     const ctx = await getActionContext()
     if (!ctx) return { error: 'Non autorisé' }
-    const { supabase, schoolId } = ctx
+    const { schoolId } = ctx
+    const adminClient = createAdminClient()
 
-    const { data, error } = await supabase
+    const { data, error } = await adminClient
         .from('activity_logs')
-        .select('id, actor_id, action, entity_type, entity_id, details, created_at, profiles!actor_id(full_name)')
+        .select('id, actor_id, action, entity_type, entity_id, details, created_at, profiles!actor_id(full_name, phone)')
         .eq('school_id', schoolId)
         .order('created_at', { ascending: false })
         .limit(limit)
 
     if (error) return { error: error.message }
-    return { data: data ?? [] }
-}
 
-async function logActivity(
-    supabase: any,
-    actorId: string,
-    schoolId: string,
-    action: string,
-    entityType: string,
-    entityId: string,
-    details: string,
-) {
-    await supabase.from('activity_logs').insert({
-        actor_id:    actorId,
-        school_id:   schoolId,
-        action,
-        entity_type: entityType,
-        entity_id:   entityId,
-        details,
-    })
+    const logs = (data ?? []) as any[]
+
+    // Replace any UUID in details with its human-readable name (class or term)
+    const uuidRe = /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/gi
+    const allIds = new Set<string>()
+    for (const log of logs) {
+        for (const m of (log.details ?? '').match(uuidRe) ?? []) allIds.add(m.toLowerCase())
+    }
+    if (allIds.size > 0) {
+        const ids = Array.from(allIds)
+        const [{ data: classes }, { data: terms }] = await Promise.all([
+            adminClient.from('classes').select('id, name').in('id', ids),
+            adminClient.from('terms').select('id, name').in('id', ids),
+        ])
+        const nameMap = new Map<string, string>()
+        for (const c of classes ?? []) nameMap.set((c as any).id.toLowerCase(), (c as any).name)
+        for (const t of terms ?? []) nameMap.set((t as any).id.toLowerCase(), (t as any).name)
+        if (nameMap.size > 0) {
+            for (const log of logs) {
+                log.details = (log.details ?? '').replace(uuidRe, (u: string) => nameMap.get(u.toLowerCase()) ?? u)
+            }
+        }
+    }
+
+    return { data: logs }
 }
 
 export async function adminUpdateUserPassword(targetUserId: string, newPassword: string) {
@@ -255,8 +260,7 @@ export async function adminUpdateUserPassword(targetUserId: string, newPassword:
         return { error: `Échec de la mise à jour: ${updateError.message}` }
     }
 
-    await logActivity(supabase, actorId, schoolId, 'update_password', 'user', targetUserId,
-        `Mise à jour du mot de passe pour: ${targetProfile.full_name}`)
+    logActivity({ actorId, schoolId, action: 'update_password', entityType: 'user', entityId: targetUserId, details: `Mise à jour du mot de passe pour: ${targetProfile.full_name}` })
 
     return { success: true }
 }

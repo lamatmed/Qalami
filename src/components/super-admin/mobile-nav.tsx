@@ -40,7 +40,7 @@ export function SuperAdminMobileNav() {
     const handleLogout = async () => {
         setSheetOpen(false)
         const supabase = createClient()
-        await supabase.auth.signOut()
+        await supabase.auth.signOut({ scope: 'local' })
         sessionStorage.removeItem('superAdminViewingAs')
         router.push('/login')
     }

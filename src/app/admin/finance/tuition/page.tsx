@@ -158,18 +158,27 @@ export default function TuitionPage() {
 
     // ── Filters ──────────────────────────────────────────────────────────────
     const todayStr = new Date().toISOString().split('T')[0]
+
+    // Unique payment types present in the data — ensures filter options always cover every record
+    const uniquePaymentTypes = Array.from(new Set(payments.map(p => p.payment_type))).sort()
+
     const filtered = payments.filter(p => {
         const matchSearch = search === '' ||
             p.student_name.toLowerCase().includes(search.toLowerCase()) ||
             (p.class_name ?? '').toLowerCase().includes(search.toLowerCase())
-        const isLate = p.status !== 'paid' && (p.status === 'overdue' || (p.due_date && p.due_date < todayStr))
+        // 'pending' filter also captures DB records stored with status='overdue'
         const matchStatus = filterStatus === 'all'
             ? true
-            : filterStatus === 'overdue'
-                ? isLate
+            : filterStatus === 'pending'
+                ? (p.status === 'pending' || p.status === 'overdue')
                 : p.status === filterStatus
         const matchType = filterType === 'all' || p.payment_type === filterType
-        const matchClass = filterClass === 'all' || p.class_name === filterClass
+        // '__none__' matches students with no class assignment
+        const matchClass = filterClass === 'all'
+            ? true
+            : filterClass === '__none__'
+                ? !p.class_name
+                : p.class_name === filterClass
         return matchSearch && matchStatus && matchType && matchClass
     })
 
@@ -365,7 +374,6 @@ export default function TuitionPage() {
                                 <SelectItem value="paid">{t('admin.tuition.status.paid')}</SelectItem>
                                 <SelectItem value="partial">{t('admin.tuition.status.partial')}</SelectItem>
                                 <SelectItem value="pending">{t('admin.tuition.status.pending')}</SelectItem>
-                                <SelectItem value="overdue">{t('admin.tuition.status.overdue')}</SelectItem>
                             </SelectContent>
                         </Select>
                         <Select value={filterType} onValueChange={setFilterType}>
@@ -374,10 +382,11 @@ export default function TuitionPage() {
                             </SelectTrigger>
                             <SelectContent>
                                 <SelectItem value="all">{t('admin.tuition.filters.allTypes')}</SelectItem>
-                                <SelectItem value="scolarite">{t('admin.tuition.paymentTypes.scolarite')}</SelectItem>
-                                <SelectItem value="bus">{t('admin.tuition.paymentTypes.bus')}</SelectItem>
-                                <SelectItem value="cantine">{t('admin.tuition.paymentTypes.cantine')}</SelectItem>
-                                <SelectItem value="activites">{t('admin.tuition.paymentTypes.activites')}</SelectItem>
+                                {uniquePaymentTypes.map(type => (
+                                    <SelectItem key={type} value={type}>
+                                        {t(`admin.tuition.paymentTypes.${type}`) || type}
+                                    </SelectItem>
+                                ))}
                             </SelectContent>
                         </Select>
                         <Select value={filterClass} onValueChange={setFilterClass}>
@@ -389,6 +398,9 @@ export default function TuitionPage() {
                                 {classes.map(c => (
                                     <SelectItem key={c.id} value={c.name}>{c.name}</SelectItem>
                                 ))}
+                                {payments.some(p => !p.class_name) && (
+                                    <SelectItem value="__none__">{t('admin.tuition.filters.noClass')}</SelectItem>
+                                )}
                             </SelectContent>
                         </Select>
                     </>

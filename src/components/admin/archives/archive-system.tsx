@@ -24,8 +24,10 @@ import {
     FileImage,
     FileSpreadsheet,
     Presentation,
-    Loader2
+    Loader2,
+    Plus
 } from 'lucide-react'
+import { UploadDocumentDialog } from '@/components/admin/documents/upload-document-dialog'
 import { cn } from '@/lib/utils'
 import { createClient } from '@/utils/supabase/client'
 import { useSchoolContext } from '@/lib/use-school-context'
@@ -135,87 +137,87 @@ export function ArchiveSystem() {
     const [year, setYear] = useState('all')
     const [sort, setSort] = useState<SortKey>('date_desc')
     const [view, setView] = useState<ViewMode>('grid')
+    const [showUpload, setShowUpload] = useState(false)
+
+    const loadDocs = async (schoolId: string) => {
+        setLoading(true)
+        const supabase = createClient()
+
+        const { data: mainDocs } = await supabase
+            .from('documents')
+            .select(`
+                id, name, file_url, file_type, file_size_bytes,
+                document_type, category, school_year, created_at,
+                teacher:profiles!documents_teacher_id_fkey ( full_name ),
+                uploader:profiles!documents_uploaded_by_fkey ( full_name ),
+                subject:subjects ( name ),
+                class:classes ( name )
+            `)
+            .eq('school_id', schoolId)
+            .order('created_at', { ascending: false })
+
+        const { data: studentDocs } = await supabase
+            .from('student_documents')
+            .select(`
+                id, document_name, file_url, file_type, status, uploaded_at,
+                student:profiles!student_documents_student_id_fkey ( full_name, school_id )
+            `)
+            .order('uploaded_at', { ascending: false })
+
+        const result: ArchiveDoc[] = []
+
+        for (const d of mainDocs ?? []) {
+            result.push({
+                id: d.id,
+                name: d.name,
+                file_url: d.file_url,
+                file_type: d.file_type,
+                file_size_bytes: d.file_size_bytes,
+                document_type: d.document_type,
+                category: d.category,
+                school_year: d.school_year,
+                created_at: d.created_at,
+                teacher_name: (d.teacher as any)?.full_name ?? null,
+                uploader_name: (d.uploader as any)?.full_name ?? null,
+                subject_name: (d.subject as any)?.name ?? null,
+                class_name: (d.class as any)?.name ?? null,
+                source: 'document',
+                student_name: null,
+                doc_status: null,
+            })
+        }
+
+        for (const d of studentDocs ?? []) {
+            const student = d.student as any
+            if (student?.school_id && student.school_id !== schoolId) continue
+            result.push({
+                id: d.id,
+                name: d.document_name,
+                file_url: d.file_url,
+                file_type: d.file_type,
+                file_size_bytes: null,
+                document_type: null,
+                category: 'student',
+                school_year: null,
+                created_at: d.uploaded_at,
+                teacher_name: null,
+                uploader_name: null,
+                subject_name: null,
+                class_name: null,
+                source: 'student_doc',
+                student_name: student?.full_name ?? null,
+                doc_status: d.status,
+            })
+        }
+
+        setDocs(result)
+        setLoading(false)
+    }
 
     useEffect(() => {
         if (!context) return
-        const schoolId = context.school_id
-        async function load() {
-            const supabase = createClient()
-
-            // Main documents table
-            const { data: mainDocs } = await supabase
-                .from('documents')
-                .select(`
-                    id, name, file_url, file_type, file_size_bytes,
-                    document_type, category, school_year, created_at,
-                    teacher:profiles!documents_teacher_id_fkey ( full_name ),
-                    uploader:profiles!documents_uploaded_by_fkey ( full_name ),
-                    subject:subjects ( name ),
-                    class:classes ( name )
-                `)
-                .eq('school_id', schoolId)
-                .order('created_at', { ascending: false })
-
-            // Student documents table
-            const { data: studentDocs } = await supabase
-                .from('student_documents')
-                .select(`
-                    id, document_name, file_url, file_type, status, uploaded_at,
-                    student:profiles!student_documents_student_id_fkey ( full_name, school_id )
-                `)
-                .order('uploaded_at', { ascending: false })
-
-            const result: ArchiveDoc[] = []
-
-            for (const d of mainDocs ?? []) {
-                result.push({
-                    id: d.id,
-                    name: d.name,
-                    file_url: d.file_url,
-                    file_type: d.file_type,
-                    file_size_bytes: d.file_size_bytes,
-                    document_type: d.document_type,
-                    category: d.category,
-                    school_year: d.school_year,
-                    created_at: d.created_at,
-                    teacher_name: (d.teacher as any)?.full_name ?? null,
-                    uploader_name: (d.uploader as any)?.full_name ?? null,
-                    subject_name: (d.subject as any)?.name ?? null,
-                    class_name: (d.class as any)?.name ?? null,
-                    source: 'document',
-                    student_name: null,
-                    doc_status: null,
-                })
-            }
-
-            for (const d of studentDocs ?? []) {
-                const student = d.student as any
-                // only same school
-                if (student?.school_id && student.school_id !== schoolId) continue
-                result.push({
-                    id: d.id,
-                    name: d.document_name,
-                    file_url: d.file_url,
-                    file_type: d.file_type,
-                    file_size_bytes: null,
-                    document_type: null,
-                    category: 'student',
-                    school_year: null,
-                    created_at: d.uploaded_at,
-                    teacher_name: null,
-                    uploader_name: null,
-                    subject_name: null,
-                    class_name: null,
-                    source: 'student_doc',
-                    student_name: student?.full_name ?? null,
-                    doc_status: d.status,
-                })
-            }
-
-            setDocs(result)
-            setLoading(false)
-        }
-        load()
+        loadDocs(context.school_id)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [context])
 
     /* Derived values */
@@ -280,6 +282,7 @@ export function ArchiveSystem() {
     /* ─── Render ─── */
 
     return (
+        <>
         <div className="space-y-5 animate-in fade-in duration-500">
 
             {/* ── Header ── */}
@@ -294,20 +297,31 @@ export function ArchiveSystem() {
                     </p>
                 </div>
 
-                {/* Search */}
-                <div className="relative w-full sm:w-80">
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500" />
-                    <Input
-                        placeholder={t('admin.documents.searchPlaceholder')}
-                        value={search}
-                        onChange={e => setSearch(e.target.value)}
-                        className="pl-9 bg-[#0F1720] border-white/10 text-sm text-white placeholder:text-gray-600 h-10 focus-visible:ring-emerald-500/50 rounded-xl"
-                    />
-                    {search && (
-                        <button onClick={() => setSearch('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-white">
-                            <X className="w-3.5 h-3.5" />
-                        </button>
-                    )}
+                <div className="flex items-center gap-3 w-full sm:w-auto">
+                    {/* Search */}
+                    <div className="relative flex-1 sm:w-72">
+                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500" />
+                        <Input
+                            placeholder={t('admin.documents.searchPlaceholder')}
+                            value={search}
+                            onChange={e => setSearch(e.target.value)}
+                            className="pl-9 bg-[#0F1720] border-white/10 text-sm text-white placeholder:text-gray-600 h-10 focus-visible:ring-emerald-500/50 rounded-xl"
+                        />
+                        {search && (
+                            <button type="button" title="Effacer" onClick={() => setSearch('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-white">
+                                <X className="w-3.5 h-3.5" />
+                            </button>
+                        )}
+                    </div>
+
+                    {/* Upload button */}
+                    <Button
+                        onClick={() => setShowUpload(true)}
+                        className="bg-emerald-500 hover:bg-emerald-600 text-black font-bold rounded-xl shrink-0 gap-2"
+                    >
+                        <Plus className="w-4 h-4" />
+                        <span className="hidden sm:inline">{t('admin.documents.addDocument')}</span>
+                    </Button>
                 </div>
             </div>
 
@@ -468,6 +482,13 @@ export function ArchiveSystem() {
                 </div>
             </div>
         </div>
+
+        <UploadDocumentDialog
+            isOpen={showUpload}
+            onClose={() => setShowUpload(false)}
+            onSuccess={() => context && loadDocs(context.school_id)}
+        />
+        </>
     )
 }
 

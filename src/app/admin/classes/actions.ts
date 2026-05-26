@@ -3,6 +3,7 @@
 import { getActionContext } from '@/lib/auth-action'
 import { revalidatePath } from 'next/cache'
 import { z } from 'zod'
+import { logActivity } from '@/lib/activity-log'
 
 const ClassSchema = z.object({
     name:     z.string().min(1, 'Le nom est requis'),
@@ -28,6 +29,7 @@ export async function createClass(formData: FormData) {
 
     if (error) return { error: error.message }
 
+    logActivity({ actorId: ctx.userId, schoolId, action: 'create_class', entityType: 'class', entityId: schoolId, details: `Classe créée: ${name}` })
     revalidatePath('/admin/classes')
     return { success: true }
 }
@@ -106,6 +108,7 @@ export async function updateClass(classId: string, data: { name: string; capacit
 
     if (error) return { error: error.message }
 
+    logActivity({ actorId: ctx.userId, schoolId, action: 'update_class', entityType: 'class', entityId: classId, details: `Classe modifiée: ${data.name}` })
     revalidatePath('/admin/classes')
     return { success: true }
 }
@@ -131,6 +134,7 @@ export async function deleteClass(classId: string) {
 
     if (error) return { error: error.message }
 
+    logActivity({ actorId: ctx.userId, schoolId, action: 'delete_class', entityType: 'class', entityId: classId, details: `Classe supprimée (id: ${classId})` })
     revalidatePath('/admin/classes')
     return { success: true }
 }
