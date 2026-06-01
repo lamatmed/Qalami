@@ -35,6 +35,8 @@ interface SubjectRow {
     id: string
     name: string
     icon: string | null
+    teacherId: string | null
+    teacherName: string | null
 }
 
 export function ClassDetails({ levelId, classId }: { levelId: string, classId: string }) {
@@ -231,16 +233,35 @@ export function ClassDetails({ levelId, classId }: { levelId: string, classId: s
         setLoadingSubjects(true)
         const supabase = createClient()
 
-        const { data: csData } = await supabase
-            .from('class_subjects')
-            .select('subject_id, subjects(id, name, icon)')
-            .eq('class_id', resolvedClassId)
+        const [{ data: csData }, { data: assignments }] = await Promise.all([
+            supabase
+                .from('class_subjects')
+                .select('subject_id, subjects(id, name, icon)')
+                .eq('class_id', resolvedClassId),
+            supabase
+                .from('teacher_assignments')
+                .select('subject_id, teacher_id, profiles!teacher_assignments_teacher_id_fkey(id, full_name)')
+                .eq('class_id', resolvedClassId),
+        ])
 
-        const linked: SubjectRow[] = (csData || []).map((cs: any) => ({
-            id: cs.subjects?.id,
-            name: cs.subjects?.name,
-            icon: cs.subjects?.icon ?? null,
-        })).filter((s: SubjectRow) => s.id)
+        // Build a map: subject_id → { teacherId, teacherName }
+        const teacherMap = new Map<string, { id: string; name: string }>()
+        ;(assignments || []).forEach((a: any) => {
+            if (a.subject_id && a.profiles?.id) {
+                teacherMap.set(a.subject_id, { id: a.profiles.id, name: a.profiles.full_name || '' })
+            }
+        })
+
+        const linked: SubjectRow[] = (csData || []).map((cs: any) => {
+            const teacher = teacherMap.get(cs.subjects?.id) ?? null
+            return {
+                id: cs.subjects?.id,
+                name: cs.subjects?.name,
+                icon: cs.subjects?.icon ?? null,
+                teacherId: teacher?.id ?? null,
+                teacherName: teacher?.name ?? null,
+            }
+        }).filter((s: SubjectRow) => s.id)
 
         setClassSubjects(linked)
         setLoadingSubjects(false)
@@ -526,12 +547,16 @@ export function ClassDetails({ levelId, classId }: { levelId: string, classId: s
                                                 <div className="w-9 h-9 rounded-full bg-emerald-500/15 flex items-center justify-center text-emerald-400 font-bold text-xs shrink-0">
                                                     {student.avatar}
                                                 </div>
-                                                <div className="min-w-0 flex-1">
-                                                    <p className="font-semibold text-gray-200 text-sm truncate">{student.name}</p>
+                                                <Link
+                                                    href={`/admin/students/${student.id}`}
+                                                    className="min-w-0 flex-1 group/link"
+                                                    onClick={e => e.stopPropagation()}
+                                                >
+                                                    <p className="font-semibold text-gray-200 text-sm truncate group-hover/link:text-emerald-400 transition-colors">{student.name}</p>
                                                     {student.nni && (
                                                         <p className="text-[10px] text-gray-600 font-mono">{student.nni}</p>
                                                     )}
-                                                </div>
+                                                </Link>
                                                 <div className="flex items-center gap-1 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
                                                     <button
                                                         type="button"
@@ -707,17 +732,30 @@ export function ClassDetails({ levelId, classId }: { levelId: string, classId: s
                                 <div className="space-y-2 overflow-y-auto">
                                     {classSubjects.map(subject => (
                                         <div key={subject.id} className="flex items-center justify-between p-3 bg-[#0F1720] rounded-xl border border-white/5 hover:border-red-500/10 transition-all group">
-                                            <div className="flex items-center gap-3">
+                                            <div className="flex items-center gap-3 min-w-0 flex-1">
                                                 {subject.icon ? (
-                                                    <span className="h-9 w-9 rounded-lg bg-emerald-500/10 flex items-center justify-center text-base">
+                                                    <span className="h-9 w-9 rounded-lg bg-emerald-500/10 flex items-center justify-center text-base shrink-0">
                                                         {subject.icon}
                                                     </span>
                                                 ) : (
-                                                    <div className="h-9 w-9 rounded-lg bg-white/5 flex items-center justify-center">
+                                                    <div className="h-9 w-9 rounded-lg bg-white/5 flex items-center justify-center shrink-0">
                                                         <BookOpen className="w-4 h-4 text-gray-500" />
                                                     </div>
                                                 )}
-                                                <span className="font-medium text-white text-sm">{subject.name}</span>
+                                                <div className="min-w-0">
+                                                    <span className="font-medium text-white text-sm">{subject.name}</span>
+                                                    {subject.teacherName ? (
+                                                        <Link
+                                                            href={`/admin/teachers/${subject.teacherId}`}
+                                                            className="block text-[11px] text-emerald-400 hover:text-emerald-300 transition-colors truncate mt-0.5"
+                                                            onClick={e => e.stopPropagation()}
+                                                        >
+                                                            {subject.teacherName}
+                                                        </Link>
+                                                    ) : (
+                                                        <span className="block text-[11px] text-gray-600 mt-0.5">Aucun enseignant</span>
+                                                    )}
+                                                </div>
                                             </div>
                                             <button
                                                 type="button"

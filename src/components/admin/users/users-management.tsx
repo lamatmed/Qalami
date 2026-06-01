@@ -70,7 +70,7 @@ interface ActivityLog {
     entity_type: string
     details: string
     created_at: string
-    profiles: { full_name: string; phone?: string | null } | null
+    profiles: { full_name: string; phone?: string | null; role?: string | null } | null
 }
 
 type TabType = 'users' | 'logs'
@@ -487,29 +487,40 @@ export function UsersManagement() {
                         <div className="space-y-2">
                             {logs.map(log => {
                                 const actor = log.profiles as any
-                                const actorName = actor?.full_name || 'Admin'
+                                const actorName = actor?.full_name || 'Inconnu'
                                 const actorPhone = actor?.phone as string | undefined
+                                const actorRole = actor?.role as string | undefined
+                                const initials = actorName.split(' ').map((n: string) => n[0]).join('').toUpperCase().slice(0, 2)
+                                const roleLabel = actorRole === 'admin' ? 'Admin' : actorRole === 'school_staff' ? 'Staff' : actorRole === 'super_admin' ? 'Super Admin' : actorRole || ''
                                 return (
                                     <div key={log.id} className="flex items-start gap-3 bg-white dark:bg-[#0F1720] border border-gray-200 dark:border-white/5 rounded-xl p-4">
-                                        <div className="w-8 h-8 bg-gray-100 dark:bg-[#1A2530] rounded-lg flex items-center justify-center shrink-0 mt-0.5">
-                                            <Clock className="w-4 h-4 text-gray-400" />
+                                        {/* Avatar initiales */}
+                                        <div className="w-10 h-10 bg-emerald-500/10 rounded-full flex items-center justify-center shrink-0 mt-0.5 border border-emerald-500/20">
+                                            <span className="text-xs font-black text-emerald-500">{initials}</span>
                                         </div>
                                         <div className="flex-1 min-w-0">
-                                            <div className="flex items-center gap-2 mb-1">
-                                                <span className="text-xs font-semibold text-emerald-600 dark:text-emerald-400">{actorName}</span>
+                                            {/* Acteur : nom + tel + rôle */}
+                                            <div className="flex items-center gap-2 flex-wrap mb-1">
+                                                <span className="text-sm font-bold text-gray-900 dark:text-white">{actorName}</span>
                                                 {actorPhone && (
-                                                    <>
-                                                        <span className="text-gray-300 dark:text-gray-600 text-xs">·</span>
-                                                        <span className="text-xs font-mono text-gray-500">{actorPhone}</span>
-                                                    </>
+                                                    <span className="text-xs font-mono text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-500/10 px-2 py-0.5 rounded-full">
+                                                        {actorPhone}
+                                                    </span>
+                                                )}
+                                                {roleLabel && (
+                                                    <span className="text-[10px] font-bold text-gray-500 bg-gray-100 dark:bg-white/5 px-2 py-0.5 rounded-full uppercase">
+                                                        {roleLabel}
+                                                    </span>
                                                 )}
                                             </div>
-                                            <p className="text-sm text-gray-800 dark:text-gray-200">{log.details}</p>
+                                            {/* Action */}
+                                            <p className="text-sm text-gray-700 dark:text-gray-200">{log.details}</p>
+                                            {/* Date */}
                                             <span className="text-xs text-gray-400 mt-1 block">
-                                                {new Date(log.created_at).toLocaleString('fr-FR')}
+                                                {new Date(log.created_at).toLocaleString('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
                                             </span>
                                         </div>
-                                        <span className="text-[10px] bg-gray-100 dark:bg-[#1A2530] text-gray-500 px-2 py-0.5 rounded shrink-0 mt-0.5">
+                                        <span className="text-[10px] bg-gray-100 dark:bg-[#1A2530] text-gray-500 px-2 py-0.5 rounded shrink-0 mt-0.5 whitespace-nowrap">
                                             {t(`admin.activity.actionLabels.${log.action}`) || log.action}
                                         </span>
                                     </div>

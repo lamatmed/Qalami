@@ -370,6 +370,9 @@ export async function createParent(formData: {
     if (!formData.password?.trim()) {
         return { error: 'Le mot de passe instantané est obligatoire' }
     }
+    if (!/^\d{6}$/.test(formData.password.trim())) {
+        return { error: 'Le mot de passe doit être exactement 6 chiffres' }
+    }
     const plainPassword = formData.password.trim()
 
     // Create auth user via admin API — does NOT affect current session
@@ -505,6 +508,7 @@ export async function createStudent(formData: {
     if (formData.hasPhone) {
         if (!formData.phone?.trim()) return { error: 'Le numéro de téléphone est obligatoire' }
         if (!formData.password?.trim()) return { error: 'Le mot de passe instantané est obligatoire' }
+        if (!/^\d{6}$/.test(formData.password.trim())) return { error: 'Le mot de passe doit être exactement 6 chiffres' }
     }
 
     const plainPassword = formData.hasPhone ? formData.password!.trim() : crypto.randomUUID()
@@ -851,6 +855,9 @@ export async function createTeacher(formData: {
 
     if (!formData.password?.trim()) {
         return { error: 'Le mot de passe instantané est obligatoire' }
+    }
+    if (!/^\d{6}$/.test(formData.password.trim())) {
+        return { error: 'Le mot de passe doit être exactement 6 chiffres' }
     }
     const plainPassword = formData.password.trim()
 

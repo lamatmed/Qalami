@@ -6,6 +6,7 @@ import { z } from 'zod'
 
 const SubjectSchema = z.object({
     name: z.string().min(1, 'Le nom est requis'),
+    name_ar: z.string().optional(),
     icon: z.string().max(10).optional(),
 })
 
@@ -16,12 +17,14 @@ export async function createSubject(formData: FormData) {
 
     const result = SubjectSchema.safeParse({
         name: formData.get('name'),
+        name_ar: (formData.get('name_ar') as string) || undefined,
         icon: (formData.get('icon') as string) || undefined,
     })
     if (!result.success) return { error: result.error.errors[0].message }
 
     const { error } = await supabase.from('subjects').insert({
         name: result.data.name,
+        name_ar: result.data.name_ar || null,
         icon: result.data.icon || null,
         school_id: schoolId,
     })
@@ -39,13 +42,14 @@ export async function updateSubject(subjectId: string, formData: FormData) {
 
     const result = SubjectSchema.safeParse({
         name: formData.get('name'),
+        name_ar: (formData.get('name_ar') as string) || undefined,
         icon: (formData.get('icon') as string) || undefined,
     })
     if (!result.success) return { error: result.error.errors[0].message }
 
     const { error } = await supabase
         .from('subjects')
-        .update({ name: result.data.name, icon: result.data.icon || null })
+        .update({ name: result.data.name, name_ar: result.data.name_ar || null, icon: result.data.icon || null })
         .eq('id', subjectId)
         .eq('school_id', schoolId)
 

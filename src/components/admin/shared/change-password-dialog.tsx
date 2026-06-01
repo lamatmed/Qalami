@@ -35,8 +35,8 @@ export function ChangePasswordDialog({
             toast.error(t('admin.users.pleaseEnterPassword') || 'Veuillez saisir un mot de passe')
             return
         }
-        if (password.trim().length < 6) {
-            toast.error(t('admin.users.passwordMinLength') || 'Le mot de passe doit contenir au moins 6 caractères.')
+        if (!/^\d{6}$/.test(password.trim())) {
+            toast.error('Le mot de passe doit être exactement 6 chiffres')
             return
         }
         if (password !== confirm) {
@@ -86,10 +86,12 @@ export function ChangePasswordDialog({
                         </Label>
                         <Input
                             type="password"
-                            placeholder={t('admin.users.newPasswordPlaceholder') || 'Minimum 6 caractères'}
+                            placeholder="6 chiffres (ex. 123456)"
                             className="bg-[#0F1720] border-white/10 text-white placeholder:text-gray-600"
                             value={password}
-                            onChange={(e) => setPassword(e.target.value)}
+                            onChange={(e) => setPassword(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                            inputMode="numeric"
+                            maxLength={6}
                         />
                     </div>
 
@@ -102,8 +104,10 @@ export function ChangePasswordDialog({
                             placeholder={t('admin.users.confirmPasswordPlaceholder') || 'Répétez le mot de passe'}
                             className="bg-[#0F1720] border-white/10 text-white placeholder:text-gray-600"
                             value={confirm}
-                            onChange={(e) => setConfirm(e.target.value)}
+                            onChange={(e) => setConfirm(e.target.value.replace(/\D/g, '').slice(0, 6))}
                             onKeyDown={(e) => e.key === 'Enter' && handleSubmit()}
+                            inputMode="numeric"
+                            maxLength={6}
                         />
                     </div>
 

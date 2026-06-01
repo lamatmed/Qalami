@@ -131,15 +131,21 @@ export async function calculateReportCards(classId: string, termId: string) {
         return false
     })
 
-    const { data: classCoefs } = await admin
+    const { data: coefs } = await admin
         .from('subject_coefficients')
-        .select('subject_id, coefficient')
-        .eq('class_id', classId)
+        .select('subject_id, class_id, coefficient')
+        .eq('school_id', schoolId)
+        .or(`class_id.eq.${classId},class_id.is.null`)
 
     const coefMap = new Map<string, number>()
-    if (classCoefs) {
-        classCoefs.forEach((c: any) => {
-            coefMap.set(c.subject_id, c.coefficient)
+    if (coefs) {
+        // First set the global defaults (where class_id is null)
+        coefs.filter((c: any) => c.class_id === null).forEach((c: any) => {
+            coefMap.set(c.subject_id, Number(c.coefficient))
+        })
+        // Then override with class-specific ones
+        coefs.filter((c: any) => c.class_id === classId).forEach((c: any) => {
+            coefMap.set(c.subject_id, Number(c.coefficient))
         })
     }
 

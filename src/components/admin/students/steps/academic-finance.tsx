@@ -6,7 +6,7 @@ import { Label } from '@/components/ui/label'
 import { Button } from '@/components/ui/button'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Switch } from '@/components/ui/switch'
-import { ChevronLeft, GraduationCap, DollarSign, Loader2, Layers } from 'lucide-react'
+import { ChevronLeft, GraduationCap, Loader2, Layers } from 'lucide-react'
 import { RegistrationData } from '../registration-wizard'
 import { createClient } from '@/utils/supabase/client'
 import { useLanguage } from '@/i18n'
@@ -253,7 +253,7 @@ export function AcademicFinance({ data, updateData, onNext, onPrev }: StepProps)
                 <div className="bg-[#1A2530]/50 p-5 rounded-2xl border border-white/5 space-y-5">
                     <div className="flex items-center justify-between mb-2">
                         <div className="flex items-center gap-2">
-                            <DollarSign className="w-5 h-5 text-emerald-500" />
+                            <span className="text-sm font-black text-emerald-500">MR</span>
                             <h3 className="font-bold text-gray-900 dark:text-white">{t('admin.students.register.academic.financeTitle')}</h3>
                         </div>
                         {academic.levelId && (
@@ -267,7 +267,7 @@ export function AcademicFinance({ data, updateData, onNext, onPrev }: StepProps)
                         <div className="space-y-2">
                             <Label className="text-xs font-semibold text-gray-400">{t('admin.students.register.academic.registrationFee')}</Label>
                             <div className="relative">
-                                <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500" />
+                                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[11px] font-black text-gray-500">MR</span>
                                 <Input
                                     type="number"
                                     value={academic.registrationFee}
@@ -282,7 +282,7 @@ export function AcademicFinance({ data, updateData, onNext, onPrev }: StepProps)
                         <div className="space-y-2">
                             <Label className="text-xs font-semibold text-gray-400">{t('admin.students.register.academic.monthlyTuitionLabel')}</Label>
                             <div className="relative">
-                                <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500" />
+                                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[11px] font-black text-gray-500">MR</span>
                                 <Input
                                     type="number"
                                     value={academic.monthlyTuition}

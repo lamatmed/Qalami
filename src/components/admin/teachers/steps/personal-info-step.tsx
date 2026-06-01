@@ -262,8 +262,13 @@ export function PersonalInfoStep({ data, onUpdate, onNext, isSubmitting }: Perso
                                         placeholder={t('admin.teachers.tempPasswordPlaceholder')}
                                         className={cn("bg-[#0F1720] border-white/10 text-white focus:ring-emerald-500/50", direction === 'rtl' ? 'pr-10 pl-3 text-right' : 'pl-10 pr-3 text-left')}
                                         defaultValue={data.password}
-                                        onChange={(e) => onUpdate({ ...data, password: e.target.value })}
-                                        dir={direction}
+                                        onChange={(e) => {
+                                            const digits = e.target.value.replace(/\D/g, '').slice(0, 6)
+                                            onUpdate({ ...data, password: digits })
+                                        }}
+                                        dir="ltr"
+                                        inputMode="numeric"
+                                        maxLength={6}
                                     />
                                 </div>
                             </div>
@@ -274,7 +279,7 @@ export function PersonalInfoStep({ data, onUpdate, onNext, isSubmitting }: Perso
                         <Button
                             className="w-full bg-emerald-500 hover:bg-emerald-600 text-black font-bold h-12 text-lg shadow-[0_0_20px_rgba(16,185,129,0.2)]"
                             onClick={onNext}
-                            disabled={!data.name?.trim() || !data.password?.trim() || isSubmitting}
+                            disabled={!data.name?.trim() || !/^\d{6}$/.test(data.password ?? '') || isSubmitting}
                         >
                             {isSubmitting ? (
                                 <Loader2 className="w-5 h-5 animate-spin" />

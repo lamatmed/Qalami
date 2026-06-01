@@ -59,6 +59,11 @@ export function TeacherContract({ teacherId }: { teacherId?: string }) {
                 } else {
                     setSalary(contract.monthly_salary?.toString() || '')
                 }
+                setPaymentMethod((contract as any).payment_method || 'bank')
+                setBankName((contract as any).bank_name || '')
+                setAccountNumber((contract as any).account_number || '')
+                setWalletApp((contract as any).wallet_app || '')
+                setWalletPhone((contract as any).wallet_phone || '')
             }
             setLoading(false)
         }
@@ -81,6 +86,11 @@ export function TeacherContract({ teacherId }: { teacherId?: string }) {
                 contractType: contractType as 'fixed' | 'hourly',
                 salary: contractType === 'fixed' ? parseFloat(salary) || 0 : parseFloat(hourlyRate) || 0,
                 position,
+                paymentMethod,
+                bankName,
+                accountNumber,
+                walletApp,
+                walletPhone,
             })
 
             if (result.error) throw new Error(result.error)

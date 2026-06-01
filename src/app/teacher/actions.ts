@@ -10,8 +10,26 @@ import { createClient } from '@/utils/supabase/server'
 export async function getTeacherScheduleAction(teacherId: string, dayOfWeek: number) {
     if (!teacherId) throw new Error("teacherId is required")
 
+    const supabase = await createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) throw new Error("Non authentifié")
+
     const admin = createAdminClient()
-    
+    const { data: profile } = await admin
+        .from('profiles')
+        .select('role')
+        .eq('id', user.id)
+        .single()
+
+    if (!profile) throw new Error("Profil introuvable")
+
+    if (profile.role === 'teacher' && user.id !== teacherId) {
+        throw new Error("Non autorisé")
+    }
+    if (profile.role !== 'teacher' && profile.role !== 'admin' && profile.role !== 'super_admin' && profile.role !== 'school_staff') {
+        throw new Error("Non autorisé")
+    }
+
     // Aggregates the schedule including icons, session type, and school name across all schools
     const { data, error } = await admin
         .from('schedule')
@@ -45,8 +63,26 @@ export async function getTeacherScheduleAction(teacherId: string, dayOfWeek: num
 export async function getTeacherAssignmentsAction(teacherId: string) {
     if (!teacherId) throw new Error("teacherId is required")
 
+    const supabase = await createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) throw new Error("Non authentifié")
+
     const admin = createAdminClient()
-    
+    const { data: profile } = await admin
+        .from('profiles')
+        .select('role')
+        .eq('id', user.id)
+        .single()
+
+    if (!profile) throw new Error("Profil introuvable")
+
+    if (profile.role === 'teacher' && user.id !== teacherId) {
+        throw new Error("Non autorisé")
+    }
+    if (profile.role !== 'teacher' && profile.role !== 'admin' && profile.role !== 'super_admin' && profile.role !== 'school_staff') {
+        throw new Error("Non autorisé")
+    }
+
     const { data, error } = await admin
         .from('teacher_assignments')
         .select(`
@@ -81,7 +117,33 @@ export async function getTeacherAssignmentsAction(teacherId: string) {
 export async function getClassStudentsAction(classId: string) {
     if (!classId) throw new Error("classId is required")
 
+    const supabase = await createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) throw new Error("Non authentifié")
+
     const admin = createAdminClient()
+    const { data: profile } = await admin
+        .from('profiles')
+        .select('role')
+        .eq('id', user.id)
+        .single()
+
+    if (!profile) throw new Error("Profil introuvable")
+
+    if (profile.role === 'teacher') {
+        // Verify teacher is assigned to this class
+        const { data: assignment } = await admin
+            .from('teacher_assignments')
+            .select('id')
+            .eq('teacher_id', user.id)
+            .eq('class_id', classId)
+            .maybeSingle()
+        if (!assignment) {
+            throw new Error("Non autorisé à voir les élèves de cette classe")
+        }
+    } else if (profile.role !== 'admin' && profile.role !== 'super_admin' && profile.role !== 'school_staff') {
+        throw new Error("Non autorisé")
+    }
 
     const { data, error } = await admin
         .from('enrollments')
@@ -109,7 +171,26 @@ export async function getClassStudentsAction(classId: string) {
  * Creates a new remark, bypassing RLS to allow cross-school creations.
  */
 export async function createRemarkAction(payload: any) {
+    const supabase = await createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) throw new Error("Non authentifié")
+
     const admin = createAdminClient()
+    const { data: profile } = await admin
+        .from('profiles')
+        .select('role')
+        .eq('id', user.id)
+        .single()
+
+    if (!profile) throw new Error("Profil introuvable")
+
+    if (profile.role === 'teacher') {
+        if (payload.teacher_id !== user.id) {
+            throw new Error("Non autorisé à insérer au nom d'un autre enseignant")
+        }
+    } else if (profile.role !== 'admin' && profile.role !== 'super_admin' && profile.role !== 'school_staff') {
+        throw new Error("Non autorisé")
+    }
 
     const { error } = await admin
         .from('remarks')

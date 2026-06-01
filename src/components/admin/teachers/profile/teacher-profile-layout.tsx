@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { Button } from '@/components/ui/button'
-import { ArrowLeft, Phone, Mail, CheckCircle2, ShieldAlert, KeyRound } from 'lucide-react'
+import { ArrowLeft, Phone, Mail, CheckCircle2, ShieldAlert, KeyRound, Pencil, Trash2, Loader2 as LoaderIcon } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 import { cn } from '@/lib/utils'
 import { TeacherSchedule } from './teacher-schedule'
@@ -19,9 +19,12 @@ import { createClient } from '@/utils/supabase/client'
 import { getMySchoolContext, secureFetchProfiles } from '@/app/admin/actions'
 import { Skeleton } from '@/components/ui/skeleton'
 import { useLanguage } from '@/i18n'
+import { toast } from 'sonner'
 import { StatusBadge } from '@/components/admin/shared/status-badge'
 import { ChangeStatusDialog } from '@/components/admin/shared/change-status-dialog'
 import { ChangePasswordDialog } from '@/components/admin/shared/change-password-dialog'
+import { EditTeacherDialog } from '@/components/admin/teachers/edit-teacher-dialog'
+import { deleteTeacherPermanently } from '@/app/admin/teachers/actions'
 
 const tabs = [
     { id: 'schedule',  label: 'Emploi du temps' },
@@ -56,6 +59,18 @@ export function TeacherProfileLayout({ id }: { id: string }) {
     const [loading, setLoading] = useState(true)
     const [statusDialogOpen, setStatusDialogOpen] = useState(false)
     const [passwordDialogOpen, setPasswordDialogOpen] = useState(false)
+    const [editTeacherOpen, setEditTeacherOpen] = useState(false)
+    const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false)
+    const [deleting, setDeleting] = useState(false)
+
+    const handleDeleteTeacher = async () => {
+        setDeleting(true)
+        const result = await deleteTeacherPermanently(id)
+        setDeleting(false)
+        if (result.error) { toast.error(result.error); return }
+        toast.success('Enseignant supprimé définitivement')
+        router.push('/admin/teachers')
+    }
 
     useEffect(() => {
         async function fetchTeacher() {
@@ -179,8 +194,8 @@ export function TeacherProfileLayout({ id }: { id: string }) {
                         </div>
                     </div>
 
-                    {/* Bouton changement de statut */}
-                    <div className="relative z-10 mb-4 flex gap-2">
+                    {/* Actions */}
+                    <div className="relative z-10 mb-4 flex gap-2 flex-wrap">
                         <Button
                             variant="outline"
                             size="sm"
@@ -201,6 +216,25 @@ export function TeacherProfileLayout({ id }: { id: string }) {
                                 {t('admin.users.changePassword') || 'Modifier le mot de passe'}
                             </Button>
                         )}
+                        <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            className="flex-1 border-white/10 text-gray-400 hover:text-blue-400 hover:border-blue-500/30 hover:bg-blue-500/5 gap-2"
+                            onClick={() => setEditTeacherOpen(true)}
+                        >
+                            <Pencil className="w-4 h-4" />
+                            Modifier les infos
+                        </Button>
+                        <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            className="border-white/10 text-gray-400 hover:text-red-500 hover:border-red-500/30 hover:bg-red-500/5 gap-2"
+                            onClick={() => setDeleteConfirmOpen(true)}
+                        >
+                            {deleting ? <LoaderIcon className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
+                        </Button>
                     </div>
 
                     {/* Navigation Tabs */}
@@ -289,6 +323,39 @@ export function TeacherProfileLayout({ id }: { id: string }) {
             userName={teacher.full_name}
             userPhone={teacher.phone}
         />
+        <EditTeacherDialog
+            open={editTeacherOpen}
+            onOpenChange={setEditTeacherOpen}
+            teacherId={teacher.id}
+            initialData={{ full_name: teacher.full_name, email: teacher.email }}
+            onSuccess={() => window.location.reload()}
+        />
+        {deleteConfirmOpen && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+                <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => !deleting && setDeleteConfirmOpen(false)} />
+                <div className="relative w-full max-w-sm bg-[#161B22] rounded-2xl border border-red-500/30 shadow-2xl p-6 space-y-4">
+                    <div className="flex items-start gap-3">
+                        <div className="w-10 h-10 rounded-xl bg-red-500/15 flex items-center justify-center shrink-0">
+                            <Trash2 className="w-5 h-5 text-red-400" />
+                        </div>
+                        <div>
+                            <h3 className="font-bold text-white">Supprimer définitivement</h3>
+                            <p className="text-sm text-gray-400 mt-1">Cette action est <span className="text-red-400 font-bold">irréversible</span>. Le compte et toutes les données seront supprimés.</p>
+                            <p className="text-sm font-bold text-white mt-2">{teacher.full_name}</p>
+                        </div>
+                    </div>
+                    <div className="flex gap-3 pt-2">
+                        <Button type="button" variant="outline" className="flex-1 border-white/10 text-gray-400 hover:text-white"
+                            onClick={() => setDeleteConfirmOpen(false)} disabled={deleting}>Annuler</Button>
+                        <Button type="button" className="flex-1 bg-red-600 hover:bg-red-700 text-white font-bold"
+                            onClick={handleDeleteTeacher} disabled={deleting}>
+                            {deleting ? <LoaderIcon className="w-4 h-4 animate-spin mr-1" /> : <Trash2 className="w-4 h-4 mr-1" />}
+                            Supprimer
+                        </Button>
+                    </div>
+                </div>
+            </div>
+        )}
         </>
     )
 }

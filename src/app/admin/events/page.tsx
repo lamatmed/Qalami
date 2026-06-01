@@ -115,9 +115,10 @@ function Modal({ open, onClose, onSaved, editing, classes, schoolId, userId }: {
             setTitle(editing.title); setDescription(editing.description || '')
             setType(editing.event_type)
             setStartDate(editing.start_date.slice(0, 10))
-            setStartTime(editing.start_date.length > 10 ? editing.start_date.slice(11, 16) : '')
+            // Don't restore time if event was saved as all_day (no time chosen)
+            setStartTime(!editing.all_day && editing.start_date.length > 10 ? editing.start_date.slice(11, 16) : '')
             setEndDate(editing.end_date ? editing.end_date.slice(0, 10) : '')
-            setEndTime(editing.end_date && editing.end_date.length > 10 ? editing.end_date.slice(11, 16) : '')
+            setEndTime(!editing.all_day && editing.end_date && editing.end_date.length > 10 ? editing.end_date.slice(11, 16) : '')
             setAllDay(editing.all_day); setLocation(editing.location || '')
             const { roles: r, classIds } = decodeAudience(editing.visibility || [])
             setRoles(r.length ? r : ['all'])
@@ -157,11 +158,14 @@ function Modal({ open, onClose, onSaved, editing, classes, schoolId, userId }: {
         if (!scopeAll && selClasses.length === 0) { toast.error(t('adminEvents.selectClassToast')); return }
         setSaving(true)
         const audience = encodeAudience(roles, scopeAll ? [] : selClasses)
+        // If no time was entered, treat as all-day (no hour displayed)
+        const effectiveAllDay = allDay || !startTime.trim()
+
         const payload: any = {
             school_id: schoolId, title: title.trim(), description: description.trim() || null,
             event_type: type, start_date: parsedStart.toISOString(),
             end_date: parsedEnd ? parsedEnd.toISOString() : null,
-            all_day: allDay, location: location.trim() || null, color: typeInfo(type).color,
+            all_day: effectiveAllDay, location: location.trim() || null, color: typeInfo(type).color,
             visibility: audience, created_by: userId,
         }
         const { error } = editing

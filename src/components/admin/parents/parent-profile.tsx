@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { Phone, MessageSquare, Mail, MapPin, X, Banknote, User, ShieldAlert, Plus, KeyRound, FileText } from 'lucide-react'
+import { Phone, MessageSquare, Mail, MapPin, X, Banknote, User, ShieldAlert, Plus, KeyRound, FileText, Pencil, Trash2, UserPlus, UserMinus, Loader2 } from 'lucide-react'
 import Link from 'next/link'
 import { ParentDocuments } from './parent-documents'
 import { cn } from '@/lib/utils'
@@ -15,6 +15,9 @@ import { createClient } from '@/utils/supabase/client'
 import { StatusBadge } from '@/components/admin/shared/status-badge'
 import { ChangeStatusDialog } from '@/components/admin/shared/change-status-dialog'
 import { ChangePasswordDialog } from '@/components/admin/shared/change-password-dialog'
+import { EditParentDialog } from './edit-parent-dialog'
+import { AddChildDialog } from './add-child-dialog'
+import { removeChildFromParent, deleteParentPermanently } from '@/app/admin/parents/actions'
 
 interface ParentProfileProps {
     parent: any
@@ -30,8 +33,37 @@ export function ParentProfile({ parent, schoolId = '', onClose, onParentUpdated 
     const { t } = useLanguage()
     const [statusDialogOpen, setStatusDialogOpen] = useState(false)
     const [passwordDialogOpen, setPasswordDialogOpen] = useState(false)
+    const [editParentOpen, setEditParentOpen] = useState(false)
+    const [addChildOpen, setAddChildOpen] = useState(false)
+    const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false)
+    const [deleting, setDeleting] = useState(false)
+    const [removingChild, setRemovingChild] = useState<string | null>(null)
+    const [localParent, setLocalParent] = useState(parent)
     const [currentStatus, setCurrentStatus] = useState<string>(parent?.status || 'active')
     const [activeTab, setActiveTab] = useState<'info' | 'finance' | 'documents'>('info')
+
+    if (!localParent) return null
+
+    const handleDeleteParent = async () => {
+        setDeleting(true)
+        const result = await deleteParentPermanently(localParent.id)
+        setDeleting(false)
+        if (result.error) { toast.error(result.error); return }
+        toast.success('Parent supprimé définitivement')
+        onClose?.()
+        onParentUpdated?.()
+    }
+
+    const handleRemoveChild = async (childId: string, childName: string) => {
+        if (!confirm(`Retirer ${childName} du compte de ce parent ?`)) return
+        setRemovingChild(childId)
+        const result = await removeChildFromParent(localParent.id, childId)
+        setRemovingChild(null)
+        if (result.error) { toast.error(result.error); return }
+        toast.success(`${childName} retiré(e) du compte`)
+        setLocalParent(prev => ({ ...prev, children: prev.children.filter((c: any) => c.id !== childId) }))
+        onParentUpdated?.()
+    }
 
     if (!parent) return null
 
@@ -108,10 +140,10 @@ export function ParentProfile({ parent, schoolId = '', onClose, onParentUpdated 
                     {parentPhone && (
                         <p className="text-xs text-gray-400 font-mono">{parentPhone}</p>
                     )}
-                    <div className="flex items-center justify-center gap-2 pt-1">
+                    <div className="flex items-center justify-center gap-2 pt-1 flex-wrap">
                         <StatusBadge status={currentStatus} />
                         {parentPhone && parentPhone !== 'Non renseigné' && (
-                            <button
+                            <button type="button"
                                 onClick={() => setPasswordDialogOpen(true)}
                                 className="text-gray-500 hover:text-emerald-400 transition-colors"
                                 title={t('admin.users.changePassword') || 'Modifier le mot de passe'}
@@ -119,12 +151,26 @@ export function ParentProfile({ parent, schoolId = '', onClose, onParentUpdated 
                                 <KeyRound className="w-3.5 h-3.5" />
                             </button>
                         )}
-                        <button
+                        <button type="button"
                             onClick={() => setStatusDialogOpen(true)}
                             className="text-gray-500 hover:text-orange-400 transition-colors"
                             title="Changer le statut"
                         >
                             <ShieldAlert className="w-3.5 h-3.5" />
+                        </button>
+                        <button type="button"
+                            onClick={() => setEditParentOpen(true)}
+                            className="text-gray-500 hover:text-blue-400 transition-colors"
+                            title="Modifier les informations"
+                        >
+                            <Pencil className="w-3.5 h-3.5" />
+                        </button>
+                        <button type="button"
+                            onClick={() => setDeleteConfirmOpen(true)}
+                            className="text-gray-500 hover:text-red-500 transition-colors"
+                            title="Supprimer définitivement"
+                        >
+                            {deleting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Trash2 className="w-3.5 h-3.5" />}
                         </button>
                     </div>
                 </div>
@@ -177,37 +223,51 @@ export function ParentProfile({ parent, schoolId = '', onClose, onParentUpdated 
                         <div className="space-y-3">
                             <div className="flex items-center justify-between">
                                 <h3 className="text-sm font-bold text-white">{t('admin.parents.linkedChildrenTitle')}</h3>
-                                <Badge variant="outline" className="text-[10px] border-white/10">{parent.children.length} {t('admin.parents.children')}</Badge>
+                                <div className="flex items-center gap-2">
+                                    <Badge variant="outline" className="text-[10px] border-white/10">{localParent.children.length} {t('admin.parents.children')}</Badge>
+                                    <button type="button"
+                                        onClick={() => setAddChildOpen(true)}
+                                        className="flex items-center gap-1 text-xs text-emerald-400 hover:text-emerald-300 border border-emerald-500/30 hover:border-emerald-500/60 rounded-md px-2 py-1 transition-colors"
+                                    >
+                                        <UserPlus className="w-3 h-3" /> Ajouter un enfant
+                                    </button>
+                                </div>
                             </div>
 
                             <div className="space-y-2">
-                                {parent.children.length === 0 ? (
+                                {localParent.children.length === 0 ? (
                                     <div className="py-6 text-center rounded-xl bg-[#0D1117] border border-white/5">
                                         <p className="text-xs text-gray-500">{t('admin.parents.noStudentsLinked')}</p>
-                                        <p className="text-[11px] text-gray-600 mt-1">{t('admin.parents.studentsLinkedHint')}</p>
+                                        <button type="button" onClick={() => setAddChildOpen(true)}
+                                            className="text-[11px] text-emerald-400 hover:text-emerald-300 mt-1 underline">
+                                            Ajouter un enfant au compte
+                                        </button>
                                     </div>
                                 ) : (
-                                    parent.children.map((child: any) => (
-                                        <Link key={child.id} href={`/admin/students/${child.id}`} className="flex items-center gap-3 p-3 rounded-xl bg-[#0D1117] border border-white/5 hover:border-white/10 transition-colors group">
-                                            <Avatar className="w-10 h-10 rounded-lg border border-white/5">
-                                                <AvatarImage src={child.avatar || `https://api.dicebear.com/7.x/avataaars/svg?seed=${child.name}`} />
-                                                <AvatarFallback>{child.name[0]}</AvatarFallback>
-                                            </Avatar>
-                                            <div className="flex-1 min-w-0">
-                                                <h4 className="text-sm font-semibold text-gray-200 group-hover:text-emerald-400 transition-colors">{child.fullName || child.name}</h4>
-                                                <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 mt-0.5">
-                                                    {child.class_name && (
-                                                        <span className="text-xs text-emerald-400 font-medium">{child.class_name}</span>
-                                                    )}
-                                                    {child.class_name && child.national_id && (
-                                                        <span className="text-gray-600 text-[10px]">•</span>
-                                                    )}
-                                                    {child.national_id && (
-                                                        <span className="text-xs text-gray-400 font-mono">NNI: {child.national_id}</span>
-                                                    )}
+                                    localParent.children.map((child: any) => (
+                                        <div key={child.id} className="flex items-center gap-3 p-3 rounded-xl bg-[#0D1117] border border-white/5 hover:border-white/10 transition-colors group">
+                                            <Link href={`/admin/students/${child.id}`} className="flex items-center gap-3 flex-1 min-w-0">
+                                                <Avatar className="w-10 h-10 rounded-lg border border-white/5">
+                                                    <AvatarImage src={child.avatar || `https://api.dicebear.com/7.x/avataaars/svg?seed=${child.name}`} />
+                                                    <AvatarFallback>{child.name[0]}</AvatarFallback>
+                                                </Avatar>
+                                                <div className="flex-1 min-w-0">
+                                                    <h4 className="text-sm font-semibold text-gray-200 group-hover:text-emerald-400 transition-colors">{child.fullName || child.name}</h4>
+                                                    <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 mt-0.5">
+                                                        {child.class_name && <span className="text-xs text-emerald-400 font-medium">{child.class_name}</span>}
+                                                        {child.national_id && <span className="text-xs text-gray-400 font-mono">NNI: {child.national_id}</span>}
+                                                    </div>
                                                 </div>
-                                            </div>
-                                        </Link>
+                                            </Link>
+                                            <button type="button"
+                                                onClick={() => handleRemoveChild(child.id, child.fullName || child.name)}
+                                                disabled={removingChild === child.id}
+                                                className="shrink-0 text-gray-600 hover:text-red-400 transition-colors p-1"
+                                                title="Retirer du compte"
+                                            >
+                                                {removingChild === child.id ? <Loader2 className="w-4 h-4 animate-spin" /> : <UserMinus className="w-4 h-4" />}
+                                            </button>
+                                        </div>
                                     ))
                                 )}
                             </div>
@@ -265,18 +325,59 @@ export function ParentProfile({ parent, schoolId = '', onClose, onParentUpdated 
             <ChangeStatusDialog
                 open={statusDialogOpen}
                 onOpenChange={setStatusDialogOpen}
-                userId={parent.id}
+                userId={localParent.id}
                 currentStatus={currentStatus}
-                userName={parent.name}
+                userName={localParent.name}
                 onSuccess={(newStatus) => setCurrentStatus(newStatus)}
             />
             <ChangePasswordDialog
                 open={passwordDialogOpen}
                 onOpenChange={setPasswordDialogOpen}
-                userId={parent.id}
-                userName={parent.name}
+                userId={localParent.id}
+                userName={localParent.name}
                 userPhone={parentPhone && parentPhone !== 'Non renseigné' ? parentPhone : null}
             />
+            <EditParentDialog
+                open={editParentOpen}
+                onOpenChange={setEditParentOpen}
+                parentId={localParent.id}
+                initialData={{ full_name: localParent.name, address: localParent.address, email: localParent.email }}
+                onSuccess={() => { onParentUpdated?.() }}
+            />
+            <AddChildDialog
+                open={addChildOpen}
+                onOpenChange={setAddChildOpen}
+                parentId={localParent.id}
+                parentName={localParent.name}
+                onSuccess={() => { onParentUpdated?.() }}
+            />
+            {/* Confirmation suppression définitive */}
+            {deleteConfirmOpen && (
+                <div className="fixed inset-0 z-[70] flex items-center justify-center p-4">
+                    <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => !deleting && setDeleteConfirmOpen(false)} />
+                    <div className="relative w-full max-w-sm bg-[#161B22] rounded-2xl border border-red-500/30 shadow-2xl p-6 space-y-4">
+                        <div className="flex items-start gap-3">
+                            <div className="w-10 h-10 rounded-xl bg-red-500/15 flex items-center justify-center shrink-0">
+                                <Trash2 className="w-5 h-5 text-red-400" />
+                            </div>
+                            <div>
+                                <h3 className="font-bold text-white">Supprimer définitivement</h3>
+                                <p className="text-sm text-gray-400 mt-1">Cette action est <span className="text-red-400 font-bold">irréversible</span>. Le compte parent et tous ses liens seront supprimés.</p>
+                                <p className="text-sm font-bold text-white mt-2">{localParent.name}</p>
+                            </div>
+                        </div>
+                        <div className="flex gap-3 pt-2">
+                            <Button type="button" variant="outline" className="flex-1 border-white/10 text-gray-400 hover:text-white"
+                                onClick={() => setDeleteConfirmOpen(false)} disabled={deleting}>Annuler</Button>
+                            <Button type="button" className="flex-1 bg-red-600 hover:bg-red-700 text-white font-bold"
+                                onClick={handleDeleteParent} disabled={deleting}>
+                                {deleting ? <Loader2 className="w-4 h-4 animate-spin mr-1" /> : <Trash2 className="w-4 h-4 mr-1" />}
+                                Supprimer
+                            </Button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     )
 }

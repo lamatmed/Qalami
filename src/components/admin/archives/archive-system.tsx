@@ -25,9 +25,19 @@ import {
     FileSpreadsheet,
     Presentation,
     Loader2,
-    Plus
+    Plus,
+    Pencil,
+    Trash2,
+    Check,
+    ChevronDown
 } from 'lucide-react'
 import { UploadDocumentDialog } from '@/components/admin/documents/upload-document-dialog'
+import {
+    DropdownMenu,
+    DropdownMenuContent,
+    DropdownMenuItem,
+    DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
 import { cn } from '@/lib/utils'
 import { createClient } from '@/utils/supabase/client'
 import { useSchoolContext } from '@/lib/use-school-context'
@@ -138,6 +148,11 @@ export function ArchiveSystem() {
     const [sort, setSort] = useState<SortKey>('date_desc')
     const [view, setView] = useState<ViewMode>('grid')
     const [showUpload, setShowUpload] = useState(false)
+    const [statusMenuId, setStatusMenuId] = useState<string | null>(null)
+    const [editingDoc, setEditingDoc] = useState<{ id: string; name: string; source: 'document' | 'student_doc' } | null>(null)
+    const [editName, setEditName] = useState('')
+    const [savingEdit, setSavingEdit] = useState(false)
+    const [deletingId, setDeletingId] = useState<string | null>(null)
 
     const loadDocs = async (schoolId: string) => {
         setLoading(true)
@@ -219,6 +234,42 @@ export function ArchiveSystem() {
         loadDocs(context.school_id)
     // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [context])
+
+    const handleChangeDocStatus = async (docId: string, newStatus: 'valid' | 'pending' | 'missing') => {
+        const supabase = createClient()
+        await supabase.from('student_documents').update({ status: newStatus }).eq('id', docId)
+        setStatusMenuId(null)
+        setDocs(prev => prev.map(d => d.id === docId ? { ...d, doc_status: newStatus } : d))
+    }
+
+    const handleDelete = async (doc: ArchiveDoc) => {
+        if (!confirm(`Supprimer définitivement « ${doc.name} » ?`)) return
+        setDeletingId(doc.id)
+        const supabase = createClient()
+        const table = doc.source === 'student_doc' ? 'student_documents' : 'documents'
+        const { error } = await supabase.from(table as any).delete().eq('id', doc.id)
+        setDeletingId(null)
+        if (error) { alert('Erreur : ' + error.message); return }
+        setDocs(prev => prev.filter(d => d.id !== doc.id))
+    }
+
+    const startEdit = (doc: ArchiveDoc) => {
+        setEditingDoc({ id: doc.id, name: doc.name, source: doc.source })
+        setEditName(doc.name)
+    }
+
+    const handleSaveEdit = async () => {
+        if (!editingDoc || !editName.trim()) return
+        setSavingEdit(true)
+        const supabase = createClient()
+        const table = editingDoc.source === 'student_doc' ? 'student_documents' : 'documents'
+        const nameField = editingDoc.source === 'student_doc' ? 'document_name' : 'name'
+        const { error } = await supabase.from(table as any).update({ [nameField]: editName.trim() }).eq('id', editingDoc.id)
+        setSavingEdit(false)
+        if (error) { alert('Erreur : ' + error.message); return }
+        setDocs(prev => prev.map(d => d.id === editingDoc.id ? { ...d, name: editName.trim() } : d))
+        setEditingDoc(null)
+    }
 
     /* Derived values */
     const years = useMemo(() => {
@@ -467,7 +518,16 @@ export function ArchiveSystem() {
                     {/* Grid view */}
                     {!loading && filtered.length > 0 && view === 'grid' && (
                         <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3">
-                            {filtered.map(doc => <DocCard key={doc.id} doc={doc} />)}
+                            {filtered.map(doc => (
+                                <DocCard key={doc.id} doc={doc}
+                                    deleting={deletingId === doc.id}
+                                    onEdit={() => startEdit(doc)}
+                                    onDelete={() => handleDelete(doc)}
+                                    statusMenuId={statusMenuId}
+                                    setStatusMenuId={setStatusMenuId}
+                                    onChangeStatus={handleChangeDocStatus}
+                                />
+                            ))}
                         </div>
                     )}
 
@@ -475,7 +535,16 @@ export function ArchiveSystem() {
                     {!loading && filtered.length > 0 && view === 'list' && (
                         <div className="bg-[#1A2530] rounded-3xl border border-white/5 overflow-hidden">
                             <div className="divide-y divide-white/5">
-                                {filtered.map(doc => <DocRow key={doc.id} doc={doc} />)}
+                                {filtered.map(doc => (
+                                    <DocRow key={doc.id} doc={doc}
+                                        deleting={deletingId === doc.id}
+                                        onEdit={() => startEdit(doc)}
+                                        onDelete={() => handleDelete(doc)}
+                                        statusMenuId={statusMenuId}
+                                        setStatusMenuId={setStatusMenuId}
+                                        onChangeStatus={handleChangeDocStatus}
+                                    />
+                                ))}
                             </div>
                         </div>
                     )}
@@ -488,13 +557,63 @@ export function ArchiveSystem() {
             onClose={() => setShowUpload(false)}
             onSuccess={() => context && loadDocs(context.school_id)}
         />
+
+        {/* Edit dialog */}
+        {editingDoc && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+                <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => !savingEdit && setEditingDoc(null)} />
+                <div className="relative w-full max-w-sm bg-[#1A2530] border border-white/10 rounded-2xl shadow-2xl p-6 space-y-4">
+                    <div className="flex items-center gap-3">
+                        <div className="w-9 h-9 rounded-xl bg-blue-500/15 flex items-center justify-center shrink-0">
+                            <Pencil className="w-4 h-4 text-blue-400" />
+                        </div>
+                        <h3 className="font-bold text-white">Renommer le document</h3>
+                    </div>
+                    <input
+                        autoFocus
+                        value={editName}
+                        onChange={e => setEditName(e.target.value)}
+                        onKeyDown={e => { if (e.key === 'Enter') handleSaveEdit(); if (e.key === 'Escape') setEditingDoc(null) }}
+                        className="w-full bg-[#0F1720] border border-white/10 text-white text-sm rounded-xl px-4 py-2.5 focus:outline-none focus:border-emerald-500/50"
+                        placeholder="Nom du document"
+                    />
+                    <div className="flex gap-3">
+                        <button type="button" onClick={() => setEditingDoc(null)} disabled={savingEdit}
+                            className="flex-1 py-2 rounded-xl border border-white/10 text-gray-400 hover:text-white text-sm font-bold transition-colors">
+                            Annuler
+                        </button>
+                        <button type="button" onClick={handleSaveEdit} disabled={savingEdit || !editName.trim()}
+                            className="flex-1 py-2 rounded-xl bg-emerald-500 hover:bg-emerald-600 text-black text-sm font-bold transition-colors flex items-center justify-center gap-2 disabled:opacity-50">
+                            {savingEdit ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />}
+                            Enregistrer
+                        </button>
+                    </div>
+                </div>
+            </div>
+        )}
         </>
     )
 }
 
 /* ─────────────── Card (Grid) ─────────────── */
 
-function DocCard({ doc }: { doc: ArchiveDoc }) {
+function DocCard({
+    doc,
+    onEdit,
+    onDelete,
+    deleting,
+    statusMenuId,
+    setStatusMenuId,
+    onChangeStatus,
+}: {
+    doc: ArchiveDoc
+    onEdit: () => void
+    onDelete: () => void
+    deleting: boolean
+    statusMenuId: string | null
+    setStatusMenuId: (id: string | null) => void
+    onChangeStatus: (docId: string, newStatus: 'valid' | 'pending' | 'missing') => Promise<void>
+}) {
     const { t } = useLanguage()
     return (
         <div className={cn('group bg-[#1A2530] border rounded-2xl p-4 flex items-start gap-3 hover:border-emerald-500/30 transition-all', typeBgColor(doc.file_type))}>
@@ -527,13 +646,48 @@ function DocCard({ doc }: { doc: ArchiveDoc }) {
                         </span>
                     )}
                     {doc.doc_status && (
-                        <span className={cn('text-[10px] px-2 py-0.5 rounded-full border font-medium',
-                            doc.doc_status === 'valid'   ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' :
-                            doc.doc_status === 'pending' ? 'bg-amber-500/10 text-amber-400 border-amber-500/20' :
-                            'bg-red-500/10 text-red-400 border-red-500/20'
-                        )}>
-                            {doc.doc_status === 'valid' ? t('admin.documents.valid') : doc.doc_status === 'pending' ? t('admin.documents.pending') : t('admin.documents.missing')}
-                        </span>
+                        <DropdownMenu
+                            open={statusMenuId === doc.id}
+                            onOpenChange={(open) => setStatusMenuId(open ? doc.id : null)}
+                        >
+                            <DropdownMenuTrigger asChild>
+                                <button
+                                    type="button"
+                                    className={cn(
+                                        'text-[10px] px-2 py-0.5 rounded-full font-bold flex items-center gap-1 transition-all hover:brightness-110 active:scale-95 shadow-sm border border-transparent select-none cursor-pointer',
+                                        doc.doc_status === 'valid'   ? 'bg-emerald-500 text-white' :
+                                        doc.doc_status === 'pending' ? 'bg-amber-400 text-black' :
+                                        'bg-red-500 text-white'
+                                    )}
+                                >
+                                    {doc.doc_status === 'valid' ? t('admin.documents.valid') : doc.doc_status === 'pending' ? t('admin.documents.pending') : t('admin.documents.missing')}
+                                    <ChevronDown className="w-2.5 h-2.5 opacity-60" />
+                                </button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="start" className="bg-[#1A2530] border border-white/10 rounded-xl p-1 min-w-[120px] shadow-xl">
+                                <DropdownMenuItem
+                                    onClick={() => onChangeStatus(doc.id, 'valid')}
+                                    className="cursor-pointer text-xs font-semibold text-white hover:bg-white/5 rounded-lg gap-2 py-1.5"
+                                >
+                                    <span className="w-2 h-2 rounded-full bg-emerald-500" />
+                                    {t('admin.documents.valid')}
+                                </DropdownMenuItem>
+                                <DropdownMenuItem
+                                    onClick={() => onChangeStatus(doc.id, 'pending')}
+                                    className="cursor-pointer text-xs font-semibold text-white hover:bg-white/5 rounded-lg gap-2 py-1.5"
+                                >
+                                    <span className="w-2 h-2 rounded-full bg-amber-400" />
+                                    {t('admin.documents.pending')}
+                                </DropdownMenuItem>
+                                <DropdownMenuItem
+                                    onClick={() => onChangeStatus(doc.id, 'missing')}
+                                    className="cursor-pointer text-xs font-semibold text-white hover:bg-white/5 rounded-lg gap-2 py-1.5"
+                                >
+                                    <span className="w-2 h-2 rounded-full bg-red-500" />
+                                    {t('admin.documents.missing')}
+                                </DropdownMenuItem>
+                            </DropdownMenuContent>
+                        </DropdownMenu>
                     )}
                 </div>
 
@@ -548,13 +702,23 @@ function DocCard({ doc }: { doc: ArchiveDoc }) {
                         )}
                         <p>{formatDate(doc.created_at)} · {formatSize(doc.file_size_bytes)}</p>
                     </div>
-                    {doc.file_url && (
-                        <a href={doc.file_url} target="_blank" rel="noopener noreferrer">
-                            <Button size="icon" variant="ghost" className="h-7 w-7 text-gray-600 hover:text-emerald-400 opacity-0 group-hover:opacity-100 transition-all">
-                                <Download className="w-3.5 h-3.5" />
-                            </Button>
-                        </a>
-                    )}
+                    <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-all">
+                        {doc.file_url && (
+                            <a href={doc.file_url} target="_blank" rel="noopener noreferrer">
+                                <Button size="icon" variant="ghost" className="h-7 w-7 text-gray-600 hover:text-emerald-400">
+                                    <Download className="w-3.5 h-3.5" />
+                                </Button>
+                            </a>
+                        )}
+                        <button type="button" onClick={onEdit}
+                            className="h-7 w-7 flex items-center justify-center text-gray-600 hover:text-blue-400 rounded-md hover:bg-white/5 transition-colors">
+                            <Pencil className="w-3.5 h-3.5" />
+                        </button>
+                        <button type="button" onClick={onDelete} disabled={deleting}
+                            className="h-7 w-7 flex items-center justify-center text-gray-600 hover:text-red-400 rounded-md hover:bg-white/5 transition-colors">
+                            {deleting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Trash2 className="w-3.5 h-3.5" />}
+                        </button>
+                    </div>
                 </div>
             </div>
         </div>
@@ -563,7 +727,23 @@ function DocCard({ doc }: { doc: ArchiveDoc }) {
 
 /* ─────────────── Row (List) ─────────────── */
 
-function DocRow({ doc }: { doc: ArchiveDoc }) {
+function DocRow({
+    doc,
+    onEdit,
+    onDelete,
+    deleting,
+    statusMenuId,
+    setStatusMenuId,
+    onChangeStatus,
+}: {
+    doc: ArchiveDoc
+    onEdit: () => void
+    onDelete: () => void
+    deleting: boolean
+    statusMenuId: string | null
+    setStatusMenuId: (id: string | null) => void
+    onChangeStatus: (docId: string, newStatus: 'valid' | 'pending' | 'missing') => Promise<void>
+}) {
     const { t } = useLanguage()
     return (
         <div className="group flex items-center gap-4 px-5 py-3.5 hover:bg-[#0F1720] transition-colors">
@@ -580,6 +760,50 @@ function DocRow({ doc }: { doc: ArchiveDoc }) {
                 </div>
             </div>
             <div className="flex items-center gap-4 shrink-0">
+                {doc.doc_status && (
+                    <DropdownMenu
+                        open={statusMenuId === doc.id}
+                        onOpenChange={(open) => setStatusMenuId(open ? doc.id : null)}
+                    >
+                        <DropdownMenuTrigger asChild>
+                            <button
+                                type="button"
+                                className={cn(
+                                    'text-[10px] px-2 py-0.5 rounded-full font-bold flex items-center gap-1 transition-all hover:brightness-110 active:scale-95 shadow-sm border border-transparent select-none cursor-pointer',
+                                    doc.doc_status === 'valid'   ? 'bg-emerald-500 text-white' :
+                                    doc.doc_status === 'pending' ? 'bg-amber-400 text-black' :
+                                    'bg-red-500 text-white'
+                                )}
+                            >
+                                {doc.doc_status === 'valid' ? t('admin.documents.valid') : doc.doc_status === 'pending' ? t('admin.documents.pending') : t('admin.documents.missing')}
+                                <ChevronDown className="w-2.5 h-2.5 opacity-60" />
+                            </button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end" className="bg-[#1A2530] border border-white/10 rounded-xl p-1 min-w-[120px] shadow-xl">
+                            <DropdownMenuItem
+                                onClick={() => onChangeStatus(doc.id, 'valid')}
+                                className="cursor-pointer text-xs font-semibold text-white hover:bg-white/5 rounded-lg gap-2 py-1.5"
+                            >
+                                <span className="w-2 h-2 rounded-full bg-emerald-500" />
+                                {t('admin.documents.valid')}
+                            </DropdownMenuItem>
+                            <DropdownMenuItem
+                                onClick={() => onChangeStatus(doc.id, 'pending')}
+                                className="cursor-pointer text-xs font-semibold text-white hover:bg-white/5 rounded-lg gap-2 py-1.5"
+                            >
+                                <span className="w-2 h-2 rounded-full bg-amber-400" />
+                                {t('admin.documents.pending')}
+                            </DropdownMenuItem>
+                            <DropdownMenuItem
+                                onClick={() => onChangeStatus(doc.id, 'missing')}
+                                className="cursor-pointer text-xs font-semibold text-white hover:bg-white/5 rounded-lg gap-2 py-1.5"
+                            >
+                                <span className="w-2 h-2 rounded-full bg-red-500" />
+                                {t('admin.documents.missing')}
+                            </DropdownMenuItem>
+                        </DropdownMenuContent>
+                    </DropdownMenu>
+                )}
                 {doc.document_type && (
                     <span className="text-[10px] bg-white/5 text-gray-400 px-2 py-0.5 rounded-full border border-white/5 hidden sm:block">
                         {t('admin.documents.docTypes.' + doc.document_type)}
@@ -587,13 +811,23 @@ function DocRow({ doc }: { doc: ArchiveDoc }) {
                 )}
                 <span className="text-[10px] text-gray-600 hidden md:block">{formatSize(doc.file_size_bytes)}</span>
                 <span className="text-[10px] text-gray-600">{formatDate(doc.created_at)}</span>
-                {doc.file_url ? (
-                    <a href={doc.file_url} target="_blank" rel="noopener noreferrer">
-                        <Button size="icon" variant="ghost" className="h-7 w-7 text-gray-600 hover:text-emerald-400 opacity-0 group-hover:opacity-100 transition-all">
-                            <Download className="w-3.5 h-3.5" />
-                        </Button>
-                    </a>
-                ) : <div className="w-7" />}
+                <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-all">
+                    {doc.file_url ? (
+                        <a href={doc.file_url} target="_blank" rel="noopener noreferrer">
+                            <Button size="icon" variant="ghost" className="h-7 w-7 text-gray-600 hover:text-emerald-400">
+                                <Download className="w-3.5 h-3.5" />
+                            </Button>
+                        </a>
+                    ) : <div className="w-7" />}
+                    <button type="button" onClick={onEdit}
+                        className="h-7 w-7 flex items-center justify-center text-gray-600 hover:text-blue-400 rounded-md hover:bg-white/5 transition-colors">
+                        <Pencil className="w-3.5 h-3.5" />
+                    </button>
+                    <button type="button" onClick={onDelete} disabled={deleting}
+                        className="h-7 w-7 flex items-center justify-center text-gray-600 hover:text-red-400 rounded-md hover:bg-white/5 transition-colors">
+                        {deleting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Trash2 className="w-3.5 h-3.5" />}
+                    </button>
+                </div>
             </div>
         </div>
     )

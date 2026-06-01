@@ -15,10 +15,10 @@ interface PinInputProps {
 
 export function PinInput({ value, onChange, label, error, disabled, autoFocus }: PinInputProps) {
     const inputRefs = useRef<(HTMLInputElement | null)[]>([])
-    const digits = value.padEnd(4, '').split('').slice(0, 4)
+    const digits = value.padEnd(6, '').split('').slice(0, 6)
 
     const focusInput = (index: number) => {
-        if (index >= 0 && index < 4) {
+        if (index >= 0 && index < 6) {
             inputRefs.current[index]?.focus()
         }
     }
@@ -32,7 +32,7 @@ export function PinInput({ value, onChange, label, error, disabled, autoFocus }:
         const newValue = newDigits.join('').replace(/\s/g, '')
         onChange(newValue)
 
-        if (d && index < 3) {
+        if (d && index < 5) {
             focusInput(index + 1)
         }
     }
@@ -58,9 +58,9 @@ export function PinInput({ value, onChange, label, error, disabled, autoFocus }:
 
     const handlePaste = (e: ClipboardEvent<HTMLInputElement>) => {
         e.preventDefault()
-        const pasted = e.clipboardData.getData('text').replace(/\D/g, '').slice(0, 4)
+        const pasted = e.clipboardData.getData('text').replace(/\D/g, '').slice(0, 6)
         onChange(pasted)
-        focusInput(Math.min(pasted.length, 3))
+        focusInput(Math.min(pasted.length, 5))
     }
 
     return (
@@ -68,8 +68,8 @@ export function PinInput({ value, onChange, label, error, disabled, autoFocus }:
             {label && (
                 <label className="text-sm font-medium text-foreground">{label}</label>
             )}
-            <div className="flex gap-3 justify-center">
-                {[0, 1, 2, 3].map((index) => (
+            <div className="flex gap-2 justify-center">
+                {[0, 1, 2, 3, 4, 5].map((index) => (
                     <motion.div
                         key={index}
                         initial={false}
@@ -92,7 +92,7 @@ export function PinInput({ value, onChange, label, error, disabled, autoFocus }:
                             disabled={disabled}
                             autoFocus={autoFocus && index === 0}
                             className={cn(
-                                'w-14 h-16 sm:w-16 sm:h-18 text-center text-2xl font-bold rounded-xl',
+                                'w-11 h-14 sm:w-12 sm:h-16 text-center text-2xl font-bold rounded-xl',
                                 'bg-white/5 border-2 transition-all duration-200',
                                 'focus:outline-none focus:ring-2 focus:ring-indigo-500/50 focus:border-indigo-500',
                                 'text-foreground placeholder:text-muted-foreground/30',

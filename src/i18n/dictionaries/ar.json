@@ -219,10 +219,10 @@
     "welcomeMessage": "مرحباً بك في قلمي",
     "unknownError": "حدث خطأ غير معروف",
     "emailPlaceholder": "البريد الإلكتروني المهني",
-    "passwordPlaceholder": "الرمز السري (4 أرقام)",
+    "passwordPlaceholder": "الرمز (6 أرقام)",
     "pinLabel": "الرمز السري",
     "pinPlaceholder": "أدخل الرمز السري",
-    "enterPin": "أدخل الرمز السري المكون من 4 أرقام",
+    "enterPin": "أدخل الرمز المكون من 6 أرقام",
     "needHelp": "تحتاج مساعدة في التسجيل؟",
     "parentAccessRequest": "طلب وصول ولي الأمر",
     "accessRequest": {
@@ -279,7 +279,7 @@
       "resend": "إعادة الإرسال",
       "resendIn": "إعادة الإرسال خلال",
       "newPinTitle": "رمز سري جديد",
-      "newPinSubtitle": "اختر رمزاً سرياً جديداً مكوناً من 4 أرقام",
+      "newPinSubtitle": "اختر كلمة مرور جديدة مكوّنة من 6 أرقام",
       "newPin": "الرمز السري الجديد",
       "resetPin": "إعادة تعيين الرمز السري",
       "successTitle": "تم إعادة تعيين الرمز السري!",
@@ -288,7 +288,7 @@
       "backToLogin": "العودة لتسجيل الدخول",
       "phoneRequired": "الرجاء إدخال رقم هاتفك",
       "codeRequired": "الرجاء إدخال الرمز المكون من 6 أرقام",
-      "pinInvalid": "يجب أن يتكون الرمز السري من 4 أرقام بالضبط"
+      "pinInvalid": "يجب أن تتكون كلمة المرور من 6 أرقام بالضبط"
     }
   },
   "admin": {
@@ -550,8 +550,8 @@
           "phone": "الهاتف",
           "phonePlaceholder": "مثال: 36 12 34 56",
           "tempPassword": "كلمة مرور مؤقتة *",
-          "tempPasswordPlaceholder": "مثال: Eleve2024",
-          "tempPasswordHint": "سيتم تسليم كلمة المرور هذه للتلميذ عند أول تسجيل دخول.",
+          "tempPasswordPlaceholder": "6 أرقام (مثال: 123456)",
+          "tempPasswordHint": "6 أرقام بالضبط. سيتم تسليم هذا الرمز للتلميذ عند أول تسجيل دخول.",
           "parentsOnlyAccess": "يمكن للأولياء متابعة هذا التلميذ عبر حسابهم. لن يكون للتلميذ وصول إلى التطبيق."
         },
         "parents": {
@@ -654,7 +654,7 @@
         "documentsProgress": "تقدّم الملف",
         "documentsProgressCount": "{validCount} وثيقة{validPlural} من {totalCount} مُعتمدة{validPlural}",
         "documentsValidatedOn": "تم الاعتماد بتاريخ {date}",
-        "documentsPending": "قيد التحقق...",
+        "documentsPending": "تمت الإضافة",
         "documentsMissing": "وثيقة مفقودة",
         "documentsAddUpper": "إضافة",
         "documentsTakePhoto": "التقاط صورة",
@@ -748,6 +748,20 @@
         ,"historyEventsCount": "{count} حدث"
         ,"historyEventsCountPlural": "{count} أحداث"
         ,"historyZeroEvents": "0 حدث"
+        ,"gradesTabLabel": "النقاط"
+        ,"editStudentTitle": "تعديل المعلومات"
+        ,"editStudentSave": "حفظ"
+        ,"editStudentSuccess": "تم تحديث المعلومات"
+        ,"deleteStudentTitle": "حذف نهائي"
+        ,"deleteStudentConfirm": "هذا الإجراء لا رجعة فيه. سيتم حذف التلميذ وتسجيلاته وجميع بياناته."
+        ,"deleteStudentButton": "حذف"
+        ,"deleteStudentSuccess": "تم حذف التلميذ نهائيًا"
+        ,"modifyClass": "تغيير الفصل"
+        ,"backToStudent": "العودة إلى ملف التلميذ"
+        ,"deleteDocConfirm": "هل تريد حذف هذا المستند؟"
+        ,"deleteDocSuccess": "تم حذف المستند"
+        ,"renameDocSuccess": "تم تغيير اسم المستند"
+        ,"replaceDoc": "استبدال"
       }
     },
     "teachers": {
@@ -789,8 +803,8 @@
       "nniPlaceholder": "10 أرقام",
       "nniHint": "الرقم الوطني مطلوب للتسجيل الرسمي في الوزارة.",
       "tempPassword": "كلمة مرور مؤقتة *",
-      "tempPasswordPlaceholder": "مثال: Prof2024",
-      "tempPasswordHint": "سيتم تسليم كلمة المرور هذه للمعلم عند أول تسجيل دخول.",
+      "tempPasswordPlaceholder": "6 أرقام (مثال: 123456)",
+      "tempPasswordHint": "6 أرقام بالضبط. سيتم تسليم هذا الرمز للمعلم عند أول تسجيل دخول.",
       "saveTeacher": "حفظ المعلم",
       "personalInfoStep": {
         "enterPhoneToStart": "أدخل رقم الهاتف للبدء",
@@ -1417,8 +1431,8 @@
       "emailLabel": "البريد الإلكتروني",
       "emailPlaceholder": "مثال: parent@email.com",
       "tempPassword": "كلمة مرور مؤقتة *",
-      "tempPasswordPlaceholder": "مثال: Parent2024",
-      "tempPasswordHint": "سيتم تسليم كلمة المرور هذه لولي الأمر عند أول تسجيل دخول.",
+      "tempPasswordPlaceholder": "6 أرقام (مثال: 123456)",
+      "tempPasswordHint": "6 أرقام بالضبط. سيتم تسليم هذا الرمز لولي الأمر عند أول تسجيل دخول.",
       "noPhoneRecorded": "لا يوجد رقم هاتف مسجل",
       "noEmailRecorded": "لا يوجد بريد إلكتروني مسجل",
       "noStudentsLinked": "لا يوجد أي تلميذ مرتبط بهذا الولي",
@@ -1896,7 +1910,7 @@
       "firstLoginTitle": "تسجيل الدخول الأول",
       "firstLoginDesc": "يرجى اختيار كلمة مرور جديدة لتأمين حسابك.",
       "newPassword": "كلمة المرور الجديدة *",
-      "newPasswordPlaceholder": "4 أحرف على الأقل",
+      "newPasswordPlaceholder": "6 أحرف على الأقل",
       "confirmPassword": "تأكيد كلمة المرور *",
       "confirmPasswordPlaceholder": "أعد كتابة كلمة المرور",
       "confirmAndAccess": "تأكيد والدخول",
@@ -2027,7 +2041,8 @@
         "validate_reports": "التحقق من الكشوف",
         "publish_reports": "نشر الكشوف",
         "assign_parents": "تعيين أولياء",
-        "update_settings": "تعديل الإعدادات"
+        "update_settings": "تعديل الإعدادات",
+        "remove_student_from_class": "إزالة تلميذ من الفصل"
       }
     },
     "settings": {

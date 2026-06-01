@@ -8,11 +8,7 @@ import { cn } from '@/lib/utils'
 import { SuperAdminViewingBanner } from '@/components/shared/super-admin-viewing-banner'
 import { useLanguage } from '@/i18n'
 import { createClient } from '@/utils/supabase/client'
-import {
-    LayoutDashboard, GraduationCap, FolderOpen, BrainCircuit,
-    MoreHorizontal, LogOut, Settings, Bell, Calendar, AlertTriangle,
-    ChevronDown, ChevronUp, X
-} from 'lucide-react'
+import { MoreHorizontal, LogOut, X } from 'lucide-react'
 import { LanguageSwitcher } from '@/components/shared/language-switcher'
 import { ThemeToggle } from '@/components/shared/theme-toggle'
 import { motion, AnimatePresence } from 'framer-motion'
@@ -27,7 +23,6 @@ const BOTTOM_BAR_HREFS = ['/teacher', '/teacher/classes', '/teacher/documents', 
 
 export function TeacherLayoutFrame({ children, header }: TeacherLayoutFrameProps) {
     const [isCollapsed, setIsCollapsed] = useState(false)
-    const [mounted, setMounted] = useState(false)
     const [sheetOpen, setSheetOpen] = useState(false)
     const { direction, t } = useLanguage()
     const pathname = usePathname()
@@ -37,7 +32,6 @@ export function TeacherLayoutFrame({ children, header }: TeacherLayoutFrameProps
     useEffect(() => {
         const saved = localStorage.getItem('qalami_teacher_sidebar_collapsed')
         if (saved === 'true') setIsCollapsed(true)
-        setMounted(true)
     }, [])
 
     // Close sheet on route change
@@ -84,7 +78,7 @@ export function TeacherLayoutFrame({ children, header }: TeacherLayoutFrameProps
             </div>
 
             {/* ── Mobile bottom navigation bar ──────────────────────────── */}
-            <nav className="lg:hidden fixed bottom-0 inset-x-0 z-50 bg-white/95 dark:bg-card/95 backdrop-blur-xl border-t border-slate-100 dark:border-white/8 shadow-[0_-4px_20px_rgba(0,0,0,0.08)] safe-area-pb">
+            <nav className="lg:hidden fixed bottom-0 inset-x-0 z-50 bg-white/95 dark:bg-card/95 backdrop-blur-xl border-t border-slate-100 dark:border-white/10 shadow-[0_-4px_20px_rgba(0,0,0,0.08)] pb-safe">
                 <div className="flex items-stretch h-16">
                     {bottomItems.map((item) => {
                         const isActive = pathname.startsWith(item.href) && (item.href !== '/teacher' || pathname === '/teacher')
@@ -148,7 +142,7 @@ export function TeacherLayoutFrame({ children, header }: TeacherLayoutFrameProps
                             animate={{ y: 0 }}
                             exit={{ y: '100%' }}
                             transition={{ type: 'spring', damping: 28, stiffness: 300 }}
-                            className="lg:hidden fixed bottom-0 inset-x-0 z-[61] bg-white dark:bg-card rounded-t-3xl shadow-2xl safe-area-pb"
+                            className="lg:hidden fixed bottom-0 inset-x-0 z-[61] bg-white dark:bg-card rounded-t-3xl shadow-2xl pb-safe"
                             dir={direction}
                         >
                             {/* Handle */}
@@ -176,7 +170,7 @@ export function TeacherLayoutFrame({ children, header }: TeacherLayoutFrameProps
                                                 "flex flex-col items-center justify-center gap-2 py-4 rounded-2xl border transition-all",
                                                 isActive
                                                     ? "bg-indigo-50 dark:bg-indigo-500/15 border-indigo-200 dark:border-indigo-500/30 text-indigo-600 dark:text-indigo-400"
-                                                    : "bg-slate-50 dark:bg-white/5 border-slate-100 dark:border-white/8 text-slate-600 dark:text-slate-400 hover:border-indigo-200 dark:hover:border-indigo-500/20"
+                                                    : "bg-slate-50 dark:bg-white/5 border-slate-100 dark:border-white/10 text-slate-600 dark:text-slate-400 hover:border-indigo-200 dark:hover:border-indigo-500/20"
                                             )}
                                         >
                                             <item.icon className="h-5 w-5" />
@@ -189,11 +183,11 @@ export function TeacherLayoutFrame({ children, header }: TeacherLayoutFrameProps
                             {/* Language + Theme + Logout */}
                             <div className="px-4 pb-5 pt-2 border-t border-slate-100 dark:border-white/5 space-y-2.5">
                                 <div className="flex items-center gap-2">
-                                    <div className="flex-1 flex items-center justify-between px-4 py-2.5 rounded-2xl border border-slate-100 dark:border-white/8 bg-slate-50 dark:bg-white/5">
+                                    <div className="flex-1 flex items-center justify-between px-4 py-2.5 rounded-2xl border border-slate-100 dark:border-white/10 bg-slate-50 dark:bg-white/5">
                                         <span className="text-sm font-medium text-slate-600 dark:text-slate-300">{t('common.language')}</span>
                                         <LanguageSwitcher variant="tabs" />
                                     </div>
-                                    <div className="flex items-center justify-center px-3 py-2.5 rounded-2xl border border-slate-100 dark:border-white/8 bg-slate-50 dark:bg-white/5">
+                                    <div className="flex items-center justify-center px-3 py-2.5 rounded-2xl border border-slate-100 dark:border-white/10 bg-slate-50 dark:bg-white/5">
                                         <ThemeToggle variant="icon" />
                                     </div>
                                 </div>

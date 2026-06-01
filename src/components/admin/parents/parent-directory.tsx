@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { Search, Plus, Phone, User, X, Loader2, ShieldAlert, KeyRound } from 'lucide-react'
+import { Search, Plus, Phone, User, X, Loader2, ShieldAlert, KeyRound, ArrowLeft, Bell } from 'lucide-react'
 import { StatusBadge } from '@/components/admin/shared/status-badge'
 import { ChangeStatusDialog } from '@/components/admin/shared/change-status-dialog'
 import { ChangePasswordDialog } from '@/components/admin/shared/change-password-dialog'
@@ -68,6 +68,8 @@ export function ParentDirectory() {
     const [verificationError, setVerificationError] = useState('')
     const [linkingParent, setLinkingParent] = useState(false)
     const [schoolId, setSchoolId] = useState('')
+    const [overdueParentIds, setOverdueParentIds] = useState<string[]>([])
+    const [sendingBulk, setSendingBulk] = useState(false)
 
     const { t, direction } = useLanguage()
     const searchParams = useSearchParams()
@@ -264,8 +266,8 @@ export function ParentDirectory() {
             toast.error(t('admin.parents.firstNameRequired'))
             return
         }
-        if (!newParent.password.trim()) {
-            toast.error(t('admin.parents.passwordRequired'))
+        if (!/^\d{6}$/.test(newParent.password)) {
+            toast.error('Le mot de passe doit être exactement 6 chiffres')
             return
         }
         setAddingParent(true)
@@ -312,10 +314,28 @@ export function ParentDirectory() {
 
     useEffect(() => { fetchParents() }, [])
 
+    useEffect(() => {
+        if (!schoolId) return
+        import('@/app/admin/parents/actions').then(({ getParentsWithOverdue }) => {
+            getParentsWithOverdue(schoolId).then(ids => setOverdueParentIds(ids))
+        })
+    }, [schoolId])
+
+    const handleSendBulkReminders = async () => {
+        setSendingBulk(true)
+        const { sendBulkPaymentReminders } = await import('@/app/admin/parents/actions')
+        const result = await sendBulkPaymentReminders(schoolId)
+        setSendingBulk(false)
+        if (result.error) { toast.error(result.error); return }
+        toast.success(`Rappels envoyés à ${result.count} parent(s) en retard`)
+    }
+
     const STATUS_FILTER_MAP: Record<string, string> = { actif: 'active', inactif: 'inactive' }
     const filteredParents = parents.filter(parent => {
         const filterStatus = STATUS_FILTER_MAP[filter] ?? filter
-        const matchesFilter = filter === 'tous' || parent.status === filterStatus
+        const matchesFilter = filter === 'tous' || filter === 'retard'
+            ? (filter === 'retard' ? overdueParentIds.includes(parent.id) : true)
+            : parent.status === filterStatus
         const matchesSearch = parent.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
             (parent.phone || '').includes(searchQuery)
         return matchesFilter && matchesSearch
@@ -350,10 +370,11 @@ export function ParentDirectory() {
                                     onChange={(e) => setSearchQuery(normalizeArabicDigits(e.target.value))}
                                 />
                             </div>
-                            <div className="flex gap-2 overflow-x-auto pb-2 no-scrollbar">
+                            <div className="flex gap-2 overflow-x-auto pb-2 no-scrollbar flex-wrap">
                                 {['tous', 'actif', 'inactif'].map((status) => (
                                     <button
                                         key={status}
+                                        type="button"
                                         onClick={() => setFilter(status)}
                                         className={cn(
                                             "px-3 py-1.5 rounded-full text-xs font-medium capitalize whitespace-nowrap transition-colors",
@@ -365,7 +386,35 @@ export function ParentDirectory() {
                                         {status === 'tous' ? t('common.all') : status === 'actif' ? t('admin.parents.filterActive') : t('admin.parents.filterInactive')}
                                     </button>
                                 ))}
+                                {/* Filtre paiements en retard */}
+                                <button
+                                    type="button"
+                                    onClick={() => setFilter(filter === 'retard' ? 'tous' : 'retard')}
+                                    className={cn(
+                                        "flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-colors border",
+                                        filter === 'retard'
+                                            ? "bg-red-500/20 border-red-500/50 text-red-400"
+                                            : "bg-[#161B22] border-white/5 text-red-400/60 hover:text-red-400 hover:border-red-500/30"
+                                    )}
+                                >
+                                    <span className="w-1.5 h-1.5 rounded-full bg-red-400 shrink-0" />
+                                    Paiements en retard {overdueParentIds.length > 0 && `(${overdueParentIds.length})`}
+                                </button>
                             </div>
+                            {/* Bouton rappel collectif — visible seulement si filtre retard actif ou retards présents */}
+                            {overdueParentIds.length > 0 && (
+                                <button
+                                    type="button"
+                                    onClick={handleSendBulkReminders}
+                                    disabled={sendingBulk}
+                                    className="w-full flex items-center justify-center gap-2 py-2 rounded-xl border border-red-500/20 bg-red-500/5 text-red-400 hover:bg-red-500/10 text-xs font-bold transition-colors"
+                                >
+                                    {sendingBulk
+                                        ? <><Loader2 className="w-3.5 h-3.5 animate-spin" /> Envoi en cours...</>
+                                        : <>📢 Envoyer rappel à tous les parents en retard ({overdueParentIds.length})</>
+                                    }
+                                </button>
+                            )}
                         </div>
 
                         {/* List */}
@@ -583,9 +632,14 @@ export function ParentDirectory() {
                                                          <Input
                                                              placeholder={t('admin.parents.tempPasswordPlaceholder')}
                                                              value={newParent.password}
-                                                             onChange={(e) => setNewParent(p => ({ ...p, password: e.target.value }))}
+                                                             onChange={(e) => {
+                                                                 const digits = e.target.value.replace(/\D/g, '').slice(0, 6)
+                                                                 setNewParent(p => ({ ...p, password: digits }))
+                                                             }}
                                                              className="bg-[#0D1117] border-white/10 text-white h-10 text-left"
                                                              dir="ltr"
+                                                             inputMode="numeric"
+                                                             maxLength={6}
                                                          />
                                                          <p className="text-[10px] text-gray-600">{t('admin.parents.tempPasswordHint')}</p>
                                                      </div>
@@ -632,7 +686,17 @@ export function ParentDirectory() {
                     {/* Profile Detail Column */}
                     <div className={cn("lg:col-span-8 h-full", !selectedParent ? "hidden lg:block" : "block")}>
                         {selectedParent ? (
-                            <ParentProfile parent={selectedParent} schoolId={schoolId} onClose={() => setSelectedParent(null)} />
+                            <div className="space-y-3">
+                                {searchParams.get('from_student') && (
+                                    <a
+                                        href={`/admin/students?id=${searchParams.get('from_student')}`}
+                                        className="inline-flex items-center gap-2 text-sm text-gray-400 hover:text-emerald-400 transition-colors"
+                                    >
+                                        <ArrowLeft className="w-4 h-4" /> {t('admin.students.profile.backToStudent')}
+                                    </a>
+                                )}
+                                <ParentProfile parent={selectedParent} schoolId={schoolId} onClose={() => setSelectedParent(null)} />
+                            </div>
                         ) : (
                             <div className="h-full bg-[#161B22] border border-white/5 rounded-3xl p-6 flex flex-col items-center justify-center text-center">
                                 <div className="w-16 h-16 rounded-full bg-gray-800/50 flex items-center justify-center mb-4">

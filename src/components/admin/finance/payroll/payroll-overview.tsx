@@ -6,13 +6,14 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Checkbox } from '@/components/ui/checkbox'
-import { Search, ChevronRight, CheckCircle2, Download, Printer, Wallet, ArrowUpRight, Clock } from 'lucide-react'
+import { Search, ChevronRight, CheckCircle2, Download, Printer, Wallet, ArrowUpRight, Clock, Loader2 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { createClient } from '@/utils/supabase/client'
 import { Skeleton } from '@/components/ui/skeleton'
 import { useLanguage } from '@/i18n'
 import { toast } from 'sonner'
+import { confirmPaymentAction } from '@/app/admin/finance/payroll/actions'
 
 interface PayrollEmployee {
     id: string
@@ -189,6 +190,152 @@ export function PayrollOverview({ onSelectTeacher, refreshKey }: { onSelectTeach
         } else {
             setSelectedEmployees([...selectedEmployees, id])
         }
+    }
+
+    const [bulkPaying, setBulkPaying] = useState(false)
+
+    const generateTxId = () => {
+        const now = new Date()
+        const y = now.getFullYear()
+        const m = String(now.getMonth() + 1).padStart(2, '0')
+        const rand = Math.random().toString(36).substring(2, 6).toUpperCase()
+        return `PAY-${y}-${m}-${rand}`
+    }
+
+    const handleBulkPay = async () => {
+        const targets = employees.filter(e => selectedEmployees.includes(e.id) && e.status !== 'paid')
+        if (!targets.length) {
+            toast.info('Tous les employés sélectionnés ont déjà été payés ce mois-ci.')
+            return
+        }
+        setBulkPaying(true)
+        let success = 0
+        let failed = 0
+        for (const emp of targets) {
+            const result = await confirmPaymentAction({
+                employeeId: emp.employeeId,
+                employeeName: emp.employeeName,
+                baseSalary: emp.baseSalary,
+                bonuses: emp.bonuses,
+                deductions: emp.deductions,
+                netSalary: emp.netSalary,
+                transactionRef: generateTxId(),
+            })
+            if (result?.error) { failed++ } else { success++ }
+        }
+        setBulkPaying(false)
+        if (success > 0) {
+            setEmployees(prev => prev.map(e =>
+                selectedEmployees.includes(e.id) ? { ...e, status: 'paid' as const } : e
+            ))
+            setSelectedEmployees([])
+        }
+        if (failed > 0) toast.error(`${failed} paiement(s) ont échoué`)
+        if (success > 0) toast.success(`${success} paiement(s) confirmé(s) avec succès`)
+    }
+
+    const handleBulkBulletins = async () => {
+        const targets = employees.filter(e => selectedEmployees.includes(e.id))
+        if (!targets.length) return
+
+        // Fetch school info
+        const supabase = createClient()
+        const { data: { user } } = await supabase.auth.getUser()
+        let schoolName = '', schoolLogo = '', adminName = ''
+        if (user) {
+            const { data: profile } = await supabase.from('profiles').select('school_id, full_name').eq('id', user.id).single()
+            if (profile?.full_name) adminName = profile.full_name
+            if (profile?.school_id) {
+                const { data: settings } = await supabase.from('school_settings').select('name, logo_url').eq('school_id', profile.school_id).maybeSingle()
+                schoolName = settings?.name || ''
+                schoolLogo = settings?.logo_url || ''
+                if (!schoolName || !schoolLogo) {
+                    const { data: school } = await supabase.from('schools').select('name, logo_url').eq('id', profile.school_id).maybeSingle()
+                    if (!schoolName) schoolName = school?.name || ''
+                    if (!schoolLogo) schoolLogo = school?.logo_url || ''
+                }
+            }
+        }
+
+        const printDate = new Date().toLocaleDateString('fr-FR', { day: '2-digit', month: 'long', year: 'numeric' })
+        const bulletins = targets.map(emp => `
+<div class="receipt-container" style="page-break-after:always">
+  <div class="header">
+    <div class="logo-container">
+      ${schoolLogo ? `<img src="${schoolLogo}" alt="Logo" class="school-logo"/>` : '<span style="font-size:32px">🎓</span>'}
+    </div>
+    <div>
+      <h1 class="school-title">${schoolName || 'ECOLE QALAMI'}</h1>
+      <p class="school-subtitle">Système de Gestion Scolaire</p>
+    </div>
+  </div>
+  <div class="receipt-title">
+    <h2>BULLETIN DE PAIE</h2>
+    <p>Période : <strong>${monthName} ${currentYear}</strong></p>
+  </div>
+  <div class="meta-info">
+    <div>
+      <div class="meta-row"><span class="meta-label">Employé :</span><span class="meta-value">${emp.employeeName}</span></div>
+      <div class="meta-row"><span class="meta-label">Poste :</span><span class="meta-value">${emp.position}</span></div>
+      <div class="meta-row"><span class="meta-label">NNI :</span><span class="meta-value" style="font-family:monospace">${emp.nni || '—'}</span></div>
+    </div>
+    <div>
+      <div class="meta-row"><span class="meta-label">Téléphone :</span><span class="meta-value">${emp.phone || '—'}</span></div>
+      <div class="meta-row"><span class="meta-label">Contrat :</span><span class="meta-value">${emp.contractType === 'hourly' ? 'Contrat Horaire' : 'Contrat Temps Plein'}</span></div>
+      <div class="meta-row"><span class="meta-label">Date :</span><span class="meta-value">${printDate}</span></div>
+      <div class="meta-row"><span class="meta-label">Statut :</span><span class="meta-value"><span class="status-badge">${emp.status === 'paid' ? 'PAYÉ' : 'EN ATTENTE'}</span></span></div>
+    </div>
+  </div>
+  <div class="section-title">RÉMUNÉRATION</div>
+  <div class="table-row"><div class="item-desc">Salaire de base</div><div class="item-amount-green">${emp.baseSalary.toLocaleString('fr-FR')} MRU</div></div>
+  ${emp.bonuses > 0 ? `<div class="table-row"><div class="item-desc">Primes</div><div class="item-amount-green">+${emp.bonuses.toLocaleString('fr-FR')} MRU</div></div>` : ''}
+  <div class="section-title">RETENUES</div>
+  ${emp.deductions > 0 ? `<div class="table-row"><div class="item-desc">Déductions</div><div class="item-amount-red">-${emp.deductions.toLocaleString('fr-FR')} MRU</div></div>` : ''}
+  <div class="total-section">
+    <div class="total-row net"><span class="total-label-net">NET À PAYER</span><span class="total-value-net">${emp.netSalary.toLocaleString('fr-FR')} MRU</span></div>
+  </div>
+  <div class="signatures-section">
+    <div class="signature-box">Employé<br><strong>${emp.employeeName}</strong></div>
+    <div class="signature-box">Administration<br><strong>${adminName || 'Directeur'}</strong></div>
+  </div>
+</div>`).join('')
+
+        const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Bulletins — ${monthName} ${currentYear}</title>
+<style>
+  body{font-family:Arial,sans-serif;padding:24px;color:#333}
+  .receipt-container{border:2px dashed #10b981;border-radius:16px;padding:24px;max-width:650px;margin:0 auto 40px auto}
+  .header{display:flex;flex-direction:column;align-items:center;text-align:center;border-bottom:2px solid #10b981;padding-bottom:16px;margin-bottom:20px}
+  .logo-container{width:60px;height:60px;border-radius:50%;overflow:hidden;background:#ecfdf5;border:2px solid #10b981;display:flex;align-items:center;justify-content:center}
+  .school-logo{width:100%;height:100%;object-fit:cover}
+  .school-title{font-size:18px;font-weight:800;color:#10b981;margin:8px 0 0}
+  .school-subtitle{font-size:11px;color:#6b7280}
+  .receipt-title{text-align:center;margin:15px 0}
+  .receipt-title h2{font-size:16px;color:#1f2937}
+  .receipt-title p{font-size:12px;color:#6b7280}
+  .meta-info{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px;background:#f9fafb;padding:12px;border-radius:8px;font-size:13px}
+  .meta-row{display:flex;justify-content:space-between;padding:2px 0}
+  .meta-label{color:#6b7280}
+  .meta-value{font-weight:bold;color:#1f2937}
+  .section-title{font-size:11px;font-weight:bold;text-transform:uppercase;color:#6b7280;letter-spacing:.8px;margin:14px 0 6px;padding-bottom:4px;border-bottom:1px solid #e5e7eb}
+  .table-row{display:grid;grid-template-columns:2.5fr 1fr;padding:8px 0;border-bottom:1px solid #f3f4f6;font-size:13px}
+  .item-desc{font-weight:500;color:#1f2937}
+  .item-amount-green{text-align:right;font-weight:bold;color:#10b981}
+  .item-amount-red{text-align:right;font-weight:bold;color:#ef4444}
+  .total-section{margin-top:14px;padding-top:10px;border-top:2px solid #e5e7eb}
+  .total-row.net{margin-top:8px;padding-top:8px;border-top:2px solid #d1fae5;display:flex;justify-content:space-between}
+  .total-label-net{font-size:14px;font-weight:bold;color:#1f2937}
+  .total-value-net{font-size:20px;font-weight:800;color:#10b981}
+  .status-badge{background:#d1fae5;color:#065f46;font-size:11px;font-weight:bold;padding:2px 8px;border-radius:9999px}
+  .signatures-section{display:grid;grid-template-columns:1fr 1fr;gap:40px;margin-top:40px;text-align:center;font-size:12px}
+  .signature-box{border-top:1px solid #d1d5db;padding-top:8px;color:#6b7280}
+  @media print{body{padding:0}.receipt-container{border:2px solid #10b981;page-break-after:always}}
+</style></head><body>${bulletins}</body></html>`
+
+        const win = window.open('', '_blank', 'width=900,height=700')
+        if (!win) { toast.error('Autorisez les popups pour imprimer'); return }
+        win.document.write(html)
+        win.document.close()
+        setTimeout(() => { win.focus(); win.print() }, 400)
     }
 
     const handleExport = () => {
@@ -380,10 +527,20 @@ export function PayrollOverview({ onSelectTeacher, refreshKey }: { onSelectTeach
                 <div className="fixed bottom-24 sm:bottom-6 left-1/2 -translate-x-1/2 z-40 bg-emerald-500 text-black px-6 py-3 rounded-full shadow-2xl shadow-emerald-500/20 flex items-center gap-4 animate-in slide-in-from-bottom-5">
                     <span className="font-bold text-sm">{t('admin.payroll.selectedCount', { count: selectedEmployees.length })}</span>
                     <div className="h-4 w-px bg-black/20" />
-                    <button className="font-bold text-sm hover:bg-emerald-600 px-3 py-1.5 rounded-lg transition-colors flex items-center gap-2">
-                        <CheckCircle2 className="w-4 h-4" /> {t('admin.payroll.payAll')}
+                    <button
+                        type="button"
+                        onClick={handleBulkPay}
+                        disabled={bulkPaying}
+                        className="font-bold text-sm hover:bg-emerald-600 px-3 py-1.5 rounded-lg transition-colors flex items-center gap-2 disabled:opacity-60"
+                    >
+                        {bulkPaying ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle2 className="w-4 h-4" />}
+                        {t('admin.payroll.payAll')}
                     </button>
-                    <button className="font-bold text-sm hover:bg-emerald-600 px-3 py-1.5 rounded-lg transition-colors flex items-center gap-2">
+                    <button
+                        type="button"
+                        onClick={handleBulkBulletins}
+                        className="font-bold text-sm hover:bg-emerald-600 px-3 py-1.5 rounded-lg transition-colors flex items-center gap-2"
+                    >
                         <Download className="w-4 h-4" /> {t('admin.payroll.slipBulletins')}
                     </button>
                 </div>

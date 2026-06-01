@@ -59,8 +59,8 @@ export function PlatformSettings() {
             toast.error("Veuillez remplir tous les champs.")
             return
         }
-        if (passwordForm.newPassword.length < 6) {
-            toast.error("Le mot de passe doit comporter au moins 6 caractères.")
+        if (!/^\d{6}$/.test(passwordForm.newPassword)) {
+            toast.error('Le mot de passe doit être exactement 6 chiffres')
             return
         }
         if (passwordForm.newPassword !== passwordForm.confirmPassword) {
@@ -337,9 +337,11 @@ export function PlatformSettings() {
                             <Input
                                 type={showPassword ? "text" : "password"}
                                 value={passwordForm.newPassword}
-                                onChange={(e) => setPasswordForm({ ...passwordForm, newPassword: e.target.value })}
-                                placeholder="••••••••"
+                                onChange={(e) => setPasswordForm({ ...passwordForm, newPassword: e.target.value.replace(/\D/g, '').slice(0, 6) })}
+                                placeholder="6 chiffres (ex. 123456)"
                                 className="bg-gray-50/60 dark:bg-slate-950/50 border-gray-200 dark:border-white/10 text-gray-900 dark:text-white rounded-2xl h-12 pr-12"
+                                inputMode="numeric"
+                                maxLength={6}
                             />
                             <button
                                 type="button"
@@ -358,9 +360,11 @@ export function PlatformSettings() {
                         <Input
                             type="password"
                             value={passwordForm.confirmPassword}
-                            onChange={(e) => setPasswordForm({ ...passwordForm, confirmPassword: e.target.value })}
-                            placeholder="••••••••"
+                            onChange={(e) => setPasswordForm({ ...passwordForm, confirmPassword: e.target.value.replace(/\D/g, '').slice(0, 6) })}
+                            placeholder="Répétez les 6 chiffres"
                             className="bg-gray-50/60 dark:bg-slate-950/50 border-gray-200 dark:border-white/10 text-gray-900 dark:text-white rounded-2xl h-12"
+                            inputMode="numeric"
+                            maxLength={6}
                         />
                     </div>
 

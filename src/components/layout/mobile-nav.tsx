@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useRef } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import { cn } from '@/lib/utils'
@@ -49,6 +49,9 @@ export function MobileNav({ items, user, academicContext }: MobileNavProps) {
     const { t, direction } = useLanguage()
     const [sheetOpen, setSheetOpen] = useState(false)
     const gridScrollRef = useRef<HTMLDivElement>(null)
+
+    // Close the sheet on route change to prevent stuck overlay/freeze
+    useEffect(() => { setSheetOpen(false) }, [pathname])
 
     const scrollGrid = (dir: 'up' | 'down') => {
         gridScrollRef.current?.scrollBy({ top: dir === 'down' ? 160 : -160, behavior: 'smooth' })

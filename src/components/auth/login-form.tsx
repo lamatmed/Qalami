@@ -176,6 +176,9 @@ export function LoginForm() {
                                                 placeholder={t('auth.passwordPlaceholder')}
                                                 className={`h-11 bg-white/50 dark:bg-black/20 border-black/5 dark:border-white/10 focus:border-emerald-400 transition-all ${isRtl ? 'pr-9 pl-10' : 'pl-9 pr-10'}`}
                                                 {...field}
+                                                onChange={(e) => field.onChange(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                                                inputMode="numeric"
+                                                maxLength={6}
                                             />
                                             <button
                                                 type="button"
@@ -192,14 +195,7 @@ export function LoginForm() {
                             )}
                         />
 
-                        <div className={`flex ${isRtl ? 'justify-start' : 'justify-end'}`}>
-                            <Link
-                                href="/forgot-password"
-                                className="text-xs font-medium text-emerald-600 hover:text-emerald-500 transition-colors"
-                            >
-                                {t('auth.forgotPassword')}
-                            </Link>
-                        </div>
+                    
 
                         <Button
                             className="w-full h-11 text-base font-semibold bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 text-white shadow-lg shadow-emerald-500/20 transition-all duration-300"

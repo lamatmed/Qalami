@@ -26,6 +26,10 @@ export async function getMySchoolContext() {
 }
 
 export async function getSchoolLinkedProfileIds(schoolId: string, role: 'teacher' | 'parent' | 'student') {
+    const ctx = await getMySchoolContext()
+    if (!ctx || (ctx.school_id !== schoolId && ctx.role !== 'super_admin')) {
+        throw new Error("Non autorisé")
+    }
     const adminClient = createAdminClient()
     const { data, error } = await adminClient
         .from('profile_schools')
@@ -42,12 +46,39 @@ export async function getSchoolLinkedProfileIds(schoolId: string, role: 'teacher
 
 export async function secureFetchProfiles(profileIds: string[], selectString: string = '*') {
     if (!profileIds || profileIds.length === 0) return []
+    const ctx = await getMySchoolContext()
+    if (!ctx) return []
+
     const adminClient = createAdminClient()
     
+    // If not a super_admin, restrict only to profile IDs belonging to the same school
+    let filteredIds = profileIds
+    if (ctx.role !== 'super_admin') {
+        const [{ data: links }, { data: direct }] = await Promise.all([
+            adminClient
+                .from('profile_schools')
+                .select('profile_id')
+                .eq('school_id', ctx.school_id)
+                .in('profile_id', profileIds),
+            adminClient
+                .from('profiles')
+                .select('id')
+                .eq('school_id', ctx.school_id)
+                .in('id', profileIds)
+        ])
+        const allowed = new Set([
+            ...(links || []).map(l => l.profile_id),
+            ...(direct || []).map(d => d.id)
+        ])
+        filteredIds = profileIds.filter(id => allowed.has(id))
+    }
+
+    if (filteredIds.length === 0) return []
+
     const { data, error } = await adminClient
         .from('profiles')
         .select(selectString)
-        .in('id', profileIds)
+        .in('id', filteredIds)
         .order('full_name')
         
     if (error) {
@@ -58,6 +89,10 @@ export async function secureFetchProfiles(profileIds: string[], selectString: st
 }
 
 export async function getSchoolMetricsCounts(schoolId: string) {
+    const ctx = await getMySchoolContext()
+    if (!ctx || (ctx.school_id !== schoolId && ctx.role !== 'super_admin')) {
+        throw new Error("Non autorisé")
+    }
     const adminClient = createAdminClient()
     
     // --- 1. STUDENTS (Direct) ---
@@ -182,14 +217,22 @@ export async function notifyLateParentAction(studentId: string, overdueCount: nu
 
     const adminClient = createAdminClient()
 
-    // 1. Get student name
+    // 1. Get student name and school
     const { data: student } = await adminClient
         .from('profiles')
-        .select('full_name')
+        .select('full_name, school_id')
         .eq('id', studentId)
         .single()
 
-    const studentName = student?.full_name || "l'élève"
+    if (!student) {
+        return { error: "Élève introuvable." }
+    }
+
+    if (student.school_id !== ctx.school_id && ctx.role !== 'super_admin') {
+        return { error: "Non autorisé à notifier les parents de cet élève." }
+    }
+
+    const studentName = student.full_name || "l'élève"
 
     // 2. Find all parents linked to this student
     const { data: parentLinks } = await adminClient
@@ -224,6 +267,10 @@ export async function notifyLateParentAction(studentId: string, overdueCount: nu
 }
 
 export async function getAdminNotifications(schoolId: string) {
+    const ctx = await getMySchoolContext()
+    if (!ctx || (ctx.school_id !== schoolId && ctx.role !== 'super_admin')) {
+        return []
+    }
     const adminClient = createAdminClient()
     const { data } = await adminClient
         .from('notifications')
@@ -236,6 +283,10 @@ export async function getAdminNotifications(schoolId: string) {
 }
 
 export async function getAdminUnreadNotificationsCount(schoolId: string) {
+    const ctx = await getMySchoolContext()
+    if (!ctx || (ctx.school_id !== schoolId && ctx.role !== 'super_admin')) {
+        return 0
+    }
     const adminClient = createAdminClient()
     const { count } = await adminClient
         .from('notifications')

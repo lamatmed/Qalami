@@ -57,7 +57,11 @@ export default function SubjectsPage() {
     const error = !!ctxError || fetchError
 
     const locale   = language === 'ar' ? 'ar-SA' : 'fr-FR'
-    const filtered = subjects.filter(s => s.name.toLowerCase().includes(search.toLowerCase()))
+    const getDisplayName = (s: any) => (language === 'ar' && s.name_ar) ? s.name_ar : s.name
+    const filtered = subjects.filter(s =>
+        s.name.toLowerCase().includes(search.toLowerCase()) ||
+        (s.name_ar && s.name_ar.includes(search))
+    )
 
     if (loading) return (
         <div className="flex items-center justify-center h-64">
@@ -130,7 +134,7 @@ export default function SubjectsPage() {
 
                                 {/* Name + date */}
                                 <div className="flex-1 min-w-0">
-                                    <h4 className="font-semibold text-sm truncate text-foreground">{sub.name}</h4>
+                                    <h4 className="font-semibold text-sm truncate text-foreground">{getDisplayName(sub)}</h4>
                                     <p className="text-xs text-muted-foreground mt-0.5">
                                         {t('admin.subjects.addedOn', { date: new Date(sub.created_at).toLocaleDateString(locale, { day: 'numeric', month: 'short', year: 'numeric' }) })}
                                     </p>

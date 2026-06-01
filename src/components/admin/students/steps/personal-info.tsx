@@ -137,9 +137,9 @@ export function PersonalInfo({ data, updateData, onNext }: StepProps) {
         return `${d.getDate()} ${months[d.getMonth()]} ${d.getFullYear()}`
     }
 
-    const isValid = personal.firstName && personal.lastName && personal.dateOfBirth && personal.gender && personal.placeOfBirth && 
+    const isValid = personal.firstName && personal.lastName && personal.dateOfBirth && personal.gender && personal.placeOfBirth &&
         personal.nationalId?.trim().length === 10 &&
-        (!personal.hasPhone || (personal.phone?.trim() && personal.password?.trim()))
+        (!personal.hasPhone || (personal.phone?.trim() && /^\d{6}$/.test(personal.password ?? '')))
 
     const handleNext = async () => {
         if (!personal.nationalId?.trim()) return
@@ -418,11 +418,16 @@ export function PersonalInfo({ data, updateData, onNext }: StepProps) {
                                 <KeyRound className={cn("absolute top-3 h-4 w-4 text-gray-500", direction === 'rtl' ? 'right-3' : 'left-3')} style={{ left: direction === 'rtl' ? 'auto' : '12px', right: direction === 'rtl' ? '12px' : 'auto' }} />
                                 <Input
                                     value={personal.password ?? ''}
-                                    onChange={(e) => handleChange('password', e.target.value)}
+                                    onChange={(e) => {
+                                        const digits = e.target.value.replace(/\D/g, '').slice(0, 6)
+                                        handleChange('password', digits)
+                                    }}
                                     placeholder={t('admin.students.register.personal.tempPasswordPlaceholder')}
                                     className={cn("bg-gray-50 dark:bg-[#1A2530] border-gray-200 dark:border-white/5", direction === 'rtl' ? 'pr-9 pl-3' : 'pl-9 pr-3')}
                                     style={{ textAlign: 'left', direction: 'ltr' }}
                                     dir="ltr"
+                                    inputMode="numeric"
+                                    maxLength={6}
                                 />
                             </div>
                             <p className="text-[11px] text-gray-400 italic">{t('admin.students.register.personal.tempPasswordHint')}</p>

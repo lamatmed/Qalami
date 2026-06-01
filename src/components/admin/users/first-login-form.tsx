@@ -16,7 +16,7 @@ export function FirstLoginForm() {
     const [saving, setSaving] = useState(false)
 
     async function handleSubmit() {
-        if (!password.trim()) { toast.error(t('admin.users.pleaseEnterPassword')); return }
+        if (!/^\d{6}$/.test(password)) { toast.error('Le mot de passe doit être exactement 6 chiffres'); return }
         if (password !== confirm) { toast.error(t('admin.users.passwordsDoNotMatch')); return }
 
         setSaving(true)
@@ -49,9 +49,11 @@ export function FirstLoginForm() {
                             <Input
                                 type="password"
                                 value={password}
-                                onChange={e => setPassword(e.target.value)}
+                                onChange={e => setPassword(e.target.value.replace(/\D/g, '').slice(0, 6))}
                                 placeholder={t('admin.users.newPasswordPlaceholder')}
                                 className="pl-9 bg-gray-50 dark:bg-[#1A2530] border-gray-200 dark:border-white/5"
+                                inputMode="numeric"
+                                maxLength={6}
                             />
                         </div>
                     </div>
@@ -62,10 +64,12 @@ export function FirstLoginForm() {
                             <Input
                                 type="password"
                                 value={confirm}
-                                onChange={e => setConfirm(e.target.value)}
+                                onChange={e => setConfirm(e.target.value.replace(/\D/g, '').slice(0, 6))}
                                 placeholder={t('admin.users.confirmPasswordPlaceholder')}
                                 className="pl-9 bg-gray-50 dark:bg-[#1A2530] border-gray-200 dark:border-white/5"
                                 onKeyDown={e => e.key === 'Enter' && handleSubmit()}
+                                inputMode="numeric"
+                                maxLength={6}
                             />
                         </div>
                     </div>

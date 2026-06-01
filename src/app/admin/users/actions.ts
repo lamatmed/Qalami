@@ -150,7 +150,7 @@ export async function getActivityLogs(limit = 50) {
 
     const { data, error } = await adminClient
         .from('activity_logs')
-        .select('id, actor_id, action, entity_type, entity_id, details, created_at, profiles!actor_id(full_name, phone)')
+        .select('id, actor_id, action, entity_type, entity_id, details, created_at')
         .eq('school_id', schoolId)
         .order('created_at', { ascending: false })
         .limit(limit)
@@ -158,6 +158,19 @@ export async function getActivityLogs(limit = 50) {
     if (error) return { error: error.message }
 
     const logs = (data ?? []) as any[]
+
+    // Manual join: fetch actor profiles for all unique actor_ids
+    const actorIds = [...new Set(logs.map(l => l.actor_id).filter(Boolean))]
+    if (actorIds.length > 0) {
+        const { data: actorProfiles } = await adminClient
+            .from('profiles')
+            .select('id, full_name, phone, role')
+            .in('id', actorIds)
+        const profileMap = new Map((actorProfiles || []).map(p => [p.id, p]))
+        for (const log of logs) {
+            log.profiles = profileMap.get(log.actor_id) ?? null
+        }
+    }
 
     // Replace any UUID in details with its human-readable name (class or term)
     const uuidRe = /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/gi
@@ -190,8 +203,8 @@ export async function adminUpdateUserPassword(targetUserId: string, newPassword:
     const { supabase, userId: actorId, schoolId } = ctx
     const adminClient = createAdminClient()
 
-    if (!newPassword || newPassword.trim().length < 6) {
-        return { error: 'Le mot de passe doit contenir au moins 6 caractères.' }
+    if (!newPassword || !/^\d{6}$/.test(newPassword.trim())) {
+        return { error: 'Le mot de passe doit être exactement 6 chiffres' }
     }
 
     const { data: targetProfile, error: profileError } = await adminClient

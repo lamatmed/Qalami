@@ -131,8 +131,8 @@ export function SchoolIdentity() {
     const handlePasswordUpdate = async (e: React.FormEvent) => {
         e.preventDefault()
         
-        if (!passwords.new) {
-            toast.error("Veuillez saisir un nouveau mot de passe.")
+        if (!/^\d{6}$/.test(passwords.new)) {
+            toast.error('Le mot de passe doit être exactement 6 chiffres')
             return
         }
 
@@ -366,9 +366,11 @@ export function SchoolIdentity() {
                                 <Input
                                     type={showNewPass ? "text" : "password"}
                                     value={passwords.new}
-                                    onChange={(e) => setPasswords(prev => ({ ...prev, new: e.target.value }))}
-                                    placeholder="••••••"
+                                    onChange={(e) => setPasswords(prev => ({ ...prev, new: e.target.value.replace(/\D/g, '').slice(0, 6) }))}
+                                    placeholder="6 chiffres (ex. 123456)"
                                     className="pl-9 pr-10 bg-[#0F1720] border-white/5 text-white"
+                                    inputMode="numeric"
+                                    maxLength={6}
                                 />
                                 <button
                                     type="button"
@@ -387,9 +389,11 @@ export function SchoolIdentity() {
                                 <Input
                                     type={showConfirmPass ? "text" : "password"}
                                     value={passwords.confirm}
-                                    onChange={(e) => setPasswords(prev => ({ ...prev, confirm: e.target.value }))}
-                                    placeholder="••••••"
+                                    onChange={(e) => setPasswords(prev => ({ ...prev, confirm: e.target.value.replace(/\D/g, '').slice(0, 6) }))}
+                                    placeholder="Répétez les 6 chiffres"
                                     className="pl-9 pr-10 bg-[#0F1720] border-white/5 text-white"
+                                    inputMode="numeric"
+                                    maxLength={6}
                                 />
                                 <button
                                     type="button"

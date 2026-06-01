@@ -21,11 +21,11 @@ export const InvitationSchema = z.object({
 export const CompleteRegistrationSchema = z.object({
     token: z.string().min(1, { message: 'Token invalide' }),
     pin: z.string()
-        .length(4, { message: 'Le code PIN doit contenir 4 chiffres' })
-        .regex(/^\d{4}$/, { message: 'Le code PIN doit contenir uniquement des chiffres' }),
+        .length(6, { message: 'Le mot de passe doit contenir exactement 6 chiffres' })
+        .regex(/^\d{6}$/, { message: 'Le mot de passe doit contenir uniquement des chiffres' }),
     confirmPin: z.string()
-        .length(4, { message: 'Confirmez votre code PIN' }),
+        .length(6, { message: 'Confirmez votre mot de passe' }),
 }).refine((data) => data.pin === data.confirmPin, {
-    message: 'Les codes PIN ne correspondent pas',
+    message: 'Les mots de passe ne correspondent pas',
     path: ['confirmPin'],
 })

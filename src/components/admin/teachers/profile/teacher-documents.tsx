@@ -10,6 +10,7 @@ import { createClient } from '@/utils/supabase/client'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { UploadDocumentDialog } from '@/components/admin/documents/upload-document-dialog'
 import { useLanguage } from '@/i18n'
+import { updateTeacherDocumentAction, deleteTeacherDocumentAction, saveAdminDocumentAction, fetchAdminDocumentsAction } from '@/app/admin/teachers/actions'
 
 interface TeacherDocumentsProps {
     teacherId?: string
@@ -40,6 +41,25 @@ interface TeacherResource {
 export function TeacherDocuments({ teacherId }: TeacherDocumentsProps) {
     const { t } = useLanguage()
     const [adminDocs, setAdminDocs] = useState(ADMIN_DOCS)
+
+    // Load persisted admin docs on mount
+    useEffect(() => {
+        if (!teacherId) return
+        fetchAdminDocumentsAction(teacherId).then(({ data }) => {
+            if (!data.length) return
+            setAdminDocs(prev => prev.map(d => {
+                const found = (data as any[]).find((f: any) => f.category === d.type)
+                if (!found) return d
+                return {
+                    ...d,
+                    status: 'verified',
+                    file_url: found.file_url || '',
+                    date: new Date(found.created_at).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: 'numeric' }),
+                    size: found.file_size_bytes ? `${(found.file_size_bytes / (1024 * 1024)).toFixed(1)} MB` : '',
+                }
+            }))
+        })
+    }, [teacherId])
     const [uploading, setUploading] = useState(false)
     const [viewingDoc, setViewingDoc] = useState<string | null>(null)
     const fileInputRef = useRef<HTMLInputElement>(null)
@@ -146,6 +166,12 @@ export function TeacherDocuments({ teacherId }: TeacherDocumentsProps) {
 
             const { data: urlData } = supabase.storage.from('documents').getPublicUrl(filePath)
 
+            // Persist to DB (bypass RLS via server action)
+            if (teacherId) {
+                const docMeta = ADMIN_DOCS.find(d => d.name === uploadTarget || d.type === uploadTarget)
+                await saveAdminDocumentAction(teacherId, docMeta?.type || uploadTarget, urlData.publicUrl, uploadTarget, file.size)
+            }
+
             setAdminDocs(prev => prev.map(d =>
                 d.name === uploadTarget || d.type === uploadTarget
                     ? {
@@ -198,33 +224,28 @@ export function TeacherDocuments({ teacherId }: TeacherDocumentsProps) {
         if (!editingId || !editName.trim()) return
         setSavingEdit(true)
         try {
-            const supabase = createClient()
-
             let fileUrl: string | undefined
             if (replaceFile) {
+                const supabase = createClient()
                 const ext  = replaceFile.name.split('.').pop()
                 const path = `teachers/${teacherId}/${editName.replace(/[^a-zA-Z0-9]/g, '_')}_${Date.now()}.${ext}`
                 const { error: storageErr } = await supabase.storage
-                    .from('documents')
-                    .upload(path, replaceFile, { upsert: true })
+                    .from('documents').upload(path, replaceFile, { upsert: true })
                 if (storageErr) throw storageErr
                 const { data: urlData } = supabase.storage.from('documents').getPublicUrl(path)
                 fileUrl = urlData.publicUrl
             }
 
-            const update: Record<string, unknown> = { name: editName.trim(), document_type: editType }
-            if (fileUrl) update.file_url = fileUrl
-
-            const { error } = await supabase.from('documents').update(update).eq('id', editingId)
-            if (error) throw error
+            const result = await updateTeacherDocumentAction(editingId, editName.trim(), editType, fileUrl)
+            if (result.error) throw new Error(result.error)
 
             toast.success(t('admin.teachers.documents.editSaved'))
             setEditingId(null)
             setReplaceFile(null)
             fetchResources()
-        } catch (err) {
+        } catch (err: any) {
             console.error(err)
-            toast.error(t('admin.teachers.documents.editError'))
+            toast.error(err?.message || t('admin.teachers.documents.editError'))
         } finally {
             setSavingEdit(false)
         }
@@ -233,15 +254,14 @@ export function TeacherDocuments({ teacherId }: TeacherDocumentsProps) {
     const handleDelete = async (id: string) => {
         setDeleting(true)
         try {
-            const supabase = createClient()
-            const { error } = await supabase.from('documents').delete().eq('id', id)
-            if (error) throw error
+            const result = await deleteTeacherDocumentAction(id)
+            if (result.error) throw new Error(result.error)
             toast.success(t('admin.teachers.documents.deleted'))
             setDeleteConfirmId(null)
             setResources(prev => prev.filter(r => r.id !== id))
-        } catch (err) {
+        } catch (err: any) {
             console.error(err)
-            toast.error(t('admin.teachers.documents.deleteError'))
+            toast.error(err?.message || t('admin.teachers.documents.deleteError'))
         } finally {
             setDeleting(false)
         }

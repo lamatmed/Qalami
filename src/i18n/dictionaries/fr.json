@@ -219,10 +219,10 @@
     "welcomeMessage": "Bienvenue sur Qalami",
     "unknownError": "Une erreur inconnue est survenue",
     "emailPlaceholder": "Email professionnel",
-    "passwordPlaceholder": "Code PIN (4 chiffres)",
+    "passwordPlaceholder": "Code (6 chiffres)",
     "pinLabel": "Code PIN",
     "pinPlaceholder": "Entrez votre code PIN",
-    "enterPin": "Entrez votre code PIN à 4 chiffres",
+    "enterPin": "Entrez votre code à 6 chiffres",
     "needHelp": "Besoin d'aide pour s'inscrire ?",
     "parentAccessRequest": "Demande d'accès Parent",
     "accessRequest": {
@@ -279,7 +279,7 @@
       "resend": "Renvoyer le code",
       "resendIn": "Renvoyer dans",
       "newPinTitle": "Nouveau code PIN",
-      "newPinSubtitle": "Choisissez un nouveau code PIN à 4 chiffres",
+      "newPinSubtitle": "Choisissez un nouveau mot de passe à 6 chiffres",
       "newPin": "Nouveau code PIN",
       "resetPin": "Réinitialiser le code PIN",
       "successTitle": "Code PIN réinitialisé !",
@@ -288,7 +288,7 @@
       "backToLogin": "Retour à la connexion",
       "phoneRequired": "Veuillez entrer votre numéro de téléphone",
       "codeRequired": "Veuillez entrer le code à 6 chiffres",
-      "pinInvalid": "Le code PIN doit contenir exactement 4 chiffres"
+      "pinInvalid": "Le mot de passe doit contenir exactement 6 chiffres"
     }
   },
   "admin": {
@@ -550,8 +550,8 @@
           "phone": "Téléphone",
           "phonePlaceholder": "ex. +22236123456",
           "tempPassword": "Mot de passe instantané *",
-          "tempPasswordPlaceholder": "ex. Eleve2024",
-          "tempPasswordHint": "Ce mot de passe sera communiqué à l'élève pour la première connexion.",
+          "tempPasswordPlaceholder": "6 chiffres (ex. 123456)",
+          "tempPasswordHint": "Exactement 6 chiffres. Ce code sera communiqué à l'élève pour la première connexion.",
           "parentsOnlyAccess": "Les parents pourront suivre cet élève via leur compte. L'élève n'aura pas accès à l'application."
         },
         "parents": {
@@ -654,7 +654,7 @@
         "documentsProgress": "Progression du dossier",
         "documentsProgressCount": "{validCount} document{validPlural} sur {totalCount} validé{validPlural}",
         "documentsValidatedOn": "Validé le {date}",
-        "documentsPending": "En cours de vérification...",
+        "documentsPending": "Document ajouté",
         "documentsMissing": "Document manquant",
         "documentsAddUpper": "AJOUTER",
         "documentsTakePhoto": "Prendre une photo",
@@ -748,6 +748,20 @@
         ,"historyEventsCount": "{count} événement"
         ,"historyEventsCountPlural": "{count} événements"
         ,"historyZeroEvents": "0 événement"
+        ,"gradesTabLabel": "Notes"
+        ,"editStudentTitle": "Modifier les informations"
+        ,"editStudentSave": "Enregistrer"
+        ,"editStudentSuccess": "Informations mises à jour"
+        ,"deleteStudentTitle": "Supprimer définitivement"
+        ,"deleteStudentConfirm": "Cette action est irréversible. L'élève, ses inscriptions et toutes ses données seront supprimés."
+        ,"deleteStudentButton": "Supprimer"
+        ,"deleteStudentSuccess": "Élève supprimé définitivement"
+        ,"modifyClass": "Modifier la classe"
+        ,"backToStudent": "Retour au profil de l'élève"
+        ,"deleteDocConfirm": "Supprimer ce document ?"
+        ,"deleteDocSuccess": "Document supprimé"
+        ,"renameDocSuccess": "Document renommé"
+        ,"replaceDoc": "Remplacer"
       }
     },
     "teachers": {
@@ -789,8 +803,8 @@
       "nniPlaceholder": "10 chiffres",
       "nniHint": "Le NNI est requis pour l'enregistrement officiel au ministère.",
       "tempPassword": "Mot de passe instantané *",
-      "tempPasswordPlaceholder": "ex. Prof2024",
-      "tempPasswordHint": "Ce mot de passe sera communiqué à l'enseignant pour la première connexion.",
+      "tempPasswordPlaceholder": "6 chiffres (ex. 123456)",
+      "tempPasswordHint": "Exactement 6 chiffres. Ce code sera communiqué à l'enseignant pour la première connexion.",
       "saveTeacher": "Enregistrer l'enseignant",
       "personalInfoStep": {
         "enterPhoneToStart": "Entrez le numéro de téléphone pour commencer",
@@ -1417,8 +1431,8 @@
       "emailLabel": "Email",
       "emailPlaceholder": "ex. parent@email.com",
       "tempPassword": "Mot de passe instantané *",
-      "tempPasswordPlaceholder": "ex. Parent2024",
-      "tempPasswordHint": "Ce mot de passe sera communiqué au parent pour la première connexion.",
+      "tempPasswordPlaceholder": "6 chiffres (ex. 123456)",
+      "tempPasswordHint": "Exactement 6 chiffres. Ce code sera communiqué au parent pour la première connexion.",
       "noPhoneRecorded": "Aucun numéro de téléphone enregistré",
       "noEmailRecorded": "Aucune adresse email enregistrée",
       "noStudentsLinked": "Aucun élève lié à ce parent",
@@ -1896,7 +1910,7 @@
       "firstLoginTitle": "Première connexion",
       "firstLoginDesc": "Veuillez choisir un nouveau mot de passe pour sécuriser votre compte.",
       "newPassword": "Nouveau mot de passe *",
-      "newPasswordPlaceholder": "Minimum 4 caractères",
+      "newPasswordPlaceholder": "Minimum 6 caractères",
       "confirmPassword": "Confirmer le mot de passe *",
       "confirmPasswordPlaceholder": "Répétez le mot de passe",
       "confirmAndAccess": "Confirmer et accéder",
@@ -2027,7 +2041,8 @@
         "validate_reports": "Bulletins validés",
         "publish_reports": "Bulletins publiés",
         "assign_parents": "Parent(s) affecté(s)",
-        "update_settings": "Paramètres modifiés"
+        "update_settings": "Paramètres modifiés",
+        "remove_student_from_class": "Élève retiré de classe"
       }
     },
     "settings": {

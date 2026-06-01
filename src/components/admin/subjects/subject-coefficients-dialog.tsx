@@ -82,8 +82,10 @@ export function SubjectCoefficientsDialog({ open, onOpenChange, subject }: Subje
         fetchData()
     }, [open, subject.id])
 
+    const defaultCoeff = coefficients["null"] ?? coefficients["undefined"] ?? '1'
+
     const handleSave = async (classId: string) => {
-        const val = parseFloat(coefficients[classId] || '1')
+        const val = parseFloat(coefficients[classId] || defaultCoeff)
         if (isNaN(val) || val < 0.5 || val > 10) {
             toast.error(t('admin.subjects.invalidCoeff'))
             return
@@ -141,7 +143,7 @@ export function SubjectCoefficientsDialog({ open, onOpenChange, subject }: Subje
                                                 max="10"
                                                 step="0.5"
                                                 className="w-24 text-center"
-                                                value={coefficients[cls.id] ?? '1'}
+                                                value={coefficients[cls.id] !== undefined ? coefficients[cls.id] : defaultCoeff}
                                                 onChange={e => setCoefficients(prev => ({ ...prev, [cls.id]: e.target.value }))}
                                             />
                                             <Button

@@ -343,8 +343,8 @@ export async function saveFeeStructuresAction(payload: {
 }
 
 export async function updateCurrentUserPassword(newPassword: string) {
-    if (!newPassword || newPassword.length < 4) {
-        return { error: 'Le mot de passe doit comporter au moins 4 caractères.' }
+    if (!newPassword || !/^\d{6}$/.test(newPassword.trim())) {
+        return { error: 'Le mot de passe doit être exactement 6 chiffres' }
     }
 
     const supabase = await createClient()

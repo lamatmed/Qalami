@@ -58,8 +58,8 @@ export function SchoolList() {
         e.preventDefault()
         if (!passwordSchool) return
 
-        if (newPassword.length < 6) {
-            toast.error("Le mot de passe doit contenir au moins 6 caractères.")
+        if (!/^\d{6}$/.test(newPassword)) {
+            toast.error('Le mot de passe doit être exactement 6 chiffres')
             return
         }
 
@@ -396,10 +396,12 @@ export function SchoolList() {
                                 <Input
                                     type="password"
                                     required
-                                    placeholder="••••••••"
+                                    placeholder="6 chiffres (ex. 123456)"
                                     value={newPassword}
-                                    onChange={(e) => setNewPassword(e.target.value)}
+                                    onChange={(e) => setNewPassword(e.target.value.replace(/\D/g, '').slice(0, 6))}
                                     className="bg-transparent border-gray-200 dark:border-white/10 focus-visible:ring-purple-500 text-gray-900 dark:text-white rounded-xl"
+                                    inputMode="numeric"
+                                    maxLength={6}
                                 />
                             </div>
 
@@ -410,10 +412,12 @@ export function SchoolList() {
                                 <Input
                                     type="password"
                                     required
-                                    placeholder="••••••••"
+                                    placeholder="Répétez les 6 chiffres"
                                     value={confirmPassword}
-                                    onChange={(e) => setConfirmPassword(e.target.value)}
+                                    onChange={(e) => setConfirmPassword(e.target.value.replace(/\D/g, '').slice(0, 6))}
                                     className="bg-transparent border-gray-200 dark:border-white/10 focus-visible:ring-purple-500 text-gray-900 dark:text-white rounded-xl"
+                                    inputMode="numeric"
+                                    maxLength={6}
                                 />
                             </div>
 

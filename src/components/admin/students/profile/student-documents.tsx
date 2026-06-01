@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
-import { FileText, Eye, CheckCircle2, Upload, Plus, Camera, Image as ImageIcon, Loader2, Download, X, BookOpen } from 'lucide-react'
+import { FileText, Eye, CheckCircle2, Upload, Plus, Camera, Image as ImageIcon, Loader2, Download, X, BookOpen, Trash2, Pencil, ChevronDown } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { toast } from 'sonner'
 import { createClient } from '@/utils/supabase/client'
@@ -77,6 +77,13 @@ export function StudentDocuments({ studentId, classId, schoolId, isArchived }: S
     const [subjectFilter, setSubjectFilter] = useState<string>('all')
     const [subjects, setSubjects] = useState<{ id: string; name: string }[]>([])
     const [uploadDialogOpen, setUploadDialogOpen] = useState(false)
+
+    // Delete/rename states
+    const [deletingDocId, setDeletingDocId] = useState<string | null>(null)
+    const [renamingDoc, setRenamingDoc] = useState<{ id: string; name: string } | null>(null)
+    const [renameValue, setRenameValue] = useState('')
+    // Change status
+    const [statusMenuId, setStatusMenuId] = useState<string | null>(null)
 
     // Resolve classId if schoolId is provided and classId is not
     useEffect(() => {
@@ -266,7 +273,7 @@ export function StudentDocuments({ studentId, classId, schoolId, isArchived }: S
                     document_name: docName,
                     file_url: urlData.publicUrl,
                     file_type: fileExt?.toUpperCase() || 'PDF',
-                    status: 'pending',
+                    status: 'valid',
                     uploaded_at: new Date().toISOString()
                 }, {
                     onConflict: 'student_id,document_name'
@@ -300,6 +307,43 @@ export function StudentDocuments({ studentId, classId, schoolId, isArchived }: S
             return
         }
         setViewingDoc(url)
+    }
+
+    const handleDeleteOfficialDoc = async (docId: string) => {
+        if (!confirm(t('admin.students.profile.deleteDocConfirm'))) return
+        setDeletingDocId(docId)
+        const supabase = createClient()
+        await supabase.from('student_documents').delete().eq('id', docId)
+        setDeletingDocId(null)
+        toast.success(t('admin.students.profile.deleteDocSuccess'))
+        fetchDocuments()
+    }
+
+    const handleDeletePedaDoc = async (docId: string) => {
+        if (!confirm(t('admin.students.profile.deleteDocConfirm'))) return
+        setDeletingDocId(docId)
+        const supabase = createClient()
+        await supabase.from('documents').delete().eq('id', docId)
+        setDeletingDocId(null)
+        toast.success(t('admin.students.profile.deleteDocSuccess'))
+        fetchPedaDocs()
+    }
+
+    const handleRenamePedaDoc = async () => {
+        if (!renamingDoc || !renameValue.trim()) return
+        const supabase = createClient()
+        await supabase.from('documents').update({ name: renameValue.trim() }).eq('id', renamingDoc.id)
+        toast.success(t('admin.students.profile.renameDocSuccess'))
+        setRenamingDoc(null)
+        fetchPedaDocs()
+    }
+
+    const handleChangeStatus = async (docId: string, newStatus: 'valid' | 'pending' | 'missing') => {
+        const supabase = createClient()
+        const { error } = await supabase.from('student_documents').update({ status: newStatus }).eq('id', docId)
+        if (error) { toast.error(error.message); return }
+        setStatusMenuId(null)
+        fetchDocuments()
     }
 
     const validCount = documents.filter(d => d.status === 'valid' || d.status === 'pending').length
@@ -428,32 +472,82 @@ export function StudentDocuments({ studentId, classId, schoolId, isArchived }: S
                                             <div className={cn("h-10 w-10 rounded-lg flex items-center justify-center bg-[#1A2530] relative", docMeta.color)}>
                                                 <DocIcon className="w-5 h-5" />
                                                 {doc.status === 'valid' && <div className="absolute -top-1 -right-1 h-3 w-3 bg-emerald-500 rounded-full border-2 border-[#0F1720]" />}
-                                                {doc.status === 'pending' && <div className="absolute -top-1 -right-1 h-3 w-3 bg-orange-500 rounded-full border-2 border-[#0F1720]" />}
+                                                {doc.status === 'pending' && <div className="absolute -top-1 -right-1 h-3 w-3 bg-amber-400 rounded-full border-2 border-[#0F1720]" />}
                                             </div>
                                             <div>
                                                 <h5 className={cn("font-bold text-sm", doc.status === 'missing' ? "text-red-400" : "text-white")}>{getDocLabel(doc.name)}</h5>
-                                                <p className={cn("text-[10px]", doc.status === 'valid' ? "text-emerald-500" : doc.status === 'pending' ? "text-orange-400" : "text-red-400")}>
-                                                    {doc.status === 'valid' && t('admin.students.profile.documentsValidatedOn', { date: doc.uploaded_at ? new Date(doc.uploaded_at).toLocaleDateString('fr-FR') : '—' })}
-                                                    {doc.status === 'pending' && t('admin.students.profile.documentsPending')}
-                                                    {doc.status === 'missing' && t('admin.students.profile.documentsMissing')}
-                                                </p>
+                                                {/* Clickable status badge */}
+                                                <div className="relative mt-1">
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => !isArchived && setStatusMenuId(statusMenuId === doc.id ? null : doc.id)}
+                                                        className={cn(
+                                                            "flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full transition-colors",
+                                                            doc.status === 'valid'   ? 'bg-emerald-500 text-white' :
+                                                            doc.status === 'pending' ? 'bg-amber-400 text-black' :
+                                                            'bg-red-500 text-white',
+                                                            !isArchived && 'hover:opacity-80 cursor-pointer'
+                                                        )}
+                                                    >
+                                                        {doc.status === 'valid' ? t('admin.students.profile.documentsValidatedOn', { date: doc.uploaded_at ? new Date(doc.uploaded_at).toLocaleDateString('fr-FR') : '—' })
+                                                         : doc.status === 'pending' ? t('admin.students.profile.documentsPending')
+                                                         : t('admin.students.profile.documentsMissing')}
+                                                        {!isArchived && <ChevronDown className="w-2.5 h-2.5" />}
+                                                    </button>
+                                                    {statusMenuId === doc.id && (
+                                                        <>
+                                                            <div className="fixed inset-0 z-10" onClick={() => setStatusMenuId(null)} />
+                                                            <div className="absolute left-0 top-full mt-1 z-20 bg-[#1A2530] border border-white/10 rounded-xl shadow-xl overflow-hidden min-w-[130px]">
+                                                                {(['valid', 'pending', 'missing'] as const).map(s => (
+                                                                    <button key={s} type="button"
+                                                                        onClick={() => handleChangeStatus(doc.id, s)}
+                                                                        className={cn(
+                                                                            "w-full text-left px-3 py-2 text-xs font-bold flex items-center gap-2 hover:bg-white/5 transition-colors",
+                                                                            doc.status === s ? 'opacity-50 cursor-default' : ''
+                                                                        )}
+                                                                    >
+                                                                        <span className={cn("w-2 h-2 rounded-full",
+                                                                            s === 'valid' ? 'bg-emerald-500' :
+                                                                            s === 'pending' ? 'bg-amber-400' : 'bg-red-500'
+                                                                        )} />
+                                                                        <span className={s === 'valid' ? 'text-emerald-400' : s === 'pending' ? 'text-amber-400' : 'text-red-400'}>
+                                                                            {s === 'valid' ? 'Valide' : s === 'pending' ? 'En attente' : 'Manquant'}
+                                                                        </span>
+                                                                    </button>
+                                                                ))}
+                                                            </div>
+                                                        </>
+                                                    )}
+                                                </div>
                                             </div>
                                         </div>
-                                        <div className="flex items-center gap-2">
-                                            {uploading === doc.name ? (
+                                        <div className="flex items-center gap-1">
+                                            {uploading === doc.name || deletingDocId === doc.id ? (
                                                 <Loader2 className="w-5 h-5 text-emerald-500 animate-spin" />
                                             ) : doc.status === 'missing' ? (
                                                 !isArchived ? (
-                                                    <Button size="sm" className="bg-emerald-500 hover:bg-emerald-600 text-black font-bold h-8 rounded-lg gap-1" onClick={() => handleUploadForDocument(doc.name)}>
+                                                    <Button type="button" size="sm" className="bg-emerald-500 hover:bg-emerald-600 text-black font-bold h-8 rounded-lg gap-1" onClick={() => handleUploadForDocument(doc.name)}>
                                                         <Upload className="w-3 h-3" /> {t('admin.students.profile.documentsAddUpper')}
                                                     </Button>
                                                 ) : (
                                                     <span className="text-xs text-red-400 font-semibold">{t('admin.students.profile.documentsMissing')}</span>
                                                 )
                                             ) : (
-                                                <Button size="icon" variant="ghost" className="text-gray-500 hover:text-white" onClick={() => handleViewDocument(doc.file_url)}>
-                                                    <Eye className="w-5 h-5" />
-                                                </Button>
+                                                <>
+                                                    <Button type="button" size="icon" variant="ghost" className="text-gray-500 hover:text-white h-8 w-8" onClick={() => handleViewDocument(doc.file_url)}>
+                                                        <Eye className="w-4 h-4" />
+                                                    </Button>
+                                                    {!isArchived && (
+                                                        <>
+                                                            <Button type="button" size="icon" variant="ghost" className="text-gray-500 hover:text-blue-400 h-8 w-8" title="Remplacer" onClick={() => handleUploadForDocument(doc.name)}>
+                                                                <Upload className="w-4 h-4" />
+                                                            </Button>
+                                                            <Button type="button" size="icon" variant="ghost" className="text-gray-500 hover:text-red-400 h-8 w-8" title="Supprimer" onClick={() => handleDeleteOfficialDoc(doc.id)}>
+                                                                <Trash2 className="w-4 h-4" />
+                                                            </Button>
+                                                        </>
+                                                    )}
+                                                </>
                                             )}
                                         </div>
                                     </div>
@@ -533,29 +627,59 @@ export function StudentDocuments({ studentId, classId, schoolId, isArchived }: S
                     ) : (
                         <div className="space-y-2">
                             {filteredPedaDocs.map(doc => (
-                                <a
-                                    key={doc.id}
-                                    href={doc.file_url || '#'}
-                                    target={doc.file_url ? '_blank' : undefined}
-                                    rel="noopener noreferrer"
-                                    className="flex items-center gap-3 p-3 bg-[#0F1720] rounded-xl border border-white/5 hover:border-cyan-500/30 transition-colors group"
-                                >
-                                    <div className="h-9 w-9 rounded-lg bg-cyan-500/10 flex items-center justify-center shrink-0">
-                                        {doc.subjectIcon ? (
-                                            <span className="text-base">{doc.subjectIcon}</span>
+                                <div key={doc.id} className="flex items-center gap-3 p-3 bg-[#0F1720] rounded-xl border border-white/5 hover:border-cyan-500/30 transition-colors group">
+                                    <a href={doc.file_url || '#'} target={doc.file_url ? '_blank' : undefined} rel="noopener noreferrer" className="flex items-center gap-3 flex-1 min-w-0">
+                                        <div className="h-9 w-9 rounded-lg bg-cyan-500/10 flex items-center justify-center shrink-0">
+                                            {doc.subjectIcon ? (
+                                                <span className="text-base">{doc.subjectIcon}</span>
+                                            ) : (
+                                                <FileText className="w-4 h-4 text-cyan-400" />
+                                            )}
+                                        </div>
+                                        <div className="flex-1 min-w-0">
+                                            {renamingDoc?.id === doc.id ? (
+                                                <input
+                                                    className="w-full bg-[#1A2530] border border-cyan-500/50 text-white text-sm rounded-md px-2 py-1 focus:outline-none"
+                                                    value={renameValue}
+                                                    onChange={e => setRenameValue(e.target.value)}
+                                                    onKeyDown={e => { if (e.key === 'Enter') handleRenamePedaDoc(); if (e.key === 'Escape') setRenamingDoc(null) }}
+                                                    autoFocus
+                                                    onClick={e => e.preventDefault()}
+                                                />
+                                            ) : (
+                                                <p className="text-sm font-medium text-white truncate group-hover:text-cyan-300 transition-colors">{doc.name}</p>
+                                            )}
+                                            <p className="text-[10px] text-gray-500 mt-0.5">
+                                                {DOC_TYPE_LABEL_KEYS[doc.document_type] ? t(DOC_TYPE_LABEL_KEYS[doc.document_type]) : doc.document_type}
+                                                {doc.subjectName && ` · ${doc.subjectName}`}
+                                            </p>
+                                        </div>
+                                    </a>
+                                    <div className="flex items-center gap-1 shrink-0">
+                                        {deletingDocId === doc.id ? (
+                                            <Loader2 className="w-4 h-4 animate-spin text-gray-500" />
+                                        ) : renamingDoc?.id === doc.id ? (
+                                            <>
+                                                <button type="button" onClick={handleRenamePedaDoc} className="text-xs text-emerald-400 hover:text-emerald-300 px-2 py-1 rounded border border-emerald-500/30">OK</button>
+                                                <button type="button" onClick={() => setRenamingDoc(null)} className="text-xs text-gray-500 hover:text-white"><X className="w-3.5 h-3.5" /></button>
+                                            </>
                                         ) : (
-                                            <FileText className="w-4 h-4 text-cyan-400" />
+                                            <>
+                                                {doc.file_url && <a href={doc.file_url} target="_blank" rel="noopener noreferrer" className="text-gray-500 hover:text-white"><Download className="w-4 h-4" /></a>}
+                                                {!isArchived && (
+                                                    <>
+                                                        <button type="button" title="Renommer" className="text-gray-500 hover:text-blue-400 p-1" onClick={() => { setRenamingDoc({ id: doc.id, name: doc.name }); setRenameValue(doc.name) }}>
+                                                            <Pencil className="w-3.5 h-3.5" />
+                                                        </button>
+                                                        <button type="button" title="Supprimer" className="text-gray-500 hover:text-red-400 p-1" onClick={() => handleDeletePedaDoc(doc.id)}>
+                                                            <Trash2 className="w-3.5 h-3.5" />
+                                                        </button>
+                                                    </>
+                                                )}
+                                            </>
                                         )}
                                     </div>
-                                    <div className="flex-1 min-w-0">
-                                        <p className="text-sm font-medium text-white truncate group-hover:text-cyan-300 transition-colors">{doc.name}</p>
-                                        <p className="text-[10px] text-gray-500 mt-0.5">
-                                            {DOC_TYPE_LABEL_KEYS[doc.document_type] ? t(DOC_TYPE_LABEL_KEYS[doc.document_type]) : doc.document_type}
-                                            {doc.subjectName && ` · ${doc.subjectName}`}
-                                        </p>
-                                    </div>
-                                    {doc.file_url && <Download className="w-4 h-4 text-gray-500 opacity-0 group-hover:opacity-100 transition-opacity shrink-0" />}
-                                </a>
+                                </div>
                             ))}
                         </div>
                     )}

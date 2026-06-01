@@ -59,7 +59,7 @@ export function AddSubjectDialog({ onSuccess }: { onSuccess?: () => void }) {
                     <div className="grid gap-4 py-4">
                         <div className="grid grid-cols-4 items-center gap-4">
                             <Label htmlFor="name" className="text-right">
-                                {t('admin.subjects.name')}
+                                {t('admin.subjects.name')} (FR)
                             </Label>
                             <Input
                                 id="name"
@@ -67,6 +67,18 @@ export function AddSubjectDialog({ onSuccess }: { onSuccess?: () => void }) {
                                 placeholder={t('admin.subjects.namePlaceholder')}
                                 className="col-span-3"
                                 required
+                            />
+                        </div>
+                        <div className="grid grid-cols-4 items-center gap-4">
+                            <Label htmlFor="name_ar" className="text-right">
+                                الاسم (AR)
+                            </Label>
+                            <Input
+                                id="name_ar"
+                                name="name_ar"
+                                placeholder="مثال: الرياضيات"
+                                className="col-span-3 text-right"
+                                dir="rtl"
                             />
                         </div>
                         <div className="grid grid-cols-4 items-center gap-4">

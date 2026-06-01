@@ -99,7 +99,11 @@ export async function resetPin(phone: string, newPin: string) {
         return { error: 'Utilisateur non trouvé' }
     }
 
-    // Force update user's password (PIN) using Admin privilege bypass
+    if (!newPin || !/^\d{6}$/.test(newPin)) {
+        return { error: 'Le mot de passe doit être exactement 6 chiffres' }
+    }
+
+    // Force update user's password using Admin privilege bypass
     const { error } = await adminClient.auth.admin.updateUserById(
         profile.id,
         { password: newPin }

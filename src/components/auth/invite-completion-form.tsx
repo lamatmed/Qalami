@@ -82,8 +82,8 @@ export function InviteCompletionForm({ token, invitation, error: initialError }:
         school_staff: t('admin.settings.roles.names.school_staff'),
     }
 
-    const pinMismatch = confirmPin.length === 4 && pin !== confirmPin
-    const canSubmit = pin.length === 4 && confirmPin.length === 4 && pin === confirmPin
+    const pinMismatch = confirmPin.length === 6 && pin !== confirmPin
+    const canSubmit = pin.length === 6 && confirmPin.length === 6 && pin === confirmPin
 
     async function handleSubmit(e: React.FormEvent) {
         e.preventDefault()

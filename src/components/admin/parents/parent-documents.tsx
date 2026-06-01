@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef } from 'react'
 import {
     FileText, Upload, Download, Eye, X, Loader2, Plus,
-    CheckCircle2, Clock, FileQuestion, Inbox,
+    CheckCircle2, Clock, FileQuestion, Inbox, Trash2, Pencil, Check,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { createClient } from '@/utils/supabase/client'
@@ -55,6 +55,13 @@ export function ParentDocuments({ parentId, parentName, schoolId }: ParentDocume
     const [fulfillUploading, setFulfillUploading] = useState(false)
     const fulfillInputRef = useRef<HTMLInputElement>(null)
 
+    // Edit / Delete
+    const [editingDoc, setEditingDoc]       = useState<{ id: string; name: string; description: string } | null>(null)
+    const [editName, setEditName]           = useState('')
+    const [editDesc, setEditDesc]           = useState('')
+    const [savingEdit, setSavingEdit]       = useState(false)
+    const [deletingId, setDeletingId]       = useState<string | null>(null)
+
     /* ── Fetch ── */
 
     async function fetchDocs() {
@@ -90,7 +97,15 @@ export function ParentDocuments({ parentId, parentName, schoolId }: ParentDocume
             const { error: storageErr } = await supabase.storage
                 .from('documents')
                 .upload(path, selectedFile, { upsert: true })
-            if (storageErr) throw storageErr
+
+            if (storageErr) {
+                if (storageErr.message?.toLowerCase().includes('bucket') || storageErr.message?.toLowerCase().includes('not found')) {
+                    toast.error('Le bucket "documents" n\'existe pas dans Supabase Storage. Créez-le dans votre tableau de bord Supabase.')
+                } else {
+                    toast.error(`Erreur de stockage : ${storageErr.message}`)
+                }
+                return
+            }
 
             const { data: urlData } = supabase.storage.from('documents').getPublicUrl(path)
 
@@ -106,7 +121,10 @@ export function ParentDocuments({ parentId, parentName, schoolId }: ParentDocume
                 is_request:     false,
                 request_status: null,
             })
-            if (dbErr) throw dbErr
+            if (dbErr) {
+                toast.error(`Erreur base de données : ${dbErr.message}`)
+                return
+            }
 
             toast.success(t('admin.parents.documents.uploadSuccess'))
             setShowUploadForm(false)
@@ -115,8 +133,8 @@ export function ParentDocuments({ parentId, parentName, schoolId }: ParentDocume
             setSelectedFile(null)
             fetchDocs()
         } catch (err: any) {
-            console.error(err)
-            toast.error(t('admin.parents.documents.uploadError'))
+            console.error('[ParentDocuments upload]', err)
+            toast.error(t('admin.parents.documents.uploadError') + ' : ' + (err?.message || ''))
         } finally {
             setUploading(false)
         }
@@ -140,15 +158,25 @@ export function ParentDocuments({ parentId, parentName, schoolId }: ParentDocume
                 is_request:     true,
                 request_status: 'pending',
             })
-            if (error) throw error
+            if (error) {
+                toast.error(`Erreur : ${error.message}`)
+                return
+            }
+            // Envoyer une notification au parent
+            try {
+                const { sendDocumentRequestNotification } = await import('@/app/admin/parents/actions')
+                await sendDocumentRequestNotification(parentId, requestName.trim())
+            } catch (notifErr) {
+                console.warn('Notification non envoyée', notifErr)
+            }
             toast.success(t('admin.parents.documents.requestCreated'))
             setShowRequestForm(false)
             setRequestName('')
             setRequestDesc('')
             fetchDocs()
         } catch (err: any) {
-            console.error(err)
-            toast.error(t('admin.parents.documents.requestError'))
+            console.error('[ParentDocuments request]', err)
+            toast.error(t('admin.parents.documents.requestError') + ' : ' + (err?.message || ''))
         } finally {
             setCreatingRequest(false)
         }
@@ -190,6 +218,52 @@ export function ParentDocuments({ parentId, parentName, schoolId }: ParentDocume
             toast.error(t('admin.parents.documents.fulfillError'))
         } finally {
             setFulfillUploading(false)
+        }
+    }
+
+    /* ── Delete document ── */
+
+    async function handleDeleteDoc(docId: string) {
+        if (!confirm('Supprimer ce document définitivement ?')) return
+        setDeletingId(docId)
+        try {
+            const supabase = createClient()
+            const { error } = await supabase.from('parent_documents').delete().eq('id', docId)
+            if (error) throw error
+            toast.success('Document supprimé')
+            fetchDocs()
+        } catch (err: any) {
+            toast.error('Erreur lors de la suppression : ' + (err?.message || ''))
+        } finally {
+            setDeletingId(null)
+        }
+    }
+
+    /* ── Edit document name / description ── */
+
+    function startEdit(doc: ParentDoc) {
+        setEditingDoc({ id: doc.id, name: doc.name, description: doc.description || '' })
+        setEditName(doc.name)
+        setEditDesc(doc.description || '')
+    }
+
+    async function handleSaveEdit() {
+        if (!editingDoc || !editName.trim()) return
+        setSavingEdit(true)
+        try {
+            const supabase = createClient()
+            const { error } = await supabase
+                .from('parent_documents')
+                .update({ name: editName.trim(), description: editDesc.trim() || null })
+                .eq('id', editingDoc.id)
+            if (error) throw error
+            toast.success('Document modifié')
+            setEditingDoc(null)
+            fetchDocs()
+        } catch (err: any) {
+            toast.error('Erreur lors de la modification : ' + (err?.message || ''))
+        } finally {
+            setSavingEdit(false)
         }
     }
 
@@ -371,51 +445,79 @@ export function ParentDocuments({ parentId, parentName, schoolId }: ParentDocume
                     ) : (
                         <div className="space-y-2">
                             {files.map(doc => (
-                                <div key={doc.id} className="group flex items-center gap-3 p-3 bg-[#0D1117] rounded-xl border border-white/5 hover:border-white/10 transition-colors">
-                                    <div className={cn(
-                                        'h-10 w-10 rounded-lg flex items-center justify-center shrink-0',
-                                        doc.uploaded_by === 'admin' ? 'bg-emerald-500/10' : 'bg-blue-500/10'
-                                    )}>
-                                        <FileText className={cn('w-5 h-5', doc.uploaded_by === 'admin' ? 'text-emerald-400' : 'text-blue-400')} />
-                                    </div>
-                                    <div className="flex-1 min-w-0">
-                                        <p className="text-sm font-semibold text-white truncate">{doc.name}</p>
-                                        <div className="flex items-center gap-2 mt-0.5 flex-wrap">
-                                            <span className={cn(
-                                                'text-[10px] font-bold px-1.5 py-0.5 rounded-full',
-                                                doc.uploaded_by === 'admin'
-                                                    ? 'bg-emerald-500/10 text-emerald-400'
-                                                    : 'bg-blue-500/10 text-blue-400'
-                                            )}>
-                                                {doc.uploaded_by === 'admin'
-                                                    ? t('admin.parents.documents.sentByAdmin')
-                                                    : t('admin.parents.documents.sentByParent')}
-                                            </span>
-                                            <span className="text-[10px] text-gray-500">{formatDate(doc.created_at)}</span>
+                                <div key={doc.id} className="group bg-[#0D1117] rounded-xl border border-white/5 hover:border-white/10 transition-colors overflow-hidden">
+                                    {/* Inline edit form */}
+                                    {editingDoc?.id === doc.id ? (
+                                        <div className="p-3 space-y-2">
+                                            <input
+                                                autoFocus
+                                                value={editName}
+                                                onChange={e => setEditName(e.target.value)}
+                                                placeholder="Nom du document"
+                                                className="w-full bg-[#1A2530] border border-white/10 text-sm text-white rounded-lg px-3 py-2 focus:outline-none focus:ring-1 focus:ring-emerald-500/50"
+                                            />
+                                            <input
+                                                value={editDesc}
+                                                onChange={e => setEditDesc(e.target.value)}
+                                                placeholder="Description (optionnel)"
+                                                className="w-full bg-[#1A2530] border border-white/10 text-sm text-white rounded-lg px-3 py-2 focus:outline-none focus:ring-1 focus:ring-emerald-500/50"
+                                            />
+                                            <div className="flex justify-end gap-2">
+                                                <button type="button" onClick={() => setEditingDoc(null)}
+                                                    className="px-3 py-1.5 text-xs font-bold rounded-lg border border-white/10 text-gray-400 hover:text-white">
+                                                    {t('common.cancel')}
+                                                </button>
+                                                <button type="button" onClick={handleSaveEdit} disabled={savingEdit || !editName.trim()}
+                                                    className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-500 hover:bg-emerald-400 disabled:opacity-50 text-black text-xs font-bold rounded-lg">
+                                                    {savingEdit ? <Loader2 className="w-3 h-3 animate-spin" /> : <Check className="w-3 h-3" />}
+                                                    Enregistrer
+                                                </button>
+                                            </div>
                                         </div>
-                                        {doc.description && (
-                                            <p className="text-[11px] text-gray-500 mt-0.5 truncate">{doc.description}</p>
-                                        )}
-                                    </div>
-                                    {doc.file_url && (
-                                        <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
-                                            <button
-                                                type="button"
-                                                onClick={() => setViewingUrl(doc.file_url)}
-                                                title={t('admin.parents.documents.view')}
-                                                className="p-1.5 rounded-lg text-gray-500 hover:text-white hover:bg-white/5 transition-colors"
-                                            >
-                                                <Eye className="w-4 h-4" />
-                                            </button>
-                                            <a
-                                                href={doc.file_url}
-                                                target="_blank"
-                                                rel="noopener noreferrer"
-                                                title={t('admin.parents.documents.download')}
-                                                className="p-1.5 rounded-lg text-gray-500 hover:text-emerald-400 hover:bg-white/5 transition-colors"
-                                            >
-                                                <Download className="w-4 h-4" />
-                                            </a>
+                                    ) : (
+                                        <div className="flex items-center gap-3 p-3">
+                                            <div className={cn(
+                                                'h-10 w-10 rounded-lg flex items-center justify-center shrink-0',
+                                                doc.uploaded_by === 'admin' ? 'bg-emerald-500/10' : 'bg-blue-500/10'
+                                            )}>
+                                                <FileText className={cn('w-5 h-5', doc.uploaded_by === 'admin' ? 'text-emerald-400' : 'text-blue-400')} />
+                                            </div>
+                                            <div className="flex-1 min-w-0">
+                                                <p className="text-sm font-semibold text-white truncate">{doc.name}</p>
+                                                <div className="flex items-center gap-2 mt-0.5 flex-wrap">
+                                                    <span className={cn(
+                                                        'text-[10px] font-bold px-1.5 py-0.5 rounded-full',
+                                                        doc.uploaded_by === 'admin' ? 'bg-emerald-500/10 text-emerald-400' : 'bg-blue-500/10 text-blue-400'
+                                                    )}>
+                                                        {doc.uploaded_by === 'admin' ? t('admin.parents.documents.sentByAdmin') : t('admin.parents.documents.sentByParent')}
+                                                    </span>
+                                                    <span className="text-[10px] text-gray-500">{formatDate(doc.created_at)}</span>
+                                                </div>
+                                                {doc.description && <p className="text-[11px] text-gray-500 mt-0.5 truncate">{doc.description}</p>}
+                                            </div>
+                                            <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
+                                                {doc.file_url && (
+                                                    <>
+                                                        <button type="button" onClick={() => setViewingUrl(doc.file_url)}
+                                                            className="p-1.5 rounded-lg text-gray-500 hover:text-white hover:bg-white/5 transition-colors">
+                                                            <Eye className="w-4 h-4" />
+                                                        </button>
+                                                        <a href={doc.file_url} target="_blank" rel="noopener noreferrer"
+                                                            className="p-1.5 rounded-lg text-gray-500 hover:text-emerald-400 hover:bg-white/5 transition-colors">
+                                                            <Download className="w-4 h-4" />
+                                                        </a>
+                                                    </>
+                                                )}
+                                                <button type="button" onClick={() => startEdit(doc)}
+                                                    className="p-1.5 rounded-lg text-gray-500 hover:text-blue-400 hover:bg-white/5 transition-colors">
+                                                    <Pencil className="w-4 h-4" />
+                                                </button>
+                                                <button type="button" onClick={() => handleDeleteDoc(doc.id)}
+                                                    disabled={deletingId === doc.id}
+                                                    className="p-1.5 rounded-lg text-gray-500 hover:text-red-400 hover:bg-white/5 transition-colors">
+                                                    {deletingId === doc.id ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
+                                                </button>
+                                            </div>
                                         </div>
                                     )}
                                 </div>
@@ -496,7 +598,37 @@ export function ParentDocuments({ parentId, parentName, schoolId }: ParentDocume
                     ) : (
                         <div className="space-y-2">
                             {requests.map(req => (
-                                <div key={req.id} className="p-3 bg-[#0D1117] rounded-xl border border-white/5 space-y-2">
+                                <div key={req.id} className="bg-[#0D1117] rounded-xl border border-white/5 overflow-hidden">
+                                    {/* Inline edit form for request */}
+                                    {editingDoc?.id === req.id ? (
+                                        <div className="p-3 space-y-2">
+                                            <input
+                                                autoFocus
+                                                value={editName}
+                                                onChange={e => setEditName(e.target.value)}
+                                                placeholder="Nom du document demandé"
+                                                className="w-full bg-[#1A2530] border border-white/10 text-sm text-white rounded-lg px-3 py-2 focus:outline-none focus:ring-1 focus:ring-amber-500/50"
+                                            />
+                                            <input
+                                                value={editDesc}
+                                                onChange={e => setEditDesc(e.target.value)}
+                                                placeholder="Description (optionnel)"
+                                                className="w-full bg-[#1A2530] border border-white/10 text-sm text-white rounded-lg px-3 py-2 focus:outline-none focus:ring-1 focus:ring-amber-500/50"
+                                            />
+                                            <div className="flex justify-end gap-2">
+                                                <button type="button" onClick={() => setEditingDoc(null)}
+                                                    className="px-3 py-1.5 text-xs font-bold rounded-lg border border-white/10 text-gray-400 hover:text-white">
+                                                    {t('common.cancel')}
+                                                </button>
+                                                <button type="button" onClick={handleSaveEdit} disabled={savingEdit || !editName.trim()}
+                                                    className="flex items-center gap-1.5 px-3 py-1.5 bg-amber-500 hover:bg-amber-400 disabled:opacity-50 text-black text-xs font-bold rounded-lg">
+                                                    {savingEdit ? <Loader2 className="w-3 h-3 animate-spin" /> : <Check className="w-3 h-3" />}
+                                                    Enregistrer
+                                                </button>
+                                            </div>
+                                        </div>
+                                    ) : (
+                                    <div className="p-3 space-y-2">
                                     <div className="flex items-start gap-3">
                                         <div className={cn(
                                             'h-9 w-9 rounded-lg flex items-center justify-center shrink-0 mt-0.5',
@@ -535,17 +667,23 @@ export function ParentDocuments({ parentId, parentName, schoolId }: ParentDocume
                                                 <p className="text-[11px] text-gray-500 mt-1">{req.description}</p>
                                             )}
                                         </div>
-                                        {req.file_url && (
-                                            <a
-                                                href={req.file_url}
-                                                target="_blank"
-                                                rel="noopener noreferrer"
-                                                title={t('admin.parents.documents.download')}
-                                                className="p-1.5 rounded-lg text-gray-500 hover:text-emerald-400 hover:bg-white/5 transition-colors shrink-0"
-                                            >
-                                                <Download className="w-4 h-4" />
-                                            </a>
-                                        )}
+                                        <div className="flex gap-1 shrink-0">
+                                            {req.file_url && (
+                                                <a href={req.file_url} target="_blank" rel="noopener noreferrer"
+                                                    className="p-1.5 rounded-lg text-gray-500 hover:text-emerald-400 hover:bg-white/5 transition-colors">
+                                                    <Download className="w-4 h-4" />
+                                                </a>
+                                            )}
+                                            <button type="button" onClick={() => startEdit(req)}
+                                                className="p-1.5 rounded-lg text-gray-500 hover:text-blue-400 hover:bg-white/5 transition-colors">
+                                                <Pencil className="w-4 h-4" />
+                                            </button>
+                                            <button type="button" onClick={() => handleDeleteDoc(req.id)}
+                                                disabled={deletingId === req.id}
+                                                className="p-1.5 rounded-lg text-gray-500 hover:text-red-400 hover:bg-white/5 transition-colors">
+                                                {deletingId === req.id ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
+                                            </button>
+                                        </div>
                                     </div>
 
                                     {/* Respond to parent's pending request */}
@@ -600,6 +738,8 @@ export function ParentDocuments({ parentId, parentName, schoolId }: ParentDocume
                                                 {t('admin.parents.documents.respondToRequest')}
                                             </button>
                                         )
+                                    )}
+                                </div>
                                     )}
                                 </div>
                             ))}

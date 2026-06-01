@@ -20,6 +20,7 @@ interface LogEntry {
     actor_id: string
     actor_name: string
     actor_role: string
+    actor_phone?: string | null
     action: string
     entity_type: string
     entity_id: string
@@ -285,6 +286,11 @@ export function ActivityLog() {
                                                 <div className="flex items-center gap-3 mt-1">
                                                     <span className="text-xs font-semibold text-gray-500">
                                                         {log.actor_name}
+                                                        {log.actor_phone && (
+                                                            <span className="text-gray-600 font-mono font-normal ml-1.5">
+                                                                ({log.actor_phone})
+                                                            </span>
+                                                        )}
                                                     </span>
                                                     <span className="text-gray-700 text-xs">·</span>
                                                     <span className="text-xs text-gray-600 font-mono">{formatTime(log.created_at)}</span>

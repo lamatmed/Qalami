@@ -37,7 +37,7 @@ export async function getActivityLogsAction(params: {
     const actorIds = [...new Set((data ?? []).map((r: any) => r.actor_id))]
     const { data: profiles } = await admin
         .from('profiles')
-        .select('id, full_name, role')
+        .select('id, full_name, role, phone')
         .in('id', actorIds)
 
     const profileMap = Object.fromEntries((profiles ?? []).map((p: any) => [p.id, p]))
@@ -46,6 +46,7 @@ export async function getActivityLogsAction(params: {
         ...row,
         actor_name: profileMap[row.actor_id]?.full_name ?? 'Utilisateur',
         actor_role: profileMap[row.actor_id]?.role ?? 'unknown',
+        actor_phone: profileMap[row.actor_id]?.phone ?? null,
     }))
 
     return { data: enriched, error: null, total: count ?? 0 }
@@ -68,7 +69,7 @@ export async function getActivityActorsAction() {
 
     const { data: profiles } = await admin
         .from('profiles')
-        .select('id, full_name, role')
+        .select('id, full_name, role, phone')
         .in('id', ids)
 
     return { data: profiles ?? [] }

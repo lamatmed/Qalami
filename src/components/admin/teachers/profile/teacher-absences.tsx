@@ -2,11 +2,12 @@
 
 import { useState, useEffect, useMemo } from 'react'
 import { createClient } from '@/utils/supabase/client'
-import { XCircle, Clock, CheckCircle2, RefreshCw, Loader2, CalendarDays, StickyNote, Plus, X, Check } from 'lucide-react'
+import { XCircle, Clock, CheckCircle2, RefreshCw, Loader2, CalendarDays, StickyNote, Plus, X, Check, Pencil, Trash2 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useLanguage } from '@/i18n'
 import { getMySchoolContext } from '@/app/admin/actions'
 import { toast } from 'sonner'
+import { updateTeacherAbsenceAction, deleteTeacherAbsenceAction } from '@/app/admin/teachers/actions'
 
 interface AbsenceRecord {
     id: string
@@ -41,6 +42,15 @@ export function TeacherAbsences({ teacherId }: { teacherId: string }) {
     const [justifyId, setJustifyId] = useState<string | null>(null)
     const [justifyNote, setJustifyNote] = useState('')
     const [justifying, setJustifying] = useState(false)
+
+    // Edit inline state
+    const [editId, setEditId] = useState<string | null>(null)
+    const [editDate, setEditDate] = useState('')
+    const [editStatus, setEditStatus] = useState<'absent' | 'late'>('absent')
+    const [editJustified, setEditJustified] = useState(false)
+    const [editNote, setEditNote] = useState('')
+    const [saving, setSaving] = useState(false)
+    const [deletingId, setDeletingId] = useState<string | null>(null)
 
     useEffect(() => {
         async function load() {
@@ -139,6 +149,40 @@ export function TeacherAbsences({ teacherId }: { teacherId: string }) {
         } finally {
             setJustifying(false)
         }
+    }
+
+    const startEdit = (r: AbsenceRecord) => {
+        setEditId(r.id)
+        setEditDate(r.date)
+        setEditStatus(r.status)
+        setEditJustified(r.justified)
+        setEditNote(r.justification_note || '')
+    }
+
+    const handleEditSave = async () => {
+        if (!editId) return
+        setSaving(true)
+        const result = await updateTeacherAbsenceAction(editId, {
+            date: editDate, status: editStatus, justified: editJustified, justification_note: editNote.trim() || null
+        })
+        setSaving(false)
+        if (result.error) { toast.error(result.error); return }
+        setRecords(prev => prev.map(r => r.id === editId
+            ? { ...r, date: editDate, status: editStatus, justified: editJustified, justification_note: editNote.trim() || null }
+            : r
+        ).sort((a, b) => b.date.localeCompare(a.date)))
+        setEditId(null)
+        toast.success('Absence modifiée')
+    }
+
+    const handleDeleteAbsence = async (id: string) => {
+        if (!confirm('Supprimer cette absence ?')) return
+        setDeletingId(id)
+        const result = await deleteTeacherAbsenceAction(id)
+        setDeletingId(null)
+        if (result.error) { toast.error(result.error); return }
+        setRecords(prev => prev.filter(r => r.id !== id))
+        toast.success('Absence supprimée')
     }
 
     const stats = useMemo(() => {
@@ -376,8 +420,8 @@ export function TeacherAbsences({ teacherId }: { teacherId: string }) {
                                                         </span>
                                                     )}
                                                 </div>
-                                                <div className="flex items-center gap-2 shrink-0">
-                                                    {isUnjustified && !isJustifying && (
+                                                <div className="flex items-center gap-2 shrink-0 flex-wrap justify-end">
+                                                    {isUnjustified && !isJustifying && editId !== r.id && (
                                                         <button
                                                             type="button"
                                                             onClick={() => { setJustifyId(r.id); setJustifyNote(''); setAddFormOpen(false) }}
@@ -386,6 +430,17 @@ export function TeacherAbsences({ teacherId }: { teacherId: string }) {
                                                             {t('admin.teachers.absences.markAsJustified')}
                                                         </button>
                                                     )}
+                                                    {editId !== r.id && (
+                                                        <button type="button" onClick={() => { startEdit(r); setJustifyId(null) }}
+                                                            className="p-1 text-gray-500 hover:text-blue-400 transition-colors rounded-md hover:bg-white/5">
+                                                            <Pencil className="w-3.5 h-3.5" />
+                                                        </button>
+                                                    )}
+                                                    <button type="button" onClick={() => handleDeleteAbsence(r.id)}
+                                                        disabled={deletingId === r.id}
+                                                        className="p-1 text-gray-500 hover:text-red-400 transition-colors rounded-md hover:bg-white/5">
+                                                        {deletingId === r.id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Trash2 className="w-3.5 h-3.5" />}
+                                                    </button>
                                                     <p className="text-xs text-gray-600">
                                                         {new Date(r.date).toLocaleDateString(t('common.locale') || 'fr-FR', { weekday: 'short', day: '2-digit', month: 'short', year: 'numeric' })}
                                                     </p>
@@ -398,6 +453,48 @@ export function TeacherAbsences({ teacherId }: { teacherId: string }) {
                                                 <div className="mt-2 flex items-start gap-1.5 bg-white/5 rounded-lg px-3 py-2">
                                                     <StickyNote className="w-3 h-3 text-gray-500 shrink-0 mt-0.5" />
                                                     <p className="text-xs text-gray-400 italic">{r.justification_note}</p>
+                                                </div>
+                                            )}
+
+                                            {/* Inline edit form */}
+                                            {editId === r.id && (
+                                                <div className="mt-3 bg-[#0D1117] rounded-xl border border-blue-500/20 p-4 space-y-3 animate-in fade-in slide-in-from-top-1 duration-150">
+                                                    <p className="text-xs font-bold text-blue-400">Modifier l'absence</p>
+                                                    <div className="grid grid-cols-2 gap-3">
+                                                        <div className="space-y-1">
+                                                            <label className="text-[10px] text-gray-500 uppercase font-bold">Date</label>
+                                                            <input type="date" title="Date de l'absence" value={editDate} onChange={e => setEditDate(e.target.value)}
+                                                                className="w-full bg-[#1A2530] border border-white/10 rounded-lg px-2 py-1.5 text-xs text-white focus:outline-none focus:border-blue-500/50" />
+                                                        </div>
+                                                        <div className="space-y-1">
+                                                            <label className="text-[10px] text-gray-500 uppercase font-bold">Type</label>
+                                                            <select title="Type d'absence" value={editStatus} onChange={e => setEditStatus(e.target.value as any)}
+                                                                className="w-full bg-[#1A2530] border border-white/10 rounded-lg px-2 py-1.5 text-xs text-white focus:outline-none">
+                                                                <option value="absent">Absent</option>
+                                                                <option value="late">Retard</option>
+                                                            </select>
+                                                        </div>
+                                                    </div>
+                                                    <label className="flex items-center gap-2 cursor-pointer">
+                                                        <div onClick={() => setEditJustified(v => !v)}
+                                                            className={cn("w-4 h-4 rounded border-2 flex items-center justify-center transition-all",
+                                                                editJustified ? "bg-emerald-500 border-emerald-500" : "border-white/20")}>
+                                                            {editJustified && <Check className="w-2.5 h-2.5 text-black" strokeWidth={3} />}
+                                                        </div>
+                                                        <span className="text-xs text-gray-300">Justifiée</span>
+                                                    </label>
+                                                    <textarea value={editNote} onChange={e => setEditNote(e.target.value)}
+                                                        placeholder="Note de justification" rows={2}
+                                                        className="w-full bg-[#1A2530] border border-white/10 rounded-lg px-2 py-1.5 text-xs text-white placeholder-gray-600 focus:outline-none resize-none" />
+                                                    <div className="flex gap-2 justify-end">
+                                                        <button type="button" onClick={() => setEditId(null)}
+                                                            className="px-3 py-1.5 text-xs font-bold text-gray-400 hover:text-white border border-white/10 rounded-lg">{t('common.cancel')}</button>
+                                                        <button type="button" onClick={handleEditSave} disabled={saving || !editDate}
+                                                            className="flex items-center gap-1 px-3 py-1.5 text-xs font-bold bg-blue-600 hover:bg-blue-500 text-white rounded-lg disabled:opacity-50">
+                                                            {saving ? <Loader2 className="w-3 h-3 animate-spin" /> : <Check className="w-3 h-3" />}
+                                                            Enregistrer
+                                                        </button>
+                                                    </div>
                                                 </div>
                                             )}
 

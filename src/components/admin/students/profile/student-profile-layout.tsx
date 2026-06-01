@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { Button } from '@/components/ui/button'
-import { ArrowLeft, Calendar, User, Phone, CreditCard, Home, ShieldAlert, Loader2, KeyRound, ArrowLeftRight, RotateCcw } from 'lucide-react'
+import { ArrowLeft, Calendar, User, Phone, CreditCard, Home, ShieldAlert, Loader2, KeyRound, ArrowLeftRight, RotateCcw, Pencil, Trash2 } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { cn } from '@/lib/utils'
@@ -20,7 +20,8 @@ import { ChangeEnrollmentStatus } from '@/components/admin/students/change-enrol
 import { AssignClassDialog } from '@/components/admin/students/assign-class-dialog'
 import { AssignParentsDialog } from '@/components/admin/students/assign-parents-dialog'
 import { TransferStudentDialog } from '@/components/admin/students/transfer-student-dialog'
-import { revertStudentTransfer } from '@/app/admin/students/actions'
+import { EditStudentDialog } from '@/components/admin/students/edit-student-dialog'
+import { revertStudentTransfer, deleteStudentPermanently } from '@/app/admin/students/actions'
 import { updateProfileStatus } from '@/app/auth/actions'
 import { createClient } from '@/utils/supabase/client'
 import { useLanguage } from '@/i18n'
@@ -65,9 +66,12 @@ export function StudentProfileLayout({ id }: { id: string }) {
     const [assignClassOpen, setAssignClassOpen] = useState(false)
     const [assignParentsOpen, setAssignParentsOpen] = useState(false)
     const [transferDialogOpen, setTransferDialogOpen] = useState(false)
+    const [editStudentOpen, setEditStudentOpen] = useState(false)
+    const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false)
+    const [deleting, setDeleting] = useState(false)
     const [reverting, setReverting] = useState(false)
     const tabs = [
-        { id: 'grades', label: t('student.grades.title') },
+        { id: 'grades', label: t('admin.students.profile.gradesTabLabel') },
         { id: 'attendance', label: t('common.attendance') },
         { id: 'schedule', label: t('common.schedule') },
         { id: 'payments', label: t('parent.finances.title') },
@@ -191,6 +195,18 @@ export function StudentProfileLayout({ id }: { id: string }) {
         }
     }
 
+    const handleDeleteStudent = async () => {
+        setDeleting(true)
+        const result = await deleteStudentPermanently(id)
+        setDeleting(false)
+        if (result.error) {
+            toast.error(result.error)
+        } else {
+            toast.success(t('admin.students.profile.deleteStudentSuccess'))
+            router.push('/admin/students')
+        }
+    }
+
     const formatDate = (dateStr: string | null) => {
         if (!dateStr) return '—'
         return new Date(dateStr).toLocaleDateString(language === 'ar' ? 'ar-u-ca-gregory' : 'fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric' })
@@ -284,6 +300,7 @@ export function StudentProfileLayout({ id }: { id: string }) {
                                         </Button>
                                     )}
                                     <Button
+                                        type="button"
                                         variant="ghost"
                                         size="icon"
                                         className="text-gray-400 hover:text-orange-400"
@@ -291,6 +308,26 @@ export function StudentProfileLayout({ id }: { id: string }) {
                                         onClick={() => setStatusDialogOpen(true)}
                                     >
                                         <ShieldAlert className="w-5 h-5" />
+                                    </Button>
+                                    <Button
+                                        type="button"
+                                        variant="ghost"
+                                        size="icon"
+                                        className="text-gray-400 hover:text-blue-400"
+                                        title="Modifier les informations"
+                                        onClick={() => setEditStudentOpen(true)}
+                                    >
+                                        <Pencil className="w-5 h-5" />
+                                    </Button>
+                                    <Button
+                                        type="button"
+                                        variant="ghost"
+                                        size="icon"
+                                        className="text-gray-400 hover:text-red-500"
+                                        title="Supprimer définitivement"
+                                        onClick={() => setDeleteConfirmOpen(true)}
+                                    >
+                                        <Trash2 className="w-5 h-5" />
                                     </Button>
                                 </>
                             )}
@@ -311,16 +348,19 @@ export function StudentProfileLayout({ id }: { id: string }) {
                                 {t('admin.students.class')} : <span className="font-medium text-white">{student?.className || t('admin.students.unassigned')}</span>
                             </div>
                         ) : (
-                            <button
-                                className="text-gray-400 text-sm mt-1 hover:text-emerald-400 transition-colors flex items-center gap-1.5 group"
-                                onClick={() => setAssignClassOpen(true)}
-                                title={t('admin.students.assignToClass')}
-                            >
-                                {t('admin.students.class')} : <span className={cn(
-                                    "font-medium",
-                                    !student?.className ? "text-amber-400 group-hover:text-emerald-400" : "text-white group-hover:text-emerald-400"
+                            <div className="flex items-center gap-2 mt-1">
+                                <span className={cn(
+                                    "text-sm font-medium",
+                                    !student?.className ? "text-amber-400" : "text-white"
                                 )}>{student?.className || t('admin.students.unassigned')}</span>
-                            </button>
+                                <button
+                                    type="button"
+                                    className="flex items-center gap-1 text-xs text-gray-500 hover:text-emerald-400 transition-colors border border-white/10 hover:border-emerald-500/30 rounded-md px-2 py-0.5"
+                                    onClick={() => setAssignClassOpen(true)}
+                                >
+                                    <Pencil className="w-3 h-3" /> {t('admin.students.profile.modifyClass')}
+                                </button>
+                            </div>
                         )}
                         {student?.academicYear && (
                             <div className="mt-2 flex items-center gap-2">
@@ -486,7 +526,7 @@ export function StudentProfileLayout({ id }: { id: string }) {
                                             </div>
                                             <div>
                                                 <Link
-                                                    href={`/admin/parents?id=${p.id}`}
+                                                    href={`/admin/parents?id=${p.id}&from_student=${id}`}
                                                     className="text-sm font-bold text-white hover:text-emerald-400 transition-colors"
                                                 >
                                                     {p.full_name}
@@ -601,6 +641,52 @@ export function StudentProfileLayout({ id }: { id: string }) {
                     studentName={student.full_name}
                     onSuccess={() => window.location.reload()}
                 />
+            )}
+
+            {editStudentOpen && student && (
+                <EditStudentDialog
+                    open={editStudentOpen}
+                    onOpenChange={setEditStudentOpen}
+                    studentId={id}
+                    initialData={{
+                        full_name: student.full_name,
+                        date_of_birth: student.date_of_birth,
+                        place_of_birth: student.place_of_birth,
+                        address: student.address,
+                        gender: student.gender,
+                    }}
+                    onSuccess={() => window.location.reload()}
+                />
+            )}
+
+            {/* Confirmation suppression définitive */}
+            {deleteConfirmOpen && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+                    <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => !deleting && setDeleteConfirmOpen(false)} />
+                    <div className="relative w-full max-w-sm bg-[#161B22] rounded-2xl border border-red-500/30 shadow-2xl p-6 space-y-4">
+                        <div className="flex items-start gap-3">
+                            <div className="w-10 h-10 rounded-xl bg-red-500/15 flex items-center justify-center shrink-0">
+                                <Trash2 className="w-5 h-5 text-red-400" />
+                            </div>
+                            <div>
+                                <h3 className="font-bold text-white">{t('admin.students.profile.deleteStudentTitle')}</h3>
+                                <p className="text-sm text-gray-400 mt-1">{t('admin.students.profile.deleteStudentConfirm')}</p>
+                                <p className="text-sm font-bold text-white mt-2">{student?.full_name}</p>
+                            </div>
+                        </div>
+                        <div className="flex gap-3 pt-2">
+                            <Button type="button" variant="outline" className="flex-1 border-white/10 text-gray-400 hover:text-white"
+                                onClick={() => setDeleteConfirmOpen(false)} disabled={deleting}>
+                                {t('common.cancel')}
+                            </Button>
+                            <Button type="button" className="flex-1 bg-red-600 hover:bg-red-700 text-white font-bold"
+                                onClick={handleDeleteStudent} disabled={deleting}>
+                                {deleting ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Trash2 className="w-4 h-4 mr-2" />}
+                                {t('admin.students.profile.deleteStudentButton')}
+                            </Button>
+                        </div>
+                    </div>
+                </div>
             )}
         </div>
     )

@@ -914,3 +914,5 @@ html[dir="ltr"] [data-sidebar] {
 :root:not(.dark) .bg-card {
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
 }
+/* Safe-area inset support for mobile devices with home indicators */
+.pb-safe { padding-bottom: env(safe-area-inset-bottom, 0px); }

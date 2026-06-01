@@ -19,7 +19,7 @@ import { useLanguage } from '@/i18n'
 interface EditSubjectDialogProps {
     open: boolean
     onOpenChange: (open: boolean) => void
-    subject: { id: string; name: string; icon?: string | null }
+    subject: { id: string; name: string; name_ar?: string | null; icon?: string | null }
     onSuccess?: () => void
 }
 
@@ -53,13 +53,24 @@ export function EditSubjectDialog({ open, onOpenChange, subject, onSuccess }: Ed
                 <form onSubmit={onSubmit}>
                     <div className="grid gap-4 py-4">
                         <div className="grid grid-cols-4 items-center gap-4">
-                            <Label htmlFor="edit-name" className="text-right">{t('admin.subjects.name')}</Label>
+                            <Label htmlFor="edit-name" className="text-right">{t('admin.subjects.name')} (FR)</Label>
                             <Input
                                 id="edit-name"
                                 name="name"
                                 defaultValue={subject.name}
                                 className="col-span-3"
                                 required
+                            />
+                        </div>
+                        <div className="grid grid-cols-4 items-center gap-4">
+                            <Label htmlFor="edit-name-ar" className="text-right">الاسم (AR)</Label>
+                            <Input
+                                id="edit-name-ar"
+                                name="name_ar"
+                                defaultValue={subject.name_ar ?? ''}
+                                placeholder="مثال: الرياضيات"
+                                className="col-span-3 text-right"
+                                dir="rtl"
                             />
                         </div>
                         <div className="grid grid-cols-4 items-center gap-4">

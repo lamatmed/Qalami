@@ -98,8 +98,8 @@ export default function ForgotPasswordPage() {
     }, [fullPhone, otp, t])
 
     const handleResetPin = useCallback(async () => {
-        if (newPin.length !== 4 || !/^\d{4}$/.test(newPin)) {
-            toast.error(t('auth.otp.pinInvalid'))
+        if (!/^\d{6}$/.test(newPin)) {
+            toast.error('Le mot de passe doit être exactement 6 chiffres')
             return
         }
         if (newPin !== confirmPin) {
@@ -404,9 +404,9 @@ export default function ForgotPasswordPage() {
                                             value={confirmPin}
                                             onChange={setConfirmPin}
                                             disabled={isLoading}
-                                            error={confirmPin.length === 4 && newPin !== confirmPin ? t('auth.pinMismatch') : undefined}
+                                            error={confirmPin.length === 6 && newPin !== confirmPin ? t('auth.pinMismatch') : undefined}
                                         />
-                                        {confirmPin.length === 4 && newPin !== confirmPin && (
+                                        {confirmPin.length === 6 && newPin !== confirmPin && (
                                             <p className="text-xs text-red-500 text-center mt-1">
                                                 {t('auth.pinMismatch')}
                                             </p>
@@ -416,7 +416,7 @@ export default function ForgotPasswordPage() {
 
                                 <Button
                                     onClick={handleResetPin}
-                                    disabled={isLoading || newPin.length !== 4 || newPin !== confirmPin}
+                                    disabled={isLoading || newPin.length !== 6 || newPin !== confirmPin}
                                     className="w-full h-11 text-base font-medium bg-gradient-to-r from-violet-500 to-purple-600 text-white shadow-lg shadow-violet-500/25 hover:opacity-90"
                                 >
                                     {isLoading ? (

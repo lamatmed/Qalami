@@ -21,6 +21,7 @@ const SUBJECT_COLORS = [
 interface SubjectRow {
     id: string
     name: string
+    name_ar: string | null
     coef: number
     teachers: string
     color: string
@@ -34,6 +35,7 @@ export function SubjectsGrading() {
     // Add-subject dialog
     const [showAdd, setShowAdd] = useState(false)
     const [newName, setNewName] = useState('')
+    const [newNameAr, setNewNameAr] = useState('')
     const [newIcon, setNewIcon] = useState('')
     const [adding, setAdding] = useState(false)
 
@@ -53,7 +55,7 @@ export function SubjectsGrading() {
         const supabase = createClient()
 
         const [{ data }, settingsRes] = await Promise.all([
-            supabase.from('subjects').select('id, name').eq('school_id', ctx.school_id).order('name'),
+            supabase.from('subjects').select('id, name, name_ar').eq('school_id', ctx.school_id).order('name'),
             supabase.from('school_settings').select('default_grading_scale').eq('school_id', ctx.school_id).maybeSingle(),
         ])
         const savedScale = (settingsRes.data as any)?.default_grading_scale
@@ -86,6 +88,7 @@ export function SubjectsGrading() {
         setSubjects((data || []).map((s: any, i: number) => ({
             id: s.id,
             name: s.name,
+            name_ar: s.name_ar || null,
             coef: coefMap[s.id] ?? 1,
             teachers: (teacherMap[s.id] || []).join(', ') || t('admin.settings.subjects.unassigned'),
             color: SUBJECT_COLORS[i % SUBJECT_COLORS.length],
@@ -101,6 +104,7 @@ export function SubjectsGrading() {
         setAdding(true)
         const fd = new FormData()
         fd.append('name', newName.trim())
+        if (newNameAr.trim()) fd.append('name_ar', newNameAr.trim())
         if (newIcon.trim()) fd.append('icon', newIcon.trim())
         const result = await createSubject(fd)
         setAdding(false)
@@ -109,6 +113,7 @@ export function SubjectsGrading() {
         } else {
             toast.success(`"${newName.trim()}" ajoutée`)
             setNewName('')
+            setNewNameAr('')
             setNewIcon('')
             setShowAdd(false)
             setLoading(true)
@@ -187,34 +192,46 @@ export function SubjectsGrading() {
                         <h4 className="font-bold text-white text-sm">
                             {t('admin.settings.subjects.addTitle') || 'Nouvelle matière'}
                         </h4>
-                        <button type="button" onClick={() => { setShowAdd(false); setNewName(''); setNewIcon('') }} className="text-gray-500 hover:text-white">
+                        <button type="button" onClick={() => { setShowAdd(false); setNewName(''); setNewNameAr(''); setNewIcon('') }} className="text-gray-500 hover:text-white">
                             <X className="w-4 h-4" />
                         </button>
                     </div>
-                    <div className="flex gap-3">
-                        <Input
-                            autoFocus
-                            placeholder={t('admin.settings.subjects.namePlaceholder') || 'Nom de la matière'}
-                            value={newName}
-                            onChange={e => setNewName(e.target.value)}
-                            onKeyDown={e => { if (e.key === 'Enter') handleAdd() }}
-                            className="flex-1 bg-[#0F1720] border-white/10 text-white placeholder:text-gray-600 focus-visible:ring-emerald-500/50"
-                        />
-                        <Input
-                            placeholder="🔬"
-                            value={newIcon}
-                            onChange={e => setNewIcon(e.target.value)}
-                            maxLength={4}
-                            className="w-16 text-center bg-[#0F1720] border-white/10 text-white placeholder:text-gray-600 focus-visible:ring-emerald-500/50"
-                        />
-                        <Button
-                            type="button"
-                            onClick={handleAdd}
-                            disabled={adding || !newName.trim()}
-                            className="bg-emerald-500 hover:bg-emerald-400 text-black font-bold shrink-0"
-                        >
-                            {adding ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />}
-                        </Button>
+                    <div className="space-y-3">
+                        <div className="flex gap-3">
+                            <Input
+                                autoFocus
+                                placeholder="Nom en français (ex. Mathématiques)"
+                                value={newName}
+                                onChange={e => setNewName(e.target.value)}
+                                onKeyDown={e => { if (e.key === 'Enter') handleAdd() }}
+                                className="flex-1 bg-[#0F1720] border-white/10 text-white placeholder:text-gray-600 focus-visible:ring-emerald-500/50"
+                            />
+                            <Input
+                                placeholder="🔬"
+                                value={newIcon}
+                                onChange={e => setNewIcon(e.target.value)}
+                                maxLength={4}
+                                className="w-16 text-center bg-[#0F1720] border-white/10 text-white placeholder:text-gray-600 focus-visible:ring-emerald-500/50"
+                            />
+                        </div>
+                        <div className="flex gap-3">
+                            <Input
+                                placeholder="الاسم بالعربية (مثال: الرياضيات)"
+                                value={newNameAr}
+                                onChange={e => setNewNameAr(e.target.value)}
+                                onKeyDown={e => { if (e.key === 'Enter') handleAdd() }}
+                                dir="rtl"
+                                className="flex-1 bg-[#0F1720] border-white/10 text-white placeholder:text-gray-600 focus-visible:ring-emerald-500/50 text-right"
+                            />
+                            <Button
+                                type="button"
+                                onClick={handleAdd}
+                                disabled={adding || !newName.trim()}
+                                className="bg-emerald-500 hover:bg-emerald-400 text-black font-bold shrink-0"
+                            >
+                                {adding ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />}
+                            </Button>
+                        </div>
                     </div>
                 </div>
             )}
@@ -280,7 +297,12 @@ export function SubjectsGrading() {
                                         <BookOpen className="w-5 h-5" />
                                     </div>
                                     <div>
-                                        <h5 className="font-bold text-white">{subject.name}</h5>
+                                        <div className="flex items-center gap-2 flex-wrap">
+                                            <h5 className="font-bold text-white">{subject.name}</h5>
+                                            {subject.name_ar && (
+                                                <span className="text-sm text-gray-300 font-medium" dir="rtl">{subject.name_ar}</span>
+                                            )}
+                                        </div>
                                         <p className="text-xs text-gray-500">{subject.teachers}</p>
                                     </div>
                                 </div>

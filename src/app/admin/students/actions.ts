@@ -466,3 +466,63 @@ export async function revertStudentTransfer(studentId: string) {
     revalidatePath('/admin/students')
     return { success: true }
 }
+
+export async function deleteStudentPermanently(studentId: string) {
+    const ctx = await getActionContext()
+    if (!ctx) return { error: 'Non authentifié' }
+    const { schoolId } = ctx
+    const adminClient = createAdminClient()
+
+    const { data: student } = await adminClient
+        .from('profiles')
+        .select('id')
+        .eq('id', studentId)
+        .eq('role', 'student')
+        .eq('school_id', schoolId)
+        .single()
+
+    if (!student) return { error: 'Élève introuvable dans cet établissement' }
+
+    await adminClient.from('enrollments').delete().eq('student_id', studentId)
+    await adminClient.from('profile_schools').delete().eq('profile_id', studentId)
+
+    const { error } = await adminClient.auth.admin.deleteUser(studentId)
+    if (error) return { error: error.message }
+
+    revalidatePath('/admin/students')
+    return { success: true }
+}
+
+export async function updateStudentInfo(studentId: string, data: {
+    full_name: string
+    date_of_birth: string | null
+    place_of_birth: string | null
+    address: string | null
+    gender: string | null
+}) {
+    const ctx = await getActionContext()
+    if (!ctx) return { error: 'Non authentifié' }
+    const { schoolId } = ctx
+    const adminClient = createAdminClient()
+
+    if (!data.full_name?.trim()) return { error: 'Le nom est obligatoire' }
+
+    const { error } = await adminClient
+        .from('profiles')
+        .update({
+            full_name: data.full_name.trim(),
+            date_of_birth: data.date_of_birth || null,
+            place_of_birth: data.place_of_birth?.trim() || null,
+            address: data.address?.trim() || null,
+            gender: data.gender || null,
+            updated_at: new Date().toISOString(),
+        })
+        .eq('id', studentId)
+        .eq('school_id', schoolId)
+        .eq('role', 'student')
+
+    if (error) return { error: error.message }
+
+    revalidatePath('/admin/students')
+    return { success: true }
+}

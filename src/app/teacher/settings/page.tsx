@@ -98,8 +98,8 @@ export default function TeacherSettingsPage() {
         }
 
         if (newPassword) {
-            if (newPassword.length < 6) {
-                toast.error(t('teacher.settings.passwordMinLength') || "Le mot de passe doit contenir au moins 6 caractères.")
+            if (!/^\d{6}$/.test(newPassword)) {
+                toast.error('Le mot de passe doit être exactement 6 chiffres')
                 return
             }
             if (newPassword !== confirmPassword) {
@@ -288,10 +288,12 @@ export default function TeacherSettingsPage() {
                                 <Input
                                     type="password"
                                     value={newPassword}
-                                    onChange={(e) => setNewPassword(e.target.value)}
-                                    placeholder="••••••••"
+                                    onChange={(e) => setNewPassword(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                                    placeholder="6 chiffres"
                                     autoComplete="new-password"
                                     className={`${isRtl ? 'pr-10 pl-4' : 'pl-10 pr-4'} bg-slate-50 dark:bg-slate-950 border-slate-100 dark:border-white/5 h-11 rounded-xl focus-visible:ring-indigo-500`}
+                                    inputMode="numeric"
+                                    maxLength={6}
                                 />
                             </div>
                         </div>
@@ -305,10 +307,12 @@ export default function TeacherSettingsPage() {
                                 <Input
                                     type="password"
                                     value={confirmPassword}
-                                    onChange={(e) => setConfirmPassword(e.target.value)}
-                                    placeholder="••••••••"
+                                    onChange={(e) => setConfirmPassword(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                                    placeholder="6 chiffres"
                                     autoComplete="new-password"
                                     className={`${isRtl ? 'pr-10 pl-4' : 'pl-10 pr-4'} bg-slate-50 dark:bg-slate-950 border-slate-100 dark:border-white/5 h-11 rounded-xl focus-visible:ring-indigo-500`}
+                                    inputMode="numeric"
+                                    maxLength={6}
                                 />
                             </div>
                             {newPassword && confirmPassword && newPassword !== confirmPassword && (

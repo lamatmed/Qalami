@@ -491,8 +491,8 @@ export async function updateSchoolAdminPassword(schoolId: string, newPassword: s
         return { error: 'Accès non autorisé. Vous devez être Super Admin.' }
     }
 
-    if (!newPassword || newPassword.trim().length < 6) {
-        return { error: 'Le mot de passe doit contenir au moins 6 caractères.' }
+    if (!newPassword || !/^\d{6}$/.test(newPassword.trim())) {
+        return { error: 'Le mot de passe doit être exactement 6 chiffres' }
     }
 
     // 2. Find the admin of this school

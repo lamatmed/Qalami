@@ -463,6 +463,20 @@ export function StudentDirectory() {
                     <DropItem label={t('common.overdue')} active={selectedPayment === 'overdue'} onClick={() => { setSelectedPayment('overdue'); setOpenDropdown(null) }} />
                 </FilterDropdown>
 
+                {/* Filtre rapide : élèves non assignés */}
+                <button
+                    onClick={() => { setSelectedClass(selectedClass === 'unassigned' ? 'all' : 'unassigned'); setOpenDropdown(null) }}
+                    className={cn(
+                        "inline-flex items-center gap-1.5 px-3 h-8 rounded-lg text-xs font-bold transition-colors border",
+                        selectedClass === 'unassigned'
+                            ? "bg-amber-500/20 border-amber-500/50 text-amber-400"
+                            : "bg-[#1A2530] border-white/10 text-amber-400/70 hover:text-amber-400 hover:border-amber-500/30"
+                    )}
+                >
+                    <span className="w-2 h-2 rounded-full bg-amber-400 shrink-0" />
+                    {t('admin.students.list.unassigned')}
+                </button>
+
                 {/* Clear */}
                 {(hasActiveFilter || searchTerm) && (
                     <button
