@@ -263,7 +263,41 @@ export async function notifyLateParentAction(studentId: string, overdueCount: nu
         return { error: error.message }
     }
 
+    // Notify admin themselves as confirmation the reminders were sent
+    await adminClient.from('notifications').insert({
+        user_id: ctx.user_id,
+        school_id: ctx.school_id,
+        title: `✅ Rappel envoyé : ${studentName}`,
+        message: `${overdueCount} mensualité(s) en retard — ${totalOwed.toLocaleString('fr-FR')} MRU. Rappel envoyé aux parents.`,
+        type: 'success',
+        action_url: '/admin/students',
+        event_type: 'payment_reminder_sent',
+        is_read: false,
+    })
+
     return { success: true }
+}
+
+export async function notifyAdminSelf(params: {
+    title: string
+    message: string
+    type?: 'info' | 'success' | 'warning' | 'action'
+    actionUrl?: string
+    eventType?: string
+}) {
+    const ctx = await getMySchoolContext()
+    if (!ctx) return
+    const adminClient = createAdminClient()
+    await adminClient.from('notifications').insert({
+        user_id: ctx.user_id,
+        school_id: ctx.school_id,
+        title: params.title,
+        message: params.message,
+        type: params.type ?? 'info',
+        action_url: params.actionUrl ?? null,
+        event_type: params.eventType ?? null,
+        is_read: false,
+    })
 }
 
 export async function getAdminNotifications(schoolId: string) {
@@ -275,10 +309,9 @@ export async function getAdminNotifications(schoolId: string) {
     const { data } = await adminClient
         .from('notifications')
         .select('*')
-        .eq('school_id', schoolId)
+        .eq('user_id', ctx.user_id)
         .order('created_at', { ascending: false })
-        .limit(20)
-    
+        .limit(50)
     return data || []
 }
 
@@ -291,8 +324,7 @@ export async function getAdminUnreadNotificationsCount(schoolId: string) {
     const { count } = await adminClient
         .from('notifications')
         .select('*', { count: 'exact', head: true })
-        .eq('school_id', schoolId)
+        .eq('user_id', ctx.user_id)
         .eq('is_read', false)
-    
     return count || 0
 }

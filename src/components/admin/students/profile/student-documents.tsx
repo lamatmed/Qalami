@@ -241,49 +241,24 @@ export function StudentDocuments({ studentId, classId, schoolId, isArchived }: S
         setUploading(docName)
 
         try {
-            const supabase = createClient()
+            const formData = new FormData()
+            formData.append('file', file)
+            formData.append('studentId', studentId || '')
+            formData.append('docName', docName)
 
-            // Upload to Supabase Storage
-            const fileExt = file.name.split('.').pop()
-            const filePath = `students/${studentId}/${docName.replace(/[^a-zA-Z0-9]/g, '_')}_${Date.now()}.${fileExt}`
+            const res = await fetch('/api/admin/upload-student-document', {
+                method: 'POST',
+                body: formData,
+            })
 
-            const { data: uploadData, error: uploadError } = await supabase.storage
-                .from('documents')
-                .upload(filePath, file, {
-                    cacheControl: '3600',
-                    upsert: true
-                })
+            const json = await res.json()
 
-            if (uploadError) {
-                // If bucket doesn't exist, try creating it
-                if (uploadError.message?.includes('not found') || uploadError.message?.includes('Bucket')) {
-                    toast.error(t('admin.students.profile.documentsStorageNotConfigured'))
-                    return
-                }
-                throw uploadError
+            if (!res.ok) {
+                throw new Error(json.error || 'Upload failed')
             }
 
-            // Get public URL
-            const { data: urlData } = supabase.storage.from('documents').getPublicUrl(filePath)
-
-            // Save document reference in DB
-            if (studentId) {
-                const { error: dbError } = await supabase.from('student_documents').upsert({
-                    student_id: studentId,
-                    document_name: docName,
-                    file_url: urlData.publicUrl,
-                    file_type: fileExt?.toUpperCase() || 'PDF',
-                    status: 'valid',
-                    uploaded_at: new Date().toISOString()
-                }, {
-                    onConflict: 'student_id,document_name'
-                })
-
-                if (dbError) {
-                    console.error('DB save error:', dbError)
-                    // Even if DB save fails, file is uploaded
-                    toast.warning(t('admin.students.profile.documentsUploadSavedButNotFiled'))
-                }
+            if (json.warning) {
+                toast.warning(t('admin.students.profile.documentsUploadSavedButNotFiled'))
             }
 
             toast.success(t('admin.students.profile.documentsUploadSuccess', { docName }), {
@@ -295,7 +270,6 @@ export function StudentDocuments({ studentId, classId, schoolId, isArchived }: S
             toast.error(t('admin.students.profile.documentsUploadError'))
         } finally {
             setUploading(null)
-            // Reset file input
             if (fileInputRef.current) fileInputRef.current.value = ''
             if (cameraInputRef.current) cameraInputRef.current.value = ''
         }

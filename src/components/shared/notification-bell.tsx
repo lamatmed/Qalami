@@ -19,7 +19,7 @@ export function NotificationBell() {
     const [loading, setLoading] = useState(true)
     const [userRole, setUserRole] = useState<string>('')
     const dropdownRef = useRef<HTMLDivElement>(null)
-    const userContextRef = useRef<{ userId: string, schoolId: string | null, isAdmin: boolean } | null>(null)
+    const userContextRef = useRef<{ userId: string, schoolId: string | null, isAdmin: boolean, excludeIds: Set<string> } | null>(null)
 
     const unreadCount = notifications.filter(n => !n.is_read).length
 
@@ -35,7 +35,7 @@ export function NotificationBell() {
                 setUserRole(role)
                 const isAdmin = ['admin', 'super_admin', 'school_staff'].includes(role)
                 
-                userContextRef.current = { userId: user.id, schoolId: profile?.school_id || null, isAdmin }
+                userContextRef.current = { userId: user.id, schoolId: profile?.school_id || null, isAdmin, excludeIds: new Set() }
 
                 let query = supabase
                     .from('notifications')
@@ -75,12 +75,8 @@ export function NotificationBell() {
                     const ctx = userContextRef.current
                     if (!ctx) return
 
-                    if (ctx.isAdmin && ctx.schoolId) {
-                        if (newNotification.school_id === ctx.schoolId) {
-                            setNotifications(prev => [newNotification, ...prev].slice(0, 20))
-                        }
-                    } else if (newNotification.user_id === ctx.userId) {
-                        setNotifications(prev => [newNotification, ...prev].slice(0, 20))
+                    if (newNotification.user_id === ctx.userId) {
+                        setNotifications(prev => [newNotification, ...prev].slice(0, 50))
                     }
                 }
             )

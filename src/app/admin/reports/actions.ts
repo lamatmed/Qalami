@@ -68,7 +68,7 @@ export async function calculateReportCards(classId: string, termId: string) {
 
     let attendanceQuery = admin
         .from('attendance')
-        .select('student_id, status')
+        .select('student_id, status, justified')
         .eq('class_id', classId)
         .in('student_id', studentIds)
 
@@ -85,7 +85,7 @@ export async function calculateReportCards(classId: string, termId: string) {
     if (!attendanceData || attendanceData.length === 0) {
         const { data: fallbackData } = await admin
             .from('attendance')
-            .select('student_id, status')
+            .select('student_id, status, justified')
             .eq('class_id', classId)
             .in('student_id', studentIds)
         if (fallbackData && fallbackData.length > 0) {
@@ -99,9 +99,11 @@ export async function calculateReportCards(classId: string, termId: string) {
             attMap.set(row.student_id, { present: 0, absent: 0, late: 0 })
         }
         const s = attMap.get(row.student_id)!
+        const isJustified = row.justified === true || row.status === 'excused'
         if (row.status === 'present') s.present++
-        else if (row.status === 'absent' || row.status === 'excused') s.absent++
+        else if (row.status === 'absent' && !isJustified) s.absent++
         else if (row.status === 'late')   s.late++
+        // justified absences and excused are not counted
     })
 
     const { data: rawGrades, error: gradesError } = await admin
@@ -319,7 +321,7 @@ export async function getAttendanceStatsForTerm(
 
     let query = supabase
         .from('attendance')
-        .select('student_id, status')
+        .select('student_id, status, justified')
         .eq('class_id', classId)
         .eq('school_id', schoolId)
 
@@ -332,7 +334,7 @@ export async function getAttendanceStatsForTerm(
     if (!data || data.length === 0) {
         const { data: fallbackData } = await supabase
             .from('attendance')
-            .select('student_id, status')
+            .select('student_id, status, justified')
             .eq('class_id', classId)
         if (fallbackData && fallbackData.length > 0) {
             data = fallbackData
@@ -343,10 +345,12 @@ export async function getAttendanceStatsForTerm(
     ;(data ?? []).forEach((row: any) => {
         if (!stats[row.student_id]) stats[row.student_id] = { present: 0, absent: 0, late: 0, total: 0 }
         const s = stats[row.student_id]
+        const isJustified = row.justified === true || row.status === 'excused'
         if (row.status === 'present') s.present++
-        else if (row.status === 'absent' || row.status === 'excused') s.absent++
+        else if (row.status === 'absent' && !isJustified) s.absent++
         else if (row.status === 'late')   s.late++
         s.total++
+        // justified absences and excused are not counted in absent
     })
 
     return stats

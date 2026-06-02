@@ -148,28 +148,20 @@ export function TeacherDocuments({ teacherId }: TeacherDocumentsProps) {
 
         setUploading(true)
         try {
-            const supabase = createClient()
-            const fileExt = file.name.split('.').pop()
-            const filePath = `teachers/${teacherId || 'unknown'}/${uploadTarget.replace(/[^a-zA-Z0-9]/g, '_')}_${Date.now()}.${fileExt}`
+            const formData = new FormData()
+            formData.append('file', file)
+            formData.append('teacherId', teacherId || 'unknown')
+            formData.append('uploadTarget', uploadTarget)
 
-            const { error: uploadError } = await supabase.storage
-                .from('documents')
-                .upload(filePath, file, { cacheControl: '3600', upsert: true })
+            const res = await fetch('/api/admin/upload-teacher-document', { method: 'POST', body: formData })
+            const json = await res.json()
+            if (!res.ok) throw new Error(json.error || 'Upload failed')
 
-            if (uploadError) {
-                if (uploadError.message?.includes('not found') || uploadError.message?.includes('Bucket')) {
-                    toast.error(t('admin.teachers.documents.storageBucketError'))
-                    return
-                }
-                throw uploadError
-            }
+            const publicUrl: string = json.publicUrl
 
-            const { data: urlData } = supabase.storage.from('documents').getPublicUrl(filePath)
-
-            // Persist to DB (bypass RLS via server action)
             if (teacherId) {
                 const docMeta = ADMIN_DOCS.find(d => d.name === uploadTarget || d.type === uploadTarget)
-                await saveAdminDocumentAction(teacherId, docMeta?.type || uploadTarget, urlData.publicUrl, uploadTarget, file.size)
+                await saveAdminDocumentAction(teacherId, docMeta?.type || uploadTarget, publicUrl, uploadTarget, file.size)
             }
 
             setAdminDocs(prev => prev.map(d =>
@@ -179,7 +171,7 @@ export function TeacherDocuments({ teacherId }: TeacherDocumentsProps) {
                         status: 'verified',
                         date: new Date().toLocaleDateString(t('common.locale') || 'fr-FR', { day: '2-digit', month: 'short', year: 'numeric' }),
                         size: `${(file.size / (1024 * 1024)).toFixed(1)} MB`,
-                        file_url: urlData.publicUrl
+                        file_url: publicUrl
                     }
                     : d
             ))
@@ -226,14 +218,15 @@ export function TeacherDocuments({ teacherId }: TeacherDocumentsProps) {
         try {
             let fileUrl: string | undefined
             if (replaceFile) {
-                const supabase = createClient()
-                const ext  = replaceFile.name.split('.').pop()
-                const path = `teachers/${teacherId}/${editName.replace(/[^a-zA-Z0-9]/g, '_')}_${Date.now()}.${ext}`
-                const { error: storageErr } = await supabase.storage
-                    .from('documents').upload(path, replaceFile, { upsert: true })
-                if (storageErr) throw storageErr
-                const { data: urlData } = supabase.storage.from('documents').getPublicUrl(path)
-                fileUrl = urlData.publicUrl
+                const formData = new FormData()
+                formData.append('file', replaceFile)
+                formData.append('teacherId', teacherId || '')
+                formData.append('uploadTarget', editName)
+
+                const res = await fetch('/api/admin/upload-teacher-document', { method: 'POST', body: formData })
+                const json = await res.json()
+                if (!res.ok) throw new Error(json.error || 'Upload failed')
+                fileUrl = json.publicUrl
             }
 
             const result = await updateTeacherDocumentAction(editingId, editName.trim(), editType, fileUrl)

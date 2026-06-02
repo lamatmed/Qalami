@@ -1,20 +1,12 @@
 'use client'
 
 import { useState, useEffect, useMemo } from 'react'
-import { createClient } from '@/utils/supabase/client'
-import { XCircle, Clock, CheckCircle2, AlertCircle, Loader2, FileText, StickyNote } from 'lucide-react'
+import { XCircle, Clock, CheckCircle2, AlertCircle, Loader2, FileText, StickyNote, Eye, Download, Paperclip } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useLanguage } from '@/i18n'
+import { getStudentAttendanceWithFiles, getAllJustificationFiles, type AttendanceWithFile, type JustificationFile } from '@/app/admin/students/actions'
 
-interface AttendanceRecord {
-    id: string
-    date: string
-    status: 'present' | 'absent' | 'late' | 'excused'
-    justified: boolean
-    justification_note: string | null
-    subjects: { name: string } | null
-    recorder: { full_name: string | null } | null
-}
+type AttendanceRecord = AttendanceWithFile
 
 const STATUS_CONFIG = {
     absent: {
@@ -54,28 +46,19 @@ export function StudentAttendance({ studentId, schoolId }: { studentId: string; 
     const [records, setRecords] = useState<AttendanceRecord[]>([])
     const [loading, setLoading] = useState(true)
     const [filter, setFilter] = useState<FilterType>('all')
+    const [justifFiles, setJustifFiles] = useState<JustificationFile[]>([])
 
-    useEffect(() => {
-        async function load() {
-            const supabase = createClient()
-            const { data } = await supabase
-                .from('attendance')
-                .select(`
-                    id, date, status, justified, justification_note,
-                    subjects ( name ),
-                    recorder:profiles!attendance_recorded_by_fkey ( full_name ),
-                    classes!inner ( school_id )
-                `)
-                .eq('student_id', studentId)
-                .eq('classes.school_id', schoolId)
-                .neq('status', 'present')
-                .order('date', { ascending: false })
+    async function load() {
+        const [data, files] = await Promise.all([
+            getStudentAttendanceWithFiles(studentId, schoolId),
+            getAllJustificationFiles(studentId),
+        ])
+        setRecords(data)
+        setJustifFiles(files)
+        setLoading(false)
+    }
 
-            if (data) setRecords(data as unknown as AttendanceRecord[])
-            setLoading(false)
-        }
-        load()
-    }, [studentId, schoolId])
+    useEffect(() => { load() }, [studentId, schoolId])
 
     const stats = useMemo(() => {
         const absent    = records.filter(r => r.status === 'absent' && !r.justified)
@@ -140,6 +123,7 @@ export function StudentAttendance({ studentId, schoolId }: { studentId: string; 
                     { key: 'late',      label: t('admin.students.profile.latePlural'),  count: stats.late },
                 ] as { key: FilterType; label: string; count: number }[]).map(f => (
                     <button
+                        type="button"
                         key={f.key}
                         onClick={() => setFilter(f.key)}
                         className={cn(
@@ -197,6 +181,30 @@ export function StudentAttendance({ studentId, schoolId }: { studentId: string; 
                                                 <p className="text-xs text-gray-400 italic">{record.justification_note}</p>
                                             </div>
                                         )}
+
+                                        {/* Justification file */}
+                                        {record.justification_file_url && (
+                                            <div className="mt-2 flex items-center gap-2">
+                                                <a
+                                                    href={record.justification_file_url}
+                                                    target="_blank"
+                                                    rel="noopener noreferrer"
+                                                    className="inline-flex items-center gap-1.5 text-xs font-bold text-emerald-400 hover:text-emerald-300 bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/20 rounded-lg px-2.5 py-1 transition-colors"
+                                                >
+                                                    <Eye className="w-3 h-3" />
+                                                    Voir le justificatif
+                                                </a>
+                                                <a
+                                                    href={record.justification_file_url}
+                                                    target="_blank"
+                                                    rel="noopener noreferrer"
+                                                    className="inline-flex items-center gap-1.5 text-xs font-bold text-gray-400 hover:text-white bg-white/5 hover:bg-white/10 border border-white/10 rounded-lg px-2.5 py-1 transition-colors"
+                                                >
+                                                    <Download className="w-3 h-3" />
+                                                    Télécharger
+                                                </a>
+                                            </div>
+                                        )}
                                     </div>
                                 </div>
                             )
@@ -210,6 +218,45 @@ export function StudentAttendance({ studentId, schoolId }: { studentId: string; 
                     <FileText className="w-10 h-10 text-emerald-500/20 mx-auto mb-3" />
                     <p className="text-gray-500 font-medium">{t('admin.students.profile.noAbsence')}</p>
                     <p className="text-xs text-gray-600 mt-1">{t('admin.students.profile.perfectAttendance')}</p>
+                </div>
+            )}
+
+            {/* All justification files from bucket */}
+            {justifFiles.length > 0 && (
+                <div className="bg-[#1A2530] rounded-3xl border border-white/5 overflow-hidden">
+                    <div className="flex items-center gap-2 px-5 py-3 border-b border-white/5">
+                        <Paperclip className="w-4 h-4 text-amber-400" />
+                        <p className="text-sm font-bold text-white">Fichiers de justification</p>
+                        <span className="text-xs text-gray-500 bg-white/5 px-2 py-0.5 rounded-full">{justifFiles.length}</span>
+                    </div>
+                    <div className="divide-y divide-white/5">
+                        {justifFiles.map((f, i) => (
+                            <div key={i} className="flex items-center justify-between gap-3 px-5 py-3 hover:bg-[#0F1720] transition-colors">
+                                <div className="flex items-center gap-3 min-w-0">
+                                    <FileText className="w-4 h-4 text-amber-400 shrink-0" />
+                                    <p className="text-sm text-white truncate">{decodeURIComponent(f.name)}</p>
+                                </div>
+                                <div className="flex gap-2 shrink-0">
+                                    <a
+                                        href={f.publicUrl}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="inline-flex items-center gap-1 text-xs font-bold text-emerald-400 hover:text-emerald-300 bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/20 rounded-lg px-2.5 py-1 transition-colors"
+                                    >
+                                        <Eye className="w-3 h-3" /> Voir
+                                    </a>
+                                    <a
+                                        href={f.publicUrl}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="inline-flex items-center gap-1 text-xs font-bold text-gray-400 hover:text-white bg-white/5 hover:bg-white/10 border border-white/10 rounded-lg px-2.5 py-1 transition-colors"
+                                    >
+                                        <Download className="w-3 h-3" /> Télécharger
+                                    </a>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
                 </div>
             )}
         </div>

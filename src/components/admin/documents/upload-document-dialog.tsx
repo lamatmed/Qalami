@@ -121,47 +121,22 @@ export function UploadDocumentDialog({
 
         setUploading(true)
         try {
-            const ctx = await getSchoolContext()
-            if (!ctx) throw new Error('Non authentifié')
-            const supabase = createClient()
+            const formData = new FormData()
+            formData.append('file', file)
+            formData.append('documentType', documentType)
+            formData.append('category', category)
+            formData.append('classId', classId || 'none')
+            formData.append('subjectId', subjectId || 'none')
+            formData.append('teacherId', teacherId || defaultTeacherId || 'none')
+            formData.append('academicYear', academicYear || '')
 
-            const selectedClass = classId && classId !== 'none' ? classes.find(c => c.id === classId) : null
-            const resolvedSchoolId = selectedClass?.school_id ?? ctx.school_id
-
-            const fileExt = file.name.split('.').pop()
-            const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_')
-            const filePath = `school_${resolvedSchoolId}/${documentType}/${Date.now()}_${safeName}`
-
-            const { error: storageError } = await supabase.storage
-                .from('documents')
-                .upload(filePath, file, { cacheControl: '3600', upsert: false })
-
-            if (storageError) {
-                if (storageError.message?.includes('Bucket')) {
-                    toast.error('Bucket "documents" non configuré dans Supabase Storage.')
-                    return
-                }
-                throw storageError
-            }
-
-            const { data: urlData } = supabase.storage.from('documents').getPublicUrl(filePath)
-
-            const { error: dbError } = await supabase.from('documents').insert({
-                school_id: resolvedSchoolId,
-                name: file.name,
-                file_url: urlData.publicUrl,
-                file_type: fileExt?.toUpperCase() || 'PDF',
-                file_size_bytes: file.size,
-                document_type: documentType,
-                category: category,
-                subject_id: (subjectId && subjectId !== 'none') ? subjectId : null,
-                class_id: (classId && classId !== 'none') ? classId : null,
-                teacher_id: (teacherId && teacherId !== 'none') ? teacherId : (defaultTeacherId || null),
-                academic_year: academicYear || null,
-                uploaded_by: ctx.user_id,
+            const res = await fetch('/api/admin/upload-document', {
+                method: 'POST',
+                body: formData,
             })
 
-            if (dbError) throw dbError
+            const json = await res.json()
+            if (!res.ok) throw new Error(json.error || 'Upload failed')
 
             toast.success(t('admin.documents.dialog.title'), { description: file.name })
             onSuccess?.()

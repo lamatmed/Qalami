@@ -13,6 +13,7 @@ import {
     GraduationCap, Users, BookOpen, Globe, School,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { notifyAdminSelf } from '@/app/admin/actions'
 
 interface Announcement {
     id: string
@@ -142,6 +143,15 @@ function Modal({ open, onClose, onSaved, editing, classes, schoolId, userId }: {
             : await supabase.from('announcements').insert(payload)
         setSaving(false)
         if (error) { toast.error(error.message); return }
+        if (!editing) {
+            await notifyAdminSelf({
+                title: title.trim(),
+                message: 'Annonce publiée pour l\'école.',
+                type: 'success',
+                actionUrl: '/admin/announcements',
+                eventType: 'admin_announcement',
+            })
+        }
         toast.success(editing ? t('adminAnnouncements.updated') : t('adminAnnouncements.created'))
         onSaved(); onClose()
     }

@@ -40,6 +40,7 @@ import {
     Megaphone,
     CalendarDays,
     Activity,
+    Inbox,
 } from 'lucide-react'
 
 import { createClient } from '@/utils/supabase/client'
@@ -47,6 +48,7 @@ import { useLanguage } from '@/i18n'
 import { LanguageSwitcher } from '@/components/shared/language-switcher'
 import { ThemeToggle } from '@/components/shared/theme-toggle'
 import { getMySchoolContext, getAdminUnreadNotificationsCount } from '@/app/admin/actions'
+import { getPendingRequestsCount } from '@/app/admin/requests/actions'
 
 
 // ─── Types ───────────────────────────────────────────────────────────────────
@@ -109,6 +111,7 @@ export function AdminSidebar() {
     const [currentTerm, setCurrentTerm] = useState<string | null>(null)
     const [unreadNotifications, setUnreadNotifications] = useState(0)
     const [unassignedStudents, setUnassignedStudents] = useState(0)
+    const [pendingRequests, setPendingRequests] = useState(0)
     const [userInfo, setUserInfo] = useState<UserInfo | null>(null)
     const [userMenuOpen, setUserMenuOpen] = useState(false)
     const [staffPermissions, setStaffPermissions] = useState<string[] | null>(null)
@@ -199,6 +202,7 @@ export function AdminSidebar() {
                 { data: allStudents },
                 { data: enrolled },
                 { data: schoolData },
+                pendingCount,
             ] = await Promise.all([
                 supabase.from('academic_years').select('name').eq('school_id', profile.school_id).eq('is_current', true).single(),
                 supabase.from('terms').select('name').eq('school_id', profile.school_id).eq('is_current', true).single(),
@@ -206,11 +210,13 @@ export function AdminSidebar() {
                 supabase.from('profiles').select('id').eq('school_id', profile.school_id).eq('role', 'student').eq('status', 'active'),
                 supabase.from('enrollments').select('student_id').eq('school_id', profile.school_id).eq('status', 'active'),
                 supabase.from('school_settings').select('name, logo_url').eq('school_id', profile.school_id).single(),
+                getPendingRequestsCount(),
             ])
 
             setCurrentYear(yearData?.name ?? null)
             setCurrentTerm(termData?.name ?? null)
             setUnreadNotifications(notifCount ?? 0)
+            setPendingRequests(pendingCount ?? 0)
 
             // school_settings.name first, fallback to schools.name
             const settingsName = (schoolData as any)?.name ?? null
@@ -279,6 +285,7 @@ export function AdminSidebar() {
                 { icon: Users, label: t('admin.sidebar.students'), href: '/admin/students', badge: unassignedStudents },
                 { icon: UserCheck, label: t('admin.sidebar.parents'), href: '/admin/parents' },
                 { icon: BookOpen, label: t('admin.sidebar.teachers'), href: '/admin/teachers' },
+                { icon: Inbox, label: 'Demandes', href: '/admin/requests', badge: pendingRequests },
                 { icon: Megaphone, label: t('admin.sidebar.announcements'), href: '/admin/announcements' },
                 { icon: CalendarDays, label: t('admin.sidebar.events'), href: '/admin/events' },
             ],

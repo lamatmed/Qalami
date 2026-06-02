@@ -90,41 +90,17 @@ export function ParentDocuments({ parentId, parentName, schoolId }: ParentDocume
         if (!selectedFile || !uploadName.trim()) return
         setUploading(true)
         try {
-            const supabase = createClient()
-            const ext  = selectedFile.name.split('.').pop()
-            const path = `parents/${parentId}/${uploadName.replace(/[^a-zA-Z0-9]/g, '_')}_${Date.now()}.${ext}`
+            const formData = new FormData()
+            formData.append('mode', 'upload')
+            formData.append('file', selectedFile)
+            formData.append('parentId', parentId)
+            formData.append('schoolId', schoolId)
+            formData.append('name', uploadName.trim())
+            formData.append('description', uploadDesc.trim())
 
-            const { error: storageErr } = await supabase.storage
-                .from('documents')
-                .upload(path, selectedFile, { upsert: true })
-
-            if (storageErr) {
-                if (storageErr.message?.toLowerCase().includes('bucket') || storageErr.message?.toLowerCase().includes('not found')) {
-                    toast.error('Le bucket "documents" n\'existe pas dans Supabase Storage. Créez-le dans votre tableau de bord Supabase.')
-                } else {
-                    toast.error(`Erreur de stockage : ${storageErr.message}`)
-                }
-                return
-            }
-
-            const { data: urlData } = supabase.storage.from('documents').getPublicUrl(path)
-
-            const { error: dbErr } = await supabase.from('parent_documents').insert({
-                school_id:      schoolId,
-                parent_id:      parentId,
-                name:           uploadName.trim(),
-                description:    uploadDesc.trim() || null,
-                file_url:       urlData.publicUrl,
-                file_type:      ext?.toUpperCase() || 'FILE',
-                file_size:      selectedFile.size,
-                uploaded_by:    'admin',
-                is_request:     false,
-                request_status: null,
-            })
-            if (dbErr) {
-                toast.error(`Erreur base de données : ${dbErr.message}`)
-                return
-            }
+            const res = await fetch('/api/admin/upload-parent-document', { method: 'POST', body: formData })
+            const json = await res.json()
+            if (!res.ok) throw new Error(json.error || 'Upload failed')
 
             toast.success(t('admin.parents.documents.uploadSuccess'))
             setShowUploadForm(false)
@@ -187,27 +163,16 @@ export function ParentDocuments({ parentId, parentName, schoolId }: ParentDocume
     async function handleFulfillRequest(doc: ParentDoc, file: File) {
         setFulfillUploading(true)
         try {
-            const supabase = createClient()
-            const ext  = file.name.split('.').pop()
-            const path = `parents/${parentId}/${doc.name.replace(/[^a-zA-Z0-9]/g, '_')}_response_${Date.now()}.${ext}`
+            const formData = new FormData()
+            formData.append('mode', 'fulfill')
+            formData.append('file', file)
+            formData.append('parentId', parentId)
+            formData.append('docId', doc.id)
+            formData.append('docName', doc.name)
 
-            const { error: storageErr } = await supabase.storage
-                .from('documents')
-                .upload(path, file, { upsert: true })
-            if (storageErr) throw storageErr
-
-            const { data: urlData } = supabase.storage.from('documents').getPublicUrl(path)
-
-            const { error: dbErr } = await supabase
-                .from('parent_documents')
-                .update({
-                    file_url:       urlData.publicUrl,
-                    file_type:      ext?.toUpperCase() || 'FILE',
-                    file_size:      file.size,
-                    request_status: 'fulfilled',
-                })
-                .eq('id', doc.id)
-            if (dbErr) throw dbErr
+            const res = await fetch('/api/admin/upload-parent-document', { method: 'POST', body: formData })
+            const json = await res.json()
+            if (!res.ok) throw new Error(json.error || 'Upload failed')
 
             toast.success(t('admin.parents.documents.requestFulfilled'))
             setFulfillingId(null)

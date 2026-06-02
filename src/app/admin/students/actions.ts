@@ -526,3 +526,138 @@ export async function updateStudentInfo(studentId: string, data: {
     revalidatePath('/admin/students')
     return { success: true }
 }
+
+// ─── Attendance records with justification files ───────────────────────────────
+
+export interface AttendanceWithFile {
+    id: string
+    date: string
+    status: 'present' | 'absent' | 'late' | 'excused'
+    justified: boolean
+    justification_note: string | null
+    justification_file_url: string | null
+    subjects: { name: string } | null
+    recorder: { full_name: string | null } | null
+}
+
+export async function getStudentAttendanceWithFiles(
+    studentId: string,
+    schoolId: string
+): Promise<AttendanceWithFile[]> {
+    const admin = createAdminClient()
+
+    // Try with justification_file_url column, fallback without
+    let records: any[] = []
+
+    const { data: withCol, error: colErr } = await admin
+        .from('attendance')
+        .select(`
+            id, date, status, justified, justification_note, justification_file_url,
+            subjects ( name ),
+            recorder:profiles!attendance_recorded_by_fkey ( full_name ),
+            classes!inner ( school_id )
+        `)
+        .eq('student_id', studentId)
+        .eq('classes.school_id', schoolId)
+        .neq('status', 'present')
+        .order('date', { ascending: false })
+
+    if (colErr) {
+        const { data: withoutCol } = await admin
+            .from('attendance')
+            .select(`
+                id, date, status, justified, justification_note,
+                subjects ( name ),
+                recorder:profiles!attendance_recorded_by_fkey ( full_name ),
+                classes!inner ( school_id )
+            `)
+            .eq('student_id', studentId)
+            .eq('classes.school_id', schoolId)
+            .neq('status', 'present')
+            .order('date', { ascending: false })
+        records = (withoutCol || []).map((r: any) => ({ ...r, justification_file_url: null }))
+    } else {
+        records = withCol || []
+    }
+
+    // Match by attendance ID in path only (bucket file matching is handled separately via getAllJustificationFiles)
+    const BUCKET = 'attendance-justifications'
+    const bucketFileMap: Record<string, string> = {}
+
+    const { data: studentFolderFiles } = await admin.storage
+        .from(BUCKET)
+        .list(studentId, { limit: 1000 })
+
+    for (const f of studentFolderFiles || []) {
+        if (f.name === '.emptyFolderPlaceholder' || !f.id) continue
+        const fullPath = `${studentId}/${f.name}`
+        const matched = records.find((r: any) => !bucketFileMap[r.id] && fullPath.includes(r.id))
+        if (matched) {
+            const { data: signed } = await admin.storage.from(BUCKET).createSignedUrl(fullPath, 3600)
+            if (signed?.signedUrl) bucketFileMap[matched.id] = signed.signedUrl
+        }
+    }
+
+    return records.map((r: any) => ({
+        id: r.id,
+        date: r.date,
+        status: r.status,
+        justified: r.justified,
+        justification_note: r.justification_note,
+        justification_file_url: r.justification_file_url || bucketFileMap[r.id] || null,
+        subjects: r.subjects,
+        recorder: r.recorder,
+    }))
+}
+
+// ─── List all justification files for a student from the bucket ────────────────
+
+export interface JustificationFile {
+    name: string
+    publicUrl: string
+    createdAt: string | null
+}
+
+export async function getAllJustificationFiles(studentId: string): Promise<JustificationFile[]> {
+    const admin = createAdminClient()
+    const BUCKET = 'attendance-justifications'
+    const results: JustificationFile[] = []
+
+    const collectFiles = async (prefix: string | undefined) => {
+        const { data: items } = await admin.storage
+            .from(BUCKET)
+            .list(prefix, { limit: 1000, sortBy: { column: 'created_at', order: 'desc' } })
+
+        for (const item of items || []) {
+            if (item.name === '.emptyFolderPlaceholder') continue
+            const fullPath = prefix ? `${prefix}/${item.name}` : item.name
+            if (!item.id) {
+                // folder — recurse one level
+                await collectFiles(fullPath)
+            } else {
+                // Bucket is private — use signed URL (valid 1 hour)
+                const { data: signed } = await admin.storage
+                    .from(BUCKET)
+                    .createSignedUrl(fullPath, 3600)
+                if (signed?.signedUrl) {
+                    results.push({
+                        name: item.name,
+                        publicUrl: signed.signedUrl,
+                        createdAt: item.created_at ?? null,
+                    })
+                }
+            }
+        }
+    }
+
+    // Try both studentId subfolder and root level
+    await Promise.all([collectFiles(studentId), collectFiles(undefined)])
+
+    // Deduplicate by file name
+    const seen = new Set<string>()
+    return results.filter(f => {
+        if (seen.has(f.name)) return false
+        seen.add(f.name)
+        return true
+    })
+}
