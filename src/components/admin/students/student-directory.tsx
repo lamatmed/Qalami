@@ -215,10 +215,10 @@ export function StudentDirectory() {
                 .order('created_at', { ascending: false }),
             supabase
                 .from('payments')
-                .select('student_id')
+                .select('student_id, payment_status, due_date')
                 .in('student_id', studentIds)
                 .eq('school_id', adminProfile.school_id)
-                .eq('status', 'overdue'),
+                .in('payment_status', ['pending', 'overdue']),
         ])
 
         // Maps: latest enrollment per student
@@ -228,7 +228,12 @@ export function StudentDirectory() {
         })
 
         // Set of students with overdue payments
-        const overdueSet = new Set((overduePayments || []).map((p: any) => p.student_id))
+        const todayStr = new Date().toISOString().split('T')[0]
+        const overdueSet = new Set(
+            (overduePayments || [])
+                .filter((p: any) => p.payment_status === 'overdue' || (p.due_date && p.due_date < todayStr))
+                .map((p: any) => p.student_id)
+        )
 
         const result: Student[] = mergedProfiles.map(p => {
             const enroll = enrollMap.get(p.id)

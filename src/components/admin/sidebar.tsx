@@ -285,7 +285,7 @@ export function AdminSidebar() {
                 { icon: Users, label: t('admin.sidebar.students'), href: '/admin/students', badge: unassignedStudents },
                 { icon: UserCheck, label: t('admin.sidebar.parents'), href: '/admin/parents' },
                 { icon: BookOpen, label: t('admin.sidebar.teachers'), href: '/admin/teachers' },
-                { icon: Inbox, label: 'Demandes', href: '/admin/requests', badge: pendingRequests },
+                { icon: Inbox, label: t('admin.sidebar.requests'), href: '/admin/requests', badge: pendingRequests },
                 { icon: Megaphone, label: t('admin.sidebar.announcements'), href: '/admin/announcements' },
                 { icon: CalendarDays, label: t('admin.sidebar.events'), href: '/admin/events' },
             ],

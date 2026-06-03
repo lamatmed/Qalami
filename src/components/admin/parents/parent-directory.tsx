@@ -327,7 +327,7 @@ export function ParentDirectory() {
         const result = await sendBulkPaymentReminders(schoolId)
         setSendingBulk(false)
         if (result.error) { toast.error(result.error); return }
-        toast.success(`Rappels envoyés à ${result.count} parent(s) en retard`)
+        toast.success(t('admin.parents.remindersSent', { count: result.count }))
     }
 
     const STATUS_FILTER_MAP: Record<string, string> = { actif: 'active', inactif: 'inactive' }
@@ -398,7 +398,9 @@ export function ParentDirectory() {
                                     )}
                                 >
                                     <span className="w-1.5 h-1.5 rounded-full bg-red-400 shrink-0" />
-                                    Paiements en retard {overdueParentIds.length > 0 && `(${overdueParentIds.length})`}
+                                    {overdueParentIds.length > 0
+                                        ? t('admin.parents.filterOverdueCount', { count: overdueParentIds.length })
+                                        : t('admin.parents.filterOverdue')}
                                 </button>
                             </div>
                             {/* Bouton rappel collectif — visible seulement si filtre retard actif ou retards présents */}
@@ -410,8 +412,8 @@ export function ParentDirectory() {
                                     className="w-full flex items-center justify-center gap-2 py-2 rounded-xl border border-red-500/20 bg-red-500/5 text-red-400 hover:bg-red-500/10 text-xs font-bold transition-colors"
                                 >
                                     {sendingBulk
-                                        ? <><Loader2 className="w-3.5 h-3.5 animate-spin" /> Envoi en cours...</>
-                                        : <>📢 Envoyer rappel à tous les parents en retard ({overdueParentIds.length})</>
+                                        ? <><Loader2 className="w-3.5 h-3.5 animate-spin" /> {t('admin.parents.sendingReminders')}</>
+                                        : t('admin.parents.sendBulkReminder', { count: overdueParentIds.length })
                                     }
                                 </button>
                             )}

@@ -323,7 +323,8 @@
       "users": "Utilisateurs",
       "announcements": "Annonces",
       "events": "Événements",
-      "grades": "Notes des élèves"
+      "grades": "Notes des élèves",
+      "requests": "Demandes"
     },
     "dashboard": {
       "hello": "Bonjour",
@@ -762,7 +763,47 @@
         ,"deleteDocSuccess": "Document supprimé"
         ,"renameDocSuccess": "Document renommé"
         ,"replaceDoc": "Remplacer"
+        ,"attendanceAbsent": "Absence injustifiée"
+        ,"attendanceJustified": "Absence justifiée"
+        ,"attendanceLate": "Retard"
+        ,"attendanceExcused": "Dispensé"
+        ,"viewJustification": "Voir le justificatif"
+        ,"downloadJustification": "Télécharger"
+        ,"justificationFiles": "Fichiers de justification"
+        ,"remarksTypePositive": "Positif"
+        ,"remarksTypeWarning": "Avertissement"
+        ,"remarksTypeParticipation": "Participation"
+        ,"remarksTypeImprovement": "Amélioration"
+        ,"remarksTypeConcern": "Inquiétude"
+        ,"remarksTypeOther": "Remarque"
+        ,"remarksSendError": "Erreur lors de l'envoi de la remarque"
+        ,"remarksSentSuccess": "Remarque envoyée avec succès"
+        ,"documentsStatusValid": "Valide"
+        ,"documentsStatusPending": "En attente"
+        ,"documentsStatusMissing": "Manquant"
       }
+    },
+    "enrollmentStatus": {
+      "title": "Statut d'inscription",
+      "description": "Modifier le statut d'inscription de",
+      "newStatus": "Nouveau statut",
+      "reason": "Motif (optionnel)",
+      "reasonPlaceholder": "Ex: Déménagement, fin de contrat, exclusion temporaire...",
+      "cancel": "Annuler",
+      "confirm": "Confirmer",
+      "updated": "Statut d'inscription mis à jour",
+      "error": "Erreur",
+      "unexpectedError": "Erreur inattendue",
+      "active": "Actif",
+      "activeDesc": "Inscription en cours",
+      "suspended": "Suspendu",
+      "suspendedDesc": "Temporairement suspendu",
+      "transferred": "Transféré",
+      "transferredDesc": "Transfert vers un autre établissement",
+      "withdrawn": "Retiré",
+      "withdrawnDesc": "Retrait volontaire ou parental",
+      "completed": "Terminé",
+      "completedDesc": "Année/cycle complété avec succès"
     },
     "teachers": {
       "title": "Corps Enseignant",
@@ -1440,6 +1481,17 @@
       "addressNotProvided": "Adresse non renseignée",
       "filterActive": "Actifs",
       "filterInactive": "Inactifs",
+      "deleteParentTitle": "Supprimer définitivement",
+      "deleteParentDesc": "Cette action est irréversible. Le compte parent et tous ses liens seront supprimés.",
+      "deleteParentCancel": "Annuler",
+      "deleteParentConfirm": "Supprimer",
+      "parentDeleted": "Parent supprimé définitivement",
+      "childRemoved": "{childName} retiré(e) du compte",
+      "filterOverdue": "Paiements en retard",
+      "filterOverdueCount": "Paiements en retard ({count})",
+      "sendBulkReminder": "📢 Envoyer rappel à tous les parents en retard ({count})",
+      "sendingReminders": "Envoi en cours...",
+      "remindersSent": "Rappels envoyés à {count} parent(s) en retard",
       "documentsTab": "Documents",
       "documents": {
         "tabFiles": "Fichiers",
@@ -2089,7 +2141,18 @@
         "saving": "Enregistrement...",
         "saved": "Enregistré !",
         "saveSuccess": "Paramètres enregistrés avec succès !",
-        "saveError": "Erreur lors de l'enregistrement"
+        "saveError": "Erreur lors de l'enregistrement",
+        "securityTitle": "Sécurité du Compte",
+        "securityDesc": "Modifier le mot de passe de votre accès administrateur.",
+        "newPassword": "Nouveau mot de passe",
+        "newPasswordPlaceholder": "6 chiffres (ex. 123456)",
+        "confirmPassword": "Confirmer mot de passe",
+        "confirmPasswordPlaceholder": "Répétez les 6 chiffres",
+        "updatePassword": "Mettre à jour le mot de passe",
+        "passwordUpdated": "Mot de passe mis à jour avec succès",
+        "passwordMismatch": "Les mots de passe ne correspondent pas",
+        "passwordTooShort": "Le mot de passe doit être exactement 6 chiffres",
+        "passwordError": "Erreur lors de la mise à jour du mot de passe"
       },
       "academic": {
         "title": "Années scolaires",
@@ -3582,5 +3645,50 @@
     "updateBtn": "Mettre à jour",
     "createBtn": "Créer",
     "upcomingCount": "{count} à venir"
+  },
+  "adminRequests": {
+    "title": "Demandes de documents",
+    "subtitle": "Traitez les demandes de documents des parents",
+    "pending": "En attente",
+    "in_progress": "En cours",
+    "ready": "Prêt",
+    "rejected": "Refusé",
+    "cancelled": "Annulé",
+    "all": "Toutes",
+    "noPending": "Aucune demande en attente",
+    "pendingCount": "{count} demande en attente",
+    "pendingCountPlural": "{count} demandes en attente",
+    "noRequests": "Aucune demande",
+    "searchPlaceholder": "Rechercher par parent, élève, type...",
+    "parent": "Parent",
+    "student": "Élève",
+    "nni": "NNI",
+    "docType": "Type de document",
+    "requestDate": "Date de la demande",
+    "parentNotes": "Précisions du parent",
+    "adminResponse": "Réponse de l'administration",
+    "fileAttached": "Fichier joint",
+    "treatedOn": "Traité le {date}",
+    "takeCharge": "Prendre en charge",
+    "sendFile": "Envoyer fichier",
+    "replaceFile": "Remplacer le fichier",
+    "attachFile": "Joindre le fichier",
+    "markReady": "Marquer prête",
+    "reject": "Refuser",
+    "deleteFile": "Supprimer le fichier",
+    "confirmDeleteFile": "Supprimer le fichier joint ?",
+    "responsePlaceholder": "Note ou réponse pour le parent (optionnel)...",
+    "sentNotified": "Document envoyé — parent notifié ✓",
+    "markedReady": "Demande marquée prête — parent notifié",
+    "takenCharge": "Demande prise en charge",
+    "markedRejected": "Demande refusée — parent notifié",
+    "fileDeleted": "Fichier supprimé",
+    "uploadError": "Erreur lors de l'envoi",
+    "attestation_scolarite": "Attestation de scolarité",
+    "certificat_scolarite": "Certificat de scolarité",
+    "bulletin": "Bulletin scolaire",
+    "releve_notes": "Relevé de notes",
+    "convention_stage": "Convention de stage",
+    "autre": "Autre"
   }
 }

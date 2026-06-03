@@ -8,41 +8,20 @@ import { getStudentAttendanceWithFiles, getAllJustificationFiles, type Attendanc
 
 type AttendanceRecord = AttendanceWithFile
 
-const STATUS_CONFIG = {
-    absent: {
-        label: 'Absence injustifiée',
-        icon: XCircle,
-        color: 'text-red-400',
-        bg: 'bg-red-500/10 border-red-500/20',
-        dot: 'bg-red-500',
-    },
-    justified: {
-        label: 'Absence justifiée',
-        icon: CheckCircle2,
-        color: 'text-amber-400',
-        bg: 'bg-amber-500/10 border-amber-500/20',
-        dot: 'bg-amber-500',
-    },
-    late: {
-        label: 'Retard',
-        icon: Clock,
-        color: 'text-blue-400',
-        bg: 'bg-blue-500/10 border-blue-500/20',
-        dot: 'bg-blue-500',
-    },
-    excused: {
-        label: 'Dispensé',
-        icon: AlertCircle,
-        color: 'text-purple-400',
-        bg: 'bg-purple-500/10 border-purple-500/20',
-        dot: 'bg-purple-500',
-    },
+const STATUS_CONFIG_KEYS = {
+    absent:    { labelKey: 'admin.students.profile.attendanceAbsent',    icon: XCircle,      color: 'text-red-400',    bg: 'bg-red-500/10 border-red-500/20',     dot: 'bg-red-500'    },
+    justified: { labelKey: 'admin.students.profile.attendanceJustified', icon: CheckCircle2, color: 'text-amber-400',  bg: 'bg-amber-500/10 border-amber-500/20',  dot: 'bg-amber-500'  },
+    late:      { labelKey: 'admin.students.profile.attendanceLate',      icon: Clock,        color: 'text-blue-400',   bg: 'bg-blue-500/10 border-blue-500/20',    dot: 'bg-blue-500'   },
+    excused:   { labelKey: 'admin.students.profile.attendanceExcused',   icon: AlertCircle,  color: 'text-purple-400', bg: 'bg-purple-500/10 border-purple-500/20', dot: 'bg-purple-500' },
 }
 
 type FilterType = 'all' | 'absent' | 'justified' | 'late'
 
 export function StudentAttendance({ studentId, schoolId }: { studentId: string; schoolId: string }) {
     const { t, language } = useLanguage()
+    const STATUS_CONFIG = Object.fromEntries(
+        Object.entries(STATUS_CONFIG_KEYS).map(([k, v]) => [k, { ...v, label: t(v.labelKey) }])
+    ) as Record<string, { label: string; icon: any; color: string; bg: string; dot: string }>
     const [records, setRecords] = useState<AttendanceRecord[]>([])
     const [loading, setLoading] = useState(true)
     const [filter, setFilter] = useState<FilterType>('all')
@@ -192,7 +171,7 @@ export function StudentAttendance({ studentId, schoolId }: { studentId: string; 
                                                     className="inline-flex items-center gap-1.5 text-xs font-bold text-emerald-400 hover:text-emerald-300 bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/20 rounded-lg px-2.5 py-1 transition-colors"
                                                 >
                                                     <Eye className="w-3 h-3" />
-                                                    Voir le justificatif
+                                                    {t('admin.students.profile.viewJustification')}
                                                 </a>
                                                 <a
                                                     href={record.justification_file_url}
@@ -201,7 +180,7 @@ export function StudentAttendance({ studentId, schoolId }: { studentId: string; 
                                                     className="inline-flex items-center gap-1.5 text-xs font-bold text-gray-400 hover:text-white bg-white/5 hover:bg-white/10 border border-white/10 rounded-lg px-2.5 py-1 transition-colors"
                                                 >
                                                     <Download className="w-3 h-3" />
-                                                    Télécharger
+                                                    {t('admin.students.profile.downloadJustification')}
                                                 </a>
                                             </div>
                                         )}
@@ -226,7 +205,7 @@ export function StudentAttendance({ studentId, schoolId }: { studentId: string; 
                 <div className="bg-[#1A2530] rounded-3xl border border-white/5 overflow-hidden">
                     <div className="flex items-center gap-2 px-5 py-3 border-b border-white/5">
                         <Paperclip className="w-4 h-4 text-amber-400" />
-                        <p className="text-sm font-bold text-white">Fichiers de justification</p>
+                        <p className="text-sm font-bold text-white">{t('admin.students.profile.justificationFiles')}</p>
                         <span className="text-xs text-gray-500 bg-white/5 px-2 py-0.5 rounded-full">{justifFiles.length}</span>
                     </div>
                     <div className="divide-y divide-white/5">

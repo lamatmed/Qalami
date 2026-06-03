@@ -550,15 +550,75 @@ export function ReportCards() {
         if (displayReports.length === 0) return
         setExporting(true)
 
-        if (language === 'ar') {
-            // Native print for Arabic ensures perfect shaping & single-page enforcement
-            setTimeout(() => {
-                window.print()
-                setExporting(false)
-            }, 300)
-            return
+        toast.info(language === 'ar' ? 'جارٍ إنشاء ملف PDF…' : "Génération du PDF en cours…")
+
+        try {
+            // Reveal the hidden print-area so html2canvas can capture it
+            const printArea = document.querySelector('.print-area') as HTMLElement | null
+            if (!printArea) throw new Error('Zone d\'impression introuvable')
+
+            // Temporarily make visible off-screen
+            const prevClass = printArea.className
+            printArea.className = prevClass
+                .replace('opacity-0', '')
+                .replace('h-0', '')
+                .replace('w-0', '')
+                .replace('overflow-hidden', '')
+                .replace('-z-50', '')
+            printArea.style.cssText = `
+                position: fixed !important;
+                top: -9999px !important;
+                left: 0 !important;
+                width: 210mm !important;
+                height: auto !important;
+                opacity: 1 !important;
+                overflow: visible !important;
+                z-index: -100 !important;
+                pointer-events: none !important;
+            `
+
+            // Let browser finish layout/render
+            await new Promise(r => requestAnimationFrame(() => setTimeout(r, 200)))
+
+            const bulletinPages = Array.from(printArea.querySelectorAll<HTMLElement>('.bulletin-page'))
+            if (!bulletinPages.length) {
+                throw new Error('Aucune page de bulletin trouvée')
+            }
+
+            const { toJpeg } = await import('html-to-image')
+            const { jsPDF } = await import('jspdf')
+
+            const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4', compress: true })
+
+            for (let i = 0; i < bulletinPages.length; i++) {
+                const page = bulletinPages[i]
+                const imgData = await toJpeg(page, {
+                    quality: 0.92,
+                    backgroundColor: '#ffffff',
+                    pixelRatio: 2,
+                })
+                if (i > 0) doc.addPage()
+                doc.addImage(imgData, 'JPEG', 0, 0, 210, 297)
+            }
+
+            // Restore print-area
+            printArea.style.cssText = ''
+            printArea.className = prevClass
+
+            const cleanClass = selectedClassName.replace(/\s+/g, '_')
+            const cleanTerm  = termLabel.replace(/\s+/g, '_')
+            doc.save(`bulletins-${cleanClass}-${cleanTerm}.pdf`)
+            toast.success(language === 'ar' ? 'تم إنشاء PDF بنجاح' : "PDF généré avec succès.")
+
+        } catch (err) {
+            console.error("PDF generation failure:", err)
+            toast.error(language === 'ar' ? 'فشل في إنشاء الملف' : "Erreur lors de l'exportation PDF.")
+        } finally {
+            setExporting(false)
         }
 
+        /* ── old jsPDF manual-draw path removed — replaced by html2canvas above ── */
+        if (false) { // dead code fence — compiler still sees the variables below
         toast.info("Génération du document PDF vectoriel en cours...")
 
         try {
@@ -894,9 +954,8 @@ export function ReportCards() {
         } catch (err) {
             console.error("PDF rebuild failure:", err)
             toast.error("Erreur lors de l'exportation PDF.")
-        } finally {
-            setExporting(false)
         }
+        } // end if(false) — dead code fence
     }
 
 

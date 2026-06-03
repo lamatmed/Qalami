@@ -8,17 +8,10 @@ import { Textarea } from '@/components/ui/textarea'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Loader2, GraduationCap } from 'lucide-react'
 import { toast } from 'sonner'
+import { useLanguage } from '@/i18n'
 import { updateEnrollmentStatus } from '@/app/auth/actions'
 
 type EnrollmentStatus = 'active' | 'transferred' | 'withdrawn' | 'completed' | 'suspended'
-
-const STATUS_OPTIONS: { value: EnrollmentStatus; label: string; description: string }[] = [
-    { value: 'active',      label: 'Actif',      description: 'Inscription en cours' },
-    { value: 'suspended',   label: 'Suspendu',   description: 'Temporairement suspendu' },
-    { value: 'transferred', label: 'Transféré',  description: 'Transfert vers un autre établissement' },
-    { value: 'withdrawn',   label: 'Retiré',     description: 'Retrait volontaire ou parental' },
-    { value: 'completed',   label: 'Terminé',    description: 'Année/cycle complété avec succès' },
-]
 
 interface ChangeEnrollmentStatusProps {
     open: boolean
@@ -37,9 +30,18 @@ export function ChangeEnrollmentStatus({
     studentName,
     onSuccess,
 }: ChangeEnrollmentStatusProps) {
+    const { t } = useLanguage()
     const [newStatus, setNewStatus] = useState<EnrollmentStatus>(currentStatus as EnrollmentStatus)
     const [reason, setReason] = useState('')
     const [loading, setLoading] = useState(false)
+
+    const STATUS_OPTIONS: { value: EnrollmentStatus; label: string; description: string }[] = [
+        { value: 'active',      label: t('admin.enrollmentStatus.active'),      description: t('admin.enrollmentStatus.activeDesc')      },
+        { value: 'suspended',   label: t('admin.enrollmentStatus.suspended'),   description: t('admin.enrollmentStatus.suspendedDesc')   },
+        { value: 'transferred', label: t('admin.enrollmentStatus.transferred'), description: t('admin.enrollmentStatus.transferredDesc') },
+        { value: 'withdrawn',   label: t('admin.enrollmentStatus.withdrawn'),   description: t('admin.enrollmentStatus.withdrawnDesc')   },
+        { value: 'completed',   label: t('admin.enrollmentStatus.completed'),   description: t('admin.enrollmentStatus.completedDesc')   },
+    ]
 
     const handleSubmit = async () => {
         if (newStatus === currentStatus) {
@@ -56,17 +58,17 @@ export function ChangeEnrollmentStatus({
             })
 
             if (result.error) {
-                toast.error('Erreur', { description: result.error })
+                toast.error(t('admin.enrollmentStatus.error'), { description: result.error })
                 return
             }
 
             const label = STATUS_OPTIONS.find(s => s.value === newStatus)?.label ?? newStatus
-            toast.success("Statut d'inscription mis à jour", { description: `${studentName} → ${label}` })
+            toast.success(t('admin.enrollmentStatus.updated'), { description: `${studentName} → ${label}` })
             onSuccess?.(newStatus)
             onOpenChange(false)
             setReason('')
         } catch (err: any) {
-            toast.error('Erreur inattendue', { description: err.message })
+            toast.error(t('admin.enrollmentStatus.unexpectedError'), { description: err.message })
         } finally {
             setLoading(false)
         }
@@ -78,28 +80,24 @@ export function ChangeEnrollmentStatus({
                 <DialogHeader>
                     <DialogTitle className="flex items-center gap-2">
                         <GraduationCap className="w-5 h-5 text-emerald-400" />
-                        Statut d'inscription
+                        {t('admin.enrollmentStatus.title')}
                     </DialogTitle>
                 </DialogHeader>
 
                 <div className="space-y-5 pt-2">
                     <p className="text-sm text-gray-400">
-                        Modifier le statut d'inscription de <span className="text-white font-bold">{studentName}</span>
+                        {t('admin.enrollmentStatus.description')} <span className="text-white font-bold">{studentName}</span>
                     </p>
 
                     <div className="space-y-2">
-                        <Label className="text-gray-300">Nouveau statut</Label>
+                        <Label className="text-gray-300">{t('admin.enrollmentStatus.newStatus')}</Label>
                         <Select value={newStatus} onValueChange={(v) => setNewStatus(v as EnrollmentStatus)}>
                             <SelectTrigger className="bg-[#0F1720] border-white/10 text-white">
                                 <SelectValue />
                             </SelectTrigger>
                             <SelectContent className="bg-[#1A2530] border-white/10 text-white">
                                 {STATUS_OPTIONS.map(opt => (
-                                    <SelectItem
-                                        key={opt.value}
-                                        value={opt.value}
-                                        className="focus:bg-white/5 focus:text-white"
-                                    >
+                                    <SelectItem key={opt.value} value={opt.value} className="focus:bg-white/5 focus:text-white">
                                         <span className="font-bold">{opt.label}</span>
                                         <span className="text-gray-400 text-xs ml-2">— {opt.description}</span>
                                     </SelectItem>
@@ -109,9 +107,9 @@ export function ChangeEnrollmentStatus({
                     </div>
 
                     <div className="space-y-2">
-                        <Label className="text-gray-300">Motif (optionnel)</Label>
+                        <Label className="text-gray-300">{t('admin.enrollmentStatus.reason')}</Label>
                         <Textarea
-                            placeholder="Ex: Déménagement, fin de contrat, exclusion temporaire..."
+                            placeholder={t('admin.enrollmentStatus.reasonPlaceholder')}
                             className="bg-[#0F1720] border-white/10 text-white placeholder:text-gray-600 resize-none"
                             rows={3}
                             value={reason}
@@ -126,7 +124,7 @@ export function ChangeEnrollmentStatus({
                             onClick={() => onOpenChange(false)}
                             disabled={loading}
                         >
-                            Annuler
+                            {t('admin.enrollmentStatus.cancel')}
                         </Button>
                         <Button
                             className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white font-bold"
@@ -134,7 +132,7 @@ export function ChangeEnrollmentStatus({
                             disabled={loading || newStatus === currentStatus}
                         >
                             {loading && <Loader2 className="w-4 h-4 animate-spin mr-2" />}
-                            Confirmer
+                            {t('admin.enrollmentStatus.confirm')}
                         </Button>
                     </div>
                 </div>

@@ -323,7 +323,8 @@
       "users": "المستخدمين",
       "announcements": "الإعلانات",
       "events": "الفعاليات",
-      "grades": "درجات التلاميذ"
+      "grades": "درجات التلاميذ",
+      "requests": "الطلبات"
     },
     "dashboard": {
       "hello": "مرحباً",
@@ -762,7 +763,47 @@
         ,"deleteDocSuccess": "تم حذف المستند"
         ,"renameDocSuccess": "تم تغيير اسم المستند"
         ,"replaceDoc": "استبدال"
+        ,"attendanceAbsent": "غياب غير مبرر"
+        ,"attendanceJustified": "غياب مبرر"
+        ,"attendanceLate": "تأخر"
+        ,"attendanceExcused": "معفى"
+        ,"viewJustification": "عرض التبرير"
+        ,"downloadJustification": "تنزيل"
+        ,"justificationFiles": "ملفات التبرير"
+        ,"remarksTypePositive": "إيجابي"
+        ,"remarksTypeWarning": "تحذير"
+        ,"remarksTypeParticipation": "مشاركة"
+        ,"remarksTypeImprovement": "تحسن"
+        ,"remarksTypeConcern": "قلق"
+        ,"remarksTypeOther": "ملاحظة"
+        ,"remarksSendError": "خطأ في إرسال الملاحظة"
+        ,"remarksSentSuccess": "تم إرسال الملاحظة بنجاح"
+        ,"documentsStatusValid": "صالح"
+        ,"documentsStatusPending": "قيد الانتظار"
+        ,"documentsStatusMissing": "مفقود"
       }
+    },
+    "enrollmentStatus": {
+      "title": "حالة التسجيل",
+      "description": "تعديل حالة تسجيل",
+      "newStatus": "الحالة الجديدة",
+      "reason": "السبب (اختياري)",
+      "reasonPlaceholder": "مثال: انتقال، انتهاء العقد، إيقاف مؤقت...",
+      "cancel": "إلغاء",
+      "confirm": "تأكيد",
+      "updated": "تم تحديث حالة التسجيل",
+      "error": "خطأ",
+      "unexpectedError": "خطأ غير متوقع",
+      "active": "نشط",
+      "activeDesc": "التسجيل جارٍ",
+      "suspended": "موقوف",
+      "suspendedDesc": "موقوف مؤقتاً",
+      "transferred": "محوّل",
+      "transferredDesc": "تحويل إلى مؤسسة أخرى",
+      "withdrawn": "منسحب",
+      "withdrawnDesc": "انسحاب طوعي أو من قِبل الوالدين",
+      "completed": "منتهٍ",
+      "completedDesc": "السنة/الدورة مكتملة بنجاح"
     },
     "teachers": {
       "title": "هيئة التدريس",
@@ -1440,6 +1481,17 @@
       "addressNotProvided": "العنوان غير متوفر",
       "filterActive": "نشطون",
       "filterInactive": "غير نشطين",
+      "deleteParentTitle": "حذف نهائي",
+      "deleteParentDesc": "هذا الإجراء لا رجعة فيه. سيتم حذف حساب الولي وجميع روابطه.",
+      "deleteParentCancel": "إلغاء",
+      "deleteParentConfirm": "حذف",
+      "parentDeleted": "تم حذف الولي نهائياً",
+      "childRemoved": "تم إزالة {childName} من الحساب",
+      "filterOverdue": "متأخرون عن الدفع",
+      "filterOverdueCount": "متأخرون عن الدفع ({count})",
+      "sendBulkReminder": "📢 إرسال تذكير لجميع الأولياء المتأخرين ({count})",
+      "sendingReminders": "جارٍ الإرسال...",
+      "remindersSent": "تم إرسال التذكيرات إلى {count} ولي(أولياء) متأخر(ين)",
       "documentsTab": "الوثائق",
       "documents": {
         "tabFiles": "الملفات",
@@ -2089,7 +2141,18 @@
         "saving": "جاري الحفظ...",
         "saved": "تم الحفظ!",
         "saveSuccess": "تم حفظ الإعدادات بنجاح!",
-        "saveError": "حدث خطأ أثناء الحفظ"
+        "saveError": "حدث خطأ أثناء الحفظ",
+        "securityTitle": "أمان الحساب",
+        "securityDesc": "تعديل كلمة مرور وصول المسؤول.",
+        "newPassword": "كلمة المرور الجديدة",
+        "newPasswordPlaceholder": "6 أرقام (مثال: 123456)",
+        "confirmPassword": "تأكيد كلمة المرور",
+        "confirmPasswordPlaceholder": "أعد إدخال الأرقام الـ 6",
+        "updatePassword": "تحديث كلمة المرور",
+        "passwordUpdated": "تم تحديث كلمة المرور بنجاح",
+        "passwordMismatch": "كلمتا المرور غير متطابقتين",
+        "passwordTooShort": "يجب أن تتكون كلمة المرور من 6 أرقام بالضبط",
+        "passwordError": "حدث خطأ أثناء تحديث كلمة المرور"
       },
       "academic": {
         "title": "السنوات الدراسية",
@@ -3582,5 +3645,50 @@
     "updateBtn": "تعديل",
     "createBtn": "إنشاء",
     "upcomingCount": "{count} قادمة"
+  },
+  "adminRequests": {
+    "title": "طلبات الوثائق",
+    "subtitle": "معالجة طلبات الوثائق من الأولياء",
+    "pending": "قيد الانتظار",
+    "in_progress": "قيد المعالجة",
+    "ready": "جاهز",
+    "rejected": "مرفوض",
+    "cancelled": "ملغى",
+    "all": "الكل",
+    "noPending": "لا توجد طلبات معلقة",
+    "pendingCount": "{count} طلب قيد الانتظار",
+    "pendingCountPlural": "{count} طلبات قيد الانتظار",
+    "noRequests": "لا توجد طلبات",
+    "searchPlaceholder": "بحث بالولي، التلميذ، النوع...",
+    "parent": "الولي",
+    "student": "التلميذ",
+    "nni": "رقم التعريف",
+    "docType": "نوع الوثيقة",
+    "requestDate": "تاريخ الطلب",
+    "parentNotes": "ملاحظات الولي",
+    "adminResponse": "رد الإدارة",
+    "fileAttached": "الملف المرفق",
+    "treatedOn": "تمت المعالجة في {date}",
+    "takeCharge": "استلام الطلب",
+    "sendFile": "إرسال ملف",
+    "replaceFile": "استبدال الملف",
+    "attachFile": "إرفاق ملف",
+    "markReady": "تحديد كجاهز",
+    "reject": "رفض",
+    "deleteFile": "حذف الملف",
+    "confirmDeleteFile": "حذف الملف المرفق؟",
+    "responsePlaceholder": "ملاحظة أو رد للولي (اختياري)...",
+    "sentNotified": "تم إرسال الوثيقة — تم إخطار الولي ✓",
+    "markedReady": "تم تحديد الطلب كجاهز — تم إخطار الولي",
+    "takenCharge": "تم استلام الطلب",
+    "markedRejected": "تم رفض الطلب — تم إخطار الولي",
+    "fileDeleted": "تم حذف الملف",
+    "uploadError": "خطأ في الإرسال",
+    "attestation_scolarite": "شهادة تسجيل",
+    "certificat_scolarite": "وثيقة مدرسية",
+    "bulletin": "كشف النقاط",
+    "releve_notes": "استخراج النقاط",
+    "convention_stage": "اتفاقية التدريب",
+    "autre": "أخرى"
   }
 }

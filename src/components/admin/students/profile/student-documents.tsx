@@ -485,7 +485,7 @@ export function StudentDocuments({ studentId, classId, schoolId, isArchived }: S
                                                                             s === 'pending' ? 'bg-amber-400' : 'bg-red-500'
                                                                         )} />
                                                                         <span className={s === 'valid' ? 'text-emerald-400' : s === 'pending' ? 'text-amber-400' : 'text-red-400'}>
-                                                                            {s === 'valid' ? 'Valide' : s === 'pending' ? 'En attente' : 'Manquant'}
+                                                                            {s === 'valid' ? t('admin.students.profile.documentsStatusValid') : s === 'pending' ? t('admin.students.profile.documentsStatusPending') : t('admin.students.profile.documentsStatusMissing')}
                                                                         </span>
                                                                     </button>
                                                                 ))}

@@ -23,7 +23,8 @@ interface SchoolSettings {
 }
 
 export function SchoolIdentity() {
-    const { t } = useLanguage()
+    const { t, language } = useLanguage()
+    const isAr = language === 'ar'
     const supabase = createClient()
     const [isPending, startTransition] = useTransition()
     const [isLoading, setIsLoading] = useState(true)
@@ -132,12 +133,12 @@ export function SchoolIdentity() {
         e.preventDefault()
         
         if (!/^\d{6}$/.test(passwords.new)) {
-            toast.error('Le mot de passe doit être exactement 6 chiffres')
+            toast.error(t('admin.settings.identity.passwordTooShort'))
             return
         }
 
         if (passwords.new !== passwords.confirm) {
-            toast.error("Les mots de passe ne correspondent pas.")
+            toast.error(t('admin.settings.identity.passwordMismatch'))
             return
         }
 
@@ -147,11 +148,11 @@ export function SchoolIdentity() {
             if (response.error) {
                 toast.error(response.error)
             } else {
-                toast.success("Le mot de passe a été mis à jour avec succès !")
+                toast.success(t('admin.settings.identity.passwordUpdated'))
                 setPasswords({ new: '', confirm: '' })
             }
         } catch (err) {
-            toast.error("Une erreur inattendue est survenue.")
+            toast.error(t('admin.settings.identity.passwordError'))
         } finally {
             setIsUpdatingPass(false)
         }
@@ -348,34 +349,35 @@ export function SchoolIdentity() {
             </div>
 
             {/* Security Password Block */}
-            <div className="mt-12 pt-8 border-t border-white/5 space-y-6">
+            <div className="mt-12 pt-8 border-t border-white/5 space-y-6" dir={isAr ? 'rtl' : 'ltr'}>
                 <div>
                     <h3 className="text-xl font-bold text-white flex items-center gap-2">
                         <ShieldCheck className="w-5 h-5 text-emerald-500" />
-                        Sécurité du Compte
+                        {t('admin.settings.identity.securityTitle')}
                     </h3>
-                    <p className="text-gray-400 text-sm">Modifier le mot de passe de votre accès administrateur.</p>
+                    <p className="text-gray-400 text-sm">{t('admin.settings.identity.securityDesc')}</p>
                 </div>
 
                 <form onSubmit={handlePasswordUpdate} className="bg-[#1A2530] border border-white/5 rounded-2xl p-6 max-w-2xl space-y-5">
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
                         <div className="space-y-2">
-                            <Label className="text-gray-300">Nouveau mot de passe</Label>
+                            <Label className="text-gray-300">{t('admin.settings.identity.newPassword')}</Label>
                             <div className="relative">
-                                <KeyRound className="absolute left-3 top-3 h-4 w-4 text-gray-500" />
+                                <KeyRound className={cn("absolute top-3 h-4 w-4 text-gray-500", isAr ? "right-3" : "left-3")} />
                                 <Input
                                     type={showNewPass ? "text" : "password"}
                                     value={passwords.new}
                                     onChange={(e) => setPasswords(prev => ({ ...prev, new: e.target.value.replace(/\D/g, '').slice(0, 6) }))}
-                                    placeholder="6 chiffres (ex. 123456)"
-                                    className="pl-9 pr-10 bg-[#0F1720] border-white/5 text-white"
+                                    placeholder={t('admin.settings.identity.newPasswordPlaceholder')}
+                                    className={cn("bg-[#0F1720] border-white/5 text-white", isAr ? "pr-9 pl-10 text-right" : "pl-9 pr-10")}
+                                    dir={isAr ? 'rtl' : 'ltr'}
                                     inputMode="numeric"
                                     maxLength={6}
                                 />
                                 <button
                                     type="button"
                                     onClick={() => setShowNewPass(!showNewPass)}
-                                    className="absolute right-3 top-3 text-gray-500 hover:text-emerald-500 transition-colors"
+                                    className={cn("absolute top-3 text-gray-500 hover:text-emerald-500 transition-colors", isAr ? "left-3" : "right-3")}
                                 >
                                     {showNewPass ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                                 </button>
@@ -383,22 +385,23 @@ export function SchoolIdentity() {
                         </div>
 
                         <div className="space-y-2">
-                            <Label className="text-gray-300">Confirmer mot de passe</Label>
+                            <Label className="text-gray-300">{t('admin.settings.identity.confirmPassword')}</Label>
                             <div className="relative">
-                                <KeyRound className="absolute left-3 top-3 h-4 w-4 text-gray-500" />
+                                <KeyRound className={cn("absolute top-3 h-4 w-4 text-gray-500", isAr ? "right-3" : "left-3")} />
                                 <Input
                                     type={showConfirmPass ? "text" : "password"}
                                     value={passwords.confirm}
                                     onChange={(e) => setPasswords(prev => ({ ...prev, confirm: e.target.value.replace(/\D/g, '').slice(0, 6) }))}
-                                    placeholder="Répétez les 6 chiffres"
-                                    className="pl-9 pr-10 bg-[#0F1720] border-white/5 text-white"
+                                    placeholder={t('admin.settings.identity.confirmPasswordPlaceholder')}
+                                    className={cn("bg-[#0F1720] border-white/5 text-white", isAr ? "pr-9 pl-10 text-right" : "pl-9 pr-10")}
+                                    dir={isAr ? 'rtl' : 'ltr'}
                                     inputMode="numeric"
                                     maxLength={6}
                                 />
                                 <button
                                     type="button"
                                     onClick={() => setShowConfirmPass(!showConfirmPass)}
-                                    className="absolute right-3 top-3 text-gray-500 hover:text-emerald-500 transition-colors"
+                                    className={cn("absolute top-3 text-gray-500 hover:text-emerald-500 transition-colors", isAr ? "left-3" : "right-3")}
                                 >
                                     {showConfirmPass ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                                 </button>
@@ -422,7 +425,7 @@ export function SchoolIdentity() {
                             ) : (
                                 <KeyRound className="h-4 w-4" />
                             )}
-                            Mettre à jour le mot de passe
+                            {t('admin.settings.identity.updatePassword')}
                         </Button>
                     </div>
                 </form>

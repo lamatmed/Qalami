@@ -49,7 +49,7 @@ export function ParentProfile({ parent, schoolId = '', onClose, onParentUpdated 
         const result = await deleteParentPermanently(localParent.id)
         setDeleting(false)
         if (result.error) { toast.error(result.error); return }
-        toast.success('Parent supprimé définitivement')
+        toast.success(t('admin.parents.parentDeleted'))
         onClose?.()
         onParentUpdated?.()
     }
@@ -60,7 +60,7 @@ export function ParentProfile({ parent, schoolId = '', onClose, onParentUpdated 
         const result = await removeChildFromParent(localParent.id, childId)
         setRemovingChild(null)
         if (result.error) { toast.error(result.error); return }
-        toast.success(`${childName} retiré(e) du compte`)
+        toast.success(t('admin.parents.childRemoved', { childName }))
         setLocalParent(prev => ({ ...prev, children: prev.children.filter((c: any) => c.id !== childId) }))
         onParentUpdated?.()
     }
@@ -361,18 +361,18 @@ export function ParentProfile({ parent, schoolId = '', onClose, onParentUpdated 
                                 <Trash2 className="w-5 h-5 text-red-400" />
                             </div>
                             <div>
-                                <h3 className="font-bold text-white">Supprimer définitivement</h3>
-                                <p className="text-sm text-gray-400 mt-1">Cette action est <span className="text-red-400 font-bold">irréversible</span>. Le compte parent et tous ses liens seront supprimés.</p>
+                                <h3 className="font-bold text-white">{t('admin.parents.deleteParentTitle')}</h3>
+                                <p className="text-sm text-gray-400 mt-1">{t('admin.parents.deleteParentDesc')}</p>
                                 <p className="text-sm font-bold text-white mt-2">{localParent.name}</p>
                             </div>
                         </div>
                         <div className="flex gap-3 pt-2">
                             <Button type="button" variant="outline" className="flex-1 border-white/10 text-gray-400 hover:text-white"
-                                onClick={() => setDeleteConfirmOpen(false)} disabled={deleting}>Annuler</Button>
+                                onClick={() => setDeleteConfirmOpen(false)} disabled={deleting}>{t('admin.parents.deleteParentCancel')}</Button>
                             <Button type="button" className="flex-1 bg-red-600 hover:bg-red-700 text-white font-bold"
                                 onClick={handleDeleteParent} disabled={deleting}>
                                 {deleting ? <Loader2 className="w-4 h-4 animate-spin mr-1" /> : <Trash2 className="w-4 h-4 mr-1" />}
-                                Supprimer
+                                {t('admin.parents.deleteParentConfirm')}
                             </Button>
                         </div>
                     </div>

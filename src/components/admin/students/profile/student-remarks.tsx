@@ -18,13 +18,13 @@ const CATEGORY_CONFIG: Record<string, { labelKey: string; color: string; bg: str
     general:       { labelKey: 'admin.students.profile.remarksCategoryGeneral',       color: 'text-gray-400',    bg: 'bg-gray-500/10' },
 }
 
-const TYPE_CONFIG: Record<string, { icon: any; color: string; bg: string; label: string }> = {
-    positive:      { icon: Star,          color: 'text-amber-500',   bg: 'bg-amber-500/10',  label: 'Positif' },
-    warning:       { icon: AlertTriangle, color: 'text-red-500',     bg: 'bg-red-500/10',    label: 'Avertissement' },
-    participation: { icon: Hand,          color: 'text-blue-500',    bg: 'bg-blue-500/10',   label: 'Participation' },
-    improvement:   { icon: TrendingUp,    color: 'text-emerald-500', bg: 'bg-emerald-500/10',label: 'Amélioration' },
-    concern:       { icon: MessageCircle, color: 'text-purple-500',  bg: 'bg-purple-500/10', label: 'Inquiétude' },
-    default:       { icon: MessageCircle, color: 'text-gray-400',    bg: 'bg-gray-500/10',   label: 'Remarque' },
+const TYPE_CONFIG_KEYS: Record<string, { icon: any; color: string; bg: string; labelKey: string }> = {
+    positive:      { icon: Star,          color: 'text-amber-500',   bg: 'bg-amber-500/10',  labelKey: 'admin.students.profile.remarksTypePositive'     },
+    warning:       { icon: AlertTriangle, color: 'text-red-500',     bg: 'bg-red-500/10',    labelKey: 'admin.students.profile.remarksTypeWarning'       },
+    participation: { icon: Hand,          color: 'text-blue-500',    bg: 'bg-blue-500/10',   labelKey: 'admin.students.profile.remarksTypeParticipation' },
+    improvement:   { icon: TrendingUp,    color: 'text-emerald-500', bg: 'bg-emerald-500/10',labelKey: 'admin.students.profile.remarksTypeImprovement'   },
+    concern:       { icon: MessageCircle, color: 'text-purple-500',  bg: 'bg-purple-500/10', labelKey: 'admin.students.profile.remarksTypeConcern'       },
+    default:       { icon: MessageCircle, color: 'text-gray-400',    bg: 'bg-gray-500/10',   labelKey: 'admin.students.profile.remarksTypeOther'         },
 }
 
 /* ─── Types ─── */
@@ -156,10 +156,10 @@ export function StudentRemarks({ studentId, schoolId, isArchived }: { studentId:
             })
 
         if (error) {
-            toast.error('Erreur lors de l\'envoi de la remarque')
+            toast.error(t('admin.students.profile.remarksSendError'))
             console.error('Remark insertion error details:', error.message || error)
         } else {
-            toast.success('Remarque envoyée avec succès')
+            toast.success(t('admin.students.profile.remarksSentSuccess'))
             setFormMessage('')
             setFormType('positive')
             setFormCategory('general')
@@ -240,6 +240,9 @@ export function StudentRemarks({ studentId, schoolId, isArchived }: { studentId:
         ? remarks.filter(r => r.category === categoryFilter)
         : remarks
 
+    const TYPE_CONFIG = Object.fromEntries(
+        Object.entries(TYPE_CONFIG_KEYS).map(([k, v]) => [k, { ...v, label: t(v.labelKey) }])
+    )
     const getTypeInfo = (type: string) => TYPE_CONFIG[type] || TYPE_CONFIG.default
 
     const formatDate = (d: string) =>

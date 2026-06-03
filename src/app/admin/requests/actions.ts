@@ -31,7 +31,7 @@ export interface DocumentRequest {
     created_at: string
     updated_at: string
     parent: { full_name: string | null; avatar_url: string | null } | null
-    student: { full_name: string | null } | null
+    student: { full_name: string | null; national_id: string | null } | null
 }
 
 export async function getMySchoolId(): Promise<string | null> {
@@ -49,7 +49,7 @@ export async function getDocumentRequests(status?: DocRequestStatus) {
         .select(`
             *,
             parent:profiles!document_requests_parent_id_fkey ( full_name, avatar_url ),
-            student:profiles!document_requests_student_id_fkey ( full_name )
+            student:profiles!document_requests_student_id_fkey ( full_name, national_id )
         `)
         .eq('school_id', ctx.schoolId)
         .order('created_at', { ascending: false })
@@ -126,6 +126,27 @@ export async function updateDocRequestStatus(
         })
     }
 
+    return { success: true }
+}
+
+export async function removeFileFromRequest(requestId: string) {
+    const ctx = await getActionContext()
+    if (!ctx) return { error: 'Non authentifié' }
+    const admin = createAdminClient()
+    const { error } = await admin
+        .from('document_requests')
+        .update({
+            file_path: null,
+            file_name: null,
+            file_size_bytes: null,
+            status: 'in_progress',
+            fulfilled_by: null,
+            fulfilled_at: null,
+            updated_at: new Date().toISOString(),
+        })
+        .eq('id', requestId)
+        .eq('school_id', ctx.schoolId)
+    if (error) return { error: error.message }
     return { success: true }
 }
 
