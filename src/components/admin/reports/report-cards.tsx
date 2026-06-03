@@ -13,6 +13,7 @@ import {
     saveAttendanceDays,
     getStudentInfoByNNI,
     getStudentsByName,
+    getParentsForClassStudents,
     type StudentReport,
     type ReportCardExtra,
 } from '@/app/admin/reports/actions'
@@ -196,6 +197,7 @@ export function ReportCards() {
     const [classes, setClasses] = useState<Class[]>([])
     const [schoolName, setSchoolName] = useState<string>('')
     const [schoolLogo, setSchoolLogo] = useState<string>('')
+    const [schoolId, setSchoolId] = useState<string>('')
 
     const [selectedYear, setSelectedYear] = useState('')
     const [selectedTerm, setSelectedTerm] = useState('')
@@ -279,6 +281,7 @@ export function ReportCards() {
             const finalName = (settingsData as any)?.name || (schoolData as any)?.name || ''
             setSchoolName(finalName)
             setSchoolLogo((settingsData as any)?.logo_url || '')
+            setSchoolId(ctx.school_id)
 
             const currentYear = (yearsData || []).find(y => y.is_current)
             if (currentYear) setSelectedYear(currentYear.id)
@@ -538,11 +541,172 @@ export function ReportCards() {
         setPublishing(true)
 
         const result = await publishReportCards(selectedClass, selectedTerm)
-        if (result.error) toast.error(result.error)
-        else {
-            setReportStatus('published')
-            toast.success(t('reports.publishSuccess'))
+        if (result.error) {
+            toast.error(result.error)
+            setPublishing(false)
+            return
         }
+
+        setReportStatus('published')
+        toast.success(t('reports.publishSuccess'))
+
+        // Fetch parent-student links for this class
+        const parentsToastId = toast.loading(language === 'ar' ? 'جاري تحضير وإرسال كشوف النقاط لأولياء الأمور...' : 'Préparation et envoi des bulletins aux parents...')
+        
+        try {
+            const parentsRes = await getParentsForClassStudents(selectedClass)
+            if ('error' in parentsRes && parentsRes.error) {
+                toast.error(parentsRes.error, { id: parentsToastId })
+                setPublishing(false)
+                return
+            }
+
+            const links = (parentsRes as any).data || []
+            if (links.length === 0) {
+                toast.info(language === 'ar' ? 'لا يوجد أولياء أمور مرتبطين بطلاب هذه الفئة.' : 'Aucun parent lié aux élèves de cette classe.', { id: parentsToastId })
+                setPublishing(false)
+                return
+            }
+
+            // Create a mapping from studentId to parentIds
+            const studentToParents = new Map<string, string[]>()
+            links.forEach((link: any) => {
+                if (!studentToParents.has(link.student_id)) {
+                    studentToParents.set(link.student_id, [])
+                }
+                studentToParents.get(link.student_id)!.push(link.parent_id)
+            })
+
+            // Filter reports to only those that have linked parents to save resources
+            const reportsWithParents = reports.filter(r => studentToParents.has(r.studentId))
+            if (reportsWithParents.length === 0) {
+                toast.info(language === 'ar' ? 'لا يوجد أولياء أمور مرتبطين بالطلاب الحاليين.' : 'Aucun parent lié aux élèves de cette classe.', { id: parentsToastId })
+                setPublishing(false)
+                return
+            }
+
+            // Temporarily reveal print area
+            const printArea = document.querySelector('.print-area') as HTMLElement | null
+            if (!printArea) {
+                throw new Error('Zone d\'impression introuvable')
+            }
+
+            const prevClass = printArea.className
+            printArea.className = prevClass
+                .replace('opacity-0', '')
+                .replace('h-0', '')
+                .replace('w-0', '')
+                .replace('overflow-hidden', '')
+                .replace('-z-50', '')
+            printArea.style.cssText = `
+                position: fixed !important;
+                top: -9999px !important;
+                left: 0 !important;
+                width: 210mm !important;
+                height: auto !important;
+                opacity: 1 !important;
+                overflow: visible !important;
+                z-index: -100 !important;
+                pointer-events: none !important;
+            `
+
+            // Let browser finish layout
+            await new Promise(r => requestAnimationFrame(() => setTimeout(r, 200)))
+
+            const { toJpeg } = await import('html-to-image')
+            const { jsPDF } = await import('jspdf')
+
+            let successCount = 0
+            let errorCount = 0
+
+            for (const report of reportsWithParents) {
+                const parentIds = studentToParents.get(report.studentId)
+                if (!parentIds || parentIds.length === 0) continue
+
+                const page = printArea.querySelector(`[data-student-id="${report.studentId}"]`) as HTMLElement | null
+                if (!page) {
+                    errorCount++
+                    continue
+                }
+
+                try {
+                    // Capture individual page
+                    const imgData = await toJpeg(page, {
+                        quality: 0.92,
+                        backgroundColor: '#ffffff',
+                        pixelRatio: 2,
+                    })
+
+                    const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4', compress: true })
+                    doc.addImage(imgData, 'JPEG', 0, 0, 210, 297)
+                    const pdfBlob = doc.output('blob')
+
+                    const cleanStudentName = report.studentName.replace(/\s+/g, '_')
+                    const cleanTerm = termLabel.replace(/\s+/g, '_')
+                    const fileName = `bulletin_${cleanStudentName}_${cleanTerm}.pdf`
+                    const file = new File([pdfBlob], fileName, { type: 'application/pdf' })
+
+                    // Upload PDF to Supabase Storage and link parent
+                    for (const parentId of parentIds) {
+                        const fd = new FormData()
+                        fd.append('mode', 'upload')
+                        fd.append('file', file)
+                        fd.append('parentId', parentId)
+                        fd.append('schoolId', schoolId)
+                        
+                        const docName = language === 'ar'
+                            ? `كشف نقاط - ${report.studentName} - ${termLabel}`
+                            : `Bulletin de notes - ${report.studentName} - ${termLabel}`
+                        const docDesc = language === 'ar'
+                            ? `كشف النقاط الرسمي للفصل ${termLabel} للطالب ${report.studentName}`
+                            : `Bulletin de notes officiel pour le ${termLabel} de l'élève ${report.studentName}`
+
+                        fd.append('name', docName)
+                        fd.append('description', docDesc)
+
+                        const res = await fetch('/api/admin/upload-parent-document', { method: 'POST', body: fd })
+                        if (!res.ok) {
+                            const json = await res.json()
+                            throw new Error(json.error || 'Upload failed')
+                        }
+                    }
+
+                    successCount++
+                } catch (err) {
+                    console.error(`Failed to distribute bulletin for student ${report.studentName}:`, err)
+                    errorCount++
+                }
+            }
+
+            // Restore print area style
+            printArea.style.cssText = ''
+            printArea.className = prevClass
+
+            if (successCount > 0 && errorCount === 0) {
+                toast.success(language === 'ar'
+                    ? `تم إرسال كشوف النقاط بنجاح إلى أولياء أمور ${successCount} طالب.`
+                    : `Bulletins envoyés avec succès aux parents de ${successCount} élèves.`, { id: parentsToastId })
+            } else if (successCount > 0 && errorCount > 0) {
+                toast.warning(language === 'ar'
+                    ? `تم إرسال كشوف النقاط بنجاح إلى أولياء أمور ${successCount} طالب. فشل الإرسال لـ ${errorCount} طلاب.`
+                    : `Bulletins envoyés à ${successCount} élèves. Échec pour ${errorCount} élèves.`, { id: parentsToastId })
+            } else {
+                toast.error(language === 'ar'
+                    ? `فشل إرسال كشوف النقاط للجميع.`
+                    : `Échec de la distribution des bulletins aux parents.`, { id: parentsToastId })
+            }
+
+        } catch (err: any) {
+            console.error("Error in automated bulletin dispatch:", err)
+            // Restore print area style in case of failure before restoration block
+            const pArea = document.querySelector('.print-area') as HTMLElement | null
+            if (pArea) {
+                pArea.style.cssText = ''
+                pArea.className = prevClass
+            }
+            toast.error(language === 'ar' ? 'حدث خطأ أثناء توزيع كشوف النقاط.' : "Erreur lors de la distribution des bulletins aux parents.", { id: parentsToastId })
+        }
+
         setPublishing(false)
     }
 
@@ -1659,6 +1823,7 @@ export function ReportCards() {
                     return (
                         <div 
                             key={report.studentId} 
+                            data-student-id={report.studentId}
                             className={cn("bulletin-page relative overflow-hidden", isAr && "is-arabic")} 
                             dir={isAr ? "rtl" : "ltr"}
                         >
@@ -1673,7 +1838,7 @@ export function ReportCards() {
                                 {/* Center Logo (Dynamic or Fallback) */}
                                 {schoolLogo ? (
                                     <div style={{ width: '12mm', height: '12mm', borderRadius: '50%', border: '1px solid #E2E8F0', overflow: 'hidden', background: '#fff', margin: '0 auto', display: 'flex', alignItems: 'center', justifyItems: 'center' }}>
-                                        <img src={schoolLogo} alt="Logo" style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
+                                        <img src={schoolLogo} alt="Logo" crossOrigin="anonymous" style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
                                     </div>
                                 ) : (
                                     <div className="pdf-logo-circle">A</div>

@@ -630,3 +630,32 @@ export async function getStudentInfoByNNI(nni: string) {
 
     return { student: profile, enrollment }
 }
+
+export async function getParentsForClassStudents(classId: string) {
+    const ctx = await getActionContext()
+    if (!ctx) return { error: 'Non authentifié' }
+    const { schoolId } = ctx
+    const admin = createAdminClient()
+
+    // 1. Get enrollments for the class
+    const { data: enrollments, error: enrollError } = await admin
+        .from('enrollments')
+        .select('student_id')
+        .eq('class_id', classId)
+        .eq('school_id', schoolId)
+
+    if (enrollError) return { error: enrollError.message }
+    if (!enrollments || enrollments.length === 0) return { data: [] }
+
+    const studentIds = enrollments.map(e => e.student_id)
+
+    // 2. Get parent links for these students
+    const { data: links, error: linkError } = await admin
+        .from('parent_student_links')
+        .select('parent_id, student_id')
+        .in('student_id', studentIds)
+
+    if (linkError) return { error: linkError.message }
+    return { data: links }
+}
+

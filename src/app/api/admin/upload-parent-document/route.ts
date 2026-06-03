@@ -72,6 +72,32 @@ export async function POST(req: NextRequest) {
                 return NextResponse.json({ error: dbErr.message }, { status: 500 })
             }
 
+            // Send notification to the parent
+            try {
+                const isNameAr = /[\u0600-\u06FF]/.test(name)
+                const isBulletin = name.toLowerCase().includes('bulletin') || name.includes('كشف')
+                
+                const title = isBulletin
+                    ? (isNameAr ? 'كشف النقاط متوفر' : 'Bulletin scolaire disponible')
+                    : (isNameAr ? 'وثيقة جديدة متوفرة' : 'Nouveau document disponible')
+                    
+                const message = isBulletin
+                    ? (isNameAr ? `كشف النقاط الخاص بطفلكم متوفر الآن: ${name}` : `Le bulletin scolaire de votre enfant est disponible : ${name}`)
+                    : (isNameAr ? `تم إضافة وثيقة جديدة في حسابكم: ${name}` : `Un nouveau document a été ajouté à votre espace : ${name}`)
+
+                await admin.from('notifications').insert({
+                    user_id: parentId,
+                    school_id: schoolId,
+                    title,
+                    message,
+                    type: 'info',
+                    action_url: '/parent/documents',
+                    is_read: false,
+                })
+            } catch (notifErr) {
+                console.error('Failed to insert parent upload notification:', notifErr)
+            }
+
             return NextResponse.json({ success: true, publicUrl })
         }
 
@@ -108,6 +134,35 @@ export async function POST(req: NextRequest) {
 
             if (dbErr) {
                 return NextResponse.json({ error: dbErr.message }, { status: 500 })
+            }
+
+            // Send notification to the parent
+            try {
+                const { data: docRecord } = await admin
+                    .from('parent_documents')
+                    .select('school_id')
+                    .eq('id', docId)
+                    .single()
+
+                if (docRecord) {
+                    const isNameAr = /[\u0600-\u06FF]/.test(docName)
+                    const title = isNameAr ? `تم توفير المستند المطلوب : ${docName}` : `Document disponible : ${docName}`
+                    const message = isNameAr 
+                        ? `المستند المطلوب "${docName}" متوفر الآن في حسابكم.`
+                        : `Le document demandé "${docName}" est désormais disponible dans votre espace.`
+
+                    await admin.from('notifications').insert({
+                        user_id: parentId,
+                        school_id: docRecord.school_id,
+                        title,
+                        message,
+                        type: 'success',
+                        action_url: '/parent/documents',
+                        is_read: false,
+                    })
+                }
+            } catch (notifErr) {
+                console.error('Failed to insert parent fulfill notification:', notifErr)
             }
 
             return NextResponse.json({ success: true, publicUrl })
