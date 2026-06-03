@@ -297,6 +297,7 @@
       "analytics": "Analytics",
       "classes": "Classes",
       "students": "Élèves",
+      "transferredStudents": "Élèves transférés",
       "parents": "Parents",
       "teachers": "Enseignants",
       "schedule": "Emploi du temps",
@@ -506,7 +507,31 @@
         "revertConfirmMessage": "Voulez-vous annuler le transfert de cet élève et le réactiver dans votre établissement ?",
         "unarchive": "Désarchiver",
         "unarchiveConfirmMessage": "Voulez-vous désarchiver cet élève et le réactiver dans votre établissement ?",
-        "unarchiveSuccessMessage": "L'élève a été désarchivé avec succès."
+        "unarchiveSuccessMessage": "L'élève a été désarchivé avec succès.",
+        "toAnotherSchool": "Vers une autre école",
+        "externalDeparture": "Sortie définitive (PDF)",
+        "externalTitle": "Sortie définitive de l'établissement",
+        "externalDesc1": "L'élève sera désinscrit de sa classe actuelle et classé comme transféré.",
+        "externalDesc2": "📄 Un certificat officiel de scolarité et de transfert sera généré au format PDF pour les démarches de sa future école.",
+        "transferAndCert": "Transférer & Certificat"
+      },
+      "transferredPage": {
+        "title": "Élèves Transférés",
+        "subtitle": "Historique des départs définitifs et certificats de transfert",
+        "searchPlaceholder": "Rechercher par nom, classe ou NNI...",
+        "noStudents": "Aucun élève transféré trouvé.",
+        "classLabel": "Classe : {className}",
+        "statusLabel": "Transféré",
+        "bornOn": "Né(e) le {date}",
+        "bornAt": " à {place}",
+        "nniLabel": "NNI :",
+        "certificateButton": "Certificat",
+        "reintegrateButton": "Réintégrer",
+        "reintegrateConfirm": "Voulez-vous réintégrer l'élève {name} dans son ancienne classe ?",
+        "reintegrateSuccess": "L'élève {name} a été réintégré avec succès !",
+        "reintegrateError": "Erreur de réintégration",
+        "loadError": "Erreur lors du chargement des élèves transférés",
+        "sansClasse": "Sans classe"
       },
       "register": {
         "pageTitle": "Nouvelle inscription",
@@ -781,6 +806,12 @@
         ,"documentsStatusValid": "Valide"
         ,"documentsStatusPending": "En attente"
         ,"documentsStatusMissing": "Manquant"
+        ,"transferredBanner": {
+          "title": "Cet élève a été transféré (Départ externe)",
+          "subtitle": "L'élève n'est plus actif dans les classes mais vous pouvez télécharger son certificat de transfert ou le réintégrer.",
+          "downloadBtn": "Télécharger Certificat",
+          "reintegrateBtn": "Réintégrer"
+        }
       }
     },
     "enrollmentStatus": {

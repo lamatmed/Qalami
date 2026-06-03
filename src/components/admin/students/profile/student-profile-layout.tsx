@@ -21,9 +21,10 @@ import { AssignClassDialog } from '@/components/admin/students/assign-class-dial
 import { AssignParentsDialog } from '@/components/admin/students/assign-parents-dialog'
 import { TransferStudentDialog } from '@/components/admin/students/transfer-student-dialog'
 import { EditStudentDialog } from '@/components/admin/students/edit-student-dialog'
-import { revertStudentTransfer, deleteStudentPermanently } from '@/app/admin/students/actions'
+import { revertStudentTransfer, deleteStudentPermanently, reintegrateExternalStudent } from '@/app/admin/students/actions'
 import { updateProfileStatus } from '@/app/auth/actions'
 import { createClient } from '@/utils/supabase/client'
+import { generateTransferPDF } from '@/utils/pdf-generator'
 import { useLanguage } from '@/i18n'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { toast } from 'sonner'
@@ -70,6 +71,7 @@ export function StudentProfileLayout({ id }: { id: string }) {
     const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false)
     const [deleting, setDeleting] = useState(false)
     const [reverting, setReverting] = useState(false)
+    const [schoolName, setSchoolName] = useState("Établissement Qalami")
     const tabs = [
         { id: 'grades', label: t('admin.students.profile.gradesTabLabel') },
         { id: 'attendance', label: t('common.attendance') },
@@ -95,6 +97,13 @@ export function StudentProfileLayout({ id }: { id: string }) {
             const activeSchoolId = adminProfile?.school_id
             if (!activeSchoolId) { setLoading(false); return }
             setCurrentSchoolId(activeSchoolId)
+
+            const { data: school } = await supabase
+                .from('schools')
+                .select('name')
+                .eq('id', activeSchoolId)
+                .single()
+            if (school?.name) setSchoolName(school.name)
 
             const { data: profile } = await supabase
                 .from('profiles')
@@ -195,6 +204,36 @@ export function StudentProfileLayout({ id }: { id: string }) {
         }
     }
 
+    const handleReintegrateExternal = async () => {
+        if (!confirm("Voulez-vous réintégrer cet élève ? Son statut repassera à Actif et il rejoindra sa classe.")) return
+        setReverting(true)
+        const result = await reintegrateExternalStudent(id)
+        setReverting(false)
+        if (result.error) {
+            toast.error(result.error)
+        } else {
+            toast.success("L'élève a été réintégré avec succès.")
+            window.location.reload()
+        }
+    }
+
+    const handleDownloadCertificate = () => {
+        if (!student) return
+        const birthDateFormatted = student.date_of_birth
+            ? new Date(student.date_of_birth).toLocaleDateString('fr-FR')
+            : '—'
+        generateTransferPDF({
+            schoolName,
+            studentName: student.full_name,
+            birthDate: birthDateFormatted,
+            birthPlace: student.place_of_birth || '',
+            nni: student.national_id || '',
+            className: student.className || 'Non affecté',
+            academicYear: student.academicYear || '2025-2026',
+            transferDate: new Date().toLocaleDateString('fr-FR')
+        })
+    }
+
     const handleDeleteStudent = async () => {
         setDeleting(true)
         const result = await deleteStudentPermanently(id)
@@ -234,6 +273,34 @@ export function StudentProfileLayout({ id }: { id: string }) {
 
     return (
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 h-full max-w-[1600px] mx-auto">
+            {student?.enrollmentStatus === 'transferred' && !isArchived && (
+                <div className="lg:col-span-3 bg-amber-500/10 border border-amber-500/20 rounded-3xl p-5 flex flex-col sm:flex-row items-center justify-between gap-4 animate-in slide-in-from-top duration-500">
+                    <div className="flex items-center gap-3">
+                        <ArrowLeftRight className="w-6 h-6 text-amber-500 shrink-0" />
+                        <div>
+                            <p className="text-sm font-bold text-white">{t('admin.students.profile.transferredBanner.title')}</p>
+                            <p className="text-xs text-gray-400 mt-0.5">{t('admin.students.profile.transferredBanner.subtitle')}</p>
+                        </div>
+                    </div>
+                    <div className="flex gap-2 shrink-0">
+                        <Button
+                            onClick={handleDownloadCertificate}
+                            className="bg-emerald-500 hover:bg-emerald-600 text-black font-bold text-xs h-9 rounded-xl"
+                        >
+                            {t('admin.students.profile.transferredBanner.downloadBtn')}
+                        </Button>
+                        <Button
+                            onClick={handleReintegrateExternal}
+                            variant="outline"
+                            className="border-white/10 bg-[#161B22] text-gray-300 hover:text-white text-xs h-9 rounded-xl"
+                            disabled={reverting}
+                        >
+                            {reverting ? <Loader2 className="w-3.5 h-3.5 animate-spin mr-1.5" /> : <RotateCcw className="w-3.5 h-3.5 mr-1.5" />}
+                            {t('admin.students.profile.transferredBanner.reintegrateBtn')}
+                        </Button>
+                    </div>
+                </div>
+            )}
             {/* Left Column */}
             <div className="lg:col-span-1 space-y-6 animate-in slide-in-from-left duration-500">
                 {/* Main Profile Card */}

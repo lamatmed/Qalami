@@ -5,6 +5,7 @@ import {
     getTransferDestinationSchools,
     getClassesForSchool,
     transferStudentToSchool,
+    transferStudentExternally,
 } from '@/app/admin/students/actions'
 import {
     Dialog,
@@ -26,6 +27,8 @@ import { toast } from 'sonner'
 import { Loader2, ArrowLeftRight } from 'lucide-react'
 import { useLanguage } from '@/i18n'
 import { cn } from '@/lib/utils'
+import { createClient } from '@/utils/supabase/client'
+import { generateTransferPDF } from '@/utils/pdf-generator'
 
 interface SchoolOption {
     id: string
@@ -53,6 +56,7 @@ export function TransferStudentDialog({
     onSuccess,
 }: TransferStudentDialogProps) {
     const { t, direction } = useLanguage()
+    const [transferType, setTransferType] = useState<'network' | 'external'>('external')
     const [schools, setSchools] = useState<SchoolOption[]>([])
     const [loadingSchools, setLoadingSchools] = useState(false)
     const [selectedSchoolId, setSelectedSchoolId] = useState<string>('')
@@ -63,23 +67,10 @@ export function TransferStudentDialog({
 
     const [saving, setSaving] = useState(false)
 
-    // Load destination schools
+    // Reset state on open
     useEffect(() => {
         if (!open) return
-        setSelectedSchoolId('')
-        setSelectedClassId('')
-        setClasses([])
-        setLoadingSchools(true)
-
-        ;(async () => {
-            const res = await getTransferDestinationSchools()
-            if (res.error) {
-                toast.error(res.error)
-            } else if (res.schools) {
-                setSchools(res.schools)
-            }
-            setLoadingSchools(false)
-        })()
+        setTransferType('external')
     }, [open])
 
     // Load classes when school is selected
@@ -104,31 +95,104 @@ export function TransferStudentDialog({
     }, [selectedSchoolId])
 
     const handleSave = async () => {
-        if (!selectedSchoolId) {
-            toast.error(t('admin.students.transferDialog.selectSchoolError'))
-            return
-        }
-
         setSaving(true)
-        const result = await transferStudentToSchool(
-            studentId,
-            selectedSchoolId,
-            selectedClassId || undefined
-        )
-        setSaving(false)
 
-        if (result.error) {
-            toast.error(result.error)
+        if (transferType === 'network') {
+            if (!selectedSchoolId) {
+                toast.error(t('admin.students.transferDialog.selectSchoolError'))
+                setSaving(false)
+                return
+            }
+
+            const result = await transferStudentToSchool(
+                studentId,
+                selectedSchoolId,
+                selectedClassId || undefined
+            )
+            setSaving(false)
+
+            if (result.error) {
+                toast.error(result.error)
+            } else {
+                toast.success(t('admin.students.transferDialog.successMessage'))
+                onSuccess?.()
+                onOpenChange(false)
+            }
         } else {
-            toast.success(t('admin.students.transferDialog.successMessage'))
-            onSuccess?.()
-            onOpenChange(false)
+            try {
+                // 1. Fetch details needed for the PDF certificate
+                const supabase = createClient()
+                const { data: { user } } = await supabase.auth.getUser()
+                let schoolName = "Établissement Qalami"
+                if (user) {
+                    const { data: adminProfile } = await supabase
+                        .from('profiles')
+                        .select('school_id')
+                        .eq('id', user.id)
+                        .single()
+                    if (adminProfile?.school_id) {
+                        const { data: school } = await supabase
+                            .from('schools')
+                            .select('name')
+                            .eq('id', adminProfile.school_id)
+                            .single()
+                        if (school?.name) schoolName = school.name
+                    }
+                }
+
+                const { data: student } = await supabase
+                    .from('profiles')
+                    .select(`
+                        full_name, date_of_birth, place_of_birth, national_id,
+                        enrollments (
+                            status,
+                            academic_years ( name ),
+                            classes ( name )
+                        )
+                    `)
+                    .eq('id', studentId)
+                    .single()
+
+                // 2. Perform external transfer in database
+                const result = await transferStudentExternally(studentId)
+
+                if (result.error) {
+                    toast.error(result.error)
+                } else {
+                    // 3. Generate PDF certificate
+                    if (student) {
+                        const rawEnrollments = student.enrollments as any[] || []
+                        const activeEnroll = rawEnrollments.find(e => e.status === 'active') || rawEnrollments[0]
+                        const birthDateFormatted = student.date_of_birth 
+                            ? new Date(student.date_of_birth).toLocaleDateString('fr-FR')
+                            : '—'
+                        generateTransferPDF({
+                            schoolName,
+                            studentName: student.full_name,
+                            birthDate: birthDateFormatted,
+                            birthPlace: student.place_of_birth || '',
+                            nni: student.national_id || '',
+                            className: activeEnroll?.classes?.name || 'Non affecté',
+                            academicYear: activeEnroll?.academic_years?.name || '2025-2026',
+                            transferDate: new Date().toLocaleDateString('fr-FR')
+                        })
+                    }
+
+                    toast.success("Élève transféré avec succès et certificat généré !")
+                    onSuccess?.()
+                    onOpenChange(false)
+                }
+            } catch (err: any) {
+                toast.error(err.message || "Erreur lors du transfert externe")
+            } finally {
+                setSaving(false)
+            }
         }
     }
 
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
-            <DialogContent className="sm:max-w-[420px]" dir={direction}>
+            <DialogContent className="sm:max-w-[420px] bg-[#161B22] border-white/10 text-white" dir={direction}>
                 <DialogHeader className={direction === 'rtl' ? 'text-right' : 'text-left'}>
                     <DialogTitle className={cn("flex items-center gap-2", direction === 'rtl' ? 'flex-row-reverse justify-start' : 'flex-row')}>
                         <ArrowLeftRight className="w-5 h-5 text-emerald-500" />
@@ -137,71 +201,15 @@ export function TransferStudentDialog({
                 </DialogHeader>
 
                 <div className="py-2 space-y-4">
-                    <p className={cn("text-sm text-muted-foreground", direction === 'rtl' ? 'text-right' : 'text-left')}>
-                        {t('admin.students.transferDialog.description')}
-                    </p>
-
-                    {/* School selection */}
-                    <div className="space-y-1.5">
-                        <Label htmlFor="school-select" className={cn("block w-full", direction === 'rtl' ? 'text-right' : 'text-left')}>
-                            {t('admin.students.transferDialog.schoolLabel')}
-                        </Label>
-                        {loadingSchools ? (
-                            <div className={cn("flex items-center gap-2 text-sm text-muted-foreground h-10", direction === 'rtl' ? 'flex-row-reverse' : 'flex-row')}>
-                                <Loader2 className="w-4 h-4 animate-spin" />
-                                {t('admin.students.transferDialog.loadingSchools')}
-                            </div>
-                        ) : schools.length === 0 ? (
-                            <p className={cn("text-sm text-muted-foreground", direction === 'rtl' ? 'text-right' : 'text-left')}>
-                                Aucun autre établissement actif trouvé.
-                            </p>
-                        ) : (
-                            <Select value={selectedSchoolId} onValueChange={setSelectedSchoolId}>
-                                <SelectTrigger id="school-select" dir={direction} className={cn(direction === 'rtl' ? 'text-right' : 'text-left')}>
-                                    <SelectValue placeholder={t('admin.students.transferDialog.selectSchoolPlaceholder')} />
-                                </SelectTrigger>
-                                <SelectContent dir={direction}>
-                                    {schools.map(school => (
-                                        <SelectItem key={school.id} value={school.id} className={cn(direction === 'rtl' ? 'text-right justify-start' : 'text-left justify-start')}>
-                                            {school.name}
-                                        </SelectItem>
-                                    ))}
-                                </SelectContent>
-                            </Select>
-                        )}
+                    <div className="space-y-2 text-sm text-gray-400 bg-[#0D1117]/50 p-4 rounded-2xl border border-white/5">
+                        <p className="font-semibold text-white">{t('admin.students.transferDialog.externalTitle')}</p>
+                        <p className="text-xs">
+                            {t('admin.students.transferDialog.externalDesc1')}
+                        </p>
+                        <p className="text-xs mt-2 text-emerald-400 font-bold">
+                            {t('admin.students.transferDialog.externalDesc2')}
+                        </p>
                     </div>
-
-                    {/* Class selection */}
-                    {selectedSchoolId && (
-                        <div className="space-y-1.5">
-                            <Label htmlFor="class-select" className={cn("block w-full", direction === 'rtl' ? 'text-right' : 'text-left')}>
-                                {t('admin.students.transferDialog.classLabel')}
-                            </Label>
-                            {loadingClasses ? (
-                                <div className={cn("flex items-center gap-2 text-sm text-muted-foreground h-10", direction === 'rtl' ? 'flex-row-reverse' : 'flex-row')}>
-                                    <Loader2 className="w-4 h-4 animate-spin" />
-                                    {t('admin.students.transferDialog.loadingClasses')}
-                                </div>
-                            ) : classes.length === 0 ? (
-                                <p className={cn("text-sm text-muted-foreground", direction === 'rtl' ? 'text-right' : 'text-left')}>
-                                    Aucune classe disponible dans cet établissement.
-                                </p>
-                            ) : (
-                                <Select value={selectedClassId} onValueChange={setSelectedClassId}>
-                                    <SelectTrigger id="class-select" dir={direction} className={cn(direction === 'rtl' ? 'text-right' : 'text-left')}>
-                                        <SelectValue placeholder={t('admin.students.transferDialog.selectClassPlaceholder')} />
-                                    </SelectTrigger>
-                                    <SelectContent dir={direction}>
-                                        {classes.map(cls => (
-                                            <SelectItem key={cls.id} value={cls.id} className={cn(direction === 'rtl' ? 'text-right justify-start' : 'text-left justify-start')}>
-                                                {cls.name}
-                                            </SelectItem>
-                                        ))}
-                                    </SelectContent>
-                                </Select>
-                            )}
-                        </div>
-                    )}
                 </div>
 
                 <DialogFooter className={cn("flex gap-2", direction === 'rtl' ? 'flex-row-reverse justify-start' : '')}>
@@ -210,16 +218,18 @@ export function TransferStudentDialog({
                         variant="outline"
                         onClick={() => onOpenChange(false)}
                         disabled={saving}
+                        className="border-white/10 text-gray-400 hover:text-white"
                     >
                         {t('admin.students.transferDialog.cancel')}
                     </Button>
                     <Button
                         type="button"
                         onClick={handleSave}
-                        disabled={saving || !selectedSchoolId || loadingSchools}
+                        disabled={saving}
+                        className="bg-emerald-500 hover:bg-emerald-600 text-black font-bold"
                     >
                         {saving && <Loader2 className={cn("w-4 h-4 animate-spin", direction === 'rtl' ? 'ms-2' : 'me-2')} />}
-                        {t('admin.students.transferDialog.transfer')}
+                        {t('admin.students.transferDialog.transferAndCert')}
                     </Button>
                 </DialogFooter>
             </DialogContent>

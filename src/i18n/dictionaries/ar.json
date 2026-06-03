@@ -297,6 +297,7 @@
       "analytics": "التحليلات",
       "classes": "الأقسام",
       "students": "التلاميذ",
+      "transferredStudents": "التلاميذ المحوّلون",
       "parents": "أولياء الأمور",
       "teachers": "المعلمون",
       "schedule": "الجدول الزمني",
@@ -506,7 +507,31 @@
         "revertConfirmMessage": "هل تريد إلغاء نقل هذا الطالب وتنشيطه مجددًا في مؤسستك؟",
         "unarchive": "إلغاء الأرشفة",
         "unarchiveConfirmMessage": "هل تريد إلغاء أرشفة هذا الطالب وإعادة تنشيطه في مؤسستك؟",
-        "unarchiveSuccessMessage": "تم إلغاء أرشفة الطالب بنجاح."
+        "unarchiveSuccessMessage": "تم إلغاء أرشفة الطالب بنجاح.",
+        "toAnotherSchool": "إلى مؤسسة أخرى",
+        "externalDeparture": "مغادرة نهائية (PDF)",
+        "externalTitle": "مغادرة نهائية للمؤسسة",
+        "externalDesc1": "سيتم إلغاء تسجيل التلميذ من قسمه الحالي وتصنيفه كمحول.",
+        "externalDesc2": "📄 سيتم إصدار شهادة مدرسية وشهادة تحويل رسمية بصيغة PDF لتقديمها لمدرسته الجديدة.",
+        "transferAndCert": "تحويل وتحميل الشهادة"
+      },
+      "transferredPage": {
+        "title": "التلاميذ المحوّلون",
+        "subtitle": "سجل المغادرات النهائية وشهادات التحويل",
+        "searchPlaceholder": "البحث بالاسم، القسم أو الرقم الوطني NNI...",
+        "noStudents": "لم يتم العثور على تلاميذ محوّلين.",
+        "classLabel": "القسم: {className}",
+        "statusLabel": "محوّل",
+        "bornOn": "ولد في {date}",
+        "bornAt": " في {place}",
+        "nniLabel": "الرقم الوطني :",
+        "certificateButton": "شهادة",
+        "reintegrateButton": "إعادة إدماج",
+        "reintegrateConfirm": "هل تريد إعادة إدماج التلميذ {name} في قسمه السابق؟",
+        "reintegrateSuccess": "تمت إعادة إدماج التلميذ {name} بنجاح!",
+        "reintegrateError": "خطأ في إعادة الإدماج",
+        "loadError": "خطأ أثناء تحميل التلاميذ المحوّلين",
+        "sansClasse": "بدون قسم"
       },
       "register": {
         "pageTitle": "تسجيل جديد",
@@ -781,6 +806,12 @@
         ,"documentsStatusValid": "صالح"
         ,"documentsStatusPending": "قيد الانتظار"
         ,"documentsStatusMissing": "مفقود"
+        ,"transferredBanner": {
+          "title": "تم تحويل هذا التلميذ (مغادرة خارجية)",
+          "subtitle": "التلميذ لم يعد نشطًا في الأقسام، ولكن يمكنك تنزيل شهادة التحويل الخاصة به أو إعادة إدماجه.",
+          "downloadBtn": "تنزيل الشهادة",
+          "reintegrateBtn": "إعادة إدماج"
+        }
       }
     },
     "enrollmentStatus": {

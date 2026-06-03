@@ -41,6 +41,7 @@ import {
     CalendarDays,
     Activity,
     Inbox,
+    ArrowLeftRight,
 } from 'lucide-react'
 
 import { createClient } from '@/utils/supabase/client'
@@ -80,6 +81,7 @@ export const sidebarItems = [
     { icon: LayoutDashboard, label: 'admin.sidebar.dashboard', href: '/admin' },
     { icon: BarChart3, label: 'admin.sidebar.analytics', href: '/admin/analytics' },
     { icon: Users, label: 'admin.sidebar.students', href: '/admin/students' },
+    { icon: ArrowLeftRight, label: 'admin.sidebar.transferredStudents', href: '/admin/students/transferred' },
     { icon: UserCheck, label: 'admin.sidebar.parents', href: '/admin/parents' },
     { icon: BookOpen, label: 'admin.sidebar.teachers', href: '/admin/teachers' },
     { icon: Megaphone, label: 'admin.sidebar.announcements', href: '/admin/announcements' },
@@ -246,7 +248,7 @@ export function AdminSidebar() {
 
     // Permission → hrefs mapping for school_staff filtering
     const PERM_HREFS: Record<string, string[]> = {
-        students:      ['/admin/students'],
+        students:      ['/admin/students', '/admin/students/transferred'],
         parents:       ['/admin/parents'],
         teachers:      ['/admin/teachers'],
         classes:       ['/admin/classes', '/admin/subjects', '/admin/assignments'],
@@ -283,6 +285,7 @@ export function AdminSidebar() {
             label: t('admin.sidebar.community'),
             items: [
                 { icon: Users, label: t('admin.sidebar.students'), href: '/admin/students', badge: unassignedStudents },
+                { icon: ArrowLeftRight, label: t('admin.sidebar.transferredStudents'), href: '/admin/students/transferred' },
                 { icon: UserCheck, label: t('admin.sidebar.parents'), href: '/admin/parents' },
                 { icon: BookOpen, label: t('admin.sidebar.teachers'), href: '/admin/teachers' },
                 { icon: Inbox, label: t('admin.sidebar.requests'), href: '/admin/requests', badge: pendingRequests },

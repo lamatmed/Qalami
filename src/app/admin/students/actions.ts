@@ -661,3 +661,110 @@ export async function getAllJustificationFiles(studentId: string): Promise<Justi
         return true
     })
 }
+
+export async function transferStudentExternally(studentId: string) {
+    const ctx = await getActionContext()
+    if (!ctx) return { error: 'Non authentifié' }
+    const { schoolId } = ctx
+    const adminClient = createAdminClient()
+
+    // 1. Verify student exists and belongs to the administrator's school
+    const { data: student, error: studentErr } = await adminClient
+        .from('profiles')
+        .select('id, school_id, status')
+        .eq('id', studentId)
+        .eq('role', 'student')
+        .single()
+
+    if (studentErr || !student) {
+        return { error: "Élève introuvable." }
+    }
+    if (student.school_id !== schoolId) {
+        return { error: "Cet élève n'appartient pas à votre établissement." }
+    }
+
+    // 2. Update profiles status to 'inactive'
+    const { error: updateProfileErr } = await adminClient
+        .from('profiles')
+        .update({ status: 'inactive', updated_at: new Date().toISOString() })
+        .eq('id', studentId)
+
+    if (updateProfileErr) {
+        return { error: "Erreur lors de la mise à jour de la fiche élève : " + updateProfileErr.message }
+    }
+
+    // 3. Mark current active enrollments at the school as 'transferred'
+    const { error: updateEnrollmentErr } = await adminClient
+        .from('enrollments')
+        .update({ status: 'transferred' })
+        .eq('student_id', studentId)
+        .eq('school_id', schoolId)
+        .eq('status', 'active')
+
+    if (updateEnrollmentErr) {
+        console.error("Warning: failed to update enrollments status to transferred:", updateEnrollmentErr)
+    }
+
+    logActivity({ actorId: ctx.userId, schoolId, action: 'transfer_student_external', entityType: 'student', entityId: studentId, details: `Élève transféré (départ externe)` })
+    revalidatePath(`/admin/students/${studentId}`)
+    revalidatePath('/admin/students')
+    return { success: true }
+}
+
+export async function reintegrateExternalStudent(studentId: string) {
+    const ctx = await getActionContext()
+    if (!ctx) return { error: 'Non authentifié' }
+    const { schoolId } = ctx
+    const adminClient = createAdminClient()
+
+    // 1. Verify student exists and belongs to the administrator's school
+    const { data: student, error: studentErr } = await adminClient
+        .from('profiles')
+        .select('id, school_id, status')
+        .eq('id', studentId)
+        .eq('role', 'student')
+        .single()
+
+    if (studentErr || !student) {
+        return { error: "Élève introuvable." }
+    }
+    if (student.school_id !== schoolId) {
+        return { error: "Cet élève n'appartient pas à votre établissement." }
+    }
+
+    // 2. Update profiles status back to 'active'
+    const { error: updateProfileErr } = await adminClient
+        .from('profiles')
+        .update({ status: 'active', updated_at: new Date().toISOString() })
+        .eq('id', studentId)
+
+    if (updateProfileErr) {
+        return { error: "Erreur lors de la réactivation de la fiche élève : " + updateProfileErr.message }
+    }
+
+    // 3. Mark the latest 'transferred' enrollment at our school as 'active' again
+    const { data: latestTransferredEnrollment } = await adminClient
+        .from('enrollments')
+        .select('id')
+        .eq('student_id', studentId)
+        .eq('school_id', schoolId)
+        .eq('status', 'transferred')
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle()
+
+    if (latestTransferredEnrollment) {
+        const { error: updateEnrollmentErr } = await adminClient
+            .from('enrollments')
+            .update({ status: 'active' })
+            .eq('id', latestTransferredEnrollment.id)
+        if (updateEnrollmentErr) {
+            return { error: "Erreur lors de la réactivation de l'inscription : " + updateEnrollmentErr.message }
+        }
+    }
+
+    logActivity({ actorId: ctx.userId, schoolId, action: 'reintegrate_student', entityType: 'student', entityId: studentId, details: `Élève réintégré (annulation transfert)` })
+    revalidatePath(`/admin/students/${studentId}`)
+    revalidatePath('/admin/students')
+    return { success: true }
+}

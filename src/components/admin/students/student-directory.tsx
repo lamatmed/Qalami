@@ -7,7 +7,7 @@ import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import {
     Search, UserPlus, X, Loader2, ShieldAlert, GraduationCap,
-    LayoutList, LayoutGrid, Square, CheckSquare2, ChevronDown, Upload, KeyRound, Pencil
+    LayoutList, LayoutGrid, Square, CheckSquare2, ChevronDown, Upload, KeyRound, Pencil, ArrowLeftRight
 } from 'lucide-react'
 import { StatusBadge } from '@/components/admin/shared/status-badge'
 import { ChangeStatusDialog } from '@/components/admin/shared/change-status-dialog'
@@ -209,7 +209,7 @@ export function StudentDirectory() {
         const [{ data: enrollments }, { data: overduePayments }] = await Promise.all([
             supabase
                 .from('enrollments')
-                .select('student_id, class_id, academic_year_id, academic_years(name), classes(name)')
+                .select('student_id, class_id, academic_year_id, academic_years(name), classes(name), status')
                 .in('student_id', studentIds)
                 .eq('school_id', adminProfile.school_id)
                 .order('created_at', { ascending: false }),
@@ -235,30 +235,35 @@ export function StudentDirectory() {
                 .map((p: any) => p.student_id)
         )
 
-        const result: Student[] = mergedProfiles.map(p => {
-            const enroll = enrollMap.get(p.id)
-            const parts = (p.full_name || t('common.student')).split(' ')
-            const isTransferred = p.school_id !== adminProfile.school_id
-            const displayStatus = isTransferred ? 'archived' : (p.status || 'active')
-            return {
-                id: p.id,
-                name: p.full_name || t('common.student'),
-                className: enroll?.classes?.name || '',
-                classId: enroll?.class_id || '',
-                status: displayStatus,
-                isTransferred,
-                gender: p.gender ?? null,
-                paymentStatus: overdueSet.has(p.id) ? 'overdue' : 'ok',
-                academicYear: (enroll?.academic_years as any)?.name ?? null,
-                initials: (parts.length >= 2
-                    ? `${parts[0][0]}${parts[1][0]}`
-                    : parts[0].slice(0, 2)
-                ).toUpperCase(),
-                email: p.email || '',
-                nationalId: p.national_id ?? null,
-                phone: p.phone ?? null,
-            }
-        })
+        const result: Student[] = mergedProfiles
+            .filter(p => {
+                const enroll = enrollMap.get(p.id)
+                const isTransferred = p.school_id !== adminProfile.school_id || enroll?.status === 'transferred'
+                return !isTransferred
+            })
+            .map(p => {
+                const enroll = enrollMap.get(p.id)
+                const parts = (p.full_name || t('common.student')).split(' ')
+                const displayStatus = p.status || 'active'
+                return {
+                    id: p.id,
+                    name: p.full_name || t('common.student'),
+                    className: enroll?.classes?.name || '',
+                    classId: enroll?.class_id || '',
+                    status: displayStatus,
+                    isTransferred: false,
+                    gender: p.gender ?? null,
+                    paymentStatus: overdueSet.has(p.id) ? 'overdue' : 'ok',
+                    academicYear: (enroll?.academic_years as any)?.name ?? null,
+                    initials: (parts.length >= 2
+                        ? `${parts[0][0]}${parts[1][0]}`
+                        : parts[0].slice(0, 2)
+                    ).toUpperCase(),
+                    email: p.email || '',
+                    nationalId: p.national_id ?? null,
+                    phone: p.phone ?? null,
+                }
+            })
 
         setStudents(result)
         setLoading(false)
@@ -398,6 +403,14 @@ export function StudentDirectory() {
                 >
                     <Upload className="w-4 h-4" />
                 </button>
+
+                {/* Élèves transférés */}
+                <Link href="/admin/students/transferred" className="shrink-0">
+                    <Button variant="outline" className="border-white/10 bg-[#161B22] text-gray-300 hover:text-white hover:bg-white/5 h-10 rounded-xl px-4 gap-2 text-sm">
+                        <ArrowLeftRight className="w-4 h-4 text-emerald-500" />
+                        <span>{t('admin.sidebar.transferredStudents')}</span>
+                    </Button>
+                </Link>
 
                 {/* Inscrire un élève — now in the toolbar, not floating */}
                 <Link href="/admin/students/register" className="shrink-0">
