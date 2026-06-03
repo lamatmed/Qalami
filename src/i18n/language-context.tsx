@@ -4,7 +4,7 @@ import React, { createContext, useContext, useState, useEffect, useCallback } fr
 import frDict from './dictionaries/fr.json'
 import arDict from './dictionaries/ar.json'
 
-// Forced dictionary reload trigger comment (V10 - Teacher Schedule Translations Included)
+// Forced dictionary reload trigger comment (V11 - Teacher Community Translations Included)
 
 export type Language = 'fr' | 'ar'
 export type Direction = 'ltr' | 'rtl'

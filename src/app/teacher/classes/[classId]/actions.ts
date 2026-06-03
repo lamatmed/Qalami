@@ -181,10 +181,18 @@ export async function saveAttendanceAction(records: any[]) {
         const currentHourStr = now.getHours().toString().padStart(2, '0') + ':' + now.getMinutes().toString().padStart(2, '0')
         
         if (!slots || slots.length === 0) {
-            return { success: false, error: `Action bloquée : Aucun cours n'est planifié pour vous le ${currentDayName} dans cette classe. Veuillez configurer l'emploi du temps.` }
+            return { 
+                success: false, 
+                errorType: 'no_schedule_for_day', 
+                errorParams: { day: currentDayName, dayOfWeek } 
+            }
         } else {
             const slotTimes = slots.map(s => `${s.start_time.substring(0, 5)} à ${s.end_time.substring(0, 5)}`).join(', ')
-            return { success: false, error: `Hors planning : Il est ${currentHourStr} (${currentDayName}). Vos séances aujourd'hui sont prévues à : ${slotTimes}. (Marge acceptée : 15 min avant / 30 min après).` }
+            return { 
+                success: false, 
+                errorType: 'out_of_schedule_hours', 
+                errorParams: { hour: currentHourStr, day: currentDayName, dayOfWeek, slots: slotTimes } 
+            }
         }
     }
 

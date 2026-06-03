@@ -176,8 +176,8 @@
     "checkEmail": "تحقق من بريدك الإلكتروني",
     "skip": "تخطي",
     "loginDesc": "سجل دخولك باستخدام رقم هاتفك وكلمة المرور",
-    "passwordPlaceholder": "كلمة المرور",
-    "needHelp": "تحتاج مساعدة؟",
+    "passwordPlaceholder": "الرمز (6 أرقام)",
+    "needHelp": "تحتاج مساعدة في التسجيل؟",
     "contactAdmin": "اتصل بالمسؤول",
     "unknownError": "حدث خطأ غير معروف",
     "countries": {
@@ -217,13 +217,10 @@
     "onboarding3Title": "تواصل متكامل",
     "onboarding3Desc": "تواصل بسهولة مع أولياء الأمور والمعلمين والتلاميذ.",
     "welcomeMessage": "مرحباً بك في قلمي",
-    "unknownError": "حدث خطأ غير معروف",
     "emailPlaceholder": "البريد الإلكتروني المهني",
-    "passwordPlaceholder": "الرمز (6 أرقام)",
     "pinLabel": "الرمز السري",
     "pinPlaceholder": "أدخل الرمز السري",
     "enterPin": "أدخل الرمز المكون من 6 أرقام",
-    "needHelp": "تحتاج مساعدة في التسجيل؟",
     "parentAccessRequest": "طلب وصول ولي الأمر",
     "accessRequest": {
       "parent": "طلب وصول ولي الأمر",
@@ -758,55 +755,55 @@
         "sending": "جارٍ الإرسال...",
         "sendReminder": "إرسال تذكير",
         "paymentHistory": "سجل المدفوعات",
-        "noPayment": "لا توجد مدفوعات مسجلة"
-        ,"noGrades": "لا توجد درجات مسجلة"
-        ,"gradesAppearHint": "ستظهر الدرجات هنا بعد إدخالها من المعلمين."
-        ,"yearlyAverage": "المعدل السنوي"
-        ,"validatedTerms": "على الفصول المعتمدة"
-        ,"reportCard": "كشف الدرجات"
-        ,"bySubjectDetails": "تفاصيل حسب المادة"
-        ,"noGradesFor": "لا توجد درجات لـ"
-        ,"assessments": "التقييمات"
-        ,"historyFilterAll": "الكل"
-        ,"historyFilterGrades": "الدرجات"
-        ,"historyFilterRemarks": "ملاحظات"
-        ,"historyNoEvents": "لا يوجد أي حدث مسجل"
-        ,"historyEventsCount": "{count} حدث"
-        ,"historyEventsCountPlural": "{count} أحداث"
-        ,"historyZeroEvents": "0 حدث"
-        ,"gradesTabLabel": "النقاط"
-        ,"editStudentTitle": "تعديل المعلومات"
-        ,"editStudentSave": "حفظ"
-        ,"editStudentSuccess": "تم تحديث المعلومات"
-        ,"deleteStudentTitle": "حذف نهائي"
-        ,"deleteStudentConfirm": "هذا الإجراء لا رجعة فيه. سيتم حذف التلميذ وتسجيلاته وجميع بياناته."
-        ,"deleteStudentButton": "حذف"
-        ,"deleteStudentSuccess": "تم حذف التلميذ نهائيًا"
-        ,"modifyClass": "تغيير الفصل"
-        ,"backToStudent": "العودة إلى ملف التلميذ"
-        ,"deleteDocConfirm": "هل تريد حذف هذا المستند؟"
-        ,"deleteDocSuccess": "تم حذف المستند"
-        ,"renameDocSuccess": "تم تغيير اسم المستند"
-        ,"replaceDoc": "استبدال"
-        ,"attendanceAbsent": "غياب غير مبرر"
-        ,"attendanceJustified": "غياب مبرر"
-        ,"attendanceLate": "تأخر"
-        ,"attendanceExcused": "معفى"
-        ,"viewJustification": "عرض التبرير"
-        ,"downloadJustification": "تنزيل"
-        ,"justificationFiles": "ملفات التبرير"
-        ,"remarksTypePositive": "إيجابي"
-        ,"remarksTypeWarning": "تحذير"
-        ,"remarksTypeParticipation": "مشاركة"
-        ,"remarksTypeImprovement": "تحسن"
-        ,"remarksTypeConcern": "قلق"
-        ,"remarksTypeOther": "ملاحظة"
-        ,"remarksSendError": "خطأ في إرسال الملاحظة"
-        ,"remarksSentSuccess": "تم إرسال الملاحظة بنجاح"
-        ,"documentsStatusValid": "صالح"
-        ,"documentsStatusPending": "قيد الانتظار"
-        ,"documentsStatusMissing": "مفقود"
-        ,"transferredBanner": {
+        "noPayment": "لا توجد مدفوعات مسجلة",
+        "noGrades": "لا توجد درجات مسجلة",
+        "gradesAppearHint": "ستظهر الدرجات هنا بعد إدخالها من المعلمين.",
+        "yearlyAverage": "المعدل السنوي",
+        "validatedTerms": "على الفصول المعتمدة",
+        "reportCard": "كشف الدرجات",
+        "bySubjectDetails": "تفاصيل حسب المادة",
+        "noGradesFor": "لا توجد درجات لـ",
+        "assessments": "التقييمات",
+        "historyFilterAll": "الكل",
+        "historyFilterGrades": "الدرجات",
+        "historyFilterRemarks": "ملاحظات",
+        "historyNoEvents": "لا يوجد أي حدث مسجل",
+        "historyEventsCount": "{count} حدث",
+        "historyEventsCountPlural": "{count} أحداث",
+        "historyZeroEvents": "0 حدث",
+        "gradesTabLabel": "النقاط",
+        "editStudentTitle": "تعديل المعلومات",
+        "editStudentSave": "حفظ",
+        "editStudentSuccess": "تم تحديث المعلومات",
+        "deleteStudentTitle": "حذف نهائي",
+        "deleteStudentConfirm": "هذا الإجراء لا رجعة فيه. سيتم حذف التلميذ وتسجيلاته وجميع بياناته.",
+        "deleteStudentButton": "حذف",
+        "deleteStudentSuccess": "تم حذف التلميذ نهائيًا",
+        "modifyClass": "تغيير الفصل",
+        "backToStudent": "العودة إلى ملف التلميذ",
+        "deleteDocConfirm": "هل تريد حذف هذا المستند؟",
+        "deleteDocSuccess": "تم حذف المستند",
+        "renameDocSuccess": "تم تغيير اسم المستند",
+        "replaceDoc": "استبدال",
+        "attendanceAbsent": "غياب غير مبرر",
+        "attendanceJustified": "غياب مبرر",
+        "attendanceLate": "تأخر",
+        "attendanceExcused": "معفى",
+        "viewJustification": "عرض التبرير",
+        "downloadJustification": "تنزيل",
+        "justificationFiles": "ملفات التبرير",
+        "remarksTypePositive": "إيجابي",
+        "remarksTypeWarning": "تحذير",
+        "remarksTypeParticipation": "مشاركة",
+        "remarksTypeImprovement": "تحسن",
+        "remarksTypeConcern": "قلق",
+        "remarksTypeOther": "ملاحظة",
+        "remarksSendError": "خطأ في إرسال الملاحظة",
+        "remarksSentSuccess": "تم إرسال الملاحظة بنجاح",
+        "documentsStatusValid": "صالح",
+        "documentsStatusPending": "قيد الانتظار",
+        "documentsStatusMissing": "مفقود",
+        "transferredBanner": {
           "title": "تم تحويل هذا التلميذ (مغادرة خارجية)",
           "subtitle": "التلميذ لم يعد نشطًا في الأقسام، ولكن يمكنك تنزيل شهادة التحويل الخاصة به أو إعادة إدماجه.",
           "downloadBtn": "تنزيل الشهادة",
@@ -1249,27 +1246,339 @@
       "yesterday": "أمس"
     },
     "settings": {
-      "title": "الإعدادات",
-      "subtitle": "إعدادات المؤسسة",
-      "schoolIdentity": "هوية المدرسة",
-      "schoolName": "اسم المدرسة",
-      "schoolLogo": "الشعار",
-      "schoolAddress": "العنوان",
-      "schoolPhone": "الهاتف",
-      "schoolEmail": "البريد الإلكتروني",
-      "generalSettings": "الإعدادات العامة",
-      "academicYear": "السنة الدراسية",
-      "gradeSystem": "نظام التقييم",
-      "personnel": "الموظفون",
-      "subjectsGrading": "المواد والتقييم",
-      "schoolIdentityDesc": "الشعار، الاسم، البيانات",
-      "subjectsGradingDesc": "المعاملات، التقييمات",
-      "personnelManagement": "الطاقم الإداري",
-      "personnelDesc": "الإدارة، الرواتب",
-      "appSettings": "إعدادات التطبيق",
-      "appSettingsDesc": "الإشعارات، اللغات، المظهر",
-      "configuration": "الإعدادات",
-      "configurationDesc": "إدارة جميع جوانب مؤسستك."
+      "configuration": "إعدادات المدرسة",
+      "configurationDesc": "إدارة هوية المدرسة، والتقويم، والتفضيلات العامة للنظام.",
+      "schoolIdentity": "هوية المؤسسة",
+      "schoolIdentityDesc": "الاسم، الشعار، الشعار اللفظي ومعلومات الاتصال الظاهرة على المستندات.",
+      "subjectsGrading": "المواد والدرجات",
+      "subjectsGradingDesc": "معاملات المواد وسلم الدرجات والتقييمات.",
+      "personnelManagement": "إدارة الطاقم",
+      "personnelDesc": "إدارة المدرسين، الطاقم الإداري والوظائف.",
+      "appSettings": "الإعدادات العامة",
+      "appSettingsDesc": "تفضيلات اللغة والمظهر والنسخ الاحتياطي.",
+      "academicYears": "السنوات الدراسية",
+      "academicYearsDesc": "السنوات، الفصول الدراسية والتقويم",
+      "feeStructures": "جدول الرسوم",
+      "feeStructuresDesc": "الرسوم الدراسية، النقل، المطعم المدرسى...",
+      "groups": {
+        "school": "المدرسة",
+        "pedagogy": "البيداغوجيا",
+        "system": "النظام"
+      },
+      "securityTitle": "الأمان والمصادقة",
+      "securityDesc": "تحديث كلمة مرور المسؤول الخاصة بك.",
+      "newPassword": "كلمة مرور جديدة",
+      "confirmPassword": "تأكيد كلمة المرور",
+      "updating": "جاري التحديث...",
+      "updatePassword": "تحديث",
+      "identity": {
+        "title": "هوية المؤسسة",
+        "subtitle": "المعلومات التي تظهر على الوثائق والمستندات الرسمية.",
+        "logoTitle": "شعار المؤسسة",
+        "logoDesc": "الصيغة الموصى بها: PNG أو JPG (مربع، 500x500 بكسل)",
+        "modifyLogo": "تغيير الشعار",
+        "schoolNameLabel": "اسم المؤسسة",
+        "schoolNamePlaceholder": "اسم المدرسة",
+        "sloganLabel": "الشعار اللفظي / الحكمة",
+        "sloganPlaceholder": "الشعار اللفظي",
+        "addressLabel": "العنوان",
+        "addressPlaceholder": "العنوان الكامل",
+        "phoneLabel": "الهاتف",
+        "emailLabel": "البريد الإلكتروني للتواصل",
+        "saveChanges": "حفظ التعديلات",
+        "saving": "جاري الحفظ...",
+        "saved": "تم الحفظ!",
+        "saveSuccess": "تم حفظ الإعدادات بنجاح!",
+        "saveError": "حدث خطأ أثناء الحفظ",
+        "securityTitle": "أمان الحساب",
+        "securityDesc": "تعديل كلمة مرور وصول المسؤول.",
+        "newPassword": "كلمة المرور الجديدة",
+        "newPasswordPlaceholder": "6 أرقام (مثال: 123456)",
+        "confirmPassword": "تأكيد كلمة المرور",
+        "confirmPasswordPlaceholder": "أعد إدخال الأرقام الـ 6",
+        "updatePassword": "تحديث كلمة المرور",
+        "passwordUpdated": "تم تحديث كلمة المرور بنجاح",
+        "passwordMismatch": "كلمتا المرور غير متطابقتين",
+        "passwordTooShort": "يجب أن تتكون كلمة المرور من 6 أرقام بالضبط",
+        "passwordError": "حدث خطأ أثناء تحديث كلمة المرور"
+      },
+      "academic": {
+        "title": "السنوات الدراسية",
+        "subtitle": "إدارة السنوات الدراسية وفصولها. يتم تلقائياً إنشاء الفصل الأول، الثاني والثالث لكل سنة.",
+        "newYear": "سنة دراسية جديدة",
+        "formatDesc": "الصيغة: AAAA-AAAA (سنوات متتالية)",
+        "suggest": "اقتراح",
+        "create": "إنشاء",
+        "loading": "جاري التحميل...",
+        "yearsCount": "سنة دراسية واحدة",
+        "yearsCountPlural": "{count} سنوات دراسية",
+        "noYears": "لا توجد سنوات دراسية بعد. قم بإنشاء الأولى أعلاه.",
+        "current": "السنة الحالية",
+        "noTerms": "لا توجد فصول",
+        "setCurrent": "تعيين كحالية",
+        "active": "نشطة",
+        "noteDesc": "لتعديل التواريخ أو الفصول بالتفصيل، يرجى استخدام صفحة الفصول والسنوات الدراسية في قائمة التنقل.",
+        "createSuccess": "تم إنشاء السنة الدراسية {trimmed} بنجاح مع 3 فصول",
+        "updateSuccess": "تم تحديث السنة الدراسية النشطة بنجاح",
+        "deleteSuccess": "تم حذف السنة الدراسية بنجاح",
+        "confirmDelete": "هل أنت متأكد من حذف السنة الدراسية {yearName} وجميع فصولها؟"
+      },
+      "fees": {
+        "title": "جدول الرسوم",
+        "subtitle": "تحديد المبالغ القياسية لكل نوع من أنواع الرسوم للسنة الدراسية الحالية.",
+        "infoTitle": "الجدول المرجعي للرسوم",
+        "infoDesc": "تُستخدم هذه المبالغ كمرجع أساسي عند إنشاء كشوفات وسجلات الدفع. يتم مزامنتها تلقائياً.",
+        "amountLabel": "المبلغ (أوقية جديدة)",
+        "frequencyLabel": "الوتيرة",
+        "dueDayLabel": "يوم الاستحقاق",
+        "annualEquivalent": "≈ {amount} أوقية/سنة",
+        "annualSummaryTitle": "الملخص السنوي لكل تلميذ",
+        "totalAnnual": "المجموع السنوي",
+        "saveButton": "حفظ جدول الرسوم",
+        "saving": "جاري الحفظ...",
+        "toastLocalSuccess": "تم حفظ جدول الرسوم محلياً",
+        "toastLocalDesc": "يرجى تحديد سنة دراسية نشطة لمزامنة جدول الرسوم مع قاعدة البيانات.",
+        "toastSuccess": "تم حفظ جدول الرسوم بنجاح",
+        "toastError": "حدث خطأ أثناء حفظ الرسوم",
+        "frequencies": {
+          "monthly": "شهري",
+          "trimester": "فصلي",
+          "annual": "سنوي"
+        },
+        "types": {
+          "scolarite": {
+            "label": "الرسوم الدراسية",
+            "desc": "رسوم الدراسة والتكوين الأساسية"
+          },
+          "bus": {
+            "label": "النقل",
+            "desc": "النقل المدرسي"
+          },
+          "cantine": {
+            "label": "المطعم المدرسي",
+            "desc": "خدمات التغذية والمطعم المدرسي"
+          },
+          "activites": {
+            "label": "الأنشطة",
+            "desc": "الأنشطة الثقافية والرياضية والترفيهية"
+          }
+        }
+      },
+      "subjects": {
+        "title": "المواد والتقييم",
+        "subtitle": "إدارة المناهج الدراسية، المعاملات وسلم الدرجات.",
+        "defaultScale": "سلم الدرجات الافتراضي",
+        "appliesToAll": "يُطبق على جميع الاختبارات والتقييمات.",
+        "scaleSaved": "تم تحديث سلم الدرجات",
+        "loading": "جاري التحميل...",
+        "listTitle": "قائمة المواد ({count})",
+        "noSubjects": "لم يتم تكوين أي مادة بعد",
+        "coef": "المعامل:",
+        "unassigned": "غير معين",
+        "coefSaved": "تم تحديث المعامل",
+        "editCoefTitle": "انقر لتعديل المعامل",
+        "addTitle": "مادة جديدة",
+        "namePlaceholder": "اسم المادة"
+      },
+      "roles": {
+        "title": "الأدوار والصلاحيات",
+        "subtitle": "مصفوفة صلاحيات الوصول لكل دور مستخدم في نظام قلمي.",
+        "legend": {
+          "full": "وصول كامل",
+          "view": "قراءة فقط",
+          "partial": "جزئي",
+          "none": "لا يوجد وصول"
+        },
+        "featureHeader": "الصلاحية / الميزة",
+        "noteTitle": "الصلاحيات محددة في الكود المصدري",
+        "noteDesc": "الأدوار والصلاحيات الحالية محددة داخل الكود المصدري للتطبيق. التخصيص الدقيق لكل مستخدم على حدة يتطلب توسيع قاعدة البيانات بإضافة جدول مخصص للصلاحيات.",
+        "names": {
+          "super_admin": "مدير عام",
+          "admin": "إداري",
+          "teacher": "أستاذ",
+          "parent": "ولي أمر",
+          "student": "تلميذ"
+        },
+        "categories": {
+          "Administration": "الإدارة العامة",
+          "Pédagogie": "الشؤون التربوية",
+          "Finance": "الشؤون المالية",
+          "Communication": "التواصل والإعلانات"
+        },
+        "features": {
+          "dashboard": {
+            "name": "لوحة التحكم",
+            "desc": "نظرة عامة وإحصائيات شاملة"
+          },
+          "students": {
+            "name": "إدارة التلاميذ",
+            "desc": "التسجيل، الملفات الشخصية والوثائق"
+          },
+          "teachers": {
+            "name": "إدارة الأساتذة",
+            "desc": "الملفات الشخصية، العقود والتعيينات"
+          },
+          "school_settings": {
+            "name": "إعدادات المدرسة",
+            "desc": "الإعدادات العامة وهوية المؤسسة"
+          },
+          "schedule": {
+            "name": "الجدول الزمني",
+            "desc": "عرض وتعديل جداول الحصص"
+          },
+          "teacher_assignments": {
+            "name": "تعيينات الأساتذة",
+            "desc": "ربط الأساتذة بالأقسام والمواد"
+          },
+          "grades": {
+            "name": "الدرجات والتقييمات",
+            "desc": "إدخال الدرجات وكشوف النقاط"
+          },
+          "attendance": {
+            "name": "الغياب والحضور",
+            "desc": "تسجيل الحضور اليومي والأرشيف"
+          },
+          "subjects": {
+            "name": "المواد والمناهج",
+            "desc": "إدارة المواد الدراسية"
+          },
+          "payments": {
+            "name": "الدفع والرسوم",
+            "desc": "متابعة الرسوم المدرسية للتلاميذ"
+          },
+          "finance": {
+            "name": "المحاسبة العامة",
+            "desc": "إدارة المعاملات المالية والخزينة"
+          },
+          "payroll": {
+            "name": "رواتب الأساتذة",
+            "desc": "الرواتب الشهرية والوصولات"
+          },
+          "announcements": {
+            "name": "الإعلانات والأخبار",
+            "desc": "إنشاء ونشر الإعلانات المدرسية"
+          },
+          "messaging": {
+            "name": "المراسلات",
+            "desc": "التواصل الداخلي الفوري"
+          }
+        }
+      },
+      "notifications": {
+        "title": "الإشعارات والتنبيهات",
+        "subtitle": "تكوين الأحداث التي تطلق تنبيهاً والقنوات المستخدمة لكل إشعار.",
+        "activeCount": "{count} نشط",
+        "saveSuccess": "تم حفظ تفضيلات الإشعارات بنجاح",
+        "save": "حفظ التفضيلات",
+        "activateAll": "تفعيل الكل:",
+        "appChannel": "التطبيق",
+        "appDesc": " — إشعارات داخل التطبيق وعلى الهاتف المحمول",
+        "emailChannel": "البريد الإلكتروني",
+        "emailDesc": " — إرسال بريد إلكتروني تلقائي",
+        "persistenceNote": "يتم حفظ التفضيلات محلياً ومزامنتها مع جدول إعدادات إشعارات المدرسة إذا كان متاحاً. يتطلب إرسال البريد الإلكتروني الفعلي إعداد خدمة SMTP في متغيرات البيئة.",
+        "categories": {
+          "payments": {
+            "label": "المدفوعات والرسوم"
+          },
+          "attendance": {
+            "label": "الحضور والغياب"
+          },
+          "grades": {
+            "label": "الدرجات والتقارير"
+          },
+          "general": {
+            "label": "إعدادات عامة"
+          }
+        },
+        "events": {
+          "payment_received": {
+            "label": "استلام الدفعة",
+            "desc": "تأكيد فوري بعد تحصيل المبلغ",
+            "recipients": "ولي الأمر"
+          },
+          "payment_overdue": {
+            "label": "تأخر في الدفع",
+            "desc": "تذكير تلقائي بعد تاريخ الاستحقاق",
+            "recipients": "ولي الأمر، الإدارة"
+          },
+          "payment_partial": {
+            "label": "دفع جزئي",
+            "desc": "إشعار بالمبلغ المتبقي المستحق",
+            "recipients": "ولي الأمر"
+          },
+          "absence_marked": {
+            "label": "تسجيل غياب",
+            "desc": "تنبيه فوري بمجرد تسجيل غياب التلميذ",
+            "recipients": "ولي الأمر"
+          },
+          "late_arrival": {
+            "label": "تسجيل تأخر",
+            "desc": "إشعار فوري لولي الأمر بتأخر التلميذ",
+            "recipients": "ولي الأمر"
+          },
+          "absence_justified": {
+            "label": "تبرير الغياب",
+            "desc": "تأكيد معالجة وقبول تبرير الغياب",
+            "recipients": "ولي الأمر"
+          },
+          "grade_published": {
+            "label": "نشر الدرجات",
+            "desc": "إتاحة الدرجات في فضاء ولي الأمر والتلميذ",
+            "recipients": "ولي الأمر، التلميذ"
+          },
+          "bulletin_ready": {
+            "label": "كشف النقاط جاهز",
+            "desc": "نهاية الفصل الدراسي - كشف النقاط جاهز للتحميل",
+            "recipients": "ولي الأمر"
+          },
+          "grade_warning": {
+            "label": "تنبيه تراجع النتائج",
+            "desc": "تراجع ملحوظ في نتائج التلميذ الدراسية",
+            "recipients": "ولي الأمر، الإدارة"
+          },
+          "enrollment_confirmed": {
+            "label": "تأكيد التسجيل",
+            "desc": "رسالة ترحيب بالتلميذ الجديد في المؤسسة",
+            "recipients": "ولي الأمر"
+          },
+          "schedule_changed": {
+            "label": "تعديل جدول الحصص",
+            "desc": "تغيير طارئ في جدول التوقيت الأسبوعي",
+            "recipients": "ولي الأمر، الأستاذ"
+          },
+          "announcement_posted": {
+            "label": "إعلان جديد",
+            "desc": "نشر إعلان جديد على لوحة الإعلانات المدرسية",
+            "recipients": "الجميع"
+          }
+        }
+      },
+      "general": {
+        "title": "الإعدادات العامة",
+        "subtitle": "تفضيلات التطبيق والنظام والمظهر العام.",
+        "pushNotifications": "الإشعار الفوري",
+        "regionalPreferences": "التفضيلات الإقليمية",
+        "language": "اللغة",
+        "darkMode": "المظهر الداكن",
+        "backupTitle": "النسخ الاحتياطي والمزامنة",
+        "backupDesc": "بياناتك آمنة ومحفوظة بالكامل على خوادم قلمي.",
+        "lastBackup": "آخر نسخ احتياطي: منذ 5 دقائق",
+        "backupNow": "نسخ احتياطي الآن",
+        "version": "نظام إدارة المدارس قلمي الإصدار v2.4.0",
+        "copyright": "© 2024 موريتانيا للتعليم",
+        "absences": {
+          "label": "الغياب والتأخر",
+          "desc": "إشعار فوري لأولياء الأمور بالغياب والتأخر."
+        },
+        "payments": {
+          "label": "المدفوعات والرسوم",
+          "desc": "تذكير تلقائي بالرسوم المدرسية المستحقة."
+        },
+        "behavior": {
+          "label": "السلوك والانضباط",
+          "desc": "إشعارات فوري بالمخالفات والتقرير الانضباطي."
+        }
+      }
     },
     "schedule": {
       "title": "الجدول الزمني",
@@ -2127,341 +2436,6 @@
         "update_settings": "تعديل الإعدادات",
         "remove_student_from_class": "إزالة تلميذ من الفصل"
       }
-    },
-    "settings": {
-      "configuration": "إعدادات المدرسة",
-      "configurationDesc": "إدارة هوية المدرسة، والتقويم، والتفضيلات العامة للنظام.",
-      "schoolIdentity": "هوية المؤسسة",
-      "schoolIdentityDesc": "الاسم، الشعار، الشعار اللفظي ومعلومات الاتصال الظاهرة على المستندات.",
-      "subjectsGrading": "المواد والدرجات",
-      "subjectsGradingDesc": "معاملات المواد وسلم الدرجات والتقييمات.",
-      "personnelManagement": "إدارة الطاقم",
-      "personnelDesc": "إدارة المدرسين، الطاقم الإداري والوظائف.",
-      "appSettings": "الإعدادات العامة",
-      "appSettingsDesc": "تفضيلات اللغة والمظهر والنسخ الاحتياطي.",
-      "academicYears": "السنوات الدراسية",
-      "academicYearsDesc": "السنوات، الفصول الدراسية والتقويم",
-      "feeStructures": "جدول الرسوم",
-      "feeStructuresDesc": "الرسوم الدراسية، النقل، المطعم المدرسى...",
-      "groups": {
-        "school": "المدرسة",
-        "pedagogy": "البيداغوجيا",
-        "system": "النظام"
-      },
-      "securityTitle": "الأمان والمصادقة",
-      "securityDesc": "تحديث كلمة مرور المسؤول الخاصة بك.",
-      "newPassword": "كلمة مرور جديدة",
-      "confirmPassword": "تأكيد كلمة المرور",
-      "updating": "جاري التحديث...",
-      "updatePassword": "تحديث",
-      "identity": {
-        "title": "هوية المؤسسة",
-        "subtitle": "المعلومات التي تظهر على الوثائق والمستندات الرسمية.",
-        "logoTitle": "شعار المؤسسة",
-        "logoDesc": "الصيغة الموصى بها: PNG أو JPG (مربع، 500x500 بكسل)",
-        "modifyLogo": "تغيير الشعار",
-        "schoolNameLabel": "اسم المؤسسة",
-        "schoolNamePlaceholder": "اسم المدرسة",
-        "sloganLabel": "الشعار اللفظي / الحكمة",
-        "sloganPlaceholder": "الشعار اللفظي",
-        "addressLabel": "العنوان",
-        "addressPlaceholder": "العنوان الكامل",
-        "phoneLabel": "الهاتف",
-        "emailLabel": "البريد الإلكتروني للتواصل",
-        "saveChanges": "حفظ التعديلات",
-        "saving": "جاري الحفظ...",
-        "saved": "تم الحفظ!",
-        "saveSuccess": "تم حفظ الإعدادات بنجاح!",
-        "saveError": "حدث خطأ أثناء الحفظ",
-        "securityTitle": "أمان الحساب",
-        "securityDesc": "تعديل كلمة مرور وصول المسؤول.",
-        "newPassword": "كلمة المرور الجديدة",
-        "newPasswordPlaceholder": "6 أرقام (مثال: 123456)",
-        "confirmPassword": "تأكيد كلمة المرور",
-        "confirmPasswordPlaceholder": "أعد إدخال الأرقام الـ 6",
-        "updatePassword": "تحديث كلمة المرور",
-        "passwordUpdated": "تم تحديث كلمة المرور بنجاح",
-        "passwordMismatch": "كلمتا المرور غير متطابقتين",
-        "passwordTooShort": "يجب أن تتكون كلمة المرور من 6 أرقام بالضبط",
-        "passwordError": "حدث خطأ أثناء تحديث كلمة المرور"
-      },
-      "academic": {
-        "title": "السنوات الدراسية",
-        "subtitle": "إدارة السنوات الدراسية وفصولها. يتم تلقائياً إنشاء الفصل الأول، الثاني والثالث لكل سنة.",
-        "newYear": "سنة دراسية جديدة",
-        "formatDesc": "الصيغة: AAAA-AAAA (سنوات متتالية)",
-        "suggest": "اقتراح",
-        "create": "إنشاء",
-        "loading": "جاري التحميل...",
-        "yearsCount": "سنة دراسية واحدة",
-        "yearsCountPlural": "{count} سنوات دراسية",
-        "noYears": "لا توجد سنوات دراسية بعد. قم بإنشاء الأولى أعلاه.",
-        "current": "السنة الحالية",
-        "noTerms": "لا توجد فصول",
-        "setCurrent": "تعيين كحالية",
-        "active": "نشطة",
-        "noteDesc": "لتعديل التواريخ أو الفصول بالتفصيل، يرجى استخدام صفحة الفصول والسنوات الدراسية في قائمة التنقل.",
-        "createSuccess": "تم إنشاء السنة الدراسية {trimmed} بنجاح مع 3 فصول",
-        "updateSuccess": "تم تحديث السنة الدراسية النشطة بنجاح",
-        "deleteSuccess": "تم حذف السنة الدراسية بنجاح",
-        "confirmDelete": "هل أنت متأكد من حذف السنة الدراسية {yearName} وجميع فصولها؟"
-      },
-      "fees": {
-        "title": "جدول الرسوم",
-        "subtitle": "تحديد المبالغ القياسية لكل نوع من أنواع الرسوم للسنة الدراسية الحالية.",
-        "infoTitle": "الجدول المرجعي للرسوم",
-        "infoDesc": "تُستخدم هذه المبالغ كمرجع أساسي عند إنشاء كشوفات وسجلات الدفع. يتم مزامنتها تلقائياً.",
-        "amountLabel": "المبلغ (أوقية جديدة)",
-        "frequencyLabel": "الوتيرة",
-        "dueDayLabel": "يوم الاستحقاق",
-        "annualEquivalent": "≈ {amount} أوقية/سنة",
-        "annualSummaryTitle": "الملخص السنوي لكل تلميذ",
-        "totalAnnual": "المجموع السنوي",
-        "saveButton": "حفظ جدول الرسوم",
-        "saving": "جاري الحفظ...",
-        "toastLocalSuccess": "تم حفظ جدول الرسوم محلياً",
-        "toastLocalDesc": "يرجى تحديد سنة دراسية نشطة لمزامنة جدول الرسوم مع قاعدة البيانات.",
-        "toastSuccess": "تم حفظ جدول الرسوم بنجاح",
-        "toastError": "حدث خطأ أثناء حفظ الرسوم",
-        "frequencies": {
-          "monthly": "شهري",
-          "trimester": "فصلي",
-          "annual": "سنوي"
-        },
-        "types": {
-          "scolarite": {
-            "label": "الرسوم الدراسية",
-            "desc": "رسوم الدراسة والتكوين الأساسية"
-          },
-          "bus": {
-            "label": "النقل",
-            "desc": "النقل المدرسي"
-          },
-          "cantine": {
-            "label": "المطعم المدرسي",
-            "desc": "خدمات التغذية والمطعم المدرسي"
-          },
-          "activites": {
-            "label": "الأنشطة",
-            "desc": "الأنشطة الثقافية والرياضية والترفيهية"
-          }
-        }
-      },
-      "subjects": {
-        "title": "المواد والتقييم",
-        "subtitle": "إدارة المناهج الدراسية، المعاملات وسلم الدرجات.",
-        "defaultScale": "سلم الدرجات الافتراضي",
-        "appliesToAll": "يُطبق على جميع الاختبارات والتقييمات.",
-        "scaleSaved": "تم تحديث سلم الدرجات",
-        "loading": "جاري التحميل...",
-        "listTitle": "قائمة المواد ({count})",
-        "noSubjects": "لم يتم تكوين أي مادة بعد",
-        "coef": "المعامل:",
-        "unassigned": "غير معين",
-        "coefSaved": "تم تحديث المعامل",
-        "editCoefTitle": "انقر لتعديل المعامل",
-        "addTitle": "مادة جديدة",
-        "namePlaceholder": "اسم المادة"
-      },
-      "roles": {
-        "title": "الأدوار والصلاحيات",
-        "subtitle": "مصفوفة صلاحيات الوصول لكل دور مستخدم في نظام قلمي.",
-        "legend": {
-          "full": "وصول كامل",
-          "view": "قراءة فقط",
-          "partial": "جزئي",
-          "none": "لا يوجد وصول"
-        },
-        "featureHeader": "الصلاحية / الميزة",
-        "noteTitle": "الصلاحيات محددة في الكود المصدري",
-        "noteDesc": "الأدوار والصلاحيات الحالية محددة داخل الكود المصدري للتطبيق. التخصيص الدقيق لكل مستخدم على حدة يتطلب توسيع قاعدة البيانات بإضافة جدول مخصص للصلاحيات.",
-        "names": {
-          "super_admin": "مدير عام",
-          "admin": "إداري",
-          "teacher": "أستاذ",
-          "parent": "ولي أمر",
-          "student": "تلميذ"
-        },
-        "categories": {
-          "Administration": "الإدارة العامة",
-          "Pédagogie": "الشؤون التربوية",
-          "Finance": "الشؤون المالية",
-          "Communication": "التواصل والإعلانات"
-        },
-        "features": {
-          "dashboard": {
-            "name": "لوحة التحكم",
-            "desc": "نظرة عامة وإحصائيات شاملة"
-          },
-          "students": {
-            "name": "إدارة التلاميذ",
-            "desc": "التسجيل، الملفات الشخصية والوثائق"
-          },
-          "teachers": {
-            "name": "إدارة الأساتذة",
-            "desc": "الملفات الشخصية، العقود والتعيينات"
-          },
-          "school_settings": {
-            "name": "إعدادات المدرسة",
-            "desc": "الإعدادات العامة وهوية المؤسسة"
-          },
-          "schedule": {
-            "name": "الجدول الزمني",
-            "desc": "عرض وتعديل جداول الحصص"
-          },
-          "teacher_assignments": {
-            "name": "تعيينات الأساتذة",
-            "desc": "ربط الأساتذة بالأقسام والمواد"
-          },
-          "grades": {
-            "name": "الدرجات والتقييمات",
-            "desc": "إدخال الدرجات وكشوف النقاط"
-          },
-          "attendance": {
-            "name": "الغياب والحضور",
-            "desc": "تسجيل الحضور اليومي والأرشيف"
-          },
-          "subjects": {
-            "name": "المواد والمناهج",
-            "desc": "إدارة المواد الدراسية"
-          },
-          "payments": {
-            "name": "الدفع والرسوم",
-            "desc": "متابعة الرسوم المدرسية للتلاميذ"
-          },
-          "finance": {
-            "name": "المحاسبة العامة",
-            "desc": "إدارة المعاملات المالية والخزينة"
-          },
-          "payroll": {
-            "name": "رواتب الأساتذة",
-            "desc": "الرواتب الشهرية والوصولات"
-          },
-          "announcements": {
-            "name": "الإعلانات والأخبار",
-            "desc": "إنشاء ونشر الإعلانات المدرسية"
-          },
-          "messaging": {
-            "name": "المراسلات",
-            "desc": "التواصل الداخلي الفوري"
-          }
-        }
-      },
-      "notifications": {
-        "title": "الإشعارات والتنبيهات",
-        "subtitle": "تكوين الأحداث التي تطلق تنبيهاً والقنوات المستخدمة لكل إشعار.",
-        "activeCount": "{count} نشط",
-        "saveSuccess": "تم حفظ تفضيلات الإشعارات بنجاح",
-        "save": "حفظ التفضيلات",
-        "activateAll": "تفعيل الكل:",
-        "appChannel": "التطبيق",
-        "appDesc": " — إشعارات داخل التطبيق وعلى الهاتف المحمول",
-        "emailChannel": "البريد الإلكتروني",
-        "emailDesc": " — إرسال بريد إلكتروني تلقائي",
-        "persistenceNote": "يتم حفظ التفضيلات محلياً ومزامنتها مع جدول إعدادات إشعارات المدرسة إذا كان متاحاً. يتطلب إرسال البريد الإلكتروني الفعلي إعداد خدمة SMTP في متغيرات البيئة.",
-        "categories": {
-          "payments": {
-            "label": "المدفوعات والرسوم"
-          },
-          "attendance": {
-            "label": "الحضور والغياب"
-          },
-          "grades": {
-            "label": "الدرجات والتقارير"
-          },
-          "general": {
-            "label": "إعدادات عامة"
-          }
-        },
-        "events": {
-          "payment_received": {
-            "label": "استلام الدفعة",
-            "desc": "تأكيد فوري بعد تحصيل المبلغ",
-            "recipients": "ولي الأمر"
-          },
-          "payment_overdue": {
-            "label": "تأخر في الدفع",
-            "desc": "تذكير تلقائي بعد تاريخ الاستحقاق",
-            "recipients": "ولي الأمر، الإدارة"
-          },
-          "payment_partial": {
-            "label": "دفع جزئي",
-            "desc": "إشعار بالمبلغ المتبقي المستحق",
-            "recipients": "ولي الأمر"
-          },
-          "absence_marked": {
-            "label": "تسجيل غياب",
-            "desc": "تنبيه فوري بمجرد تسجيل غياب التلميذ",
-            "recipients": "ولي الأمر"
-          },
-          "late_arrival": {
-            "label": "تسجيل تأخر",
-            "desc": "إشعار فوري لولي الأمر بتأخر التلميذ",
-            "recipients": "ولي الأمر"
-          },
-          "absence_justified": {
-            "label": "تبرير الغياب",
-            "desc": "تأكيد معالجة وقبول تبرير الغياب",
-            "recipients": "ولي الأمر"
-          },
-          "grade_published": {
-            "label": "نشر الدرجات",
-            "desc": "إتاحة الدرجات في فضاء ولي الأمر والتلميذ",
-            "recipients": "ولي الأمر، التلميذ"
-          },
-          "bulletin_ready": {
-            "label": "كشف النقاط جاهز",
-            "desc": "نهاية الفصل الدراسي - كشف النقاط جاهز للتحميل",
-            "recipients": "ولي الأمر"
-          },
-          "grade_warning": {
-            "label": "تنبيه تراجع النتائج",
-            "desc": "تراجع ملحوظ في نتائج التلميذ الدراسية",
-            "recipients": "ولي الأمر، الإدارة"
-          },
-          "enrollment_confirmed": {
-            "label": "تأكيد التسجيل",
-            "desc": "رسالة ترحيب بالتلميذ الجديد في المؤسسة",
-            "recipients": "ولي الأمر"
-          },
-          "schedule_changed": {
-            "label": "تعديل جدول الحصص",
-            "desc": "تغيير طارئ في جدول التوقيت الأسبوعي",
-            "recipients": "ولي الأمر، الأستاذ"
-          },
-          "announcement_posted": {
-            "label": "إعلان جديد",
-            "desc": "نشر إعلان جديد على لوحة الإعلانات المدرسية",
-            "recipients": "الجميع"
-          }
-        }
-      },
-      "general": {
-        "title": "الإعدادات العامة",
-        "subtitle": "تفضيلات التطبيق والنظام والمظهر العام.",
-        "pushNotifications": "الإشعار الفوري",
-        "regionalPreferences": "التفضيلات الإقليمية",
-        "language": "اللغة",
-        "darkMode": "المظهر الداكن",
-        "backupTitle": "النسخ الاحتياطي والمزامنة",
-        "backupDesc": "بياناتك آمنة ومحفوظة بالكامل على خوادم قلمي.",
-        "lastBackup": "آخر نسخ احتياطي: منذ 5 دقائق",
-        "backupNow": "نسخ احتياطي الآن",
-        "version": "نظام إدارة المدارس قلمي الإصدار v2.4.0",
-        "copyright": "© 2024 موريتانيا للتعليم",
-        "absences": {
-          "label": "الغياب والتأخر",
-          "desc": "إشعار فوري لأولياء الأمور بالغياب والتأخر."
-        },
-        "payments": {
-          "label": "المدفوعات والرسوم",
-          "desc": "تذكير تلقائي بالرسوم المدرسية المستحقة."
-        },
-        "behavior": {
-          "label": "السلوك والانضباط",
-          "desc": "إشعارات فوري بالمخالفات والتقرير الانضباطي."
-        }
-      }
     }
   },
   "teacher": {
@@ -2469,37 +2443,87 @@
       "greetingDay": "صباح الخير",
       "greetinhDay": "صباح الخير",
       "greetingEvening": "مساء الخير",
-      "welcome": "أهلاً بك، {name}",
+      "welcome": "مرحباً، {name}",
       "remainingClasses": "الحصص المتبقية",
-      "attendanceToDo": "تحضير الحضور",
-      "classesCount": "أقسامي الدراسية",
+      "attendanceToDo": "تسجيل الحضور",
+      "classesCount": "الفصول",
       "nextClass": "الحصة القادمة",
       "viewAll": "عرض الكل",
-      "hoursAbbr": "س",
-      "minsAbbr": "د",
+      "hoursAbbr": "ساعة",
+      "minsAbbr": "دقيقة",
       "remainingTimeLabel": "متبقي",
-      "beforeTimeLabel": "قبل الحصة",
+      "beforeTimeLabel": "قبل",
       "classEnded": "انتهت الحصة",
       "takeAttendance": "تسجيل الحضور",
-      "noClassToday": "لا توجد حصص اليوم",
+      "noClassToday": "لا توجد حصص مجدولة اليوم",
       "quickActions": "إجراءات سريعة",
       "actionTakeAttendance": "تسجيل الحضور",
-      "actionAddRemark": "ملاحظات",
-      "actionAddGrade": "درجات",
-      "actionQuizzes": "الاختبارات التفاعلية",
+      "actionAddRemark": "إضافة ملاحظة",
+      "actionAddGrade": "إضافة درجة",
+      "actionQuizzes": "اختبارات",
       "upcoming": "قادمة",
-      "inProgress": "جارية الآن"
+      "inProgress": "جارية الآن",
+      "greetingMorning": "صباح الخير",
+      "greetingAfternoon": "طاب يومك",
+      "greetingNight": "طابت ليلتك"
+    },
+    "community": {
+      "title": "المجتمع المدرسي",
+      "subtitle": "ابقَ على اطلاع بالإعلانات والفعاليات",
+      "announcements": "الإعلانات ({count})",
+      "events": "الفعاليات ({count})",
+      "noAnnouncements": "لا توجد إعلانات حالياً",
+      "noEvents": "لا توجد فعاليات قادمة",
+      "expired": "منتهي",
+      "past": "سابق",
+      "allDay": "طوال اليوم",
+      "viewDetails": "عرض التفاصيل",
+      "announcementNotFound": "الإعلان غير موجود",
+      "eventNotFound": "الفعالية غير موجودة",
+      "back": "عودة",
+      "backToCommunity": "العودة إلى المجتمع المدرسي",
+      "targeting": "الفئة المستهدفة:",
+      "relDate": {
+        "justNow": "الآن",
+        "minutesAgo": "منذ {mins} دقيقة",
+        "hoursAgo": "منذ {hours} ساعة"
+      },
+      "audience": {
+        "all": "الجميع",
+        "wholeSchool": "كل المدرسة"
+      },
+      "roles": {
+        "students": "التلاميذ",
+        "parents": "أولياء الأمور",
+        "teachers": "المعلمون"
+      },
+      "priorities": {
+        "normal": "عادي",
+        "high": "هام",
+        "urgent": "عاجل",
+        "low": "منخفض"
+      },
+      "eventTypes": {
+        "meeting": "اجتماع",
+        "exam": "امتحان",
+        "holiday": "عطلة",
+        "activity": "نشاط",
+        "sport": "رياضة",
+        "cultural": "ثقافي",
+        "other": "أخرى"
+      }
     },
     "sidebar": {
-      "dashboard": "لوحة التحكم",
-      "myClasses": "أقسامي",
-      "schedule": "الجدول الزمني",
-      "attendance": "الحضور",
+      "dashboard": "لوحة القيادة",
+      "myClasses": "فصولي الدراسية",
+      "schedule": "جدول الحصص",
+      "attendance": "الملاحظات",
       "grades": "الدرجات والتقييمات",
-      "quizzes": "الاختبارات",
+      "quizzes": "التقييمات",
       "homework": "الواجبات",
-      "documents": "الوثائق",
-      "settings": "الإعدادات"
+      "documents": "المستندات",
+      "settings": "الإعدادات",
+      "community": "المجتمع المدرسي"
     },
     "documents": {
       "title": "وثائقي",
@@ -2527,11 +2551,79 @@
       "recentActivity": "النشاط الأخير"
     },
     "classes": {
-      "title": "أقسامي",
+      "title": "فصولي الدراسية",
       "subtitle": "إدارة أقسامك",
-      "noClasses": "لا توجد أقسام مسندة",
+      "noClasses": "لم يتم تعيين أي فصل دراسي بعد.",
       "studentList": "قائمة التلاميذ",
-      "classDetails": "تفاصيل القسم"
+      "classDetails": "تفاصيل القسم",
+      "details": {
+        "notes": "النقاط",
+        "stats": "الإحصائيات",
+        "devoir": "فرض",
+        "examen": "امتحان",
+        "searchPlaceholder": "البحث عن تلميذ...",
+        "average": "المعدل",
+        "allTypes": "جميع الأنواع",
+        "newGrade": "نقطة جديدة",
+        "activePeriod": "الفترة النشطة",
+        "classAverage": "معدل القسم",
+        "notesCount": "{count} نقاط",
+        "studentsCount": "{count} تلاميذ",
+        "gradeEntry": "رصد النقاط",
+        "grade": "النقطة",
+        "bonus": "إضافة",
+        "maxGradeError": "تنبيه: النقطة الإجمالية لـ {name} لا يمكن أن تتجاوز 20/20 (الحالية: {val})",
+        "selectSubjectError": "يرجى تحديد المادة",
+        "examDuplicatePolicyError": "قوانين المؤسسة: لقد تم بالفعل إدخال الامتحان لهذا الفصل الدراسي في هذه المادة لـ: {names}",
+        "emptyGradesError": "يرجى إدخال نقطة واحدة على الأقل",
+        "saveError": "حدث خطأ أثناء الحفظ",
+        "gradesSavedSuccess": "تم تسجيل {count} نقاط بنجاح",
+        "invalidGradeRangeError": "يجب أن تكون النقطة قيمة صالحة بين 0 و 20",
+        "editError": "حدث خطأ أثناء التعديل",
+        "gradeUpdatedSuccess": "تم تعديل النقطة بنجاح",
+        "techEditError": "خطأ تقني أثناء التعديل",
+        "confirmDeleteGrade": "هل أنت متأكد من حذف هذه النقطة؟ هذا الإجراء لا يمكن التراجع عنه.",
+        "deleteError": "حدث خطأ أثناء الحذف",
+        "gradeDeletedSuccess": "تم حذف النقطة نهائياً",
+        "techDeleteError": "خطأ تقني أثناء الحذف",
+        "noScheduleForDayError": "عملية مرفوضة : لا توجد حصص مجدولة لك يوم {day} في هذا القسم. يرجى ضبط جدول الحصص.",
+        "outOfScheduleHoursError": "خارج أوقات الجدول : الوقت الآن هو {hour} (يوم {day}). حصصك اليوم مجدولة في: {slots}. (مستوى التسامح: 15 دقيقة قبل / 30 دقيقة بعد).",
+        "attendanceSaved": "تم تسجيل الحضور لـ {count} تلاميذ",
+        "days": {
+          "0": "الأحد",
+          "1": "الاثنين",
+          "2": "الثلاثاء",
+          "3": "الأربعاء",
+          "4": "الخميس",
+          "5": "الجمعة",
+          "6": "السبت"
+        },
+        "subject": "المادة",
+        "editOrDeleteGrade": "تعديل أو حذف النقطة",
+        "noGrades": "لا توجد نقاط",
+        "averageClass": "المعدل",
+        "attendanceRate": "معدل الحضور",
+        "presentCount": "الحاضرون",
+        "lateCount": "المتأخرون",
+        "absentCount": "الغائبون",
+        "gradeDistribution": "توزيع النقاط",
+        "gradeExcellent": "ممتاز (+16)",
+        "gradeGood": "جيد (12-16)",
+        "gradeAverage": "مقبول (10-12)",
+        "gradeInsufficient": "غير كافٍ (<10)",
+        "dailyAttendance": "تسجيل الحضور اليومي",
+        "validate": "تأكيد",
+        "noSchedule": "لا توجد حصص مجدولة لهذا القسم",
+        "room": "القاعة {room}",
+        "minutes": "{count} دقيقة"
+      },
+      "studentsCount": "{count} تلميذ",
+      "viewClass": "عرض الفصل",
+      "portal": "بوابة الأستاذ",
+      "assignedTotal": "إجمالي {count} فصول دراسية مسندة",
+      "assignedTotalOne": "فصل دراسي واحد مسند إجمالاً",
+      "assigned": "{count} فصول دراسية مسندة",
+      "assignedOne": "فصل دراسي واحد مسند"
     },
     "attendance": {
       "title": "الحضور",
@@ -2559,8 +2651,8 @@
       "participation": "المشاركة"
     },
     "quizzes": {
-      "title": "الاختبارات",
-      "subtitle": "إدارة الاختبارات التفاعلية",
+      "title": "اختباراتي",
+      "subtitle": "{count} اختبار منشأ",
       "createQuiz": "إنشاء اختبار",
       "editQuiz": "تعديل الاختبار",
       "preview": "معاينة",
@@ -2571,7 +2663,63 @@
       "correctAnswer": "الإجابة الصحيحة",
       "options": "الخيارات",
       "results": "النتائج",
-      "leaderboard": "الترتيب"
+      "leaderboard": "الترتيب",
+      "createBtn": "إنشاء اختبار",
+      "noQuizzes": "لم يتم إنشاء أي اختبار بعد",
+      "noQuizzesDesc": "قم بإنشاء اختبارك الأول لتلاميذك!",
+      "published": "منشور",
+      "general": "عام",
+      "unassigned": "غير معين",
+      "viewResults": "عرض النتائج",
+      "modify": "تعديل",
+      "unpublish": "إلغاء النشر",
+      "delete": "حذف",
+      "noDescription": "لا يوجد وصف",
+      "questionsCount": "{count} أسئلة",
+      "minsCount": "{count} دقيقة",
+      "submissionsCount": "{count} إجابات",
+      "classLabel": "الفصل الدراسي: {name}",
+      "errorLoading": "خطأ أثناء تحميل الاختبارات",
+      "publishSuccess": "تم نشر الاختبار",
+      "unpublishSuccess": "تم إلغاء نشر الاختبار",
+      "updateError": "حدث خطأ أثناء التحديث",
+      "deleteConfirm": "هل أنت متأكد من رغبتك في حذف هذا الاختبار؟",
+      "deleteError": "حدث خطأ أثناء الحذف",
+      "deleteSuccess": "تم حذف الاختبار بنجاح",
+      "builder": {
+        "editTitle": "تعديل الاختبار",
+        "createTitle": "إنشاء اختبار جديد",
+        "saving": "جاري الحفظ...",
+        "save": "حفظ",
+        "notFound": "الاختبار غير موجود",
+        "minQuestionsError": "يجب أن يحتوي الاختبار على سؤال واحد على الأقل",
+        "titleRequired": "العنوان مطلوب",
+        "classRequired": "يرجى تحديد فصل دراسي",
+        "completeQuestionError": "يرجى إضافة سؤال واحد كامل على الأقل",
+        "saveError": "حدث خطأ أثناء الحفظ",
+        "saveSuccess": "تم حفظ الاختبار بنجاح!",
+        "settingsTitle": "إعدادات الاختبار",
+        "quizTitleLabel": "العنوان *",
+        "quizTitlePlaceholder": "مثال: اختبار مراجعة - الفصل الثالث",
+        "descriptionLabel": "الوصف",
+        "descriptionPlaceholder": "وصف اختياري للاختبار...",
+        "classSelectLabel": "الفصل الدراسي *",
+        "classPlaceholder": "حدد فصلاً دراسياً",
+        "subjectSelectLabel": "المادة",
+        "subjectPlaceholder": "حدد مادة",
+        "durationLabel": "المدة (بالدقائق)",
+        "attemptsLabel": "المحاولات القصوى",
+        "publishImmediatelyLabel": "نشر فوراً",
+        "publishImmediatelyDesc": "سيكون بإمكان التلاميذ رؤية الاختبار والإجابة عليه",
+        "questionsTitle": "الأسئلة ({count})",
+        "addQuestionBtn": "إضافة سؤال",
+        "questionLabel": "نص السؤال *",
+        "questionPlaceholder": "اكتب سؤالك هنا...",
+        "optionsLabel": "خيارات الإجابة *",
+        "optionsDesc": "انقر فوق الدائرة لتحديد الإجابة الصحيحة",
+        "optionPlaceholder": "الخيار {num}",
+        "loading": "جاري التحميل..."
+      }
     },
     "homework": {
       "title": "الواجبات",
@@ -2585,9 +2733,9 @@
     },
     "schedule": {
       "title": "الجدول الزمني",
-      "noClasses": "لا توجد حصص مقررة لهذا اليوم",
-      "inProgress": "جارية الآن",
-      "takeAttendance": "إجراء الحضور",
+      "noClasses": "لا توجد حصص في هذا اليوم",
+      "inProgress": "قيد الإجراء",
+      "takeAttendance": "تسجيل الحضور",
       "upcoming": "قادمة",
       "completed": "منتهية"
     },
@@ -2616,14 +2764,87 @@
       "saveSuccess": "تم حفظ تعديلاتك بنجاح!",
       "loadError": "تعذر تحميل معلوماتك.",
       "loadingText": "جاري تحميل إعداداتك..."
+    },
+    "spaceTitle": "فضاء الأستاذ",
+    "remarks": {
+      "title": "الملاحظات",
+      "selectClass": "1. حدد الفصل الدراسي",
+      "selectStudent": "2. حدد التلميذ",
+      "searchPlaceholder": "البحث عن تلميذ...",
+      "noStudentsFound": "لم يتم العثور على أي تلميذ",
+      "remarkType": "3. نوع الملاحظة",
+      "category": "4. الفئة",
+      "subject": "5. المادة",
+      "optional": "(اختياري)",
+      "noSubjectLinked": "لا توجد مادة مرتبطة",
+      "noSubject": "بدون مادة",
+      "messageLabel": "الرسالة",
+      "messagePlaceholder": "اكتب ملاحظتك هنا...",
+      "send": "إرسال",
+      "recentRemarks": "الملاحظات الأخيرة",
+      "all": "الكل",
+      "filterBySubject": "تصفية حسب المادة",
+      "allSubjects": "جميع المواد",
+      "noRecentRemarks": "لا توجد ملاحظات مؤخراً",
+      "fillAllFields": "يرجى ملء جميع الحقول",
+      "sendError": "حدث خطأ أثناء إرسال الملاحظة",
+      "sendSuccess": "تم إرسال الملاحظة بنجاح!",
+      "timeAgoMins": "منذ {mins} دقيقة",
+      "timeAgoHours": "منذ {hours} ساعة",
+      "yesterday": "أمس",
+      "categories": {
+        "comportement": "السلوك",
+        "scolaire": "الدراسة",
+        "assiduite": "المواظبة",
+        "participation": "المشاركة",
+        "devoirs": "الواجبات",
+        "general": "عام"
+      },
+      "types": {
+        "positive": "تشجيع",
+        "warning": "تنبيه",
+        "participation": "مشاركة",
+        "improvement": "تحسن",
+        "concern": "قلق"
+      }
+    },
+    "resources": {
+      "title": "الواجبات والمصادر",
+      "searchPlaceholder": "بحث...",
+      "tabHomework": "الواجبات ({count})",
+      "tabDrafts": "المسودات ({count})",
+      "tabResources": "المصادر",
+      "noHomework": "لا توجد واجبات منشورة",
+      "createFirstHomework": "قم بإنشاء واجبك الأول",
+      "submissionsCount": "{count} تم تسليمها",
+      "points": "/ {count} نقاط",
+      "noDrafts": "لا توجد مسودات",
+      "draft": "مسودة",
+      "publishBtn": "نشر",
+      "publishFileBtn": "نشر ملف",
+      "noResources": "لم يتم نشر أي مصادر",
+      "noResourcesDesc": "شارك دروسك، تمارينك وامتحاناتك مع التلاميذ",
+      "dueDateLate": "متأخر",
+      "dueDateToday": "اليوم",
+      "dueDateTomorrow": "غداً",
+      "dueDateDays": "خلال {count} أيام",
+      "types": {
+        "course": "درس",
+        "exercise": "تمرين",
+        "exam": "امتحان",
+        "devoirs": "واجب منزل",
+        "correction": "تصحيح",
+        "resource": "مصدر",
+        "general": "عام"
+      }
     }
   },
   "student": {
     "sidebar": {
       "dashboard": "لوحة التحكم",
-      "courses": "دروسي",
+      "courses": "الدروس",
       "grades": "الدرجات",
-      "schedule": "الجدول الزمني",
+      "schedule": "جدول الحصص",
       "homework": "الواجبات",
       "quizzes": "الاختبارات",
       "announcements": "الإعلانات",
@@ -2639,26 +2860,77 @@
       "myProgress": "تقدمي"
     },
     "courses": {
-      "title": "دروسي",
+      "title": "مكتبة الدروس",
       "subtitle": "الوصول إلى دروسك ومواردك",
-      "noCourses": "لم يتم العثور على دروس"
+      "noCourses": "لم يتم العثور على دروس",
+      "searchPlaceholder": "البحث عن مادة أو ملف...",
+      "subjects": "المواد",
+      "subject": "المادة",
+      "noSubjects": "لم يتم العثور على أي مادة",
+      "recentDocuments": "الملفات الأخيرة",
+      "file": "ملف",
+      "files": "ملفات",
+      "noDocuments": "لا توجد ملفات متاحة",
+      "course": "درس",
+      "exercise": "تمرين",
+      "exam": "امتحان",
+      "devoirs": "واجبات",
+      "correction": "تصحيح",
+      "resource": "مصدر",
+      "general": "عام"
     },
     "grades": {
       "title": "درجاتي",
-      "subtitle": "متابعة نتائجك الدراسية",
+      "subtitle": "قلمي موريتانيا",
       "average": "المعدل العام",
-      "rank": "الترتيب",
+      "rank": "الرتيبة:",
       "semester": "الفصل الدراسي",
-      "trimester": "الثلاثي"
+      "trimester": "الثلاثي",
+      "unknownSubject": "مادة غير معروفة",
+      "t1": "الفصل الأول",
+      "t2": "الفصل الثاني",
+      "t3": "الفصل الثالث",
+      "overallAverage": "المعدل العام",
+      "outOf": "من",
+      "mentionLabel": "التقدير:",
+      "viewReport": "عرض كشف الدرجات",
+      "gradesCount": "تم تسجيل {count} درجة",
+      "updatedAt": "تحديث:",
+      "subjectsAndAverages": "المواد والمعدلات",
+      "noGrades": "لا توجد درجات مسجلة في هذا الفصل",
+      "coeff": "الضارب",
+      "notes": "الدرجات",
+      "coeffShort": "ضارب ×",
+      "updated": "تم التحديث:",
+      "veryGood": "ممتاز",
+      "good": "جيد جداً",
+      "satisfactory": "جيد",
+      "passing": "مقبول",
+      "insufficient": "دون المعدل"
     },
     "homework": {
-      "title": "واجباتي",
+      "title": "الواجبات والأعمال المدرسية",
       "subtitle": "الواجبات المطلوبة",
       "pending": "للإنجاز",
       "completed": "مكتمل",
       "overdue": "متأخر",
       "submitHomework": "تسليم الواجب",
-      "dueDate": "آخر أجل"
+      "dueDate": "تاريخ التسليم:",
+      "searchPlaceholder": "البحث عن واجب...",
+      "noHomework": "لا توجد واجبات للقيام بها",
+      "urgent": "عاجل",
+      "todayTomorrow": "اليوم / الغد",
+      "subject": "المادة",
+      "submit": "تسليم",
+      "laterCompleted": "لاحقاً / مكتملة",
+      "allHomework": "كل الواجبات",
+      "graded": "تم التقييم",
+      "note": "الدرجة",
+      "viewCorrection": "عرض التصحيح",
+      "submitted": "تم التسليم",
+      "noLimit": "لا يوجد وقت محدد",
+      "todayAt": "اليوم، {time}",
+      "tomorrowAt": "غداً، {time}"
     },
     "quizzes": {
       "title": "الاختبارات",
@@ -2680,21 +2952,21 @@
       "subtitle": "آخر إعلانات المدرسة"
     },
     "schedule": {
-      "noClasses": "لا توجد حصص مقررة لهذا اليوم",
+      "noClasses": "لا توجد حصص في هذا اليوم",
       "inProgress": "جارية الآن",
       "upcoming": "قادمة",
       "completed": "منتهية"
     },
     "home": {
-      "welcome": "مرحبًا",
-      "quote": "\"العلم نور لا ينطفئ أبدًا.\"",
-      "now": "الآن",
+      "welcome": "مرحباً",
+      "quote": "التعلم هو النمو كل يوم.",
+      "now": "في الوقت الحالي",
       "timeRemaining": "الوقت المتبقي",
-      "noCurrentClass": "لا يوجد درس حاليًا",
+      "noCurrentClass": "لا توجد حصة الآن",
       "medals": "الميداليات",
-      "upNext": "البرنامج القادم",
+      "upNext": "الحصة القادمة",
       "viewAll": "عرض الكل",
-      "noMoreClasses": "لا توجد دروس مقررة لبقية اليوم"
+      "noMoreClasses": "لا توجد حصص أخرى اليوم"
     }
   },
   "parent": {
@@ -2839,131 +3111,20 @@
       "about": "حول"
     }
   },
-  "student": {
-    "sidebar": {
-      "dashboard": "لوحة التحكم",
-      "schedule": "جدول الحصص",
-      "courses": "الدروس",
-      "homework": "الواجبات",
-      "quizzes": "الاختبارات",
-      "grades": "الدرجات"
-    },
-    "home": {
-      "welcome": "مرحباً",
-      "quote": "التعلم هو النمو كل يوم.",
-      "now": "في الوقت الحالي",
-      "timeRemaining": "الوقت المتبقي",
-      "noCurrentClass": "لا توجد حصة الآن",
-      "medals": "الميداليات",
-      "upNext": "الحصة القادمة",
-      "viewAll": "عرض الكل",
-      "noMoreClasses": "لا توجد حصص أخرى اليوم"
-    },
-    "schedule": {
-      "noClasses": "لا توجد حصص في هذا اليوم",
-      "inProgress": "جارية الآن",
-      "upcoming": "قادمة",
-      "completed": "منتهية"
-    },
-    "homework": {
-      "title": "الواجبات والأعمال المدرسية",
-      "searchPlaceholder": "البحث عن واجب...",
-      "noHomework": "لا توجد واجبات للقيام بها",
-      "urgent": "عاجل",
-      "todayTomorrow": "اليوم / الغد",
-      "subject": "المادة",
-      "submit": "تسليم",
-      "dueDate": "تاريخ التسليم:",
-      "laterCompleted": "لاحقاً / مكتملة",
-      "allHomework": "كل الواجبات",
-      "graded": "تم التقييم",
-      "note": "الدرجة",
-      "viewCorrection": "عرض التصحيح",
-      "submitted": "تم التسليم",
-      "noLimit": "لا يوجد وقت محدد",
-      "overdue": "متأخر",
-      "todayAt": "اليوم، {time}",
-      "tomorrowAt": "غداً، {time}"
-    },
-    "courses": {
-      "title": "مكتبة الدروس",
-      "searchPlaceholder": "البحث عن مادة أو ملف...",
-      "subjects": "المواد",
-      "subject": "المادة",
-      "noSubjects": "لم يتم العثور على أي مادة",
-      "recentDocuments": "الملفات الأخيرة",
-      "file": "ملف",
-      "files": "ملفات",
-      "noDocuments": "لا توجد ملفات متاحة",
-      "course": "درس",
-      "exercise": "تمرين",
-      "exam": "امتحان",
-      "devoirs": "واجبات",
-      "correction": "تصحيح",
-      "resource": "مصدر",
-      "general": "عام"
-    },
-    "grades": {
-      "title": "درجاتي",
-      "subtitle": "قلمي موريتانيا",
-      "unknownSubject": "مادة غير معروفة",
-      "t1": "الفصل الأول",
-      "t2": "الفصل الثاني",
-      "t3": "الفصل الثالث",
-      "overallAverage": "المعدل العام",
-      "rank": "الرتيبة:",
-      "outOf": "من",
-      "mentionLabel": "التقدير:",
-      "viewReport": "عرض كشف الدرجات",
-      "gradesCount": "تم تسجيل {count} درجة",
-      "updatedAt": "تحديث:",
-      "subjectsAndAverages": "المواد والمعدلات",
-      "noGrades": "لا توجد درجات مسجلة في هذا الفصل",
-      "coeff": "الضارب",
-      "notes": "الدرجات",
-      "coeffShort": "ضارب ×",
-      "updated": "تم التحديث:",
-      "veryGood": "ممتاز",
-      "good": "جيد جداً",
-      "satisfactory": "جيد",
-      "passing": "مقبول",
-      "insufficient": "دون المعدل"
-    }
-  },
-  "superAdmin": {
-    "sidebar": {
-      "dashboard": "لوحة التحكم",
-      "schools": "المدارس",
-      "createSchool": "إنشاء مدرسة",
-      "settings": "الإعدادات"
-    },
-    "dashboard": {
-      "title": "الإدارة العامة",
-      "subtitle": "إدارة شاملة للمؤسسات",
-      "totalSchools": "إجمالي المدارس",
-      "totalStudents": "إجمالي التلاميذ",
-      "totalTeachers": "إجمالي المعلمين"
-    },
-    "schools": {
-      "title": "إدارة المدارس",
-      "subtitle": "قائمة جميع المؤسسات",
-      "createSchool": "إنشاء مدرسة",
-      "schoolName": "اسم المدرسة",
-      "region": "المنطقة",
-      "status": "الحالة",
-      "viewSchool": "عرض المدرسة",
-      "manageSchool": "إدارة المدرسة"
-    }
-  },
   "superAdmin": {
     "sidebar": {
       "dashboard": "لوحة القيادة",
       "schools": "المدارس",
+      "createSchool": "إنشاء مدرسة",
+      "settings": "الإعدادات",
       "users": "المستخدمون"
     },
     "dashboard": {
       "title": "لوحة القيادة",
       "subtitle": "عرض شامل لمنصة قلمي",
+      "totalSchools": "إجمالي المدارس",
+      "totalStudents": "إجمالي التلاميذ",
+      "totalTeachers": "إجمالي المعلمين",
       "schools": "المدارس",
       "active": "نشطة",
       "students": "التلاميذ",
@@ -2975,6 +3136,40 @@
       "createdAt": "أنشئت في {date}",
       "activeLabel": "نشطة",
       "inactiveLabel": "غير نشطة"
+    },
+    "schools": {
+      "title": "إدارة المدارس",
+      "subtitle": "قائمة جميع المؤسسات",
+      "createSchool": "إنشاء مدرسة",
+      "schoolName": "اسم المدرسة",
+      "region": "المنطقة",
+      "status": "الحالة",
+      "viewSchool": "عرض المدرسة",
+      "manageSchool": "إدارة المدرسة",
+      "new": {
+        "title": "مدرسة جديدة",
+        "subtitle": "إنشاء مدرسة جديدة على المنصة",
+        "generalInfo": "معلومات عامة",
+        "schoolName": "اسم المدرسة *",
+        "schoolNamePlaceholder": "مثال: مدرسة النور",
+        "slug": "الرابط الفرعي (URL) *",
+        "slugPlaceholder": "مثال: al-nour",
+        "email": "البريد الإلكتروني",
+        "emailPlaceholder": "contact@ecole.mr",
+        "phone": "الهاتف",
+        "phonePlaceholder": "+222 XX XX XX XX",
+        "address": "العنوان",
+        "addressPlaceholder": "نواكشوط، موريتانيا",
+        "subscription": "الاشتراك",
+        "plan": "الباقة",
+        "limitStudents": "حد التلاميذ الأقصى",
+        "cancel": "إلغاء",
+        "create": "إنشاء المدرسة",
+        "creating": "جاري الإنشاء...",
+        "fillRequired": "يرجى ملء الحقول المطلوبة",
+        "createSuccess": "تم إنشاء المدرسة بنجاح!",
+        "createError": "حدث خطأ أثناء الإنشاء"
+      }
     },
     "schoolsList": {
       "title": "المدارس",
@@ -3000,32 +3195,6 @@
       "deleteConfirmSlug": "للتأكيد، يرجى كتابة المعرف الفريد {slug}:",
       "deletePlaceholder": "اكتب المعرف هنا",
       "deleteBtn": "حذف نهائي"
-    },
-    "schools": {
-      "new": {
-        "title": "مدرسة جديدة",
-        "subtitle": "إنشاء مدرسة جديدة على المنصة",
-        "generalInfo": "معلومات عامة",
-        "schoolName": "اسم المدرسة *",
-        "schoolNamePlaceholder": "مثال: مدرسة النور",
-        "slug": "الرابط الفرعي (URL) *",
-        "slugPlaceholder": "مثال: al-nour",
-        "email": "البريد الإلكتروني",
-        "emailPlaceholder": "contact@ecole.mr",
-        "phone": "الهاتف",
-        "phonePlaceholder": "+222 XX XX XX XX",
-        "address": "العنوان",
-        "addressPlaceholder": "نواكشوط، موريتانيا",
-        "subscription": "الاشتراك",
-        "plan": "الباقة",
-        "limitStudents": "حد التلاميذ الأقصى",
-        "cancel": "إلغاء",
-        "create": "إنشاء المدرسة",
-        "creating": "جاري الإنشاء...",
-        "fillRequired": "يرجى ملء الحقول المطلوبة",
-        "createSuccess": "تم إنشاء المدرسة بنجاح!",
-        "createError": "حدث خطأ أثناء الإنشاء"
-      }
     },
     "usersList": {
       "title": "المستخدمون",
@@ -3153,301 +3322,6 @@
       "parentLabel": "ولي أمر",
       "parentDesc": "متابعة الأبناء، المدفوعات، التواصل...",
       "footerInfo": "ستفتح الواجهات في علامة تبويب جديدة. أغلق علامة التبويب للعودة إلى هنا."
-    }
-  },
-  "teacher": {
-    "spaceTitle": "فضاء الأستاذ",
-    "sidebar": {
-      "dashboard": "لوحة القيادة",
-      "myClasses": "فصولي الدراسية",
-      "quizzes": "التقييمات",
-      "schedule": "جدول الحصص",
-      "attendance": "الملاحظات",
-      "documents": "المستندات",
-      "community": "المجتمع المدرسي",
-      "settings": "الإعدادات"
-    },
-    "home": {
-      "greetingMorning": "صباح الخير",
-      "greetingAfternoon": "طاب يومك",
-      "greetingEvening": "مساء الخير",
-      "greetingNight": "طابت ليلتك",
-      "greetinhDay": "صباح الخير",
-      "welcome": "مرحباً، {name}",
-      "remainingClasses": "الحصص المتبقية",
-      "attendanceToDo": "تسجيل الحضور",
-      "classesCount": "الفصول",
-      "nextClass": "الحصة القادمة",
-      "viewAll": "عرض الكل",
-      "noClassToday": "لا توجد حصص مجدولة اليوم",
-      "takeAttendance": "تسجيل الحضور",
-      "hoursAbbr": "ساعة",
-      "minsAbbr": "دقيقة",
-      "remainingTimeLabel": "متبقي",
-      "beforeTimeLabel": "قبل",
-      "classEnded": "انتهت الحصة",
-      "quickActions": "إجراءات سريعة",
-      "actionTakeAttendance": "تسجيل الحضور",
-      "actionAddRemark": "إضافة ملاحظة",
-      "actionAddGrade": "إضافة درجة",
-      "actionQuizzes": "اختبارات",
-      "upcoming": "قادمة",
-      "inProgress": "جارية الآن"
-    },
-    "classes": {
-      "title": "فصولي الدراسية",
-      "noClasses": "لم يتم تعيين أي فصل دراسي بعد.",
-      "studentsCount": "{count} تلميذ",
-      "viewClass": "عرض الفصل",
-      "portal": "بوابة الأستاذ",
-      "assignedTotal": "إجمالي {count} فصول دراسية مسندة",
-      "assignedTotalOne": "فصل دراسي واحد مسند إجمالاً",
-      "assigned": "{count} فصول دراسية مسندة",
-      "assignedOne": "فصل دراسي واحد مسند",
-      "details": {
-        "days": {
-          "0": "الأحد",
-          "1": "الاثنين",
-          "2": "الثلاثاء",
-          "3": "الأربعاء",
-          "4": "الخميس",
-          "5": "الجمعة",
-          "6": "السبت"
-        },
-        "devoir": "فرض",
-        "examen": "امتحان",
-        "notes": "النقاط",
-        "stats": "الإحصائيات",
-        "searchPlaceholder": "البحث عن تلميذ...",
-        "average": "المعدل",
-        "allTypes": "جميع الأنواع",
-        "newGrade": "نقطة جديدة",
-        "activePeriod": "الفترة النشطة",
-        "classAverage": "معدل القسم",
-        "notesCount": "{count} نقاط",
-        "studentsCount": "{count} تلاميذ",
-        "gradeEntry": "رصد النقاط",
-        "subject": "المادة",
-        "grade": "النقطة",
-        "bonus": "إضافة",
-        "editOrDeleteGrade": "تعديل أو حذف النقطة",
-        "noGrades": "لا توجد نقاط",
-        "averageClass": "المعدل",
-        "attendanceRate": "معدل الحضور",
-        "presentCount": "الحاضرون",
-        "lateCount": "المتأخرون",
-        "absentCount": "الغائبون",
-        "gradeDistribution": "توزيع النقاط",
-        "gradeExcellent": "ممتاز (+16)",
-        "gradeGood": "جيد (12-16)",
-        "gradeAverage": "مقبول (10-12)",
-        "gradeInsufficient": "غير كافٍ (<10)",
-        "dailyAttendance": "تسجيل الحضور اليومي",
-        "validate": "تأكيد",
-        "noSchedule": "لا توجد حصص مجدولة لهذا القسم",
-        "room": "القاعة {room}",
-        "minutes": "{count} دقيقة",
-        "saveError": "حدث خطأ أثناء الحفظ",
-        "attendanceSaved": "تم تسجيل الحضور لـ {count} تلاميذ",
-        "maxGradeError": "تنبيه: النقطة الإجمالية لـ {name} لا يمكن أن تتجاوز 20/20 (الحالية: {val})",
-        "selectSubjectError": "يرجى تحديد المادة",
-        "examDuplicatePolicyError": "قوانين المؤسسة: لقد تم بالفعل إدخال الامتحان لهذا الفصل الدراسي في هذه المادة لـ: {names}",
-        "emptyGradesError": "يرجى إدخال نقطة واحدة على الأقل",
-        "gradesSavedSuccess": "تم تسجيل {count} نقاط بنجاح",
-        "invalidGradeRangeError": "يجب أن تكون النقطة قيمة صالحة بين 0 و 20",
-        "editError": "حدث خطأ أثناء التعديل",
-        "gradeUpdatedSuccess": "تم تعديل النقطة بنجاح",
-        "techEditError": "خطأ تقني أثناء التعديل",
-        "confirmDeleteGrade": "هل أنت متأكد من حذف هذه النقطة؟ هذا الإجراء لا يمكن التراجع عنه.",
-        "deleteError": "حدث خطأ أثناء الحذف",
-        "gradeDeletedSuccess": "تم حذف النقطة نهائياً",
-        "techDeleteError": "خطأ تقني أثناء الحذف"
-      }
-    },
-    "schedule": {
-      "noClasses": "لا توجد حصص في هذا اليوم",
-      "inProgress": "قيد الإجراء",
-      "takeAttendance": "تسجيل الحضور",
-      "upcoming": "قادمة",
-      "completed": "منتهية"
-    },
-    "remarks": {
-      "title": "الملاحظات",
-      "selectClass": "1. حدد الفصل الدراسي",
-      "selectStudent": "2. حدد التلميذ",
-      "searchPlaceholder": "البحث عن تلميذ...",
-      "noStudentsFound": "لم يتم العثور على أي تلميذ",
-      "remarkType": "3. نوع الملاحظة",
-      "category": "4. الفئة",
-      "subject": "5. المادة",
-      "optional": "(اختياري)",
-      "noSubjectLinked": "لا توجد مادة مرتبطة",
-      "noSubject": "بدون مادة",
-      "messageLabel": "الرسالة",
-      "messagePlaceholder": "اكتب ملاحظتك هنا...",
-      "send": "إرسال",
-      "recentRemarks": "الملاحظات الأخيرة",
-      "all": "الكل",
-      "filterBySubject": "تصفية حسب المادة",
-      "allSubjects": "جميع المواد",
-      "noRecentRemarks": "لا توجد ملاحظات مؤخراً",
-      "fillAllFields": "يرجى ملء جميع الحقول",
-      "sendError": "حدث خطأ أثناء إرسال الملاحظة",
-      "sendSuccess": "تم إرسال الملاحظة بنجاح!",
-      "timeAgoMins": "منذ {mins} دقيقة",
-      "timeAgoHours": "منذ {hours} ساعة",
-      "yesterday": "أمس",
-      "categories": {
-        "comportement": "السلوك",
-        "scolaire": "الدراسة",
-        "assiduite": "المواظبة",
-        "participation": "المشاركة",
-        "devoirs": "الواجبات",
-        "general": "عام"
-      },
-      "types": {
-        "positive": "تشجيع",
-        "warning": "تنبيه",
-        "participation": "مشاركة",
-        "improvement": "تحسن",
-        "concern": "قلق"
-      }
-    },
-    "documents": {
-      "title": "وثائقي",
-      "subtitle": "الوثائق المشتركة مع أقسامكم",
-      "addDocument": "إضافة وثيقة",
-      "all": "الكل",
-      "course": "درس",
-      "exercise": "تمرين",
-      "exam": "اختبار",
-      "devoirs": "واجب",
-      "correction": "تصحيح",
-      "resource": "مورد",
-      "general": "عام",
-      "noDocuments": "لا توجد وثائق مشتركة بعد",
-      "noDocumentsDesc": "انقر على «إضافة وثيقة» لمشاركة درس أو تمرين أو ملف مع أقسامكم.",
-      "forClass": "القسم",
-      "searchPlaceholder": "البحث عن وثيقة…"
-    },
-    "quizzes": {
-      "title": "اختباراتي",
-      "subtitle": "{count} اختبار منشأ",
-      "createBtn": "إنشاء اختبار",
-      "noQuizzes": "لم يتم إنشاء أي اختبار بعد",
-      "noQuizzesDesc": "قم بإنشاء اختبارك الأول لتلاميذك!",
-      "published": "منشور",
-      "draft": "مسودة",
-      "general": "عام",
-      "unassigned": "غير معين",
-      "preview": "معاينة",
-      "viewResults": "عرض النتائج",
-      "modify": "تعديل",
-      "publish": "نشر",
-      "unpublish": "إلغاء النشر",
-      "delete": "حذف",
-      "noDescription": "لا يوجد وصف",
-      "questionsCount": "{count} أسئلة",
-      "minsCount": "{count} دقيقة",
-      "submissionsCount": "{count} إجابات",
-      "classLabel": "الفصل الدراسي: {name}",
-      "errorLoading": "خطأ أثناء تحميل الاختبارات",
-      "publishSuccess": "تم نشر الاختبار",
-      "unpublishSuccess": "تم إلغاء نشر الاختبار",
-      "updateError": "حدث خطأ أثناء التحديث",
-      "deleteConfirm": "هل أنت متأكد من رغبتك في حذف هذا الاختبار؟",
-      "deleteError": "حدث خطأ أثناء الحذف",
-      "deleteSuccess": "تم حذف الاختبار بنجاح",
-      "builder": {
-        "editTitle": "تعديل الاختبار",
-        "createTitle": "إنشاء اختبار جديد",
-        "saving": "جاري الحفظ...",
-        "save": "حفظ",
-        "notFound": "الاختبار غير موجود",
-        "minQuestionsError": "يجب أن يحتوي الاختبار على سؤال واحد على الأقل",
-        "titleRequired": "العنوان مطلوب",
-        "classRequired": "يرجى تحديد فصل دراسي",
-        "completeQuestionError": "يرجى إضافة سؤال واحد كامل على الأقل",
-        "saveError": "حدث خطأ أثناء الحفظ",
-        "saveSuccess": "تم حفظ الاختبار بنجاح!",
-        "settingsTitle": "إعدادات الاختبار",
-        "quizTitleLabel": "العنوان *",
-        "quizTitlePlaceholder": "مثال: اختبار مراجعة - الفصل الثالث",
-        "descriptionLabel": "الوصف",
-        "descriptionPlaceholder": "وصف اختياري للاختبار...",
-        "classSelectLabel": "الفصل الدراسي *",
-        "classPlaceholder": "حدد فصلاً دراسياً",
-        "subjectSelectLabel": "المادة",
-        "subjectPlaceholder": "حدد مادة",
-        "durationLabel": "المدة (بالدقائق)",
-        "attemptsLabel": "المحاولات القصوى",
-        "publishImmediatelyLabel": "نشر فوراً",
-        "publishImmediatelyDesc": "سيكون بإمكان التلاميذ رؤية الاختبار والإجابة عليه",
-        "questionsTitle": "الأسئلة ({count})",
-        "addQuestionBtn": "إضافة سؤال",
-        "questionLabel": "نص السؤال *",
-        "questionPlaceholder": "اكتب سؤالك هنا...",
-        "optionsLabel": "خيارات الإجابة *",
-        "optionsDesc": "انقر فوق الدائرة لتحديد الإجابة الصحيحة",
-        "optionPlaceholder": "الخيار {num}",
-        "loading": "جاري التحميل..."
-      }
-    },
-    "resources": {
-      "title": "الواجبات والمصادر",
-      "searchPlaceholder": "بحث...",
-      "tabHomework": "الواجبات ({count})",
-      "tabDrafts": "المسودات ({count})",
-      "tabResources": "المصادر",
-      "noHomework": "لا توجد واجبات منشورة",
-      "createFirstHomework": "قم بإنشاء واجبك الأول",
-      "submissionsCount": "{count} تم تسليمها",
-      "points": "/ {count} نقاط",
-      "noDrafts": "لا توجد مسودات",
-      "draft": "مسودة",
-      "publishBtn": "نشر",
-      "publishFileBtn": "نشر ملف",
-      "noResources": "لم يتم نشر أي مصادر",
-      "noResourcesDesc": "شارك دروسك، تمارينك وامتحاناتك مع التلاميذ",
-      "dueDateLate": "متأخر",
-      "dueDateToday": "اليوم",
-      "dueDateTomorrow": "غداً",
-      "dueDateDays": "خلال {count} أيام",
-      "types": {
-        "course": "درس",
-        "exercise": "تمرين",
-        "exam": "امتحان",
-        "devoirs": "واجب منزل",
-        "correction": "تصحيح",
-        "resource": "مصدر",
-        "general": "عام"
-      }
-    },
-    "settings": {
-      "title": "الإعدادات",
-      "subtitle": "إدارة إعدادات حسابك وأمنك",
-      "personalInfo": "المعلومات الشخصية",
-      "security": "أمان الحساب",
-      "fullName": "الاسم الكامل",
-      "fullNamePlaceholder": "اسمك الكامل",
-      "phone": "رقم الهاتف (اسم المستخدم)",
-      "phoneHint": "يُستخدم هذا الرقم لتسجيل دخولك ولا يمكن تعديله هنا.",
-      "changePhoto": "تغيير الصورة",
-      "avatarUploadSuccess": "تم تحميل صورة الملف الشخصي!",
-      "avatarSizeError": "يجب أن يكون حجم الصورة أقل من 2 ميجابايت.",
-      "avatarUploadError": "حدث خطأ أثناء تحميل الصورة.",
-      "avatarFormatHint": "صيغة PNG ، JPG حتى 2 ميجابايت",
-      "securityHint": "اترك هذه الحقول فارغة إذا كنت لا ترغب في تغيير كلمة مرورك الحالية.",
-      "newPassword": "كلمة المرور الجديدة",
-      "confirmPassword": "تأكيد كلمة المرور",
-      "passwordsMismatch": "كلمات المرور غير متطابقة",
-      "passwordMinLength": "يجب أن تتكون كلمة المرور من 6 أحرف على الأقل.",
-      "nameRequired": "الاسم الكامل مطلوب.",
-      "saveChanges": "حفظ التعديلات",
-      "saving": "جاري الحفظ...",
-      "saveSuccess": "تم حفظ تعديلاتك بنجاح!",
-      "loadError": "تعذر تحميل معلوماتك.",
-      "loadingText": "جاري تحميل إعداداتك..."
     }
   },
   "splash": {

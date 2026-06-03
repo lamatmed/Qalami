@@ -176,10 +176,10 @@
     "checkEmail": "Vérifiez votre email",
     "skip": "Passer",
     "loginDesc": "Connectez-vous avec votre numéro et mot de passe",
-    "passwordPlaceholder": "Mot de passe",
-    "needHelp": "Besoin d'aide ?",
+    "passwordPlaceholder": "Code (6 chiffres)",
+    "needHelp": "Besoin d'aide pour s'inscrire ?",
     "contactAdmin": "Contactez l'administrateur",
-    "unknownError": "Une erreur inconnue s'est produite",
+    "unknownError": "Une erreur inconnue est survenue",
     "countries": {
       "mauritania": "Mauritanie",
       "senegal": "Sénégal",
@@ -217,13 +217,10 @@
     "onboarding3Title": "Communication Intégrée",
     "onboarding3Desc": "Communiquez facilement avec les parents, enseignants et élèves.",
     "welcomeMessage": "Bienvenue sur Qalami",
-    "unknownError": "Une erreur inconnue est survenue",
     "emailPlaceholder": "Email professionnel",
-    "passwordPlaceholder": "Code (6 chiffres)",
     "pinLabel": "Code PIN",
     "pinPlaceholder": "Entrez votre code PIN",
     "enterPin": "Entrez votre code à 6 chiffres",
-    "needHelp": "Besoin d'aide pour s'inscrire ?",
     "parentAccessRequest": "Demande d'accès Parent",
     "accessRequest": {
       "parent": "Demande d'accès Parent",
@@ -758,55 +755,55 @@
         "sending": "Envoi...",
         "sendReminder": "Envoyer rappel",
         "paymentHistory": "Historique des paiements",
-        "noPayment": "Aucun paiement enregistré"
-        ,"noGrades": "Aucune note enregistrée"
-        ,"gradesAppearHint": "Les notes apparaîtront ici une fois saisies par les enseignants."
-        ,"yearlyAverage": "Moyenne annuelle"
-        ,"validatedTerms": "Sur les trimestres validés"
-        ,"reportCard": "Bulletin"
-        ,"bySubjectDetails": "Détail par matière"
-        ,"noGradesFor": "Aucune note pour"
-        ,"assessments": "Évaluations"
-        ,"historyFilterAll": "Tout"
-        ,"historyFilterGrades": "Notes"
-        ,"historyFilterRemarks": "Remarques"
-        ,"historyNoEvents": "Aucun événement enregistré"
-        ,"historyEventsCount": "{count} événement"
-        ,"historyEventsCountPlural": "{count} événements"
-        ,"historyZeroEvents": "0 événement"
-        ,"gradesTabLabel": "Notes"
-        ,"editStudentTitle": "Modifier les informations"
-        ,"editStudentSave": "Enregistrer"
-        ,"editStudentSuccess": "Informations mises à jour"
-        ,"deleteStudentTitle": "Supprimer définitivement"
-        ,"deleteStudentConfirm": "Cette action est irréversible. L'élève, ses inscriptions et toutes ses données seront supprimés."
-        ,"deleteStudentButton": "Supprimer"
-        ,"deleteStudentSuccess": "Élève supprimé définitivement"
-        ,"modifyClass": "Modifier la classe"
-        ,"backToStudent": "Retour au profil de l'élève"
-        ,"deleteDocConfirm": "Supprimer ce document ?"
-        ,"deleteDocSuccess": "Document supprimé"
-        ,"renameDocSuccess": "Document renommé"
-        ,"replaceDoc": "Remplacer"
-        ,"attendanceAbsent": "Absence injustifiée"
-        ,"attendanceJustified": "Absence justifiée"
-        ,"attendanceLate": "Retard"
-        ,"attendanceExcused": "Dispensé"
-        ,"viewJustification": "Voir le justificatif"
-        ,"downloadJustification": "Télécharger"
-        ,"justificationFiles": "Fichiers de justification"
-        ,"remarksTypePositive": "Positif"
-        ,"remarksTypeWarning": "Avertissement"
-        ,"remarksTypeParticipation": "Participation"
-        ,"remarksTypeImprovement": "Amélioration"
-        ,"remarksTypeConcern": "Inquiétude"
-        ,"remarksTypeOther": "Remarque"
-        ,"remarksSendError": "Erreur lors de l'envoi de la remarque"
-        ,"remarksSentSuccess": "Remarque envoyée avec succès"
-        ,"documentsStatusValid": "Valide"
-        ,"documentsStatusPending": "En attente"
-        ,"documentsStatusMissing": "Manquant"
-        ,"transferredBanner": {
+        "noPayment": "Aucun paiement enregistré",
+        "noGrades": "Aucune note enregistrée",
+        "gradesAppearHint": "Les notes apparaîtront ici une fois saisies par les enseignants.",
+        "yearlyAverage": "Moyenne annuelle",
+        "validatedTerms": "Sur les trimestres validés",
+        "reportCard": "Bulletin",
+        "bySubjectDetails": "Détail par matière",
+        "noGradesFor": "Aucune note pour",
+        "assessments": "Évaluations",
+        "historyFilterAll": "Tout",
+        "historyFilterGrades": "Notes",
+        "historyFilterRemarks": "Remarques",
+        "historyNoEvents": "Aucun événement enregistré",
+        "historyEventsCount": "{count} événement",
+        "historyEventsCountPlural": "{count} événements",
+        "historyZeroEvents": "0 événement",
+        "gradesTabLabel": "Notes",
+        "editStudentTitle": "Modifier les informations",
+        "editStudentSave": "Enregistrer",
+        "editStudentSuccess": "Informations mises à jour",
+        "deleteStudentTitle": "Supprimer définitivement",
+        "deleteStudentConfirm": "Cette action est irréversible. L'élève, ses inscriptions et toutes ses données seront supprimés.",
+        "deleteStudentButton": "Supprimer",
+        "deleteStudentSuccess": "Élève supprimé définitivement",
+        "modifyClass": "Modifier la classe",
+        "backToStudent": "Retour au profil de l'élève",
+        "deleteDocConfirm": "Supprimer ce document ?",
+        "deleteDocSuccess": "Document supprimé",
+        "renameDocSuccess": "Document renommé",
+        "replaceDoc": "Remplacer",
+        "attendanceAbsent": "Absence injustifiée",
+        "attendanceJustified": "Absence justifiée",
+        "attendanceLate": "Retard",
+        "attendanceExcused": "Dispensé",
+        "viewJustification": "Voir le justificatif",
+        "downloadJustification": "Télécharger",
+        "justificationFiles": "Fichiers de justification",
+        "remarksTypePositive": "Positif",
+        "remarksTypeWarning": "Avertissement",
+        "remarksTypeParticipation": "Participation",
+        "remarksTypeImprovement": "Amélioration",
+        "remarksTypeConcern": "Inquiétude",
+        "remarksTypeOther": "Remarque",
+        "remarksSendError": "Erreur lors de l'envoi de la remarque",
+        "remarksSentSuccess": "Remarque envoyée avec succès",
+        "documentsStatusValid": "Valide",
+        "documentsStatusPending": "En attente",
+        "documentsStatusMissing": "Manquant",
+        "transferredBanner": {
           "title": "Cet élève a été transféré (Départ externe)",
           "subtitle": "L'élève n'est plus actif dans les classes mais vous pouvez télécharger son certificat de transfert ou le réintégrer.",
           "downloadBtn": "Télécharger Certificat",
@@ -1249,27 +1246,339 @@
       "yesterday": "Hier"
     },
     "settings": {
-      "title": "Paramètres",
-      "subtitle": "Configuration de l'établissement",
-      "schoolIdentity": "Identité de l'école",
-      "schoolName": "Nom de l'école",
-      "schoolLogo": "Logo",
-      "schoolAddress": "Adresse",
-      "schoolPhone": "Téléphone",
-      "schoolEmail": "Email",
-      "generalSettings": "Paramètres généraux",
-      "academicYear": "Année scolaire",
-      "gradeSystem": "Système de notation",
-      "personnel": "Personnel",
-      "subjectsGrading": "Matières & Notation",
-      "schoolIdentityDesc": "Logo, Nom, Coordonnées",
-      "subjectsGradingDesc": "Coefficients, Évaluations",
-      "personnelManagement": "Personnel Administratif",
-      "personnelDesc": "Administration, Salaires",
-      "appSettings": "Paramètres de l'App",
-      "appSettingsDesc": "Notifications, Langues, Thème",
-      "configuration": "Configuration",
-      "configurationDesc": "Gérez tous les aspects de votre établissement."
+      "configuration": "Configuration de l'école",
+      "configurationDesc": "Gérez l'identité, le calendrier et les préférences système de votre école.",
+      "schoolIdentity": "Identité de l'établissement",
+      "schoolIdentityDesc": "Nom, logo, slogan et coordonnées visibles sur les documents.",
+      "subjectsGrading": "Matières & Notes",
+      "subjectsGradingDesc": "Coefficients de matières et barème d'évaluations.",
+      "personnelManagement": "Gestion du Personnel",
+      "personnelDesc": "Gérez les enseignants, l'administration et les rôles.",
+      "appSettings": "Paramètres Généraux",
+      "appSettingsDesc": "Préférences de langue, de thème et de sauvegardes.",
+      "academicYears": "Années scolaires",
+      "academicYearsDesc": "Années, trimestres et calendrier",
+      "feeStructures": "Barème des frais",
+      "feeStructuresDesc": "Scolarité, transport, cantine…",
+      "groups": {
+        "school": "École",
+        "pedagogy": "Pédagogie",
+        "system": "Système"
+      },
+      "securityTitle": "Sécurité & Authentification",
+      "securityDesc": "Mettre à jour votre mot de passe administrateur.",
+      "newPassword": "Nouveau mot de passe",
+      "confirmPassword": "Confirmer le mot de passe",
+      "updating": "Mise à jour...",
+      "updatePassword": "Mettre à jour",
+      "identity": {
+        "title": "Identité de l'établissement",
+        "subtitle": "Informations visibles sur les documents officiels.",
+        "logoTitle": "Logo de l'établissement",
+        "logoDesc": "Format recommandé : PNG ou JPG (Carré, 500x500px)",
+        "modifyLogo": "Modifier le logo",
+        "schoolNameLabel": "Nom de l'établissement",
+        "schoolNamePlaceholder": "Nom de l'école",
+        "sloganLabel": "Slogan / Devise",
+        "sloganPlaceholder": "Slogan",
+        "addressLabel": "Adresse",
+        "addressPlaceholder": "Adresse complète",
+        "phoneLabel": "Téléphone",
+        "emailLabel": "Email de contact",
+        "saveChanges": "Enregistrer les modifications",
+        "saving": "Enregistrement...",
+        "saved": "Enregistré !",
+        "saveSuccess": "Paramètres enregistrés avec succès !",
+        "saveError": "Erreur lors de l'enregistrement",
+        "securityTitle": "Sécurité du Compte",
+        "securityDesc": "Modifier le mot de passe de votre accès administrateur.",
+        "newPassword": "Nouveau mot de passe",
+        "newPasswordPlaceholder": "6 chiffres (ex. 123456)",
+        "confirmPassword": "Confirmer mot de passe",
+        "confirmPasswordPlaceholder": "Répétez les 6 chiffres",
+        "updatePassword": "Mettre à jour le mot de passe",
+        "passwordUpdated": "Mot de passe mis à jour avec succès",
+        "passwordMismatch": "Les mots de passe ne correspondent pas",
+        "passwordTooShort": "Le mot de passe doit être exactement 6 chiffres",
+        "passwordError": "Erreur lors de la mise à jour du mot de passe"
+      },
+      "academic": {
+        "title": "Années scolaires",
+        "subtitle": "Gérez les années scolaires et leurs trimestres. Chaque année crée automatiquement T1, T2 et T3.",
+        "newYear": "Nouvelle année",
+        "formatDesc": "Format : AAAA-AAAA (années consécutives)",
+        "suggest": "Suggérer",
+        "create": "Créer",
+        "loading": "Chargement...",
+        "yearsCount": "{count} année",
+        "yearsCountPlural": "{count} années",
+        "noYears": "Aucune année scolaire. Créez la première ci-dessus.",
+        "current": "EN COURS",
+        "noTerms": "Aucun trimestre",
+        "setCurrent": "Définir actuel",
+        "active": "Active",
+        "noteDesc": "Pour modifier les dates ou les trimestres en détail, utilisez la page Trimestres & Années scolaires dans le menu de navigation.",
+        "createSuccess": "Année {trimmed} créée avec 3 trimestres",
+        "updateSuccess": "Année active mise à jour",
+        "deleteSuccess": "Année supprimée",
+        "confirmDelete": "Supprimer l'année {yearName} et ses trimestres ?"
+      },
+      "fees": {
+        "title": "Barème des frais",
+        "subtitle": "Définissez les montants standard par type de frais pour l'année en cours.",
+        "infoTitle": "Barème de référence",
+        "infoDesc": "Ces montants servent de référence lors de la création de fiches de paiement. Les données sont synchronisées.",
+        "amountLabel": "Montant (MRU)",
+        "frequencyLabel": "Fréquence",
+        "dueDayLabel": "Jour d'échéance",
+        "annualEquivalent": "≈ {amount} MRU/an",
+        "annualSummaryTitle": "Récapitulatif annuel par élève",
+        "totalAnnual": "Total annuel",
+        "saveButton": "Enregistrer le barème",
+        "saving": "Enregistrement...",
+        "toastLocalSuccess": "Barème enregistré localement",
+        "toastLocalDesc": "Définissez une année scolaire active pour synchroniser avec la base de données.",
+        "toastSuccess": "Barème enregistré",
+        "toastError": "Erreur lors de la sauvegarde",
+        "frequencies": {
+          "monthly": "Mensuel",
+          "trimester": "Par trimestre",
+          "annual": "Annuel"
+        },
+        "types": {
+          "scolarite": {
+            "label": "Scolarité",
+            "desc": "Frais de scolarité de base"
+          },
+          "bus": {
+            "label": "Transport",
+            "desc": "Transport scolaire"
+          },
+          "cantine": {
+            "label": "Cantine",
+            "desc": "Restauration scolaire"
+          },
+          "activites": {
+            "label": "Activités",
+            "desc": "Activités parascolaires"
+          }
+        }
+      },
+      "subjects": {
+        "title": "Matières & Notation",
+        "subtitle": "Gérez le programme et les barèmes.",
+        "defaultScale": "Barème par défaut",
+        "appliesToAll": "S'applique à toutes les évaluations.",
+        "scaleSaved": "Barème mis à jour",
+        "loading": "Chargement...",
+        "listTitle": "Liste des matières ({count})",
+        "noSubjects": "Aucune matière configurée",
+        "coef": "Coef:",
+        "unassigned": "Non assigné",
+        "coefSaved": "Coefficient mis à jour",
+        "editCoefTitle": "Cliquer pour modifier le coefficient",
+        "addTitle": "Nouvelle matière",
+        "namePlaceholder": "Nom de la matière"
+      },
+      "roles": {
+        "title": "Rôles & Permissions",
+        "subtitle": "Matrice des accès par profil utilisateur dans Qalami.",
+        "legend": {
+          "full": "Accès complet",
+          "view": "Lecture seule",
+          "partial": "Partiel",
+          "none": "Aucun accès"
+        },
+        "featureHeader": "Fonctionnalité",
+        "noteTitle": "Permissions codées dans l'application",
+        "noteDesc": "Les rôles et permissions actuels sont définis dans le code source. La personnalisation fine par utilisateur (ex : un enseignant qui peut voir la finance) nécessite une extension du schéma de base de données avec une table role_permissions.",
+        "names": {
+          "super_admin": "Super Admin",
+          "admin": "Admin",
+          "teacher": "Enseignant",
+          "parent": "Parent",
+          "student": "Élève"
+        },
+        "categories": {
+          "Administration": "Administration",
+          "Pédagogie": "Pédagogie",
+          "Finance": "Finance",
+          "Communication": "Communication"
+        },
+        "features": {
+          "dashboard": {
+            "name": "Tableau de bord",
+            "desc": "Vue d'ensemble et statistiques"
+          },
+          "students": {
+            "name": "Gestion des élèves",
+            "desc": "Inscription, profils, dossiers"
+          },
+          "teachers": {
+            "name": "Gestion des enseignants",
+            "desc": "Profils, contrats, affectations"
+          },
+          "school_settings": {
+            "name": "Paramètres école",
+            "desc": "Configuration générale, identité"
+          },
+          "schedule": {
+            "name": "Emploi du temps",
+            "desc": "Consultation et modification"
+          },
+          "teacher_assignments": {
+            "name": "Affectations enseignants",
+            "desc": "Classe × matière × enseignant"
+          },
+          "grades": {
+            "name": "Notes & Évaluations",
+            "desc": "Saisie des notes et bulletins"
+          },
+          "attendance": {
+            "name": "Présences & Absences",
+            "desc": "Pointage et historique"
+          },
+          "subjects": {
+            "name": "Matières & Programmes",
+            "desc": "Gestion des matières"
+          },
+          "payments": {
+            "name": "Scolarité & Paiements",
+            "desc": "Suivi des paiements élèves"
+          },
+          "finance": {
+            "name": "Comptabilité générale",
+            "desc": "Transactions, trésorerie"
+          },
+          "payroll": {
+            "name": "Paie enseignants",
+            "desc": "Salaires et fiches de paie"
+          },
+          "announcements": {
+            "name": "Annonces",
+            "desc": "Création et consultation"
+          },
+          "messaging": {
+            "name": "Messagerie",
+            "desc": "Communication interne"
+          }
+        }
+      },
+      "notifications": {
+        "title": "Notifications",
+        "subtitle": "Configurez quels événements déclenchent une alerte et sur quel canal.",
+        "activeCount": "{count} actifs",
+        "saveSuccess": "Préférences de notification sauvegardées",
+        "save": "Sauvegarder",
+        "activateAll": "Tout activer :",
+        "appChannel": "Application",
+        "appDesc": " — Notification in-app et push mobile",
+        "emailChannel": "Email",
+        "emailDesc": " — Envoi automatique par courriel",
+        "persistenceNote": "Les préférences sont sauvegardées localement et synchronisées avec la table school_notification_settings si disponible. L'envoi effectif des emails nécessite la configuration d'un service SMTP dans les variables d'environnement.",
+        "categories": {
+          "payments": {
+            "label": "Paiements"
+          },
+          "attendance": {
+            "label": "Présences"
+          },
+          "grades": {
+            "label": "Notes & Bulletins"
+          },
+          "general": {
+            "label": "Général"
+          }
+        },
+        "events": {
+          "payment_received": {
+            "label": "Paiement reçu",
+            "desc": "Confirmation immédiate après encaissement",
+            "recipients": "Parent"
+          },
+          "payment_overdue": {
+            "label": "Paiement en retard",
+            "desc": "Rappel automatique après la date d'échéance",
+            "recipients": "Parent, Admin"
+          },
+          "payment_partial": {
+            "label": "Paiement partiel",
+            "desc": "Solde restant à régler",
+            "recipients": "Parent"
+          },
+          "absence_marked": {
+            "label": "Absence signalée",
+            "desc": "Alerte dès que l'absence est pointée",
+            "recipients": "Parent"
+          },
+          "late_arrival": {
+            "label": "Retard enregistré",
+            "desc": "Notification au parent en temps réel",
+            "recipients": "Parent"
+          },
+          "absence_justified": {
+            "label": "Absence justifiée",
+            "desc": "Confirmation de traitement de l'absence",
+            "recipients": "Parent"
+          },
+          "grade_published": {
+            "label": "Notes publiées",
+            "desc": "Disponibles dans l'espace parent/élève",
+            "recipients": "Parent, Élève"
+          },
+          "bulletin_ready": {
+            "label": "Bulletin disponible",
+            "desc": "Fin de trimestre — bulletin téléchargeable",
+            "recipients": "Parent"
+          },
+          "grade_warning": {
+            "label": "Alerte résultats",
+            "desc": "Résultats en baisse significative",
+            "recipients": "Parent, Admin"
+          },
+          "enrollment_confirmed": {
+            "label": "Inscription confirmée",
+            "desc": "Accueil du nouvel élève dans l'école",
+            "recipients": "Parent"
+          },
+          "schedule_changed": {
+            "label": "Emploi du temps modifié",
+            "desc": "Changement de dernière minute",
+            "recipients": "Parent, Enseignant"
+          },
+          "announcement_posted": {
+            "label": "Nouvelle annonce",
+            "desc": "Publication dans le tableau d'annonces",
+            "recipients": "Tous"
+          }
+        }
+      },
+      "general": {
+        "title": "Paramètres Généraux",
+        "subtitle": "Préférences de l'application et du système.",
+        "pushNotifications": "Notifications Push",
+        "regionalPreferences": "Préférences Régionales",
+        "language": "Langue",
+        "darkMode": "Thème Sombre",
+        "backupTitle": "Sauvegarde & Sync",
+        "backupDesc": "Vos données sont sécurisées sur le serveur Qalami.",
+        "lastBackup": "Dernière sauvegarde : Il y a 5 min",
+        "backupNow": "Sauvegarder maintenant",
+        "version": "Qalami School Management v2.4.0",
+        "copyright": "© 2024 Mauritanie Éducation",
+        "absences": {
+          "label": "Absences & Retards",
+          "desc": "Notifier les parents immédiatement."
+        },
+        "payments": {
+          "label": "Paiements",
+          "desc": "Rappels de scolarité automatiques."
+        },
+        "behavior": {
+          "label": "Comportement",
+          "desc": "Incidents et disciplines."
+        }
+      }
     },
     "schedule": {
       "title": "Emploi du temps",
@@ -2127,341 +2436,6 @@
         "update_settings": "Paramètres modifiés",
         "remove_student_from_class": "Élève retiré de classe"
       }
-    },
-    "settings": {
-      "configuration": "Configuration de l'école",
-      "configurationDesc": "Gérez l'identité, le calendrier et les préférences système de votre école.",
-      "schoolIdentity": "Identité de l'établissement",
-      "schoolIdentityDesc": "Nom, logo, slogan et coordonnées visibles sur les documents.",
-      "subjectsGrading": "Matières & Notes",
-      "subjectsGradingDesc": "Coefficients de matières et barème d'évaluations.",
-      "personnelManagement": "Gestion du Personnel",
-      "personnelDesc": "Gérez les enseignants, l'administration et les rôles.",
-      "appSettings": "Paramètres Généraux",
-      "appSettingsDesc": "Préférences de langue, de thème et de sauvegardes.",
-      "academicYears": "Années scolaires",
-      "academicYearsDesc": "Années, trimestres et calendrier",
-      "feeStructures": "Barème des frais",
-      "feeStructuresDesc": "Scolarité, transport, cantine…",
-      "groups": {
-        "school": "École",
-        "pedagogy": "Pédagogie",
-        "system": "Système"
-      },
-      "securityTitle": "Sécurité & Authentification",
-      "securityDesc": "Mettre à jour votre mot de passe administrateur.",
-      "newPassword": "Nouveau mot de passe",
-      "confirmPassword": "Confirmer le mot de passe",
-      "updating": "Mise à jour...",
-      "updatePassword": "Mettre à jour",
-      "identity": {
-        "title": "Identité de l'établissement",
-        "subtitle": "Informations visibles sur les documents officiels.",
-        "logoTitle": "Logo de l'établissement",
-        "logoDesc": "Format recommandé : PNG ou JPG (Carré, 500x500px)",
-        "modifyLogo": "Modifier le logo",
-        "schoolNameLabel": "Nom de l'établissement",
-        "schoolNamePlaceholder": "Nom de l'école",
-        "sloganLabel": "Slogan / Devise",
-        "sloganPlaceholder": "Slogan",
-        "addressLabel": "Adresse",
-        "addressPlaceholder": "Adresse complète",
-        "phoneLabel": "Téléphone",
-        "emailLabel": "Email de contact",
-        "saveChanges": "Enregistrer les modifications",
-        "saving": "Enregistrement...",
-        "saved": "Enregistré !",
-        "saveSuccess": "Paramètres enregistrés avec succès !",
-        "saveError": "Erreur lors de l'enregistrement",
-        "securityTitle": "Sécurité du Compte",
-        "securityDesc": "Modifier le mot de passe de votre accès administrateur.",
-        "newPassword": "Nouveau mot de passe",
-        "newPasswordPlaceholder": "6 chiffres (ex. 123456)",
-        "confirmPassword": "Confirmer mot de passe",
-        "confirmPasswordPlaceholder": "Répétez les 6 chiffres",
-        "updatePassword": "Mettre à jour le mot de passe",
-        "passwordUpdated": "Mot de passe mis à jour avec succès",
-        "passwordMismatch": "Les mots de passe ne correspondent pas",
-        "passwordTooShort": "Le mot de passe doit être exactement 6 chiffres",
-        "passwordError": "Erreur lors de la mise à jour du mot de passe"
-      },
-      "academic": {
-        "title": "Années scolaires",
-        "subtitle": "Gérez les années scolaires et leurs trimestres. Chaque année crée automatiquement T1, T2 et T3.",
-        "newYear": "Nouvelle année",
-        "formatDesc": "Format : AAAA-AAAA (années consécutives)",
-        "suggest": "Suggérer",
-        "create": "Créer",
-        "loading": "Chargement...",
-        "yearsCount": "{count} année",
-        "yearsCountPlural": "{count} années",
-        "noYears": "Aucune année scolaire. Créez la première ci-dessus.",
-        "current": "EN COURS",
-        "noTerms": "Aucun trimestre",
-        "setCurrent": "Définir actuel",
-        "active": "Active",
-        "noteDesc": "Pour modifier les dates ou les trimestres en détail, utilisez la page Trimestres & Années scolaires dans le menu de navigation.",
-        "createSuccess": "Année {trimmed} créée avec 3 trimestres",
-        "updateSuccess": "Année active mise à jour",
-        "deleteSuccess": "Année supprimée",
-        "confirmDelete": "Supprimer l'année {yearName} et ses trimestres ?"
-      },
-      "fees": {
-        "title": "Barème des frais",
-        "subtitle": "Définissez les montants standard par type de frais pour l'année en cours.",
-        "infoTitle": "Barème de référence",
-        "infoDesc": "Ces montants servent de référence lors de la création de fiches de paiement. Les données sont synchronisées.",
-        "amountLabel": "Montant (MRU)",
-        "frequencyLabel": "Fréquence",
-        "dueDayLabel": "Jour d'échéance",
-        "annualEquivalent": "≈ {amount} MRU/an",
-        "annualSummaryTitle": "Récapitulatif annuel par élève",
-        "totalAnnual": "Total annuel",
-        "saveButton": "Enregistrer le barème",
-        "saving": "Enregistrement...",
-        "toastLocalSuccess": "Barème enregistré localement",
-        "toastLocalDesc": "Définissez une année scolaire active pour synchroniser avec la base de données.",
-        "toastSuccess": "Barème enregistré",
-        "toastError": "Erreur lors de la sauvegarde",
-        "frequencies": {
-          "monthly": "Mensuel",
-          "trimester": "Par trimestre",
-          "annual": "Annuel"
-        },
-        "types": {
-          "scolarite": {
-            "label": "Scolarité",
-            "desc": "Frais de scolarité de base"
-          },
-          "bus": {
-            "label": "Transport",
-            "desc": "Transport scolaire"
-          },
-          "cantine": {
-            "label": "Cantine",
-            "desc": "Restauration scolaire"
-          },
-          "activites": {
-            "label": "Activités",
-            "desc": "Activités parascolaires"
-          }
-        }
-      },
-      "subjects": {
-        "title": "Matières & Notation",
-        "subtitle": "Gérez le programme et les barèmes.",
-        "defaultScale": "Barème par défaut",
-        "appliesToAll": "S'applique à toutes les évaluations.",
-        "scaleSaved": "Barème mis à jour",
-        "loading": "Chargement...",
-        "listTitle": "Liste des matières ({count})",
-        "noSubjects": "Aucune matière configurée",
-        "coef": "Coef:",
-        "unassigned": "Non assigné",
-        "coefSaved": "Coefficient mis à jour",
-        "editCoefTitle": "Cliquer pour modifier le coefficient",
-        "addTitle": "Nouvelle matière",
-        "namePlaceholder": "Nom de la matière"
-      },
-      "roles": {
-        "title": "Rôles & Permissions",
-        "subtitle": "Matrice des accès par profil utilisateur dans Qalami.",
-        "legend": {
-          "full": "Accès complet",
-          "view": "Lecture seule",
-          "partial": "Partiel",
-          "none": "Aucun accès"
-        },
-        "featureHeader": "Fonctionnalité",
-        "noteTitle": "Permissions codées dans l'application",
-        "noteDesc": "Les rôles et permissions actuels sont définis dans le code source. La personnalisation fine par utilisateur (ex : un enseignant qui peut voir la finance) nécessite une extension du schéma de base de données avec une table role_permissions.",
-        "names": {
-          "super_admin": "Super Admin",
-          "admin": "Admin",
-          "teacher": "Enseignant",
-          "parent": "Parent",
-          "student": "Élève"
-        },
-        "categories": {
-          "Administration": "Administration",
-          "Pédagogie": "Pédagogie",
-          "Finance": "Finance",
-          "Communication": "Communication"
-        },
-        "features": {
-          "dashboard": {
-            "name": "Tableau de bord",
-            "desc": "Vue d'ensemble et statistiques"
-          },
-          "students": {
-            "name": "Gestion des élèves",
-            "desc": "Inscription, profils, dossiers"
-          },
-          "teachers": {
-            "name": "Gestion des enseignants",
-            "desc": "Profils, contrats, affectations"
-          },
-          "school_settings": {
-            "name": "Paramètres école",
-            "desc": "Configuration générale, identité"
-          },
-          "schedule": {
-            "name": "Emploi du temps",
-            "desc": "Consultation et modification"
-          },
-          "teacher_assignments": {
-            "name": "Affectations enseignants",
-            "desc": "Classe × matière × enseignant"
-          },
-          "grades": {
-            "name": "Notes & Évaluations",
-            "desc": "Saisie des notes et bulletins"
-          },
-          "attendance": {
-            "name": "Présences & Absences",
-            "desc": "Pointage et historique"
-          },
-          "subjects": {
-            "name": "Matières & Programmes",
-            "desc": "Gestion des matières"
-          },
-          "payments": {
-            "name": "Scolarité & Paiements",
-            "desc": "Suivi des paiements élèves"
-          },
-          "finance": {
-            "name": "Comptabilité générale",
-            "desc": "Transactions, trésorerie"
-          },
-          "payroll": {
-            "name": "Paie enseignants",
-            "desc": "Salaires et fiches de paie"
-          },
-          "announcements": {
-            "name": "Annonces",
-            "desc": "Création et consultation"
-          },
-          "messaging": {
-            "name": "Messagerie",
-            "desc": "Communication interne"
-          }
-        }
-      },
-      "notifications": {
-        "title": "Notifications",
-        "subtitle": "Configurez quels événements déclenchent une alerte et sur quel canal.",
-        "activeCount": "{count} actifs",
-        "saveSuccess": "Préférences de notification sauvegardées",
-        "save": "Sauvegarder",
-        "activateAll": "Tout activer :",
-        "appChannel": "Application",
-        "appDesc": " — Notification in-app et push mobile",
-        "emailChannel": "Email",
-        "emailDesc": " — Envoi automatique par courriel",
-        "persistenceNote": "Les préférences sont sauvegardées localement et synchronisées avec la table school_notification_settings si disponible. L'envoi effectif des emails nécessite la configuration d'un service SMTP dans les variables d'environnement.",
-        "categories": {
-          "payments": {
-            "label": "Paiements"
-          },
-          "attendance": {
-            "label": "Présences"
-          },
-          "grades": {
-            "label": "Notes & Bulletins"
-          },
-          "general": {
-            "label": "Général"
-          }
-        },
-        "events": {
-          "payment_received": {
-            "label": "Paiement reçu",
-            "desc": "Confirmation immédiate après encaissement",
-            "recipients": "Parent"
-          },
-          "payment_overdue": {
-            "label": "Paiement en retard",
-            "desc": "Rappel automatique après la date d'échéance",
-            "recipients": "Parent, Admin"
-          },
-          "payment_partial": {
-            "label": "Paiement partiel",
-            "desc": "Solde restant à régler",
-            "recipients": "Parent"
-          },
-          "absence_marked": {
-            "label": "Absence signalée",
-            "desc": "Alerte dès que l'absence est pointée",
-            "recipients": "Parent"
-          },
-          "late_arrival": {
-            "label": "Retard enregistré",
-            "desc": "Notification au parent en temps réel",
-            "recipients": "Parent"
-          },
-          "absence_justified": {
-            "label": "Absence justifiée",
-            "desc": "Confirmation de traitement de l'absence",
-            "recipients": "Parent"
-          },
-          "grade_published": {
-            "label": "Notes publiées",
-            "desc": "Disponibles dans l'espace parent/élève",
-            "recipients": "Parent, Élève"
-          },
-          "bulletin_ready": {
-            "label": "Bulletin disponible",
-            "desc": "Fin de trimestre — bulletin téléchargeable",
-            "recipients": "Parent"
-          },
-          "grade_warning": {
-            "label": "Alerte résultats",
-            "desc": "Résultats en baisse significative",
-            "recipients": "Parent, Admin"
-          },
-          "enrollment_confirmed": {
-            "label": "Inscription confirmée",
-            "desc": "Accueil du nouvel élève dans l'école",
-            "recipients": "Parent"
-          },
-          "schedule_changed": {
-            "label": "Emploi du temps modifié",
-            "desc": "Changement de dernière minute",
-            "recipients": "Parent, Enseignant"
-          },
-          "announcement_posted": {
-            "label": "Nouvelle annonce",
-            "desc": "Publication dans le tableau d'annonces",
-            "recipients": "Tous"
-          }
-        }
-      },
-      "general": {
-        "title": "Paramètres Généraux",
-        "subtitle": "Préférences de l'application et du système.",
-        "pushNotifications": "Notifications Push",
-        "regionalPreferences": "Préférences Régionales",
-        "language": "Langue",
-        "darkMode": "Thème Sombre",
-        "backupTitle": "Sauvegarde & Sync",
-        "backupDesc": "Vos données sont sécurisées sur le serveur Qalami.",
-        "lastBackup": "Dernière sauvegarde : Il y a 5 min",
-        "backupNow": "Sauvegarder maintenant",
-        "version": "Qalami School Management v2.4.0",
-        "copyright": "© 2024 Mauritanie Éducation",
-        "absences": {
-          "label": "Absences & Retards",
-          "desc": "Notifier les parents immédiatement."
-        },
-        "payments": {
-          "label": "Paiements",
-          "desc": "Rappels de scolarité automatiques."
-        },
-        "behavior": {
-          "label": "Comportement",
-          "desc": "Incidents et disciplines."
-        }
-      }
     }
   },
   "teacher": {
@@ -2469,37 +2443,87 @@
       "greetingDay": "Bonjour",
       "greetinhDay": "Bonjour",
       "greetingEvening": "Bonsoir",
-      "welcome": "Bienvenue, {name}",
-      "remainingClasses": "Cours Restants",
-      "attendanceToDo": "Appels à Faire",
-      "classesCount": "Mes Classes",
+      "welcome": "Bonjour, {name}",
+      "remainingClasses": "Cours restants",
+      "attendanceToDo": "Appels à faire",
+      "classesCount": "Classes",
       "nextClass": "Prochain Cours",
-      "viewAll": "Tout Voir",
-      "hoursAbbr": "h",
-      "minsAbbr": "min",
-      "remainingTimeLabel": "restant",
-      "beforeTimeLabel": "avant cours",
+      "viewAll": "Voir tout",
+      "hoursAbbr": "Hr",
+      "minsAbbr": "Min",
+      "remainingTimeLabel": "RESTANT",
+      "beforeTimeLabel": "AVANT",
       "classEnded": "Cours terminé",
       "takeAttendance": "Faire l'appel",
-      "noClassToday": "Aucun cours aujourd'hui",
+      "noClassToday": "Aucun cours prévu aujourd'hui",
       "quickActions": "Actions Rapides",
-      "actionTakeAttendance": "Faire l'Appel",
-      "actionAddRemark": "Remarques",
-      "actionAddGrade": "Notes",
-      "actionQuizzes": "Quiz interactifs",
+      "actionTakeAttendance": "Prendre l'appel",
+      "actionAddRemark": "Faire une remarque",
+      "actionAddGrade": "Ajouter une note",
+      "actionQuizzes": "Quiz",
       "upcoming": "À venir",
-      "inProgress": "En cours"
+      "inProgress": "En cours",
+      "greetingMorning": "Bonjour",
+      "greetingAfternoon": "Bon après-midi",
+      "greetingNight": "Bonne nuit"
+    },
+    "community": {
+      "title": "Communauté",
+      "subtitle": "Restez informé des annonces et événements",
+      "announcements": "Annonces ({count})",
+      "events": "Événements ({count})",
+      "noAnnouncements": "Aucune annonce pour le moment",
+      "noEvents": "Aucun événement à venir",
+      "expired": "Expirée",
+      "past": "Passé",
+      "allDay": "Toute la journée",
+      "viewDetails": "Voir les détails",
+      "announcementNotFound": "Annonce introuvable",
+      "eventNotFound": "Événement introuvable",
+      "back": "Retour",
+      "backToCommunity": "Retour à la communauté",
+      "targeting": "Ciblage :",
+      "relDate": {
+        "justNow": "À l'instant",
+        "minutesAgo": "Il y a {mins}min",
+        "hoursAgo": "Il y a {hours}h"
+      },
+      "audience": {
+        "all": "Tous",
+        "wholeSchool": "Toute l'école"
+      },
+      "roles": {
+        "students": "Élèves",
+        "parents": "Parents",
+        "teachers": "Enseignants"
+      },
+      "priorities": {
+        "normal": "Normale",
+        "high": "Haute",
+        "urgent": "Urgente",
+        "low": "Basse"
+      },
+      "eventTypes": {
+        "meeting": "Réunion",
+        "exam": "Examen",
+        "holiday": "Congé",
+        "activity": "Activité",
+        "sport": "Sport",
+        "cultural": "Culturel",
+        "other": "Autre"
+      }
     },
     "sidebar": {
       "dashboard": "Tableau de bord",
-      "myClasses": "Mes Classes",
+      "myClasses": "Mes classes",
       "schedule": "Emploi du temps",
-      "attendance": "Appel",
+      "attendance": "Remarques",
       "grades": "Notes & Évaluations",
-      "quizzes": "Quiz",
+      "quizzes": "Évaluations",
       "homework": "Devoirs",
       "documents": "Documents",
-      "settings": "Paramètres"
+      "settings": "Paramètres",
+      "community": "Communauté"
     },
     "documents": {
       "title": "Mes Documents",
@@ -2529,9 +2553,77 @@
     "classes": {
       "title": "Mes Classes",
       "subtitle": "Gestion de vos classes",
-      "noClasses": "Aucune classe assignée",
+      "noClasses": "Aucune classe assignée pour le moment.",
       "studentList": "Liste des élèves",
-      "classDetails": "Détails de la classe"
+      "classDetails": "Détails de la classe",
+      "details": {
+        "notes": "Notes",
+        "stats": "Stats",
+        "devoir": "Devoir",
+        "examen": "Examen",
+        "searchPlaceholder": "Rechercher un élève...",
+        "average": "Moyenne",
+        "allTypes": "Tous les types",
+        "newGrade": "Nouvelle Note",
+        "activePeriod": "Période Active",
+        "classAverage": "Moyenne de classe",
+        "notesCount": "{count} notes",
+        "studentsCount": "{count} élèves",
+        "gradeEntry": "Saisie des notes",
+        "grade": "Note",
+        "bonus": "Bonus",
+        "maxGradeError": "Attention : La note totale de {name} ne peut pas dépasser 20/20 (Actuellement : {val})",
+        "selectSubjectError": "Veuillez sélectionner une matière",
+        "examDuplicatePolicyError": "Politique scolaire : L'examen a déjà été saisi pour ce trimestre dans cette matière pour : {names}",
+        "emptyGradesError": "Veuillez saisir au moins une note",
+        "saveError": "Erreur lors de l'enregistrement",
+        "gradesSavedSuccess": "{count} notes enregistrées",
+        "invalidGradeRangeError": "La note doit être un nombre valide compris entre 0 et 20",
+        "editError": "Erreur lors de la modification",
+        "gradeUpdatedSuccess": "Note modifiée avec succès",
+        "techEditError": "Erreur technique lors de la modification",
+        "confirmDeleteGrade": "Voulez-vous vraiment supprimer cette note ? Cette action est irréversible.",
+        "deleteError": "Erreur lors de la suppression",
+        "gradeDeletedSuccess": "Note supprimée définitivement",
+        "techDeleteError": "Erreur technique lors de la suppression",
+        "noScheduleForDayError": "Action bloquée : Aucun cours n'est planifié pour vous le {day} dans cette classe. Veuillez configurer l'emploi du temps.",
+        "outOfScheduleHoursError": "Hors planning : Il est {hour} ({day}). Vos séances aujourd'hui sont prévues à : {slots}. (Marge acceptée : 15 min avant / 30 min après).",
+        "attendanceSaved": "Présences enregistrées pour {count} élèves",
+        "days": {
+          "0": "Dimanche",
+          "1": "Lundi",
+          "2": "Mardi",
+          "3": "Mercredi",
+          "4": "Jeudi",
+          "5": "Vendredi",
+          "6": "Samedi"
+        },
+        "subject": "Matière",
+        "editOrDeleteGrade": "Modifier ou Supprimer la note",
+        "noGrades": "Aucune note",
+        "averageClass": "Moyenne",
+        "attendanceRate": "Taux de présence",
+        "presentCount": "Présents",
+        "lateCount": "Retards",
+        "absentCount": "Absents",
+        "gradeDistribution": "Répartition des notes",
+        "gradeExcellent": "Excellent (16+)",
+        "gradeGood": "Bien (12-16)",
+        "gradeAverage": "Passable (10-12)",
+        "gradeInsufficient": "Insuffisant (<10)",
+        "dailyAttendance": "Appel du jour",
+        "validate": "Valider",
+        "noSchedule": "Aucun cours programmé pour cette classe",
+        "room": "Salle {room}",
+        "minutes": "{count}min"
+      },
+      "studentsCount": "{count} Élève{plural}",
+      "viewClass": "Voir la classe",
+      "portal": "PORTAIL ENSEIGNANT",
+      "assignedTotal": "{count} classes assignées au total",
+      "assignedTotalOne": "1 classe assignée au total",
+      "assigned": "{count} classes assignées",
+      "assignedOne": "1 classe assignée"
     },
     "attendance": {
       "title": "Appel",
@@ -2559,11 +2651,11 @@
       "participation": "Participation"
     },
     "quizzes": {
-      "title": "Quiz",
-      "subtitle": "Gestion des quiz interactifs",
+      "title": "Mes Quiz",
+      "subtitle": "{count} quiz créé{plural}",
       "createQuiz": "Créer un quiz",
       "editQuiz": "Modifier le quiz",
-      "preview": "Aperçu",
+      "preview": "Prévisualiser",
       "publish": "Publier",
       "draft": "Brouillon",
       "questions": "Questions",
@@ -2571,7 +2663,63 @@
       "correctAnswer": "Bonne réponse",
       "options": "Options",
       "results": "Résultats",
-      "leaderboard": "Classement"
+      "leaderboard": "Classement",
+      "createBtn": "Créer un Quiz",
+      "noQuizzes": "Aucun quiz créé",
+      "noQuizzesDesc": "Créez votre premier quiz pour vos élèves !",
+      "published": "Publié",
+      "general": "Général",
+      "unassigned": "Non assigné",
+      "viewResults": "Voir les résultats",
+      "modify": "Modifier",
+      "unpublish": "Dépublier",
+      "delete": "Supprimer",
+      "noDescription": "Pas de description",
+      "questionsCount": "{count} questions",
+      "minsCount": "{count} min",
+      "submissionsCount": "{count} réponses",
+      "classLabel": "Classe: {name}",
+      "errorLoading": "Erreur lors du chargement des quiz",
+      "publishSuccess": "Quiz publié",
+      "unpublishSuccess": "Quiz dépublié",
+      "updateError": "Erreur lors de la mise à jour",
+      "deleteConfirm": "Êtes-vous sûr de vouloir supprimer ce quiz ?",
+      "deleteError": "Erreur lors de la suppression",
+      "deleteSuccess": "Quiz supprimé",
+      "builder": {
+        "editTitle": "Modifier le Quiz",
+        "createTitle": "Créer un Quiz",
+        "saving": "Enregistrement...",
+        "save": "Enregistrer",
+        "notFound": "Quiz non trouvé",
+        "minQuestionsError": "Un quiz doit avoir au moins une question",
+        "titleRequired": "Le titre est requis",
+        "classRequired": "Veuillez sélectionner une classe",
+        "completeQuestionError": "Ajoutez au moins une question complète",
+        "saveError": "Erreur lors de la sauvegarde",
+        "saveSuccess": "Quiz sauvegardé avec succès !",
+        "settingsTitle": "Paramètres du Quiz",
+        "quizTitleLabel": "Titre *",
+        "quizTitlePlaceholder": "Ex: Quiz de révision - Chapitre 3",
+        "descriptionLabel": "Description",
+        "descriptionPlaceholder": "Description optionnelle du quiz...",
+        "classSelectLabel": "Classe *",
+        "classPlaceholder": "Sélectionner une classe",
+        "subjectSelectLabel": "Matière",
+        "subjectPlaceholder": "Sélectionner une matière",
+        "durationLabel": "Durée (minutes)",
+        "attemptsLabel": "Tentatives max",
+        "publishImmediatelyLabel": "Publier immédiatement",
+        "publishImmediatelyDesc": "Les élèves pourront voir et répondre au quiz",
+        "questionsTitle": "Questions ({count})",
+        "addQuestionBtn": "Ajouter une question",
+        "questionLabel": "Énoncé de la question *",
+        "questionPlaceholder": "Tapez votre question ici...",
+        "optionsLabel": "Options de réponse *",
+        "optionsDesc": "Cliquez sur le cercle pour marquer la bonne réponse",
+        "optionPlaceholder": "Option {num}",
+        "loading": "Chargement..."
+      }
     },
     "homework": {
       "title": "Devoirs",
@@ -2585,10 +2733,10 @@
     },
     "schedule": {
       "title": "Emploi du temps",
-      "noClasses": "Aucun cours prévu pour ce jour",
-      "inProgress": "En Cours",
+      "noClasses": "Pas de cours pour ce jour",
+      "inProgress": "En cours",
       "takeAttendance": "Faire l'appel",
-      "upcoming": "À VENIR",
+      "upcoming": "À venir",
       "completed": "Terminé"
     },
     "settings": {
@@ -2616,12 +2764,85 @@
       "saveSuccess": "Vos modifications ont été enregistrées avec succès !",
       "loadError": "Impossible de charger vos informations.",
       "loadingText": "Chargement de vos paramètres..."
+    },
+    "spaceTitle": "Espace Enseignant",
+    "remarks": {
+      "title": "Remarques",
+      "selectClass": "1. Sélectionner une classe",
+      "selectStudent": "2. Sélectionner un élève",
+      "searchPlaceholder": "Rechercher un élève...",
+      "noStudentsFound": "Aucun élève trouvé",
+      "remarkType": "3. Type de remarque",
+      "category": "4. Catégorie",
+      "subject": "5. Matière",
+      "optional": "(optionnel)",
+      "noSubjectLinked": "Aucune matière liée",
+      "noSubject": "Aucune matière",
+      "messageLabel": "Message",
+      "messagePlaceholder": "Écrivez votre remarque...",
+      "send": "Envoyer",
+      "recentRemarks": "Remarques récentes",
+      "all": "Tout",
+      "filterBySubject": "Filtrer par matière",
+      "allSubjects": "Toutes les matières",
+      "noRecentRemarks": "Aucune remarque récente",
+      "fillAllFields": "Veuillez remplir tous les champs",
+      "sendError": "Erreur lors de l'envoi de la remarque",
+      "sendSuccess": "Remarque envoyée avec succès!",
+      "timeAgoMins": "Il y a {mins} min",
+      "timeAgoHours": "Il y a {hours}h",
+      "yesterday": "Hier",
+      "categories": {
+        "comportement": "Comportement",
+        "scolaire": "Scolaire",
+        "assiduite": "Assiduité",
+        "participation": "Participation",
+        "devoirs": "Devoirs",
+        "general": "Général"
+      },
+      "types": {
+        "positive": "Encouragement",
+        "warning": "Avertissement",
+        "participation": "Participation",
+        "improvement": "Amélioration",
+        "concern": "Préoccupation"
+      }
+    },
+    "resources": {
+      "title": "Devoirs & Ressources",
+      "searchPlaceholder": "Rechercher...",
+      "tabHomework": "Devoirs ({count})",
+      "tabDrafts": "Brouillons ({count})",
+      "tabResources": "Ressources",
+      "noHomework": "Aucun devoir publié",
+      "createFirstHomework": "Créez votre premier devoir",
+      "submissionsCount": "{count} rendu(s)",
+      "points": "/{count} pts",
+      "noDrafts": "Aucun brouillon",
+      "draft": "Brouillon",
+      "publishBtn": "Publier",
+      "publishFileBtn": "Publier un fichier",
+      "noResources": "Aucune ressource publiée",
+      "noResourcesDesc": "Partagez vos cours, exercices et examens",
+      "dueDateLate": "En retard",
+      "dueDateToday": "Aujourd'hui",
+      "dueDateTomorrow": "Demain",
+      "dueDateDays": "Dans {count} jours",
+      "types": {
+        "course": "Cours",
+        "exercise": "Exercice",
+        "exam": "Examen",
+        "devoirs": "Devoirs",
+        "correction": "Correction",
+        "resource": "Ressource",
+        "general": "Général"
+      }
     }
   },
   "student": {
     "sidebar": {
       "dashboard": "Tableau de bord",
-      "courses": "Mes Cours",
+      "courses": "Cours",
       "grades": "Notes",
       "schedule": "Emploi du temps",
       "homework": "Devoirs",
@@ -2639,26 +2860,77 @@
       "myProgress": "Ma Progression"
     },
     "courses": {
-      "title": "Mes Cours",
+      "title": "Bibliothèque de cours",
       "subtitle": "Accédez à vos cours et ressources",
-      "noCourses": "Aucun cours trouvé"
+      "noCourses": "Aucun cours trouvé",
+      "searchPlaceholder": "Rechercher une matière ou un fichier...",
+      "subjects": "Matières",
+      "subject": "Matière",
+      "noSubjects": "Aucune matière trouvée",
+      "recentDocuments": "Documents récents",
+      "file": "fichier",
+      "files": "fichiers",
+      "noDocuments": "Aucun document disponible",
+      "course": "Cours",
+      "exercise": "Exercice",
+      "exam": "Examen",
+      "devoirs": "Devoirs",
+      "correction": "Correction",
+      "resource": "Ressource",
+      "general": "Général"
     },
     "grades": {
       "title": "Mes Notes",
-      "subtitle": "Suivi de vos résultats scolaires",
+      "subtitle": "QALAMI MAURITANIE",
       "average": "Moyenne générale",
-      "rank": "Classement",
+      "rank": "Rang:",
       "semester": "Semestre",
-      "trimester": "Trimestre"
+      "trimester": "Trimestre",
+      "unknownSubject": "Matière inconnue",
+      "t1": "1er Trimestre",
+      "t2": "2ème Trimestre",
+      "t3": "3ème Trimestre",
+      "overallAverage": "MOYENNE GÉNÉRALE",
+      "outOf": "sur",
+      "mentionLabel": "Mention:",
+      "viewReport": "Consulter le Bulletin",
+      "gradesCount": "{count} notes enregistrées",
+      "updatedAt": "MàJ:",
+      "subjectsAndAverages": "Matières & Moyennes",
+      "noGrades": "Aucune note enregistrée pour ce trimestre",
+      "coeff": "COEFF",
+      "notes": "NOTES",
+      "coeffShort": "Coeff x",
+      "updated": "Mis à jour:",
+      "veryGood": "Très Bien",
+      "good": "Bien",
+      "satisfactory": "Assez Bien",
+      "passing": "Passable",
+      "insufficient": "Insuffisant"
     },
     "homework": {
-      "title": "Mes Devoirs",
+      "title": "Devoirs et Travaux",
       "subtitle": "Devoirs à rendre",
       "pending": "À faire",
       "completed": "Terminé",
       "overdue": "En retard",
       "submitHomework": "Rendre le devoir",
-      "dueDate": "À rendre le"
+      "dueDate": "Échéance:",
+      "searchPlaceholder": "Rechercher un devoir...",
+      "noHomework": "Aucun devoir à faire",
+      "urgent": "Urgent",
+      "todayTomorrow": "Aujourd'hui / Demain",
+      "subject": "Matière",
+      "submit": "Déposer",
+      "laterCompleted": "Plus tard / Complétés",
+      "allHomework": "Tous les devoirs",
+      "graded": "Évalué",
+      "note": "NOTE",
+      "viewCorrection": "Voir correction",
+      "submitted": "Déposé",
+      "noLimit": "Pas de date limite",
+      "todayAt": "Aujourd'hui, {time}",
+      "tomorrowAt": "Demain, {time}"
     },
     "quizzes": {
       "title": "Quiz",
@@ -2680,21 +2952,21 @@
       "subtitle": "Dernières annonces de l'école"
     },
     "schedule": {
-      "noClasses": "Aucun cours prévu pour ce jour",
-      "inProgress": "En Cours",
+      "noClasses": "Pas de cours pour ce jour",
+      "inProgress": "En cours",
       "upcoming": "À venir",
       "completed": "Terminé"
     },
     "home": {
       "welcome": "Bienvenue",
-      "quote": "\"Le savoir est une lumière qui ne s'éteint jamais.\"",
-      "now": "Maintenant",
-      "timeRemaining": "TEMPS RESTANT",
+      "quote": "Apprendre, c'est grandir chaque jour.",
+      "now": "En ce moment",
+      "timeRemaining": "Temps restant",
       "noCurrentClass": "Pas de cours en ce moment",
       "medals": "Médailles",
       "upNext": "Suite du programme",
-      "viewAll": "Tout voir",
-      "noMoreClasses": "Aucun cours prévu pour le reste de la journée"
+      "viewAll": "Voir tout",
+      "noMoreClasses": "Pas d'autres cours aujourd'hui"
     }
   },
   "parent": {
@@ -2839,131 +3111,20 @@
       "about": "À propos"
     }
   },
-  "student": {
-    "sidebar": {
-      "dashboard": "Tableau de bord",
-      "schedule": "Emploi du temps",
-      "courses": "Cours",
-      "homework": "Devoirs",
-      "quizzes": "Quiz",
-      "grades": "Notes"
-    },
-    "home": {
-      "welcome": "Bienvenue",
-      "quote": "Apprendre, c'est grandir chaque jour.",
-      "now": "En ce moment",
-      "timeRemaining": "Temps restant",
-      "noCurrentClass": "Pas de cours en ce moment",
-      "medals": "Médailles",
-      "upNext": "Suite du programme",
-      "viewAll": "Voir tout",
-      "noMoreClasses": "Pas d'autres cours aujourd'hui"
-    },
-    "schedule": {
-      "noClasses": "Pas de cours pour ce jour",
-      "inProgress": "En cours",
-      "upcoming": "À venir",
-      "completed": "Terminé"
-    },
-    "homework": {
-      "title": "Devoirs et Travaux",
-      "searchPlaceholder": "Rechercher un devoir...",
-      "noHomework": "Aucun devoir à faire",
-      "urgent": "Urgent",
-      "todayTomorrow": "Aujourd'hui / Demain",
-      "subject": "Matière",
-      "submit": "Déposer",
-      "dueDate": "Échéance:",
-      "laterCompleted": "Plus tard / Complétés",
-      "allHomework": "Tous les devoirs",
-      "graded": "Évalué",
-      "note": "NOTE",
-      "viewCorrection": "Voir correction",
-      "submitted": "Déposé",
-      "noLimit": "Pas de date limite",
-      "overdue": "En retard",
-      "todayAt": "Aujourd'hui, {time}",
-      "tomorrowAt": "Demain, {time}"
-    },
-    "courses": {
-      "title": "Bibliothèque de cours",
-      "searchPlaceholder": "Rechercher une matière ou un fichier...",
-      "subjects": "Matières",
-      "subject": "Matière",
-      "noSubjects": "Aucune matière trouvée",
-      "recentDocuments": "Documents récents",
-      "file": "fichier",
-      "files": "fichiers",
-      "noDocuments": "Aucun document disponible",
-      "course": "Cours",
-      "exercise": "Exercice",
-      "exam": "Examen",
-      "devoirs": "Devoirs",
-      "correction": "Correction",
-      "resource": "Ressource",
-      "general": "Général"
-    },
-    "grades": {
-      "title": "Mes Notes",
-      "subtitle": "QALAMI MAURITANIE",
-      "unknownSubject": "Matière inconnue",
-      "t1": "1er Trimestre",
-      "t2": "2ème Trimestre",
-      "t3": "3ème Trimestre",
-      "overallAverage": "MOYENNE GÉNÉRALE",
-      "rank": "Rang:",
-      "outOf": "sur",
-      "mentionLabel": "Mention:",
-      "viewReport": "Consulter le Bulletin",
-      "gradesCount": "{count} notes enregistrées",
-      "updatedAt": "MàJ:",
-      "subjectsAndAverages": "Matières & Moyennes",
-      "noGrades": "Aucune note enregistrée pour ce trimestre",
-      "coeff": "COEFF",
-      "notes": "NOTES",
-      "coeffShort": "Coeff x",
-      "updated": "Mis à jour:",
-      "veryGood": "Très Bien",
-      "good": "Bien",
-      "satisfactory": "Assez Bien",
-      "passing": "Passable",
-      "insufficient": "Insuffisant"
-    }
-  },
   "superAdmin": {
     "sidebar": {
       "dashboard": "Tableau de bord",
       "schools": "Écoles",
       "createSchool": "Créer une école",
-      "settings": "Paramètres"
-    },
-    "dashboard": {
-      "title": "Super Administration",
-      "subtitle": "Gestion globale des établissements",
-      "totalSchools": "Total écoles",
-      "totalStudents": "Total élèves",
-      "totalTeachers": "Total enseignants"
-    },
-    "schools": {
-      "title": "Gestion des Écoles",
-      "subtitle": "Liste de tous les établissements",
-      "createSchool": "Créer une école",
-      "schoolName": "Nom de l'école",
-      "region": "Région",
-      "status": "Statut",
-      "viewSchool": "Voir l'école",
-      "manageSchool": "Gérer l'école"
-    }
-  },
-  "superAdmin": {
-    "sidebar": {
-      "dashboard": "Tableau de bord",
-      "schools": "Écoles",
+      "settings": "Paramètres",
       "users": "Utilisateurs"
     },
     "dashboard": {
       "title": "Tableau de bord",
       "subtitle": "Vue globale de la plateforme Qalami",
+      "totalSchools": "Total écoles",
+      "totalStudents": "Total élèves",
+      "totalTeachers": "Total enseignants",
       "schools": "Écoles",
       "active": "actives",
       "students": "Élèves",
@@ -2975,6 +3136,40 @@
       "createdAt": "Créée le {date}",
       "activeLabel": "Active",
       "inactiveLabel": "Inactive"
+    },
+    "schools": {
+      "title": "Gestion des Écoles",
+      "subtitle": "Liste de tous les établissements",
+      "createSchool": "Créer une école",
+      "schoolName": "Nom de l'école",
+      "region": "Région",
+      "status": "Statut",
+      "viewSchool": "Voir l'école",
+      "manageSchool": "Gérer l'école",
+      "new": {
+        "title": "Nouvelle école",
+        "subtitle": "Créer une nouvelle école sur la plateforme",
+        "generalInfo": "Informations générales",
+        "schoolName": "Nom de l'école *",
+        "schoolNamePlaceholder": "Ex: École Al-Nour",
+        "slug": "Slug (URL) *",
+        "slugPlaceholder": "ex: al-nour",
+        "email": "Email",
+        "emailPlaceholder": "contact@ecole.mr",
+        "phone": "Téléphone",
+        "phonePlaceholder": "+222 XX XX XX XX",
+        "address": "Adresse",
+        "addressPlaceholder": "Nouakchott, Mauritanie",
+        "subscription": "Abonnement",
+        "plan": "Plan",
+        "limitStudents": "Limite d'élèves",
+        "cancel": "Annuler",
+        "create": "Créer l'école",
+        "creating": "Création...",
+        "fillRequired": "Veuillez remplir les champs obligatoires",
+        "createSuccess": "École créée avec succès!",
+        "createError": "Erreur lors de la création"
+      }
     },
     "schoolsList": {
       "title": "Écoles",
@@ -3000,32 +3195,6 @@
       "deleteConfirmSlug": "Pour confirmer, veuillez saisir le slug {slug} :",
       "deletePlaceholder": "Saisissez le slug ici",
       "deleteBtn": "Supprimer définitivement"
-    },
-    "schools": {
-      "new": {
-        "title": "Nouvelle école",
-        "subtitle": "Créer une nouvelle école sur la plateforme",
-        "generalInfo": "Informations générales",
-        "schoolName": "Nom de l'école *",
-        "schoolNamePlaceholder": "Ex: École Al-Nour",
-        "slug": "Slug (URL) *",
-        "slugPlaceholder": "ex: al-nour",
-        "email": "Email",
-        "emailPlaceholder": "contact@ecole.mr",
-        "phone": "Téléphone",
-        "phonePlaceholder": "+222 XX XX XX XX",
-        "address": "Adresse",
-        "addressPlaceholder": "Nouakchott, Mauritanie",
-        "subscription": "Abonnement",
-        "plan": "Plan",
-        "limitStudents": "Limite d'élèves",
-        "cancel": "Annuler",
-        "create": "Créer l'école",
-        "creating": "Création...",
-        "fillRequired": "Veuillez remplir les champs obligatoires",
-        "createSuccess": "École créée avec succès!",
-        "createError": "Erreur lors de la création"
-      }
     },
     "usersList": {
       "title": "Utilisateurs",
@@ -3153,301 +3322,6 @@
       "parentLabel": "Parent",
       "parentDesc": "Suivi des enfants, paiements, communication...",
       "footerInfo": "Les interfaces s'ouvriront dans un nouvel onglet. Fermez l'onglet pour revenir ici."
-    }
-  },
-  "teacher": {
-    "spaceTitle": "Espace Enseignant",
-    "sidebar": {
-      "dashboard": "Tableau de bord",
-      "myClasses": "Mes classes",
-      "quizzes": "Évaluations",
-      "schedule": "Emploi du temps",
-      "attendance": "Remarques",
-      "documents": "Documents",
-      "community": "Communauté",
-      "settings": "Paramètres"
-    },
-    "home": {
-      "greetingMorning": "Bonjour",
-      "greetingAfternoon": "Bon après-midi",
-      "greetingEvening": "Bonsoir",
-      "greetingNight": "Bonne nuit",
-      "greetinhDay": "Bonjour",
-      "welcome": "Bonjour, {name}",
-      "remainingClasses": "Cours restants",
-      "attendanceToDo": "Appels à faire",
-      "classesCount": "Classes",
-      "nextClass": "Prochain Cours",
-      "viewAll": "Voir tout",
-      "noClassToday": "Aucun cours prévu aujourd'hui",
-      "takeAttendance": "Faire l'appel",
-      "hoursAbbr": "Hr",
-      "minsAbbr": "Min",
-      "remainingTimeLabel": "RESTANT",
-      "beforeTimeLabel": "AVANT",
-      "classEnded": "Cours terminé",
-      "quickActions": "Actions Rapides",
-      "actionTakeAttendance": "Prendre l'appel",
-      "actionAddRemark": "Faire une remarque",
-      "actionAddGrade": "Ajouter une note",
-      "actionQuizzes": "Quiz",
-      "upcoming": "À venir",
-      "inProgress": "En cours"
-    },
-    "classes": {
-      "title": "Mes Classes",
-      "noClasses": "Aucune classe assignée pour le moment.",
-      "studentsCount": "{count} Élève{plural}",
-      "viewClass": "Voir la classe",
-      "portal": "PORTAIL ENSEIGNANT",
-      "assignedTotal": "{count} classes assignées au total",
-      "assignedTotalOne": "1 classe assignée au total",
-      "assigned": "{count} classes assignées",
-      "assignedOne": "1 classe assignée",
-      "details": {
-        "days": {
-          "0": "Dimanche",
-          "1": "Lundi",
-          "2": "Mardi",
-          "3": "Mercredi",
-          "4": "Jeudi",
-          "5": "Vendredi",
-          "6": "Samedi"
-        },
-        "devoir": "Devoir",
-        "examen": "Examen",
-        "notes": "Notes",
-        "stats": "Stats",
-        "searchPlaceholder": "Rechercher un élève...",
-        "average": "Moyenne",
-        "allTypes": "Tous les types",
-        "newGrade": "Nouvelle Note",
-        "activePeriod": "Période Active",
-        "classAverage": "Moyenne de classe",
-        "notesCount": "{count} notes",
-        "studentsCount": "{count} élèves",
-        "gradeEntry": "Saisie des notes",
-        "subject": "Matière",
-        "grade": "Note",
-        "bonus": "Bonus",
-        "editOrDeleteGrade": "Modifier ou Supprimer la note",
-        "noGrades": "Aucune note",
-        "averageClass": "Moyenne",
-        "attendanceRate": "Taux de présence",
-        "presentCount": "Présents",
-        "lateCount": "Retards",
-        "absentCount": "Absents",
-        "gradeDistribution": "Répartition des notes",
-        "gradeExcellent": "Excellent (16+)",
-        "gradeGood": "Bien (12-16)",
-        "gradeAverage": "Passable (10-12)",
-        "gradeInsufficient": "Insuffisant (<10)",
-        "dailyAttendance": "Appel du jour",
-        "validate": "Valider",
-        "noSchedule": "Aucun cours programmé pour cette classe",
-        "room": "Salle {room}",
-        "minutes": "{count}min",
-        "saveError": "Erreur lors de l'enregistrement",
-        "attendanceSaved": "Présences enregistrées pour {count} élèves",
-        "maxGradeError": "Attention : La note totale de {name} ne peut pas dépasser 20/20 (Actuellement : {val})",
-        "selectSubjectError": "Veuillez sélectionner une matière",
-        "examDuplicatePolicyError": "Politique scolaire : L'examen a déjà été saisi pour ce trimestre dans cette matière pour : {names}",
-        "emptyGradesError": "Veuillez saisir au moins une note",
-        "gradesSavedSuccess": "{count} notes enregistrées",
-        "invalidGradeRangeError": "La note doit être un nombre valide compris entre 0 et 20",
-        "editError": "Erreur lors de la modification",
-        "gradeUpdatedSuccess": "Note modifiée avec succès",
-        "techEditError": "Erreur technique lors de la modification",
-        "confirmDeleteGrade": "Voulez-vous vraiment supprimer cette note ? Cette action est irréversible.",
-        "deleteError": "Erreur lors de la suppression",
-        "gradeDeletedSuccess": "Note supprimée définitivement",
-        "techDeleteError": "Erreur technique lors de la suppression"
-      }
-    },
-    "schedule": {
-      "noClasses": "Pas de cours pour ce jour",
-      "inProgress": "En cours",
-      "takeAttendance": "Faire l'appel",
-      "upcoming": "À venir",
-      "completed": "Terminé"
-    },
-    "remarks": {
-      "title": "Remarques",
-      "selectClass": "1. Sélectionner une classe",
-      "selectStudent": "2. Sélectionner un élève",
-      "searchPlaceholder": "Rechercher un élève...",
-      "noStudentsFound": "Aucun élève trouvé",
-      "remarkType": "3. Type de remarque",
-      "category": "4. Catégorie",
-      "subject": "5. Matière",
-      "optional": "(optionnel)",
-      "noSubjectLinked": "Aucune matière liée",
-      "noSubject": "Aucune matière",
-      "messageLabel": "Message",
-      "messagePlaceholder": "Écrivez votre remarque...",
-      "send": "Envoyer",
-      "recentRemarks": "Remarques récentes",
-      "all": "Tout",
-      "filterBySubject": "Filtrer par matière",
-      "allSubjects": "Toutes les matières",
-      "noRecentRemarks": "Aucune remarque récente",
-      "fillAllFields": "Veuillez remplir tous les champs",
-      "sendError": "Erreur lors de l'envoi de la remarque",
-      "sendSuccess": "Remarque envoyée avec succès!",
-      "timeAgoMins": "Il y a {mins} min",
-      "timeAgoHours": "Il y a {hours}h",
-      "yesterday": "Hier",
-      "categories": {
-        "comportement": "Comportement",
-        "scolaire": "Scolaire",
-        "assiduite": "Assiduité",
-        "participation": "Participation",
-        "devoirs": "Devoirs",
-        "general": "Général"
-      },
-      "types": {
-        "positive": "Encouragement",
-        "warning": "Avertissement",
-        "participation": "Participation",
-        "improvement": "Amélioration",
-        "concern": "Préoccupation"
-      }
-    },
-    "documents": {
-      "title": "Mes Documents",
-      "subtitle": "Documents partagés avec vos classes",
-      "addDocument": "Ajouter un document",
-      "all": "Tous",
-      "course": "Cours",
-      "exercise": "Exercice",
-      "exam": "Examen",
-      "devoirs": "Devoirs",
-      "correction": "Correction",
-      "resource": "Ressource",
-      "general": "Général",
-      "noDocuments": "Aucun document partagé pour l'instant",
-      "noDocumentsDesc": "Cliquez sur « Ajouter un document » pour partager un cours, exercice ou fichier avec vos classes.",
-      "forClass": "Classe",
-      "searchPlaceholder": "Rechercher un document…"
-    },
-    "quizzes": {
-      "title": "Mes Quiz",
-      "subtitle": "{count} quiz créé{plural}",
-      "createBtn": "Créer un Quiz",
-      "noQuizzes": "Aucun quiz créé",
-      "noQuizzesDesc": "Créez votre premier quiz pour vos élèves !",
-      "published": "Publié",
-      "draft": "Brouillon",
-      "general": "Général",
-      "unassigned": "Non assigné",
-      "preview": "Prévisualiser",
-      "viewResults": "Voir les résultats",
-      "modify": "Modifier",
-      "publish": "Publier",
-      "unpublish": "Dépublier",
-      "delete": "Supprimer",
-      "noDescription": "Pas de description",
-      "questionsCount": "{count} questions",
-      "minsCount": "{count} min",
-      "submissionsCount": "{count} réponses",
-      "classLabel": "Classe: {name}",
-      "errorLoading": "Erreur lors du chargement des quiz",
-      "publishSuccess": "Quiz publié",
-      "unpublishSuccess": "Quiz dépublié",
-      "updateError": "Erreur lors de la mise à jour",
-      "deleteConfirm": "Êtes-vous sûr de vouloir supprimer ce quiz ?",
-      "deleteError": "Erreur lors de la suppression",
-      "deleteSuccess": "Quiz supprimé",
-      "builder": {
-        "editTitle": "Modifier le Quiz",
-        "createTitle": "Créer un Quiz",
-        "saving": "Enregistrement...",
-        "save": "Enregistrer",
-        "notFound": "Quiz non trouvé",
-        "minQuestionsError": "Un quiz doit avoir au moins une question",
-        "titleRequired": "Le titre est requis",
-        "classRequired": "Veuillez sélectionner une classe",
-        "completeQuestionError": "Ajoutez au moins une question complète",
-        "saveError": "Erreur lors de la sauvegarde",
-        "saveSuccess": "Quiz sauvegardé avec succès !",
-        "settingsTitle": "Paramètres du Quiz",
-        "quizTitleLabel": "Titre *",
-        "quizTitlePlaceholder": "Ex: Quiz de révision - Chapitre 3",
-        "descriptionLabel": "Description",
-        "descriptionPlaceholder": "Description optionnelle du quiz...",
-        "classSelectLabel": "Classe *",
-        "classPlaceholder": "Sélectionner une classe",
-        "subjectSelectLabel": "Matière",
-        "subjectPlaceholder": "Sélectionner une matière",
-        "durationLabel": "Durée (minutes)",
-        "attemptsLabel": "Tentatives max",
-        "publishImmediatelyLabel": "Publier immédiatement",
-        "publishImmediatelyDesc": "Les élèves pourront voir et répondre au quiz",
-        "questionsTitle": "Questions ({count})",
-        "addQuestionBtn": "Ajouter une question",
-        "questionLabel": "Énoncé de la question *",
-        "questionPlaceholder": "Tapez votre question ici...",
-        "optionsLabel": "Options de réponse *",
-        "optionsDesc": "Cliquez sur le cercle pour marquer la bonne réponse",
-        "optionPlaceholder": "Option {num}",
-        "loading": "Chargement..."
-      }
-    },
-    "resources": {
-      "title": "Devoirs & Ressources",
-      "searchPlaceholder": "Rechercher...",
-      "tabHomework": "Devoirs ({count})",
-      "tabDrafts": "Brouillons ({count})",
-      "tabResources": "Ressources",
-      "noHomework": "Aucun devoir publié",
-      "createFirstHomework": "Créez votre premier devoir",
-      "submissionsCount": "{count} rendu(s)",
-      "points": "/{count} pts",
-      "noDrafts": "Aucun brouillon",
-      "draft": "Brouillon",
-      "publishBtn": "Publier",
-      "publishFileBtn": "Publier un fichier",
-      "noResources": "Aucune ressource publiée",
-      "noResourcesDesc": "Partagez vos cours, exercices et examens",
-      "dueDateLate": "En retard",
-      "dueDateToday": "Aujourd'hui",
-      "dueDateTomorrow": "Demain",
-      "dueDateDays": "Dans {count} jours",
-      "types": {
-        "course": "Cours",
-        "exercise": "Exercice",
-        "exam": "Examen",
-        "devoirs": "Devoirs",
-        "correction": "Correction",
-        "resource": "Ressource",
-        "general": "Général"
-      }
-    },
-    "settings": {
-      "title": "Paramètres",
-      "subtitle": "Gérez les paramètres de votre compte et votre sécurité",
-      "personalInfo": "Informations Personnelles",
-      "security": "Sécurité du Compte",
-      "fullName": "Nom Complet",
-      "fullNamePlaceholder": "Votre nom et prénom",
-      "phone": "Numéro de téléphone (Identifiant)",
-      "phoneHint": "Ce numéro sert d'identifiant pour vous connecter.",
-      "changePhoto": "Changer la photo",
-      "avatarUploadSuccess": "Photo de profil chargée !",
-      "avatarSizeError": "L'image doit faire moins de 2 Mo.",
-      "avatarUploadError": "Erreur lors du téléchargement de l'image.",
-      "avatarFormatHint": "PNG, JPG jusqu'à 2 Mo",
-      "securityHint": "Laissez ces champs vides si vous ne souhaitez pas modifier votre mot de passe actuel.",
-      "newPassword": "Nouveau mot de passe",
-      "confirmPassword": "Confirmer le mot de passe",
-      "passwordsMismatch": "Les mots de passe ne correspondent pas",
-      "passwordMinLength": "Le mot de passe doit contenir au moins 6 caractères.",
-      "nameRequired": "Le nom complet est obligatoire.",
-      "saveChanges": "Enregistrer les modifications",
-      "saving": "Enregistrement...",
-      "saveSuccess": "Vos modifications ont été enregistrées avec succès !",
-      "loadError": "Impossible de charger vos informations.",
-      "loadingText": "Chargement de vos paramètres..."
     }
   },
   "splash": {

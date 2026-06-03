@@ -137,7 +137,7 @@ export async function getUnreadCount(): Promise<number> {
 /**
  * Format notification time
  */
-export function formatNotificationTime(dateStr: string): string {
+export function formatNotificationTime(dateStr: string, t?: any, language?: string): string {
     const date = new Date(dateStr)
     const now = new Date()
     const diffMs = now.getTime() - date.getTime()
@@ -145,10 +145,28 @@ export function formatNotificationTime(dateStr: string): string {
     const diffHours = diffMs / (1000 * 60 * 60)
     const diffDays = diffMs / (1000 * 60 * 60 * 24)
 
-    if (diffMins < 1) return 'À l\'instant'
-    if (diffMins < 60) return `Il y a ${Math.floor(diffMins)} min`
-    if (diffHours < 24) return `Il y a ${Math.floor(diffHours)}h`
-    if (diffDays < 2) return 'Hier'
-    if (diffDays < 7) return `Il y a ${Math.floor(diffDays)} jours`
-    return date.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })
+    const isAr = language === 'ar'
+
+    if (diffMins < 1) {
+        return isAr ? 'الآن' : 'À l\'instant'
+    }
+    if (diffMins < 60) {
+        return isAr 
+            ? `منذ ${Math.floor(diffMins)} دقيقة` 
+            : `Il y a ${Math.floor(diffMins)} min`
+    }
+    if (diffHours < 24) {
+        return isAr 
+            ? `منذ ${Math.floor(diffHours)} ساعة` 
+            : `Il y a ${Math.floor(diffHours)}h`
+    }
+    if (diffDays < 2) {
+        return isAr ? 'أمس' : 'Hier'
+    }
+    if (diffDays < 7) {
+        return isAr 
+            ? `منذ ${Math.floor(diffDays)} أيام` 
+            : `Il y a ${Math.floor(diffDays)} jours`
+    }
+    return date.toLocaleDateString(isAr ? 'ar-MR' : 'fr-FR', { day: 'numeric', month: 'short' })
 }

@@ -10,10 +10,173 @@ import { useRouter } from 'next/navigation'
 import { useLanguage } from '@/i18n'
 import { getAdminNotifications } from '@/app/admin/actions'
 
+function getLocalizedNotification(n: Notification, t: any, language: string) {
+    let title = n.title
+    let message = n.message
+
+    const docLabels: Record<string, string> = {
+        'Attestation de scolarité': t('adminRequests.attestation_scolarite') || 'Attestation de scolarité',
+        'Certificat de scolarité': t('adminRequests.certificat_scolarite') || 'Certificat de scolarité',
+        'Bulletin scolaire': t('adminRequests.bulletin') || 'Bulletin scolaire',
+        'Bulletin': t('adminRequests.bulletin') || 'Bulletin',
+        'Relevé de notes': t('adminRequests.releve_notes') || 'Relevé de notes',
+        'Convention de stage': t('adminRequests.convention_stage') || 'Convention de stage',
+        'Autre': t('adminRequests.autre') || 'Autre',
+    }
+
+    const translateDocLabel = (label: string) => {
+        return docLabels[label] || label
+    }
+
+    if (language === 'ar') {
+        // --- 1. Nouvelle demande ---
+        if (title.startsWith('Nouvelle demande : ')) {
+            const doc = title.replace('Nouvelle demande : ', '')
+            title = `طلب جديد : ${translateDocLabel(doc)}`
+        } else if (title === 'Nouvelle demande de document') {
+            title = 'طلب وثيقة جديدة'
+        }
+        
+        if (message.startsWith('Un parent demande : ')) {
+            const rest = message.replace('Un parent demande : ', '')
+            const parts = rest.split(' — ')
+            const doc = translateDocLabel(parts[0])
+            const notes = parts.slice(1).join(' — ')
+            message = `طلب ولي أمر : ${doc}${notes ? ` — ${notes}` : ''}`
+        } else {
+            // Check for pattern: {parentName} demande : {docName} (élève : {studentName})
+            const match = message.match(/(.*) demande : (.*) \(élève : (.*)\)/)
+            if (match) {
+                const parent = match[1]
+                const doc = translateDocLabel(match[2])
+                const student = match[3]
+                message = `${parent} يطلب : ${doc} (التلميذ : ${student})`
+            }
+        }
+
+        // --- 2. Document prêt ---
+        if (title.startsWith('Document prêt : ')) {
+            const doc = title.replace('Document prêt : ', '')
+            title = `الوثيقة جاهزة : ${translateDocLabel(doc)}`
+        }
+        if (message === 'Votre document est disponible. Vous pouvez le télécharger depuis votre espace.') {
+            message = 'وثيقتكم جاهزة. يمكنكم تحميلها من فضاءكم الخاص.'
+        }
+
+        // --- 3. Rappel de paiement (parent side) ---
+        if (title.startsWith('🔔 Rappel de Paiement : ')) {
+            const student = title.replace('🔔 Rappel de Paiement : ', '')
+            title = `🔔 تذكير بالدفع : ${student}`
+        }
+        if (message.includes('nous vous rappelons que') && message.includes('mensualité(s) en retard')) {
+            const match = message.match(/nous vous rappelons que (.*) a (\d+) mensualité\(s\) en retard pour un total de ([\d\s.,]+) MRU/)
+            if (match) {
+                const student = match[1]
+                const count = match[2]
+                const total = match[3]
+                message = `مرحباً، نذكركم بأن ${student} لديه ${count} قسط (أقساط) متأخرة بمجموع ${total} أوقية. يرجى التسوية في أقرب وقت ممكن.`
+            }
+        }
+
+        // --- 4. Rappel envoyé (admin confirmation side) ---
+        if (title.startsWith('✅ Rappel envoyé : ')) {
+            const student = title.replace('✅ Rappel envoyé : ', '')
+            title = `✅ تم إرسال التذكير : ${student}`
+        }
+        if (message.includes('mensualité(s) en retard') && message.includes('Rappel envoyé aux parents')) {
+            const match = message.match(/(\d+) mensualité\(s\) en retard — ([\d\s.,]+) MRU/)
+            if (match) {
+                const count = match[1]
+                const total = match[2]
+                message = `${count} قسط (أقساط) متأخرة — ${total} أوقية. تم إرسال التذكير لأولياء الأمور.`
+            }
+        }
+
+        // --- 5. Demande traitée / status updates (parent side) ---
+        if (title.startsWith('Demande prête à retirer : ')) {
+            const doc = title.replace('Demande prête à retirer : ', '')
+            title = `الطلب جاهز للاستلام : ${translateDocLabel(doc)}`
+        }
+        if (title.startsWith('Demande refusée : ')) {
+            const doc = title.replace('Demande refusée : ', '')
+            title = `تم رفض الطلب : ${translateDocLabel(doc)}`
+        }
+        if (title.startsWith('Demande en cours de traitement : ')) {
+            const doc = title.replace('Demande en cours de traitement : ', '')
+            title = `الطلب قيد المعالجة : ${translateDocLabel(doc)}`
+        }
+        if (title.startsWith('Demande mise à jour : ')) {
+            const doc = title.replace('Demande mise à jour : ', '')
+            title = `تم تحديث الطلب : ${translateDocLabel(doc)}`
+        }
+
+        if (message.startsWith('Votre demande de ') && message.includes('a été')) {
+            const rest = message.replace('Votre demande de ', '')
+            let statusAr = 'تحديثها'
+            if (rest.includes('prête à retirer')) statusAr = 'جاهزة للاستلام'
+            else if (rest.includes('refusée')) statusAr = 'مرفوضة'
+            else if (rest.includes('en cours de traitement')) statusAr = 'قيد المعالجة'
+            const docRaw = rest.split(' a été ')[0]
+            message = `طلبكم الخاص بـ ${translateDocLabel(docRaw)} أصبح ${statusAr}.`
+        }
+        if (message === "Annonce publiée pour l'école.") {
+            message = "تم نشر الإعلان للمدرسة."
+        }
+    } else {
+        if (title.startsWith('Nouvelle demande : ')) {
+            const doc = title.replace('Nouvelle demande : ', '')
+            title = `Nouvelle demande : ${translateDocLabel(doc)}`
+        }
+        if (message.startsWith('Un parent demande : ')) {
+            const rest = message.replace('Un parent demande : ', '')
+            const parts = rest.split(' — ')
+            const doc = translateDocLabel(parts[0])
+            const notes = parts.slice(1).join(' — ')
+            message = `Un parent demande : ${doc}${notes ? ` — ${notes}` : ''}`
+        } else {
+            const match = message.match(/(.*) demande : (.*) \(élève : (.*)\)/)
+            if (match) {
+                const parent = match[1]
+                const doc = translateDocLabel(match[2])
+                const student = match[3]
+                message = `${parent} demande : ${doc} (élève : ${student})`
+            }
+        }
+        if (title.startsWith('Document prêt : ')) {
+            const doc = title.replace('Document prêt : ', '')
+            title = `Document prêt : ${translateDocLabel(doc)}`
+        }
+        if (title.startsWith('Demande prête à retirer : ')) {
+            const doc = title.replace('Demande prête à retirer : ', '')
+            title = `Demande prête à retirer : ${translateDocLabel(doc)}`
+        }
+        if (title.startsWith('Demande refusée : ')) {
+            const doc = title.replace('Demande refusée : ', '')
+            title = `Demande refusée : ${translateDocLabel(doc)}`
+        }
+        if (title.startsWith('Demande en cours de traitement : ')) {
+            const doc = title.replace('Demande en cours de traitement : ', '')
+            title = `Demande en cours de traitement : ${translateDocLabel(doc)}`
+        }
+        if (title.startsWith('Demande mise à jour : ')) {
+            const doc = title.replace('Demande mise à jour : ', '')
+            title = `Demande mise à jour : ${translateDocLabel(doc)}`
+        }
+        if (message.startsWith('Votre demande de ') && message.includes('a été')) {
+            const rest = message.replace('Votre demande de ', '')
+            const parts = rest.split(' a été ')
+            const doc = translateDocLabel(parts[0])
+            message = `Votre demande de ${doc} a été ${parts[1]}`
+        }
+    }
+
+    return { title, message }
+}
+
 export function NotificationBell() {
     const supabase = createClient()
     const router = useRouter()
-    const { t } = useLanguage()
+    const { t, language } = useLanguage()
     const [isOpen, setIsOpen] = useState(false)
     const [notifications, setNotifications] = useState<Notification[]>([])
     const [loading, setLoading] = useState(true)
@@ -128,6 +291,10 @@ export function NotificationBell() {
                 } else if (userRole === 'student') {
                     url = '/student/announcements'
                 }
+            } else if (url.startsWith('/document-requests/')) {
+                if (['admin', 'super_admin', 'school_staff'].includes(userRole)) {
+                    url = '/admin/requests'
+                }
             }
             router.push(url)
             setIsOpen(false)
@@ -194,43 +361,46 @@ export function NotificationBell() {
                                 {t('common.noNotifications')}
                             </div>
                         ) : (
-                            notifications.map(notification => (
-                                <div
-                                    key={notification.id}
-                                    onClick={() => handleNotificationClick(notification)}
-                                    className={cn(
-                                        "p-4 border-b border-white/5 cursor-pointer transition-colors hover:bg-white/5",
-                                        !notification.is_read && "bg-cyan-500/5"
-                                    )}
-                                >
-                                    <div className="flex gap-3">
-                                        <div className={cn(
-                                            "h-8 w-8 rounded-lg flex items-center justify-center shrink-0",
-                                            notification.type === 'success' && "bg-emerald-500/10",
-                                            notification.type === 'warning' && "bg-amber-500/10",
-                                            notification.type === 'action' && "bg-blue-500/10",
-                                            notification.type === 'info' && "bg-cyan-500/10"
-                                        )}>
-                                            {getIcon(notification.type)}
-                                        </div>
-                                        <div className="flex-1 min-w-0">
-                                            <div className="flex items-center justify-between gap-2 mb-1">
-                                                <p className={cn(
-                                                    "font-semibold text-sm truncate",
-                                                    !notification.is_read && "text-white"
-                                                )}>{notification.title}</p>
-                                                {!notification.is_read && (
-                                                    <span className="h-2 w-2 rounded-full bg-cyan-500 shrink-0" />
-                                                )}
+                            notifications.map(notification => {
+                                const { title, message } = getLocalizedNotification(notification, t, language)
+                                return (
+                                    <div
+                                        key={notification.id}
+                                        onClick={() => handleNotificationClick(notification)}
+                                        className={cn(
+                                            "p-4 border-b border-white/5 cursor-pointer transition-colors hover:bg-white/5",
+                                            !notification.is_read && "bg-cyan-500/5"
+                                        )}
+                                    >
+                                        <div className="flex gap-3">
+                                            <div className={cn(
+                                                "h-8 w-8 rounded-lg flex items-center justify-center shrink-0",
+                                                notification.type === 'success' && "bg-emerald-500/10",
+                                                notification.type === 'warning' && "bg-amber-500/10",
+                                                notification.type === 'action' && "bg-blue-500/10",
+                                                notification.type === 'info' && "bg-cyan-500/10"
+                                            )}>
+                                                {getIcon(notification.type)}
                                             </div>
-                                            <p className="text-xs text-gray-400 line-clamp-2">{notification.message}</p>
-                                            <p className="text-[10px] text-gray-500 mt-1">
-                                                {formatNotificationTime(notification.created_at)}
-                                            </p>
+                                            <div className="flex-1 min-w-0">
+                                                <div className="flex items-center justify-between gap-2 mb-1">
+                                                    <p className={cn(
+                                                        "font-semibold text-sm truncate",
+                                                        !notification.is_read && "text-white"
+                                                    )}>{title}</p>
+                                                    {!notification.is_read && (
+                                                        <span className="h-2 w-2 rounded-full bg-cyan-500 shrink-0" />
+                                                    )}
+                                                </div>
+                                                <p className="text-xs text-gray-400 line-clamp-2">{message}</p>
+                                                <p className="text-[10px] text-gray-500 mt-1">
+                                                    {formatNotificationTime(notification.created_at, t, language)}
+                                                </p>
+                                            </div>
                                         </div>
                                     </div>
-                                </div>
-                            ))
+                                )
+                            })
                         )}
                     </div>
                 </div>

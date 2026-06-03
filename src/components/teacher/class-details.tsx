@@ -256,7 +256,25 @@ export function ClassDetails({ classId, className, students }: ClassDetailsProps
                 const res = await saveAttendanceAction(records)
 
                 if (res && !res.success) {
-                    toast.error(res.error || t('teacher.classes.details.saveError') || 'Erreur lors de l\'enregistrement', { duration: 6000 })
+                    let errMsg = (res as any).error || t('teacher.classes.details.saveError') || 'Erreur lors de l\'enregistrement'
+                    
+                    if ((res as any).errorType === 'no_schedule_for_day') {
+                        const params = (res as any).errorParams
+                        const dayTranslation = t(`teacher.classes.details.days.${params.dayOfWeek}`) || params.day
+                        errMsg = t('teacher.classes.details.noScheduleForDayError')
+                            ?.replace('{day}', dayTranslation)
+                            || `Action bloquée : Aucun cours n'est planifié pour vous le ${dayTranslation} dans cette classe. Veuillez configurer l'emploi du temps.`
+                    } else if ((res as any).errorType === 'out_of_schedule_hours') {
+                        const params = (res as any).errorParams
+                        const dayTranslation = t(`teacher.classes.details.days.${params.dayOfWeek}`) || params.day
+                        errMsg = t('teacher.classes.details.outOfScheduleHoursError')
+                            ?.replace('{hour}', params.hour)
+                            ?.replace('{day}', dayTranslation)
+                            ?.replace('{slots}', params.slots)
+                            || `Hors planning : Il est ${params.hour} (${dayTranslation}). Vos séances aujourd'hui sont prévues à : ${params.slots}. (Marge acceptée : 15 min avant / 30 min après).`
+                    }
+                    
+                    toast.error(errMsg, { duration: 6000 })
                     return
                 }
 

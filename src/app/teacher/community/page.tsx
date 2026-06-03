@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 import { createClient } from '@/utils/supabase/client'
 import { useTeacher } from '@/context/teacher-context'
+import { useLanguage } from '@/i18n'
 import { useReadNotifications } from '@/hooks/use-read-notifications'
 import { motion } from 'framer-motion'
 import { Megaphone, CalendarDays, Loader2, Pin, Clock, MapPin, ChevronRight, AlertTriangle, GraduationCap, Users, BookOpen, Globe } from 'lucide-react'
@@ -34,36 +35,12 @@ interface SchoolEvent {
 }
 interface ClassOption { id: string; name: string }
 
-const PRIORITIES = [
-    { value: 'normal',  label: 'Normale',  cls: 'bg-gray-500/20 text-gray-400 border-gray-500/30' },
-    { value: 'high',    label: 'Haute',    cls: 'bg-amber-500/20 text-amber-400 border-amber-500/30' },
-    { value: 'urgent',  label: 'Urgente',  cls: 'bg-red-500/20 text-red-400 border-red-500/30' },
-    { value: 'low',     label: 'Basse',    cls: 'bg-blue-500/20 text-blue-400 border-blue-500/30' },
-]
-const EVENT_TYPES = [
-    { value: 'meeting',   label: 'Réunion',    color: '#6366f1' },
-    { value: 'exam',      label: 'Examen',     color: '#f59e0b' },
-    { value: 'holiday',   label: 'Congé',      color: '#10b981' },
-    { value: 'activity',  label: 'Activité',   color: '#8b5cf6' },
-    { value: 'sport',     label: 'Sport',      color: '#3b82f6' },
-    { value: 'cultural',  label: 'Culturel',   color: '#ec4899' },
-    { value: 'other',     label: 'Autre',      color: '#6b7280' },
-]
-const ROLES = [
-    { value: 'eleves',       label: 'Élèves',      icon: GraduationCap },
-    { value: 'parents',      label: 'Parents',     icon: Users },
-    { value: 'enseignants',  label: 'Enseignants', icon: BookOpen },
-]
-
-const pInfo = (p: string) => PRIORITIES.find(x => x.value === p) ?? PRIORITIES[0]
-function typeInfo(t: string) { return EVENT_TYPES.find(e => e.value === t) ?? EVENT_TYPES[EVENT_TYPES.length - 1] }
-
-function relDate(d: string) {
+function relDate(d: string, t: any, language: string) {
     const diff = (Date.now() - new Date(d).getTime()) / 1000
-    if (diff < 60) return 'À l\'instant'
-    if (diff < 3600) return `Il y a ${Math.floor(diff / 60)}min`
-    if (diff < 86400) return `Il y a ${Math.floor(diff / 3600)}h`
-    return new Date(d).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })
+    if (diff < 60) return t('teacher.community.relDate.justNow') || 'À l\'instant'
+    if (diff < 3600) return (t('teacher.community.relDate.minutesAgo') || 'Il y a {mins}min').replace('{mins}', Math.floor(diff / 60).toString())
+    if (diff < 86400) return (t('teacher.community.relDate.hoursAgo') || 'Il y a {hours}h').replace('{hours}', Math.floor(diff / 3600).toString())
+    return new Date(d).toLocaleDateString(language === 'ar' ? 'ar-MR' : 'fr-FR', { day: 'numeric', month: 'short' })
 }
 
 function decodeAudience(raw: string[]) {
@@ -72,16 +49,17 @@ function decodeAudience(raw: string[]) {
     return { roles, classIds }
 }
 
-export function audienceSummary(raw: string[], classes: ClassOption[]) {
+export function audienceSummary(raw: string[], classes: ClassOption[], t: any) {
     const { roles, classIds } = decodeAudience(raw)
-    const rLabel = roles.includes('all') || roles.length === 0 ? 'Tous'
-        : roles.map(r => r === 'eleves' ? 'Élèves' : r === 'parents' ? 'Parents' : 'Enseignants').join(', ')
-    if (classIds.length === 0) return `${rLabel} · Toute l'école`
+    const rLabel = roles.includes('all') || roles.length === 0 ? (t('teacher.community.audience.all') || 'Tous')
+        : roles.map(r => r === 'eleves' ? (t('teacher.community.roles.students') || 'Élèves') : r === 'parents' ? (t('teacher.community.roles.parents') || 'Parents') : (t('teacher.community.roles.teachers') || 'Enseignants')).join(', ')
+    if (classIds.length === 0) return `${rLabel} · ${t('teacher.community.audience.wholeSchool') || "Toute l'école"}`
     const cNames = classIds.map(id => classes.find(c => c.id === id)?.name ?? id).join(', ')
     return `${rLabel} · ${cNames}`
 }
 
 export default function TeacherCommunityPage() {
+    const { t, language } = useLanguage()
     const { teacherId, schoolId, classes, loading: ctxLoading } = useTeacher()
     const { readIds } = useReadNotifications(teacherId)
     const supabase = createClient()
@@ -90,6 +68,25 @@ export default function TeacherCommunityPage() {
     const [allClasses, setAllClasses] = useState<ClassOption[]>([])
     const [loading, setLoading] = useState(true)
     const [activeTab, setActiveTab] = useState<'announcements' | 'events'>('announcements')
+
+    const PRIORITIES = [
+        { value: 'normal',  label: t('teacher.community.priorities.normal') || 'Normale',  cls: 'bg-gray-500/20 text-gray-400 border-gray-500/30' },
+        { value: 'high',    label: t('teacher.community.priorities.high') || 'Haute',    cls: 'bg-amber-500/20 text-amber-400 border-amber-500/30' },
+        { value: 'urgent',  label: t('teacher.community.priorities.urgent') || 'Urgente',  cls: 'bg-red-500/20 text-red-400 border-red-500/30' },
+        { value: 'low',     label: t('teacher.community.priorities.low') || 'Basse',    cls: 'bg-blue-500/20 text-blue-400 border-blue-500/30' },
+    ]
+    const EVENT_TYPES = [
+        { value: 'meeting',   label: t('teacher.community.eventTypes.meeting') || 'Réunion',    color: '#6366f1' },
+        { value: 'exam',      label: t('teacher.community.eventTypes.exam') || 'Examen',     color: '#f59e0b' },
+        { value: 'holiday',   label: t('teacher.community.eventTypes.holiday') || 'Congé',      color: '#10b981' },
+        { value: 'activity',  label: t('teacher.community.eventTypes.activity') || 'Activité',   color: '#8b5cf6' },
+        { value: 'sport',     label: t('teacher.community.eventTypes.sport') || 'Sport',      color: '#3b82f6' },
+        { value: 'cultural',  label: t('teacher.community.eventTypes.cultural') || 'Culturel',   color: '#ec4899' },
+        { value: 'other',     label: t('teacher.community.eventTypes.other') || 'Autre',      color: '#6b7280' },
+    ]
+
+    const pInfo = (p: string) => PRIORITIES.find(x => x.value === p) ?? PRIORITIES[0]
+    const typeInfo = (tVal: string) => EVENT_TYPES.find(e => e.value === tVal) ?? EVENT_TYPES[EVENT_TYPES.length - 1]
 
     useEffect(() => {
         async function fetchData() {
@@ -165,8 +162,8 @@ export default function TeacherCommunityPage() {
                     <Megaphone className="w-5 h-5 text-indigo-500" />
                 </div>
                 <div>
-                    <h1 className="text-2xl font-black tracking-tight">Communauté</h1>
-                    <p className="text-sm text-slate-500 font-medium">Restez informé des annonces et événements</p>
+                    <h1 className="text-2xl font-black tracking-tight">{t('teacher.community.title')}</h1>
+                    <p className="text-sm text-slate-500 font-medium">{t('teacher.community.subtitle')}</p>
                 </div>
             </motion.div>
 
@@ -177,14 +174,14 @@ export default function TeacherCommunityPage() {
                     className={cn('flex items-center gap-2 px-5 py-2 rounded-lg text-sm font-bold transition-all', activeTab === 'announcements' ? 'bg-white dark:bg-slate-800 text-indigo-600 dark:text-indigo-400 shadow-sm' : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300')}
                 >
                     <Megaphone className="w-4 h-4" />
-                    Annonces ({announcements.length})
+                    {t('teacher.community.announcements').replace('{count}', announcements.length.toString())}
                 </button>
                 <button
                     onClick={() => setActiveTab('events')}
                     className={cn('flex items-center gap-2 px-5 py-2 rounded-lg text-sm font-bold transition-all', activeTab === 'events' ? 'bg-white dark:bg-slate-800 text-indigo-600 dark:text-indigo-400 shadow-sm' : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300')}
                 >
                     <CalendarDays className="w-4 h-4" />
-                    Événements ({events.length})
+                    {t('teacher.community.events').replace('{count}', events.length.toString())}
                 </button>
             </div>
 
@@ -194,14 +191,14 @@ export default function TeacherCommunityPage() {
                     {announcements.length === 0 ? (
                         <div className="py-20 text-center bg-white dark:bg-slate-900/50 rounded-2xl border border-slate-150 dark:border-white/5">
                             <Megaphone className="w-10 h-10 mx-auto text-slate-300 dark:text-slate-600 mb-3" />
-                            <p className="font-bold text-slate-500">Aucune annonce pour le moment</p>
+                            <p className="font-bold text-slate-500">{t('teacher.community.noAnnouncements')}</p>
                         </div>
                     ) : (
                         announcements.map((ann) => {
                             const isUnread = !readIds.includes(ann.id)
                             const pi = pInfo(ann.priority)
                             const isExpired = ann.expires_at ? new Date(ann.expires_at) < new Date() : false
-                            const summary = audienceSummary(ann.target_audience || [], allClasses)
+                            const summary = audienceSummary(ann.target_audience || [], allClasses, t)
 
                             return (
                                 <Link key={ann.id} href={`/teacher/community/announcements/${ann.id}`} className="block">
@@ -213,19 +210,19 @@ export default function TeacherCommunityPage() {
                                                     {ann.title}
                                                 </h3>
                                                 <span className={cn('px-2 py-0.5 rounded-full text-[10px] font-bold border', pi.cls)}>{pi.label}</span>
-                                                {isExpired && <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-gray-500/20 text-gray-400 border border-gray-500/30">Expirée</span>}
+                                                {isExpired && <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-gray-500/20 text-gray-400 border border-gray-500/30">{t('teacher.community.expired')}</span>}
                                             </div>
                                         </div>
                                         <p className="text-slate-600 dark:text-slate-400 text-sm line-clamp-2">{ann.content}</p>
                                         <div className="flex flex-wrap items-center justify-between gap-3 mt-3">
                                             <div className="flex items-center gap-2">
-                                                <span className="text-[10px] text-slate-400">{relDate(ann.created_at)}</span>
+                                                <span className="text-[10px] text-slate-400">{relDate(ann.created_at, t, language)}</span>
                                                 <span className="text-[10px] bg-slate-100 dark:bg-slate-800 text-slate-500 px-2 py-0.5 rounded-full font-medium flex items-center gap-1">
                                                     <Globe className="w-3 h-3" /> {summary}
                                                 </span>
                                             </div>
                                             <div className="flex items-center gap-1 text-[11px] font-bold text-indigo-500 opacity-0 group-hover:opacity-100 transition-opacity">
-                                                Voir les détails <ChevronRight className="w-3 h-3" />
+                                                {t('teacher.community.viewDetails')} <ChevronRight className="w-3 h-3" />
                                             </div>
                                         </div>
                                     </motion.div>
@@ -241,32 +238,32 @@ export default function TeacherCommunityPage() {
                     {events.length === 0 ? (
                         <div className="py-20 text-center bg-white dark:bg-slate-900/50 rounded-2xl border border-slate-150 dark:border-white/5">
                             <CalendarDays className="w-10 h-10 mx-auto text-slate-300 dark:text-slate-600 mb-3" />
-                            <p className="font-bold text-slate-500">Aucun événement à venir</p>
+                            <p className="font-bold text-slate-500">{t('teacher.community.noEvents')}</p>
                         </div>
                     ) : (
                         events.map((ev) => {
                             const isPast = new Date(ev.start_date) < now
                             const isUnread = !readIds.includes(ev.id)
                             const ti = typeInfo(ev.event_type)
-                            const summary = audienceSummary(ev.visibility || [], allClasses)
+                            const summary = audienceSummary(ev.visibility || [], allClasses, t)
 
                             return (
                                 <Link key={ev.id} href={`/teacher/community/events/${ev.id}`} className="block">
                                     <motion.div variants={item} className={cn("relative bg-white dark:bg-slate-900/60 rounded-2xl border border-slate-150 dark:border-white/5 p-5 shadow-sm flex gap-4 hover:border-indigo-500/30 transition-all group", isPast && "opacity-60")}>
                                         {isUnread && <div className="absolute top-5 right-5 w-2 h-2 rounded-full bg-red-500" />}
                                         <div className="w-14 h-14 shrink-0 rounded-2xl flex flex-col items-center justify-center overflow-hidden border" style={{ backgroundColor: ti.color + '15', borderColor: ti.color + '30', color: ti.color }}>
-                                            <span className="text-[10px] font-black uppercase">{new Date(ev.start_date).toLocaleDateString('fr-FR', { month: 'short' })}</span>
+                                            <span className="text-[10px] font-black uppercase">{new Date(ev.start_date).toLocaleDateString(language === 'ar' ? 'ar-MR' : 'fr-FR', { month: 'short' })}</span>
                                             <span className="text-xl font-black leading-none">{new Date(ev.start_date).getDate()}</span>
                                         </div>
                                         <div className="flex-1 min-w-0 pr-4">
                                             <div className="flex items-center gap-2 flex-wrap mb-1">
                                                 <h3 className={cn("font-bold text-lg truncate", isUnread ? "text-slate-900 dark:text-white" : "text-slate-700 dark:text-slate-300")}>{ev.title}</h3>
                                                 <span className="px-2 py-0.5 rounded-full text-[10px] font-bold" style={{ backgroundColor: ti.color + '22', color: ti.color }}>{ti.label}</span>
-                                                {isPast && <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-slate-500/20 text-slate-500">Passé</span>}
+                                                {isPast && <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-slate-500/20 text-slate-500">{t('teacher.community.past')}</span>}
                                             </div>
                                             <div className="flex flex-wrap items-center gap-3 text-xs font-bold mt-1 text-slate-500 dark:text-slate-400">
                                                 <span className="flex items-center gap-1.5"><Clock className="w-3.5 h-3.5" /> 
-                                                    {ev.all_day ? 'Toute la journée' : new Date(ev.start_date).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}
+                                                    {ev.all_day ? t('teacher.community.allDay') : new Date(ev.start_date).toLocaleTimeString(language === 'ar' ? 'ar-MR' : 'fr-FR', { hour: '2-digit', minute: '2-digit' })}
                                                 </span>
                                                 {ev.location && <span className="flex items-center gap-1.5"><MapPin className="w-3.5 h-3.5" /> {ev.location}</span>}
                                             </div>
@@ -277,7 +274,7 @@ export default function TeacherCommunityPage() {
                                                     <Globe className="w-3 h-3" /> {summary}
                                                 </span>
                                                 <div className="flex items-center gap-1 text-[11px] font-bold text-indigo-500 opacity-0 group-hover:opacity-100 transition-opacity">
-                                                    Voir les détails <ChevronRight className="w-3 h-3" />
+                                                    {t('teacher.community.viewDetails')} <ChevronRight className="w-3 h-3" />
                                                 </div>
                                             </div>
                                         </div>
