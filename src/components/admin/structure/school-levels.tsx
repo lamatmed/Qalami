@@ -105,6 +105,7 @@ export function SchoolLevels() {
                 .from('enrollments')
                 .select('class_id')
                 .in('class_id', allClassIds)
+                .eq('status', 'active')
             ;(enrollments || []).forEach((e: any) => {
                 studentCounts.set(e.class_id, (studentCounts.get(e.class_id) || 0) + 1)
             })
