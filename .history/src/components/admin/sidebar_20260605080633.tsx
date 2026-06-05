@@ -365,7 +365,7 @@ export function AdminSidebar() {
     return (
         <aside className={cn(
             "hidden lg:flex flex-col h-screen sticky top-0 bg-background z-30 transition-all duration-300 ease-in-out relative select-none",
-            isCollapsed ? "w-20" : "w-60",
+            isCollapsed ? "w-60" : "w-60",
             direction === 'rtl' ? 'border-l border-border' : 'border-r border-border'
         )}>
             {/* Collapse Toggle floating knob */}
@@ -468,7 +468,7 @@ export function AdminSidebar() {
                                         </div>
                                         <button
                                             onClick={() => toggleGroup(group.id)}
-                                            className="flex-1 flex items-center justify-between py-1 pr-2 text-[12px] font-semibold text-muted-foreground/70 hover:text-foreground transition-colors uppercase tracking-wider"
+                                            className="flex-1 flex items-center justify-between py-1 pr-2 text-[11px] font-semibold text-muted-foreground/40 hover:text-muted-foreground transition-colors uppercase tracking-widest"
                                         >
                                             <span>{group.label}</span>
                                             <ChevronDown className={cn(
@@ -548,7 +548,7 @@ export function AdminSidebar() {
                             {!isCollapsed && (
                                 <button
                                     onClick={() => toggleGroup(systemGroup.id)}
-                                    className="w-full flex items-center justify-between px-2 mb-1 text-[12px] font-semibold text-muted-foreground/70 hover:text-foreground transition-colors uppercase tracking-wider animate-in fade-in duration-300"
+                                    className="w-full flex items-center justify-between px-2 mb-1 text-[11px] font-semibold text-muted-foreground/40 hover:text-muted-foreground transition-colors uppercase tracking-widest animate-in fade-in duration-300"
                                 >
                                     <span>{systemGroup.label}</span>
                                     <ChevronDown className={cn(
@@ -628,7 +628,7 @@ export function AdminSidebar() {
                 >
                     {/* Avatar */}
                     <div className="w-7 h-7 rounded-lg bg-white dark:bg-muted border border-border flex items-center justify-center shrink-0 overflow-hidden shadow-sm p-0.5">
-                        <img
+                        <img 
                             src={schoolLogo || '/web-app-manifest-192x192.png'} 
                             alt="Logo" 
                             className="w-full h-full object-contain" 

@@ -50,6 +50,7 @@ import { LanguageSwitcher } from '@/components/shared/language-switcher'
 import { ThemeToggle } from '@/components/shared/theme-toggle'
 import { getMySchoolContext, getAdminUnreadNotificationsCount } from '@/app/admin/actions'
 import { getPendingRequestsCount } from '@/app/admin/requests/actions'
+import Image from 'next/image'
 
 
 // ─── Types ───────────────────────────────────────────────────────────────────
@@ -628,7 +629,7 @@ export function AdminSidebar() {
                 >
                     {/* Avatar */}
                     <div className="w-7 h-7 rounded-lg bg-white dark:bg-muted border border-border flex items-center justify-center shrink-0 overflow-hidden shadow-sm p-0.5">
-                        <img
+                        <Image
                             src={schoolLogo || '/web-app-manifest-192x192.png'} 
                             alt="Logo" 
                             className="w-full h-full object-contain" 
