@@ -23,14 +23,16 @@ import { Clock, Loader2, BookOpen, FlaskConical, ClipboardList, RotateCcw, Dumbb
 import { cn } from '@/lib/utils'
 import { Switch } from '@/components/ui/switch'
 
-const SESSION_TYPES = [
-    { value: 'course',   label: 'Cours',    icon: BookOpen },
-    { value: 'exam',     label: 'Examen',   icon: ClipboardList },
-    { value: 'homework', label: 'Devoir',   icon: Zap },
-    { value: 'revision', label: 'Révision', icon: RotateCcw },
-    { value: 'lab',      label: 'TP',       icon: FlaskConical },
-    { value: 'activity', label: 'Activité', icon: Dumbbell },
-]
+const SESSION_TYPE_VALUES = ['course', 'exam', 'homework', 'revision', 'lab', 'activity'] as const
+const SESSION_TYPE_ICONS: Record<string, React.ElementType> = {
+    course:   BookOpen,
+    exam:     ClipboardList,
+    homework: Zap,
+    revision: RotateCcw,
+    lab:      FlaskConical,
+    activity: Dumbbell,
+}
+
 import { fetchTeachersForSchedule, fetchOccupiedTeachersForSlot, type ScheduleTeacherOption, type OccupiedTeacherInfo } from '@/app/admin/schedule/actions'
 import { useLanguage } from '@/i18n'
 import { createClient } from '@/utils/supabase/client'
@@ -78,11 +80,10 @@ export function AddCourseDialog({
     const [loading, setLoading] = useState(true)
     const [occupiedTeachers, setOccupiedTeachers] = useState<OccupiedTeacherInfo[]>([])
 
-    // Strict filter: show ONLY teachers who teach the selected subject (normalized to ignore accents/case)
     const selectedSubName = subjects.find(s => s.id === selectedSubject)?.name
     const filteredTeachers = selectedSubName
         ? allTeachers.filter(teacher => {
-            const normalize = (str: string) => str.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().trim()
+            const normalize = (str: string) => str.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase().trim()
             const targetSub = normalize(selectedSubName)
             return teacher.subjects.some(s => {
                 const tSub = normalize(s)
@@ -91,7 +92,6 @@ export function AddCourseDialog({
         })
         : []
 
-    // Calculate event date string to check precise conflicts in single-occurrence mode
     const yr = selectedSlot?.date.getFullYear()
     const mo = String((selectedSlot?.date.getMonth() ?? 0) + 1).padStart(2, '0')
     const da = String(selectedSlot?.date.getDate() ?? 0).padStart(2, '0')
@@ -103,18 +103,14 @@ export function AddCourseDialog({
         if (conflicts.length === 0) return null
 
         if (isRecurring) {
-            return conflicts[0] // In recurring mode, any future schedule counts as conflict
+            return conflicts[0]
         }
 
-        // In single-occurrence mode, it conflicts if:
-        // - the existing schedule is recurring
-        // - OR matches the exact date
         return conflicts.find(o => o.isRecurring || o.eventDate === eventDateStr) || null
     }
 
     const selectedTeacherConflict = selectedTeacher ? getTeacherConflict(selectedTeacher) : null
 
-    // Fetch subjects, teachers, and assignments from DB
     useEffect(() => {
         if (!isOpen) return
 
@@ -133,21 +129,18 @@ export function AddCourseDialog({
 
             if (!profile?.school_id) { setLoading(false); return }
 
-            // Fetch subjects for the school
             const { data: subjectsData } = await supabase
                 .from('subjects')
                 .select('id, name')
                 .eq('school_id', profile.school_id)
                 .order('name')
 
-            // Fetch assignments — exact same syntax as assignments page
             let assignmentsQuery = supabase
                 .from('teacher_assignments')
                 .select('teacher_id, subject_id, profiles:teacher_id(full_name)')
             if (classId) assignmentsQuery = assignmentsQuery.eq('class_id', classId)
-            const { data: assignmentsData, error: assignmentsError } = await assignmentsQuery
+            const { data: assignmentsData } = await assignmentsQuery
 
-            // Fetch all teachers of the school and check unavailability for this specific slot
             const [{ teachers: teachersList }, occupiedRes] = await Promise.all([
                 fetchTeachersForSchedule(),
                 selectedSlot ? fetchOccupiedTeachersForSlot({
@@ -167,7 +160,6 @@ export function AddCourseDialog({
         fetchData()
     }, [isOpen, classId, selectedSlot])
 
-    // Reset form when dialog opens
     useEffect(() => {
         if (isOpen) {
             setSelectedSubject('')
@@ -180,15 +172,15 @@ export function AddCourseDialog({
 
     const handleSave = async () => {
         if (!selectedSubject) {
-            toast.error('Veuillez sélectionner une matière')
+            toast.error(t('admin.schedule.selectSubjectRequired'))
             return
         }
         if (!selectedTeacher) {
-            toast.error('Veuillez sélectionner un enseignant')
+            toast.error(t('admin.schedule.selectTeacherRequired'))
             return
         }
         if (!classId) {
-            toast.error('Veuillez sélectionner une classe')
+            toast.error(t('admin.schedule.selectClassRequired'))
             return
         }
         if (!selectedSlot) return
@@ -212,7 +204,6 @@ export function AddCourseDialog({
             const startTime = `${String(startHour).padStart(2, '0')}:00:00`
             const endTime = `${String(startHour + 2).padStart(2, '0')}:00:00`
 
-            // Format Date safely as YYYY-MM-DD avoiding timezone shifts
             const yr = selectedSlot.date.getFullYear()
             const mo = String(selectedSlot.date.getMonth() + 1).padStart(2, '0')
             const da = String(selectedSlot.date.getDate()).padStart(2, '0')
@@ -234,12 +225,12 @@ export function AddCourseDialog({
 
             if (error) throw error
 
-            toast.success('Cours ajouté avec succès')
+            toast.success(t('admin.schedule.courseAdded'))
             onAdd()
             onClose()
         } catch (err: any) {
             console.error('Error adding course:', err)
-            toast.error(err.message || 'Erreur lors de l\'ajout')
+            toast.error(err.message || t('admin.schedule.addError'))
         }
 
         setSaving(false)
@@ -264,7 +255,7 @@ export function AddCourseDialog({
                         <Label className="text-muted-foreground text-xs uppercase font-bold">{t('common.subjects')}</Label>
                         {loading ? (
                             <div className="flex items-center gap-2 text-muted-foreground text-sm py-2">
-                                <Loader2 className="w-4 h-4 animate-spin" /> Chargement...
+                                <Loader2 className="w-4 h-4 animate-spin" /> {t('common.loading')}
                             </div>
                         ) : (
                             <Select value={selectedSubject} onValueChange={(val) => { setSelectedSubject(val); setSelectedTeacher('') }}>
@@ -284,7 +275,7 @@ export function AddCourseDialog({
                         </Label>
                         {loading ? (
                             <div className="flex items-center gap-2 text-muted-foreground text-sm py-2">
-                                <Loader2 className="w-4 h-4 animate-spin" /> Chargement...
+                                <Loader2 className="w-4 h-4 animate-spin" /> {t('common.loading')}
                             </div>
                         ) : (
                             <Select
@@ -293,11 +284,11 @@ export function AddCourseDialog({
                                 disabled={!selectedSubject}
                             >
                                 <SelectTrigger className="bg-muted border-border disabled:opacity-40">
-                                    <SelectValue placeholder={selectedSubject ? t('admin.schedule.selectTeacher') : 'Sélectionnez d\'abord une matière'} />
+                                    <SelectValue placeholder={selectedSubject ? t('admin.schedule.selectTeacher') : t('admin.schedule.selectSubjectFirst')} />
                                 </SelectTrigger>
                                 <SelectContent className="bg-card border-border">
                                     {filteredTeachers.length === 0 ? (
-                                        <div className="px-2 py-3 text-sm text-muted-foreground text-center">{t('admin.schedule.noTeachers') || 'Aucun enseignant disponible'}</div>
+                                        <div className="px-2 py-3 text-sm text-muted-foreground text-center">{t('admin.schedule.noTeachers')}</div>
                                     ) : (
                                         filteredTeachers.map(emp => {
                                             const conflict = getTeacherConflict(emp.id)
@@ -310,7 +301,7 @@ export function AddCourseDialog({
                                                             </span>
                                                             {conflict && (
                                                                 <span className="text-[9px] font-bold text-red-400 border border-red-500/30 px-1.5 py-0.2 bg-red-500/10 rounded uppercase tracking-wider">
-                                                                    Indisponible
+                                                                    {t('admin.schedule.unavailable')}
                                                                 </span>
                                                             )}
                                                             {!conflict && emp.phone && (
@@ -321,7 +312,9 @@ export function AddCourseDialog({
                                                         </div>
                                                         {conflict ? (
                                                             <span className="text-[10px] text-red-400/70 mt-0.5 font-semibold">
-                                                                Occupé: {conflict.schoolName} - {conflict.className}
+                                                                {t('admin.schedule.teacherBusy')
+                                                                    .replace('{schoolName}', conflict.schoolName)
+                                                                    .replace('{className}', conflict.className)}
                                                             </span>
                                                         ) : (
                                                             emp.subjects.length > 0 && (
@@ -344,7 +337,7 @@ export function AddCourseDialog({
                         <div className="flex items-start gap-2 text-xs text-red-400 bg-red-500/10 border border-red-500/20 rounded-lg p-2.5 animate-in fade-in slide-in-from-top-1">
                             <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" />
                             <div>
-                                <span className="font-semibold">Enseignant indisponible</span> : déjà programmé à{' '}
+                                <span className="font-semibold">{t('admin.schedule.teacherUnavailable')}</span>{' : '}
                                 <span className="font-semibold text-red-300">{selectedTeacherConflict.schoolName}</span>{' '}
                                 ({selectedTeacherConflict.className})
                             </div>
@@ -352,24 +345,24 @@ export function AddCourseDialog({
                     )}
 
                     <div className="grid gap-2">
-                        <Label className="text-muted-foreground text-xs uppercase font-bold">Type de séance</Label>
+                        <Label className="text-muted-foreground text-xs uppercase font-bold">{t('admin.schedule.sessionTypeLabel')}</Label>
                         <div className="grid grid-cols-3 gap-2">
-                            {SESSION_TYPES.map(st => {
-                                const Icon = st.icon
+                            {SESSION_TYPE_VALUES.map(value => {
+                                const Icon = SESSION_TYPE_ICONS[value]
                                 return (
                                     <button
-                                        key={st.value}
+                                        key={value}
                                         type="button"
-                                        onClick={() => setSessionType(st.value)}
+                                        onClick={() => setSessionType(value)}
                                         className={cn(
                                             "flex flex-col items-center gap-1 p-2 rounded-lg border text-xs font-bold transition-all",
-                                            sessionType === st.value
+                                            sessionType === value
                                                 ? "bg-primary/20 border-primary/50 text-primary"
                                                 : "bg-muted border-border text-muted-foreground hover:border-border/80"
                                         )}
                                     >
                                         <Icon className="w-4 h-4" />
-                                        {st.label}
+                                        {t(`admin.schedule.sessionType.${value}`)}
                                     </button>
                                 )
                             })}
@@ -379,7 +372,7 @@ export function AddCourseDialog({
                     <div className="grid gap-2">
                         <Label className="text-muted-foreground text-xs uppercase font-bold">{t('admin.schedule.room')}</Label>
                         <Input
-                            placeholder="Ex: Salle 101, Labo 1..."
+                            placeholder={t('admin.schedule.roomPlaceholder')}
                             className="bg-muted border-border"
                             value={room}
                             onChange={e => setRoom(e.target.value)}
@@ -393,10 +386,10 @@ export function AddCourseDialog({
                             </div>
                             <div className="flex flex-col">
                                 <Label className="text-sm font-bold text-foreground cursor-pointer" htmlFor="recurring-switch">
-                                    Répéter chaque semaine
+                                    {t('admin.schedule.recurringLabel')}
                                 </Label>
                                 <span className="text-[10px] text-muted-foreground">
-                                    {isRecurring ? "Apparaîtra sur toutes les semaines" : "Uniquement pour cette date"}
+                                    {isRecurring ? t('admin.schedule.recurringAllWeeks') : t('admin.schedule.recurringOnlyDate')}
                                 </span>
                             </div>
                         </div>

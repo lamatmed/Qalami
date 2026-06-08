@@ -1,0 +1,327 @@
+Rapport de Révision — React & Architecture Next.js
+Basé sur le projet : Qalami School Manager
+PARTIE 1 — REACT : CONCEPTS FONDAMENTAUX
+1.1 Composants Server vs Client
+Dans ton projet, deux types de composants coexistent :
+
+Server Components (par défaut dans App Router)
+
+Pas de 'use client' en haut du fichier
+S'exécutent uniquement sur le serveur
+Peuvent faire des await directement, accéder à la base de données, lire les cookies
+Ne peuvent pas utiliser useState, useEffect, ni les événements DOM
+Exemple dans ton code : src/app/admin/layout.tsx
+
+
+// Pas de 'use client' → Server Component
+export default async function AdminLayout({ children }) {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  // Fetch direct à la DB, impossible dans un Client Component
+}
+Client Components
+
+Marqués 'use client' en première ligne
+S'exécutent dans le navigateur
+Peuvent utiliser tous les hooks React (useState, useEffect, useContext...)
+Exemple dans ton code : src/context/teacher-context.tsx
+
+
+'use client'
+export function TeacherProvider({ children }) {
+  const [schoolId, setSchoolId] = useState<string | null>(null)
+  useEffect(() => { /* fetch au mount */ }, [])
+}
+1.2 Hooks utilisés dans ton projet
+Hook	Où dans Qalami	Rôle
+useState	Tous les contexts, formulaires	Gérer l'état local
+useEffect	teacher-context.tsx	Fetch données au montage
+useContext	useTeacher(), useLanguage()	Consommer un contexte
+useRouter	Pages de redirection	Navigation programmatique
+usePathname	Sidebar, navigation	Détecter la route active
+useForm (react-hook-form)	Formulaires admin/teacher	Gestion formulaires complexes
+Exemple useContext dans ton code :
+
+
+// Définition du contexte
+const TeacherContext = createContext<TeacherContextType | undefined>(undefined)
+
+// Hook personnalisé (pattern propre)
+export function useTeacher() {
+  const ctx = useContext(TeacherContext)
+  if (!ctx) throw new Error('useTeacher must be used within TeacherProvider')
+  return ctx
+}
+
+// Consommation dans n'importe quel Client Component
+const { schoolId, teacherName } = useTeacher()
+1.3 State Management — Context API (pas Redux)
+Ton projet utilise uniquement la Context API native de React — pas de Redux, pas de Zustand.
+
+Tes 4 contextes :
+
+
+src/context/
+├── teacher-context.tsx     → état enseignant (école active, classes, id)
+├── student-context.tsx     → état élève
+├── parent-context.tsx      → état parent
+└── super-admin-context.tsx → état super-admin
+Quand utiliser Context vs State local ?
+
+useState : données locales à un composant (ex: modal ouvert/fermé)
+Context : données partagées entre plusieurs composants (ex: schoolId utilisé partout)
+1.4 Formulaires — react-hook-form + Zod
+Schéma de validation : src/app/auth/schemas.ts
+
+
+const loginSchema = z.object({
+  phone: z.string().min(8),
+  password: z.string().min(6),
+})
+Dans le formulaire :
+
+
+const form = useForm({ resolver: zodResolver(loginSchema) })
+const onSubmit = form.handleSubmit(async (data) => {
+  await login(data) // Server Action
+})
+Avantages : validation côté client + typage TypeScript automatique.
+
+PARTIE 2 — NEXT.JS : ARCHITECTURE APP ROUTER
+2.1 App Router — Structure des dossiers
+Chaque dossier dans src/app/ = une route.
+
+
+app/
+├── page.tsx              → route "/"
+├── admin/
+│   ├── layout.tsx        → layout partagé pour toutes les pages /admin/*
+│   ├── page.tsx          → route "/admin"
+│   └── students/
+│       ├── page.tsx      → route "/admin/students"
+│       └── [id]/
+│           └── page.tsx  → route "/admin/students/123" (route dynamique)
+Fichiers spéciaux :
+
+Fichier	Rôle
+layout.tsx	Layout partagé (persiste entre navigations)
+page.tsx	Page visible de la route
+loading.tsx	UI de chargement (Suspense automatique)
+error.tsx	Boundary d'erreur
+not-found.tsx	Page 404
+route.ts	API Route Handler (ex: upload fichier)
+2.2 Layouts imbriqués (Nested Layouts)
+C'est l'un des concepts clés du App Router.
+
+
+app/layout.tsx             → ThemeProvider + i18n + Toaster
+  └── app/admin/layout.tsx → Sidebar + TopBar + NotificationBell
+        └── app/admin/students/page.tsx → Contenu de la page
+Chaque layout englobe les pages enfants. Le layout parent ne se re-rend pas lors des navigations entre enfants — performance optimale.
+
+Ton layout admin : src/app/admin/layout.tsx
+
+Fetche l'utilisateur Supabase (Server Component)
+Redirige si pas de rôle admin
+Injecte schoolId, userName dans le contexte
+2.3 Modes de rendu — SSR / SSG / ISR / CSR
+Mode	Comment	Dans Qalami
+SSR (Server-Side Rendering)	Page rendue à chaque requête sur le serveur	Pages admin/teacher (données fraîches)
+SSG (Static Site Generation)	Page générée au build, statique	Non utilisé (données dynamiques)
+ISR (Incremental Static Regeneration)	Statique + revalidation periodique	Non utilisé
+CSR (Client-Side Rendering)	Rendu dans le navigateur	Contexts, formulaires interactifs
+Dans ton projet, les pages admin/teacher utilisent SSR : chaque visite fetche les données fraîches depuis Supabase. C'est le bon choix pour un ERP scolaire où les données changent fréquemment.
+
+2.4 Server Actions — Le cœur de ton architecture
+Les Server Actions remplacent les appels fetch('/api/...') traditionnels.
+
+Fichiers : src/app/admin/actions.ts, src/app/auth/actions.ts
+
+Flux complet d'une action dans Qalami :
+
+
+[Client] Formulaire soumis
+    ↓
+[Server Action] createStudent(formData)
+    ↓
+getActionContext()          → vérifie auth + récupère schoolId
+    ↓
+Supabase INSERT             → avec school_id pour isolation multi-tenant
+    ↓
+logActivity(...)            → log asynchrone (fire-and-forget)
+    ↓
+revalidatePath('/admin/students')  → invalide le cache Next.js
+    ↓
+return { success: true }   → retour au client
+Exemple concret :
+
+
+'use server'
+export async function createStudent(data: StudentInput) {
+  const ctx = await getActionContext()
+  if (!ctx) return { error: 'Non authentifié' }
+
+  const { supabase, schoolId } = ctx
+  const { error } = await supabase
+    .from('students')
+    .insert({ ...data, school_id: schoolId })
+
+  if (error) return { error: error.message }
+  revalidatePath('/admin/students')
+  return { success: true }
+}
+2.5 Middleware
+Fichier : src/middleware.ts
+
+S'exécute avant chaque requête, sur le Edge Runtime (entre le client et le serveur).
+
+
+export async function middleware(request: NextRequest) {
+  return await updateSession(request)  // refresh session Supabase
+}
+
+export const config = {
+  matcher: ['/((?!_next/static|_next/image|favicon.ico|.*\\.png$).*)'],
+}
+Rôle dans Qalami :
+
+Raffraîchit le token d'authentification Supabase à chaque requête
+Gère les cookies de session
+Exclut les fichiers statiques (images, CSS) pour la performance
+2.6 API Routes
+Utilisées uniquement pour les uploads de fichiers dans ton projet.
+
+Exemple : src/app/api/admin/upload-logo/route.ts
+
+
+export async function POST(req: NextRequest) {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return NextResponse.json({ error: 'Non autorisé' }, { status: 401 })
+
+  const admin = createAdminClient() // service_role pour bypasser RLS
+  await admin.storage.from('logos').upload(path, file)
+
+  return NextResponse.json({ publicUrl })
+}
+Pourquoi API Route et pas Server Action pour les uploads ?
+→ Les Server Actions ne gèrent pas bien les fichiers volumineux en streaming. Les API Routes donnent plus de contrôle sur les headers HTTP.
+
+PARTIE 3 — SYSTEM DESIGN & ARCHITECTURE
+3.1 Architecture Multi-Tenant
+Chaque école est un tenant isolé. L'isolation se fait par school_id.
+
+
+school_id = "abc-123"
+    ↓
+Toutes les tables ont une colonne school_id
+    ↓
+Chaque requête est filtrée: WHERE school_id = 'abc-123'
+    ↓
+Supabase RLS enforce cela au niveau DB (double sécurité)
+3 clients Supabase selon le contexte :
+
+Client	Fichier	Utilisé	Pourquoi
+Server	utils/supabase/server.ts	Server Components, Actions	Lit les cookies de session
+Browser	utils/supabase/client.ts	Client Components, Contexts	Pas besoin de cookies
+Admin	utils/supabase/admin.ts	API Routes, invitations	Bypasse RLS (service_role)
+3.2 RBAC — Contrôle d'accès par rôle
+
+Rôles : super_admin > admin > school_staff > teacher > parent > student
+3 niveaux d'enforcement :
+
+Middleware → refresh session (toutes les requêtes)
+Layout / Page → redirect si mauvais rôle (redirect('/login'))
+Server Action → getActionContext() vérifie le rôle
+Supabase RLS → policies au niveau base de données
+3.3 Flux de données global
+
+Navigateur
+  │
+  ├─ [Static] → _next/static (CSS, JS bundles)
+  │
+  └─ [Request] → middleware.ts (refresh session)
+                    │
+                    └─ Server Component (page.tsx / layout.tsx)
+                          │
+                          ├─ Supabase Query (data fetching)
+                          │
+                          └─ HTML rendu envoyé au client
+                                │
+                                └─ Hydration → Client Components activés
+                                      │
+                                      └─ Interactions → Server Actions
+                                                          │
+                                                          └─ revalidatePath()
+3.4 Internationalisation (i18n) — Français / Arabe
+Système custom (pas next-intl) basé sur Context + localStorage.
+
+
+// Changement de langue
+setLanguage('ar')
+// → stocke dans localStorage
+// → document.dir = 'rtl'
+// → document.lang = 'ar'
+// → charge ar.json dictionary
+Particularité : L'arabe est RTL (Right-To-Left) → tout le CSS doit gérer les deux directions.
+
+3.5 PWA (Progressive Web App)
+Ton app est installable sur mobile/desktop via @ducanh2912/next-pwa.
+
+Ce que ça apporte :
+
+Fonctionne hors-ligne (Service Worker)
+Installable comme une app native
+Notifications push possibles
+PARTIE 4 — QUESTIONS TYPES D'ÉVALUATION
+Q1 : Quelle est la différence entre Server Component et Client Component ?
+
+SC s'exécute sur le serveur, peut fetch data, pas de hooks d'état. CC s'exécute côté client, a accès aux hooks React et aux événements DOM.
+
+Q2 : Pourquoi utilise-t-on revalidatePath() après une Server Action ?
+
+Next.js cache les pages. Sans revalidatePath, la page afficherait des données obsolètes après une mutation.
+
+Q3 : Pourquoi 3 clients Supabase différents ?
+
+Server (lit cookies SSR), Browser (client JS), Admin (service_role, bypasse RLS pour les opérations privilégiées).
+
+Q4 : Qu'est-ce que le multi-tenant et comment est-il implémenté ici ?
+
+Chaque école est isolée par school_id. Toutes les requêtes filtrent par ce champ. RLS enforce cela au niveau DB.
+
+Q5 : Pourquoi utiliser une Server Action plutôt qu'une API Route ?
+
+Server Actions : moins de code, intégration native avec les formulaires, revalidation automatique. API Routes : mieux pour les uploads fichiers, webhooks, ou endpoints publics.
+
+Q6 : Que fait le middleware dans ce projet ?
+
+Il rafraîchit la session Supabase (token JWT) à chaque requête via les cookies.
+
+Q7 : Qu'est-ce qu'un layout imbriqué et quel est son avantage ?
+
+Un layout parent qui englobe les pages enfants. Il ne se re-rend pas lors des navigations entre enfants, ce qui améliore les performances.
+
+RÉSUMÉ VISUEL DE L'ARCHITECTURE
+
+┌─────────────────────────────────────────────────┐
+│              QALAMI - Architecture              │
+├─────────────────────────────────────────────────┤
+│  middleware.ts → refresh session Supabase       │
+├─────────────────────────────────────────────────┤
+│  app/layout.tsx → Theme + i18n + PWA            │
+│    └── app/admin/layout.tsx → Sidebar + Auth    │
+│          └── app/admin/*/page.tsx               │
+│               [Server Components - SSR]         │
+├─────────────────────────────────────────────────┤
+│  Server Actions (actions.ts)                    │
+│    getActionContext() → auth + schoolId         │
+│    Supabase mutation → revalidatePath()         │
+├─────────────────────────────────────────────────┤
+│  3 clients Supabase                             │
+│    server (SSR) | browser (CSR) | admin (RLS)   │
+├─────────────────────────────────────────────────┤
+│  State: Context API (Teacher/Student/Parent)    │
+│  Forms: react-hook-form + Zod                  │
+│  UI: shadcn/ui + Tailwind v4 + Framer Motion   │
+└─────────────────────────────────────────────────┘

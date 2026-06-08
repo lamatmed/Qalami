@@ -16,13 +16,13 @@ import { fetchScheduleForAdmin } from '@/app/admin/schedule/actions'
 
 const hours = [8, 10, 12, 14, 16, 18]
 
-const SESSION_TYPE_CONFIG: Record<string, { label: string; accent: string; border: string }> = {
-    course:   { label: 'Cours',    accent: 'bg-blue-500',    border: 'border-blue-500/30' },
-    exam:     { label: 'Examen',   accent: 'bg-red-500',     border: 'border-red-500/30' },
-    homework: { label: 'Devoir',   accent: 'bg-amber-500',   border: 'border-amber-500/30' },
-    revision: { label: 'Révision', accent: 'bg-purple-500',  border: 'border-purple-500/30' },
-    lab:      { label: 'TP',       accent: 'bg-emerald-500', border: 'border-emerald-500/30' },
-    activity: { label: 'Activité', accent: 'bg-cyan-500',    border: 'border-cyan-500/30' },
+const SESSION_TYPE_CONFIG: Record<string, { accent: string; border: string }> = {
+    course:   { accent: 'bg-blue-500',    border: 'border-blue-500/30' },
+    exam:     { accent: 'bg-red-500',     border: 'border-red-500/30' },
+    homework: { accent: 'bg-amber-500',   border: 'border-amber-500/30' },
+    revision: { accent: 'bg-purple-500',  border: 'border-purple-500/30' },
+    lab:      { accent: 'bg-emerald-500', border: 'border-emerald-500/30' },
+    activity: { accent: 'bg-cyan-500',    border: 'border-cyan-500/30' },
 }
 
 const subjectColors: Record<string, string> = {
@@ -46,12 +46,12 @@ function getSubjectColor(subject: string): string {
     return subjectColors.default
 }
 
-function teacherDisplayName(fullName: string | null | undefined, email: string | null | undefined): string {
+function teacherDisplayName(fullName: string | null | undefined, email: string | null | undefined, fallback: string): string {
     const n = (fullName ?? '').trim()
     if (n) return n
     const e = (email ?? '').trim()
     if (e) return e.includes('@') ? e.split('@')[0]! : e
-    return 'Enseignant'
+    return fallback
 }
 
 // ─── Types ─────────────────────────────────────────────────────────────────────
@@ -124,7 +124,7 @@ export function ScheduleView({
                 weekStart.setHours(0, 0, 0, 0)
                 const weekEnd = new Date(weekStart)
                 weekEnd.setDate(weekStart.getDate() + 7)
-                
+
                 const startStr = weekStart.toISOString().split('T')[0]
                 const endStr   = weekEnd.toISOString().split('T')[0]
 
@@ -138,7 +138,6 @@ export function ScheduleView({
                     0: t('admin.schedule.sunday'),
                 }
 
-                // Fetch schedule via secure server action bypassing user-level RLS to resolve cross-school teacher names
                 const res = await fetchScheduleForAdmin({
                     classId: viewMode === 'class' ? classId : undefined,
                     teacherId: viewMode === 'teacher' ? teacherId : undefined,
@@ -152,7 +151,6 @@ export function ScheduleView({
 
                 const { schedule: data, allSlots, currentSchoolId } = res
 
-                // Build conflict set: teacher+day+hour combos that appear more than once
                 const slotCounts = new Map<string, number>()
                 ;(allSlots || []).forEach(s => {
                     const hour = parseInt(s.start_time.split(':')[0])
@@ -165,15 +163,14 @@ export function ScheduleView({
                 const processedCourses: Course[] = (data || []).map(slot => {
                     const isOtherSchool = slot.school_id !== currentSchoolId
                     const hour        = parseInt(slot.start_time.split(':')[0])
-                    
+
                     const sObj        = slot.schools as { name?: string } | null
-                    const schoolName  = sObj?.name || 'Autre école'
-                    
-                    // Hide specific contents of courses from other schools
-                    const subjectName = isOtherSchool ? 'Indisponible' : ((slot.subjects as { name?: string })?.name || 'Matière')
+                    const schoolName  = sObj?.name || t('admin.schedule.otherSchoolTitle')
+
+                    const subjectName = isOtherSchool ? t('admin.schedule.unavailable') : ((slot.subjects as { name?: string })?.name || t('common.subjects'))
                     const tObj = slot.profiles as { full_name?: string; email?: string; phone?: string | null } | null
-                    const teacherName = teacherDisplayName(tObj?.full_name, tObj?.email)
-                    const className   = isOtherSchool ? schoolName : ((slot.classes  as { name?: string })?.name || 'Classe')
+                    const teacherName = teacherDisplayName(tObj?.full_name, tObj?.email, t('common.teacher'))
+                    const className   = isOtherSchool ? schoolName : ((slot.classes  as { name?: string })?.name || t('common.class'))
                     const conflict    = conflictKeys.has(`${slot.teacher_id}:${slot.day_of_week}:${hour}`)
 
                     return {
@@ -188,7 +185,7 @@ export function ScheduleView({
                         color:       isOtherSchool ? 'bg-zinc-700/40' : getSubjectColor(subjectName),
                         sessionType: isOtherSchool ? 'course' : (slot.session_type || 'course'),
                         teacherId:   slot.teacher_id,
-                        conflict:    !isOtherSchool && conflict, // Show conflict highlights on our courses only
+                        conflict:    !isOtherSchool && conflict,
                         isOtherSchool,
                         schoolName
                     }
@@ -208,12 +205,11 @@ export function ScheduleView({
     const getCourse = (day: string, startHour: number) => courses.find(c => c.day === day && c.hour >= startHour && c.hour < startHour + 2)
 
     const handleSlotClick = (day: string, hour: number, dayIndex: number, relativeDayIdx: number) => {
-        if (viewMode === 'teacher') return // can't add course in teacher view (no class context)
-        
-        // Compute the concrete target date for the clicked slot
+        if (viewMode === 'teacher') return
+
         const slotDate = new Date(monday)
         slotDate.setDate(monday.getDate() + relativeDayIdx)
-        
+
         setSelectedSlot({ day, hour, dayIndex, date: slotDate })
         setIsAddModalOpen(true)
     }
@@ -222,14 +218,13 @@ export function ScheduleView({
         const supabase = createClient()
         const { error } = await supabase.from('schedule').delete().eq('id', courseId)
         if (error) {
-            toast.error('Erreur lors de la suppression')
+            toast.error(t('admin.schedule.deleteError'))
         } else {
-            toast.success('Cours supprimé')
+            toast.success(t('admin.schedule.courseDeleted'))
             setInternalRefresh(k => k + 1)
         }
     }
 
-    // Conflict summary for banner
     const conflictingCourses = courses.filter(c => c.conflict)
     const conflictingTeachers = [...new Set(conflictingCourses.map(c => c.teacherName))]
 
@@ -238,7 +233,7 @@ export function ScheduleView({
     if (!activeId) {
         return (
             <div className="flex items-center justify-center h-64 text-muted-foreground text-sm">
-                {viewMode === 'class' ? 'Sélectionnez une classe' : 'Sélectionnez un enseignant'}
+                {viewMode === 'class' ? t('admin.schedule.selectClassPrompt') : t('admin.schedule.selectTeacherPrompt')}
             </div>
         )
     }
@@ -254,9 +249,8 @@ export function ScheduleView({
         )
     }
 
-    // Pre-compute week dates for display
     const today = new Date()
-    const currentDay = today.getDay() // 0=Sun, 1=Mon
+    const currentDay = today.getDay()
     const diffToMon = today.getDate() - (currentDay === 0 ? 6 : currentDay - 1) + (weekOffset * 7)
     const monday = new Date(new Date().setDate(diffToMon))
     const weekDates = days.map((_, i) => {
@@ -272,9 +266,9 @@ export function ScheduleView({
                 <div className="flex items-center gap-2 bg-red-500/10 border border-red-500/30 rounded-xl px-4 py-2.5 text-red-400 text-sm">
                     <AlertTriangle className="w-4 h-4 shrink-0" />
                     <span>
-                        <strong>{conflictingCourses.length} conflit{conflictingCourses.length > 1 ? 's' : ''} détecté{conflictingCourses.length > 1 ? 's' : ''}</strong>
+                        <strong>{conflictingCourses.length} {t('admin.schedule.conflictDetected')}</strong>
                         {conflictingTeachers.length > 0 && (
-                            <> — {conflictingTeachers.join(', ')} a{conflictingTeachers.length > 1 ? 'ont' : ''} deux cours simultanés</>
+                            <> — {conflictingTeachers.join(', ')} {t('admin.schedule.conflictSimultaneous')}</>
                         )}
                     </span>
                 </div>
@@ -289,7 +283,7 @@ export function ScheduleView({
                     onClick={() => setWeekOffset(prev => prev - 1)}
                 >
                     <ChevronLeft className="w-4 h-4 me-1" />
-                    <span className="hidden sm:inline">Semaine précédente</span>
+                    <span className="hidden sm:inline">{t('admin.schedule.previousWeek')}</span>
                 </Button>
 
                 <div className="flex items-center gap-3">
@@ -299,12 +293,13 @@ export function ScheduleView({
                     </span>
                     {weekOffset !== 0 && (
                         <Button
+                            type="button"
                             variant="outline"
                             size="sm"
                             className="h-7 text-[10px] px-2 rounded-md border-white/10 bg-white/5 text-gray-400 hover:text-white"
                             onClick={() => setWeekOffset(0)}
                         >
-                            Aujourd'hui
+                            {t('common.today')}
                         </Button>
                     )}
                 </div>
@@ -315,7 +310,7 @@ export function ScheduleView({
                     className="text-gray-400 hover:text-white h-9 rounded-xl"
                     onClick={() => setWeekOffset(prev => prev + 1)}
                 >
-                    <span className="hidden sm:inline">Semaine suivante</span>
+                    <span className="hidden sm:inline">{t('admin.schedule.nextWeek')}</span>
                     <ChevronRight className="w-4 h-4 ms-1" />
                 </Button>
             </div>
@@ -435,6 +430,7 @@ function Slot({
     onClick: () => void
     onDelete: (id: string) => void
 }) {
+    const { t } = useLanguage()
     const sessionConfig = course
         ? (SESSION_TYPE_CONFIG[course.sessionType] || SESSION_TYPE_CONFIG.course)
         : null
@@ -464,14 +460,14 @@ function Slot({
 
                     {/* Conflict indicator */}
                     {course.conflict && (
-                        <div className="absolute top-1 right-7 text-red-400" title="Conflit de planning">
+                        <div className="absolute top-1 right-7 text-red-400" title={t('admin.schedule.conflictPlanningTitle')}>
                             <AlertTriangle className="w-3 h-3" />
                         </div>
                     )}
 
                     {/* Other school indicator */}
                     {course.isOtherSchool && (
-                        <div className="absolute top-2 right-2 text-zinc-500" title="Autre établissement">
+                        <div className="absolute top-2 right-2 text-zinc-500" title={t('admin.schedule.otherSchoolTitle')}>
                             <Lock className="w-3 h-3" />
                         </div>
                     )}
@@ -489,18 +485,19 @@ function Slot({
                                     "text-[9px] font-bold px-1.5 py-0.5 rounded-md bg-white/5 truncate",
                                     sessionConfig?.accent.replace('bg-', 'text-')
                                 )}>
-                                    {sessionConfig?.label}
+                                    {t(`admin.schedule.sessionType.${course.sessionType}`) || course.sessionType}
                                 </span>
                             )}
                         </div>
                         {!course.isOtherSchool && (
                             <button
+                                type="button"
                                 onClick={(e) => {
                                     e.stopPropagation()
-                                    if (confirm('Supprimer ce cours ?')) onDelete(course.id)
+                                    if (confirm(t('admin.schedule.deleteConfirm'))) onDelete(course.id)
                                 }}
                                 className="opacity-0 group-hover:opacity-100 transition-opacity p-1 rounded hover:bg-red-500/20 text-gray-500 hover:text-red-400"
-                                title="Supprimer"
+                                title={t('common.delete')}
                             >
                                 <Trash2 className="w-3.5 h-3.5" />
                             </button>
@@ -508,7 +505,6 @@ function Slot({
                     </div>
 
                     <div className="mt-1 sm:mt-2 space-y-0.5 sm:space-y-1">
-                        {/* Label: teacher name in class view, class name in teacher view */}
                         <div className="flex items-center gap-1.5 text-[10px] sm:text-xs text-gray-400">
                             {viewMode === 'teacher'
                                 ? <School className="w-3 h-3 shrink-0" />

@@ -125,7 +125,10 @@ export function Confirmation({ data, savedCredentials }: StepProps) {
                         `)
                         printWindow.document.close()
                         printWindow.focus()
-                        setTimeout(() => printWindow.print(), 250)
+                        setTimeout(() => {
+                            printWindow.print()
+                            printWindow.close()
+                        }, 250)
                     }}
                 >
                     <FileText className="mr-2 w-4 h-4" /> {t('admin.students.register.confirmation.printReceipt')}

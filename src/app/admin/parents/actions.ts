@@ -19,6 +19,11 @@ export async function addChildToParent(parentId: string, studentId: string) {
         .from('parent_student_links').select('id').eq('parent_id', parentId).eq('student_id', studentId).maybeSingle()
     if (existing) return { error: 'Ce lien existe déjà' }
 
+    // Block if student already has 2 parents
+    const { count: parentCount } = await supabase
+        .from('parent_student_links').select('id', { count: 'exact', head: true }).eq('student_id', studentId)
+    if ((parentCount ?? 0) >= 2) return { error: 'Cet élève a déjà 2 parents enregistrés. Impossible d\'en ajouter un troisième.' }
+
     const { count } = await supabase
         .from('parent_student_links').select('id', { count: 'exact', head: true }).eq('parent_id', parentId)
     const isPrimary = (count ?? 0) === 0

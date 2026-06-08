@@ -12,7 +12,7 @@ import { useLanguage } from '@/i18n'
 export function TeacherFormWizard() {
     const { t } = useLanguage()
     const router = useRouter()
-    const [formData, setFormData] = useState<{ name?: string; phone?: string; email?: string; nni?: string; password?: string }>({})
+    const [formData, setFormData] = useState<{ name?: string; phone?: string; email?: string; nni?: string; address?: string; password?: string }>({})
     const [isSubmitting, setIsSubmitting] = useState(false)
 
     const handleSubmit = async () => {
@@ -24,6 +24,7 @@ export function TeacherFormWizard() {
                 phone: formData.phone || undefined,
                 email: formData.email || undefined,
                 nni: formData.nni || undefined,
+                address: formData.address || undefined,
                 password: formData.password || undefined,
             })
 

@@ -373,7 +373,10 @@ export function ClassDetails({ levelId, classId }: { levelId: string, classId: s
         </body></html>`)
         win.document.close()
         win.focus()
-        setTimeout(() => win.print(), 250)
+        setTimeout(() => {
+            win.print()
+            win.close()
+        }, 250)
     }
 
     const filteredUnassigned = searchQuery.trim()

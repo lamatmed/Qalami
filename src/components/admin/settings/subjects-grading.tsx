@@ -9,6 +9,7 @@ import { createClient } from '@/utils/supabase/client'
 import { getMySchoolContext } from '@/app/admin/actions'
 import { createSubject, upsertGlobalSubjectCoefficient } from '@/app/admin/subjects/actions'
 import { updateDefaultGradingScaleAction } from '@/app/admin/settings/actions'
+import { DeleteSubjectButton } from '@/components/admin/subjects/delete-subject-button'
 import { useLanguage } from '@/i18n'
 import { toast } from 'sonner'
 
@@ -342,6 +343,7 @@ export function SubjectsGrading() {
                                             {subject.coef}
                                         </button>
                                     )}
+                                    <DeleteSubjectButton id={subject.id} onSuccess={load} />
                                 </div>
                             </div>
                         ))}

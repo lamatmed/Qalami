@@ -79,6 +79,21 @@ export function TransactionLedger() {
         })
     }
 
+    const formatDateTime = (dateStr: string, timeStr?: string) => {
+        const locale = language === 'ar' ? 'ar-u-ca-gregory' : 'fr-FR'
+        const datePart = new Date(dateStr).toLocaleDateString(locale, {
+            day: 'numeric',
+            month: 'short',
+            year: 'numeric',
+        })
+        if (!timeStr) return datePart
+        const timePart = new Date(timeStr).toLocaleTimeString(locale, {
+            hour: '2-digit',
+            minute: '2-digit',
+        })
+        return `${datePart} · ${timePart}`
+    }
+
     const getCategoryLabel = (cat: string | null) => {
         const labels: Record<string, string> = {
             tuition: t('admin.finance.tuition'),
@@ -291,7 +306,7 @@ export function TransactionLedger() {
                                                 {getCategoryLabel(trx.category)}
                                             </Badge>
                                         </td>
-                                        <td className="px-6 py-4 text-gray-400 font-medium">{formatDate(trx.transaction_date)}</td>
+                                        <td className="px-6 py-4 text-gray-400 font-medium whitespace-nowrap">{formatDateTime(trx.transaction_date, trx.created_at)}</td>
                                         <td className="px-6 py-4">
                                             <Badge className={cn(
                                                 "capitalize border-0",
@@ -473,7 +488,7 @@ export function TransactionLedger() {
                                                         <div className="space-y-2">
                                                             <p className="text-sm text-gray-300"><strong>Description:</strong> {trx.description || 'Aucune description'}</p>
                                                             <p className="text-sm text-gray-300"><strong>Catégorie:</strong> {getCategoryLabel(trx.category)}</p>
-                                                            <p className="text-sm text-gray-300"><strong>Date:</strong> {formatDate(trx.transaction_date)}</p>
+                                                            <p className="text-sm text-gray-300"><strong>Date:</strong> {formatDateTime(trx.transaction_date, trx.created_at)}</p>
                                                             <p className="text-sm text-gray-300"><strong>Montant:</strong> {Number(trx.amount).toLocaleString()} MRU</p>
                                                             <p className="text-sm text-gray-300"><strong>Statut:</strong> {trx.status === 'completed' ? t('admin.finance.completed') : t('common.pending')}</p>
                                                             <p className="text-xs text-gray-500">ID: {trx.id}</p>

@@ -41,6 +41,10 @@ export function ParentProfile({ parent, schoolId = '', onClose, onParentUpdated 
     const [localParent, setLocalParent] = useState(parent)
     const [currentStatus, setCurrentStatus] = useState<string>(parent?.status || 'active')
     const [activeTab, setActiveTab] = useState<'info' | 'finance' | 'documents'>('info')
+    // Sync localParent when parent prop updates (e.g., after adding a child)
+    useEffect(() => {
+        setLocalParent(parent)
+    }, [parent])
 
     if (!localParent) return null
 
@@ -229,7 +233,7 @@ export function ParentProfile({ parent, schoolId = '', onClose, onParentUpdated 
                                         onClick={() => setAddChildOpen(true)}
                                         className="flex items-center gap-1 text-xs text-emerald-400 hover:text-emerald-300 border border-emerald-500/30 hover:border-emerald-500/60 rounded-md px-2 py-1 transition-colors"
                                     >
-                                        <UserPlus className="w-3 h-3" /> Ajouter un enfant
+                                        <UserPlus className="w-3 h-3" /> {t('admin.parents.addChild')}
                                     </button>
                                 </div>
                             </div>
@@ -240,7 +244,7 @@ export function ParentProfile({ parent, schoolId = '', onClose, onParentUpdated 
                                         <p className="text-xs text-gray-500">{t('admin.parents.noStudentsLinked')}</p>
                                         <button type="button" onClick={() => setAddChildOpen(true)}
                                             className="text-[11px] text-emerald-400 hover:text-emerald-300 mt-1 underline">
-                                            Ajouter un enfant au compte
+                                            {t('admin.parents.addChildToAccount')}
                                         </button>
                                     </div>
                                 ) : (

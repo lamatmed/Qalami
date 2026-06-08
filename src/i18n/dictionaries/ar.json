@@ -50,6 +50,7 @@
     "send": "إرسال",
     "submit": "إرسال",
     "reset": "إعادة تعيين",
+    "refresh": "تحديث",
     "noData": "لا توجد بيانات",
     "noResults": "لا توجد نتائج",
     "error": "خطأ",
@@ -871,6 +872,8 @@
       "nni": "الرقم الوطني للهوية (NNI)",
       "nniPlaceholder": "10 أرقام",
       "nniHint": "الرقم الوطني مطلوب للتسجيل الرسمي في الوزارة.",
+      "address": "العنوان",
+      "addressPlaceholder": "مثال: تفرغ زينه، نواكشوط",
       "tempPassword": "كلمة مرور مؤقتة *",
       "tempPasswordPlaceholder": "6 أرقام (مثال: 123456)",
       "tempPasswordHint": "6 أرقام بالضبط. سيتم تسليم هذا الرمز للمعلم عند أول تسجيل دخول.",
@@ -1622,6 +1625,40 @@
         "warningMessage": "سيتم استبدال الجدول الزمني لـ {target} بالكامل بجدول {source}.",
         "errorSameClass": "يجب أن يكون القسم المصدر والمستهدف مختلفين",
         "successMessage": "تم نسخ {count} حصة بنجاح"
+      },
+      "selectClassPrompt": "اختر قسمًا",
+      "selectTeacherPrompt": "اختر معلمًا",
+      "previousWeek": "الأسبوع السابق",
+      "todayBtn": "اليوم",
+      "nextWeek": "الأسبوع التالي",
+      "unavailable": "غير متاح",
+      "deleteError": "خطأ أثناء الحذف",
+      "courseDeleted": "تم حذف الدرس",
+      "conflictDetected": "تعارض مكتشف",
+      "conflictSimultaneous": "لديهم حصتان في نفس الوقت",
+      "otherSchoolTitle": "مؤسسة أخرى",
+      "conflictPlanningTitle": "تعارض في الجدول",
+      "deleteConfirm": "حذف هذا الدرس؟",
+      "courseAdded": "تمت إضافة الدرس بنجاح",
+      "addError": "خطأ أثناء الإضافة",
+      "selectSubjectFirst": "اختر مادة أولاً",
+      "selectSubjectRequired": "يرجى اختيار مادة",
+      "selectTeacherRequired": "يرجى اختيار معلم",
+      "selectClassRequired": "يرجى اختيار قسم",
+      "teacherUnavailable": "المعلم غير متاح",
+      "teacherBusy": "مشغول: {schoolName} - {className}",
+      "sessionTypeLabel": "نوع الحصة",
+      "roomPlaceholder": "مثال: قاعة 101، مختبر 1...",
+      "recurringLabel": "تكرار كل أسبوع",
+      "recurringAllWeeks": "سيظهر في كل الأسابيع",
+      "recurringOnlyDate": "لهذا التاريخ فقط",
+      "sessionType": {
+        "course": "حصة",
+        "exam": "امتحان",
+        "homework": "واجب",
+        "revision": "مراجعة",
+        "lab": "تجربة عملية",
+        "activity": "نشاط"
       }
     },
     "structure": {
@@ -1791,6 +1828,10 @@
       "children": "أطفال",
       "unlink": "إلغاء الربط",
       "addChildToAccount": "إضافة طفل إلى الحساب",
+      "addChild": "إضافة طفل",
+      "addedToAccount": "تمت إضافة {name} إلى حساب {parent}",
+      "parentLabel": "ولي الأمر",
+      "searchByNamePlaceholder": "ابحث عن طالب بالاسم...",
       "call": "اتصال",
       "message": "رسالة",
       "finances": "المالية",
@@ -2149,6 +2190,13 @@
       "sessionsCountShort": "{count} حصة",
       "generalRollCall": "نداء عام",
       "noEnrolledStudents": "لا يوجد تلاميذ مسجلين",
+      "todayAttendance": "حضور اليوم",
+      "noAttendanceToday": "لم يتم تسجيل أي حضور اليوم",
+      "notRecorded": "غير مسجل",
+      "presentToday": "الحاضرون",
+      "absentToday": "الغائبون",
+      "lateToday": "المتأخرون",
+      "excusedToday": "المعذورون",
       "status": {
         "present": "حاضر",
         "absent": "غائب",
@@ -2202,7 +2250,9 @@
         "allTypes": "كل الأنواع",
         "allClasses": "كل الأقسام",
         "noClass": "بدون قسم"
-      }
+      },
+      "markAsPaid": "تعليم كمدفوع",
+      "markedAsPaid": "تم تعليم الدفعة كمدفوعة"
     },
     "payroll": {
       "budgetTotal": "الميزانية الإجمالية ({month})",
@@ -2434,7 +2484,9 @@
         "publish_reports": "نشر الكشوف",
         "assign_parents": "تعيين أولياء",
         "update_settings": "تعديل الإعدادات",
-        "remove_student_from_class": "إزالة تلميذ من الفصل"
+        "remove_student_from_class": "إزالة تلميذ من الفصل",
+        "reintegrate_student": "إعادة إدماج تلميذ",
+        "transfer_student_external": "نقل تلميذ (خارجي)"
       }
     }
   },

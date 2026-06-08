@@ -767,6 +767,7 @@ export async function createTeacher(formData: {
     phone?: string
     email?: string
     nni?: string
+    address?: string
     password?: string
 }) {
     const supabase = await createClient()
@@ -890,6 +891,7 @@ export async function createTeacher(formData: {
             school_id: profile.school_id,
             phone: normalizedPhone,
             national_id: formData.nni || null,
+            address: formData.address || null,
         })
 
     if (profileError) {

@@ -212,7 +212,10 @@ export function PaymentConfirmation({
 </html>`)
         printWindow.document.close()
         printWindow.focus()
-        setTimeout(() => printWindow.print(), 300)
+        setTimeout(() => {
+            printWindow.print()
+            printWindow.close()
+        }, 300)
     }
 
     return (

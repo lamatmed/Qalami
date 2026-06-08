@@ -60,14 +60,21 @@ export async function saveTeacherContractAction(payload: {
 
     let result = await tryUpsert(row)
 
+    let isFallback = false
     // If payment columns don't exist yet, retry with base fields only
     if (result.error && result.error.message?.includes('column')) {
+        console.warn(
+            "[saveTeacherContractAction] Warning: falling back to base fields because payment columns do not exist. " +
+            "Please apply migration '20260601_contracts_payment_method.sql' to your database.",
+            result.error
+        )
         result = await tryUpsert(baseRow)
+        isFallback = true
     }
 
     if (result.error) return { error: result.error.message }
     const contractId = payload.contractId ?? (result.data as any)?.id
-    return { success: true, contractId }
+    return { success: true, contractId, warning: isFallback ? 'missing_columns' : undefined }
 }
 
 export async function loadTeacherContractAction(teacherId: string) {
@@ -95,8 +102,13 @@ export async function loadTeacherContractAction(teacherId: string) {
         .eq('status', 'active')
         .maybeSingle()
 
+    let warning: string | undefined = undefined
     if (err1) {
-        // Columns might not exist yet — fall back to base fields
+        console.warn(
+            "[loadTeacherContractAction] Warning: falling back to base fields because payment columns do not exist. " +
+            "Please apply migration '20260601_contracts_payment_method.sql' to your database.",
+            err1
+        )
         const { data: base, error: err2 } = await admin
             .from('contracts')
             .select('id, contract_type, position, monthly_salary')
@@ -106,11 +118,12 @@ export async function loadTeacherContractAction(teacherId: string) {
             .maybeSingle()
         if (err2) return { error: err2.message }
         contract = base
+        warning = 'missing_columns'
     } else {
         contract = withPayment
     }
 
-    return { contract: contract ?? null }
+    return { contract: contract ?? null, warning }
 }
 
 // ── Fix edit document (bypasses RLS) ────────────────────────────────────────

@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { Button } from '@/components/ui/button'
-import { ArrowLeft, Phone, Mail, CheckCircle2, ShieldAlert, KeyRound, Pencil, Trash2, Loader2 as LoaderIcon } from 'lucide-react'
+import { ArrowLeft, Phone, Mail, CheckCircle2, ShieldAlert, KeyRound, Pencil, Trash2, Loader2 as LoaderIcon, MapPin, Fingerprint } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 import { cn } from '@/lib/utils'
 import { TeacherSchedule } from './teacher-schedule'
@@ -49,6 +49,8 @@ interface TeacherProfile {
     classCount: number
     weeklyHours: number
     status: string
+    nni: string | null
+    address: string | null
 }
 
 export function TeacherProfileLayout({ id }: { id: string }) {
@@ -79,7 +81,7 @@ export function TeacherProfileLayout({ id }: { id: string }) {
 
             // Fetch teacher profile
             // Fetch teacher profile securely via server action bypassing client-side RLS
-            const profiles = await secureFetchProfiles([id], 'id, full_name, email, phone, avatar_url, status')
+            const profiles = await secureFetchProfiles([id], 'id, full_name, email, phone, avatar_url, status, national_id, address')
             const profile = profiles?.[0] || null
 
             if (!profile) {
@@ -131,6 +133,8 @@ export function TeacherProfileLayout({ id }: { id: string }) {
                 classCount: classIds.length,
                 weeklyHours: Math.round((weeklyMinutes / 60) * 10) / 10,
                 status: (profile as any).status || 'active',
+                nni: (profile as any).national_id || null,
+                address: (profile as any).address || null,
             })
 
             setLoading(false)
@@ -277,6 +281,26 @@ export function TeacherProfileLayout({ id }: { id: string }) {
                             <p className="text-sm text-foreground font-medium">{teacher.email || t('admin.teachers.profile.noEmail')}</p>
                         </div>
                     </div>
+
+                    <div className="bg-muted p-3 rounded-xl flex items-center gap-4 border border-border hover:border-primary/30 transition-colors group cursor-pointer">
+                        <div className="h-10 w-10 bg-primary/10 rounded-lg flex items-center justify-center text-primary group-hover:bg-primary group-hover:text-primary-foreground transition-colors">
+                            <Fingerprint className="w-5 h-5" />
+                        </div>
+                        <div>
+                            <p className="text-[10px] text-muted-foreground uppercase font-bold">{t('admin.teachers.nni') || 'NNI'}</p>
+                            <p className="text-sm text-foreground font-medium font-mono">{teacher.nni || '—'}</p>
+                        </div>
+                    </div>
+
+                    <div className="bg-muted p-3 rounded-xl flex items-center gap-4 border border-border hover:border-primary/30 transition-colors group cursor-pointer">
+                        <div className="h-10 w-10 bg-primary/10 rounded-lg flex items-center justify-center text-primary group-hover:bg-primary group-hover:text-primary-foreground transition-colors">
+                            <MapPin className="w-5 h-5" />
+                        </div>
+                        <div>
+                            <p className="text-[10px] text-muted-foreground uppercase font-bold">{t('common.address') || 'Adresse'}</p>
+                            <p className="text-sm text-foreground font-medium truncate">{teacher.address || '—'}</p>
+                        </div>
+                    </div>
                 </div>
 
                 {/* Stats Widget */}
@@ -327,7 +351,12 @@ export function TeacherProfileLayout({ id }: { id: string }) {
             open={editTeacherOpen}
             onOpenChange={setEditTeacherOpen}
             teacherId={teacher.id}
-            initialData={{ full_name: teacher.full_name, email: teacher.email }}
+            initialData={{
+                full_name: teacher.full_name,
+                email: teacher.email,
+                nni: teacher.nni,
+                address: teacher.address
+            }}
             onSuccess={() => window.location.reload()}
         />
         {deleteConfirmOpen && (

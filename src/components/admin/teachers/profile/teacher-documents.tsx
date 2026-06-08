@@ -1,6 +1,7 @@
 'use client'
 
-import { useState, useRef, useEffect } from 'react'
+import { useState, useRef, useEffect, useCallback } from 'react'
+import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
@@ -38,20 +39,41 @@ interface TeacherResource {
     created_at: string
 }
 
+const VALID_TYPES = ['course', 'exercise', 'exam', 'devoirs', 'correction', 'resource', 'general']
+
+function getNormalizedDocType(type: string | null | undefined): string {
+    if (!type) return 'general'
+    if (type === 'homework') return 'devoirs'
+    if (VALID_TYPES.includes(type)) return type
+    return 'general'
+}
+
 export function TeacherDocuments({ teacherId }: TeacherDocumentsProps) {
     const { t } = useLanguage()
     const [adminDocs, setAdminDocs] = useState(ADMIN_DOCS)
 
     // Load persisted admin docs on mount
-    useEffect(() => {
+    const fetchAdminDocs = useCallback(() => {
         if (!teacherId) return
         fetchAdminDocumentsAction(teacherId).then(({ data }) => {
-            if (!data.length) return
             setAdminDocs(prev => prev.map(d => {
                 const found = (data as any[]).find((f: any) => f.category === d.type)
-                if (!found) return d
+                if (!found) {
+                    const original = ADMIN_DOCS.find(o => o.type === d.type)
+                    return {
+                        ...d,
+                        id: original?.id || d.id,
+                        name: original?.name || d.name,
+                        status: 'missing',
+                        file_url: '',
+                        date: '',
+                        size: '',
+                    }
+                }
                 return {
                     ...d,
+                    id: found.id,
+                    name: found.name || d.name,
                     status: 'verified',
                     file_url: found.file_url || '',
                     date: new Date(found.created_at).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: 'numeric' }),
@@ -60,6 +82,10 @@ export function TeacherDocuments({ teacherId }: TeacherDocumentsProps) {
             }))
         })
     }, [teacherId])
+
+    useEffect(() => {
+        fetchAdminDocs()
+    }, [fetchAdminDocs])
     const [uploading, setUploading] = useState(false)
     const [viewingDoc, setViewingDoc] = useState<string | null>(null)
     const fileInputRef = useRef<HTMLInputElement>(null)
@@ -111,7 +137,7 @@ export function TeacherDocuments({ teacherId }: TeacherDocumentsProps) {
             file_url: d.file_url,
             file_type: d.file_type,
             file_size_bytes: d.file_size_bytes,
-            document_type: d.document_type,
+            document_type: getNormalizedDocType(d.document_type),
             subject_id: d.subject_id || null,
             subjectName: d.subjects?.name || null,
             subjectIcon: d.subjects?.icon || null,
@@ -164,19 +190,8 @@ export function TeacherDocuments({ teacherId }: TeacherDocumentsProps) {
                 await saveAdminDocumentAction(teacherId, docMeta?.type || uploadTarget, publicUrl, uploadTarget, file.size)
             }
 
-            setAdminDocs(prev => prev.map(d =>
-                d.name === uploadTarget || d.type === uploadTarget
-                    ? {
-                        ...d,
-                        status: 'verified',
-                        date: new Date().toLocaleDateString(t('common.locale') || 'fr-FR', { day: '2-digit', month: 'short', year: 'numeric' }),
-                        size: `${(file.size / (1024 * 1024)).toFixed(1)} MB`,
-                        file_url: publicUrl
-                    }
-                    : d
-            ))
-
             toast.success(t('admin.teachers.documents.uploadSuccess', { name: uploadTarget }))
+            fetchAdminDocs()
         } catch (err) {
             console.error('Upload error:', err)
             toast.error(t('admin.teachers.documents.uploadError'))
@@ -205,7 +220,14 @@ export function TeacherDocuments({ teacherId }: TeacherDocumentsProps) {
     const startEdit = (doc: TeacherResource) => {
         setEditingId(doc.id)
         setEditName(doc.name)
-        setEditType(doc.document_type)
+        setEditType(getNormalizedDocType(doc.document_type))
+        setReplaceFile(null)
+        setDeleteConfirmId(null)
+    }
+
+    const startEditAdmin = (doc: any) => {
+        setEditingId(doc.id)
+        setEditName(doc.name)
         setReplaceFile(null)
         setDeleteConfirmId(null)
     }
@@ -252,6 +274,54 @@ export function TeacherDocuments({ teacherId }: TeacherDocumentsProps) {
             toast.success(t('admin.teachers.documents.deleted'))
             setDeleteConfirmId(null)
             setResources(prev => prev.filter(r => r.id !== id))
+        } catch (err: any) {
+            console.error(err)
+            toast.error(err?.message || t('admin.teachers.documents.deleteError'))
+        } finally {
+            setDeleting(false)
+        }
+    }
+
+    const handleSaveEditAdmin = async (doc: any) => {
+        if (!editingId || !editName.trim()) return
+        setSavingEdit(true)
+        try {
+            let fileUrl: string | undefined
+            if (replaceFile) {
+                const formData = new FormData()
+                formData.append('file', replaceFile)
+                formData.append('teacherId', teacherId || '')
+                formData.append('uploadTarget', doc.type)
+
+                const res = await fetch('/api/admin/upload-teacher-document', { method: 'POST', body: formData })
+                const json = await res.json()
+                if (!res.ok) throw new Error(json.error || 'Upload failed')
+                fileUrl = json.publicUrl
+            }
+
+            const result = await updateTeacherDocumentAction(editingId, editName.trim(), 'general', fileUrl)
+            if (result.error) throw new Error(result.error)
+
+            toast.success(t('admin.teachers.documents.editSaved'))
+            setEditingId(null)
+            setReplaceFile(null)
+            fetchAdminDocs()
+        } catch (err: any) {
+            console.error(err)
+            toast.error(err?.message || t('admin.teachers.documents.editError'))
+        } finally {
+            setSavingEdit(false)
+        }
+    }
+
+    const handleDeleteAdmin = async (id: string) => {
+        setDeleting(true)
+        try {
+            const result = await deleteTeacherDocumentAction(id)
+            if (result.error) throw new Error(result.error)
+            toast.success(t('admin.teachers.documents.deleted'))
+            setDeleteConfirmId(null)
+            fetchAdminDocs()
         } catch (err: any) {
             console.error(err)
             toast.error(err?.message || t('admin.teachers.documents.deleteError'))
@@ -333,8 +403,86 @@ export function TeacherDocuments({ teacherId }: TeacherDocumentsProps) {
                     <div className="bg-[#1A2530] rounded-3xl border border-white/5 overflow-hidden">
                         <div className="divide-y divide-white/5">
                             {adminDocs.map((doc) => {
-                                const localizedName = t(`admin.teachers.documents.types.${doc.type}`) || doc.name
+                                const localizedName = (doc.name === doc.type) ? (t(`admin.teachers.documents.types.${doc.type}`) || doc.name) : doc.name
                                 const localizedType = t(`admin.teachers.documents.types.${doc.type}`) || doc.type
+                                const isEditing = editingId === doc.id
+                                const isDeleting = deleteConfirmId === doc.id
+
+                                if (isEditing) {
+                                    return (
+                                        <div key={doc.id} className="p-4 sm:p-5 bg-[#0F1720] border-b border-white/5 space-y-3 animate-in fade-in duration-150">
+                                            <input
+                                                type="text"
+                                                value={editName}
+                                                onChange={e => setEditName(e.target.value)}
+                                                placeholder={t('admin.teachers.documents.nameLabel')}
+                                                className="w-full bg-[#1A2530] border border-white/10 text-sm text-white rounded-lg px-3 py-1.5 focus:outline-none focus:ring-1 focus:ring-emerald-500/50"
+                                            />
+                                            {/* Optional file replacement */}
+                                            <div
+                                                onClick={() => replaceFileRef.current?.click()}
+                                                className={cn(
+                                                    'flex items-center gap-2 px-3 py-1.5 rounded-lg border border-dashed cursor-pointer transition-colors text-xs',
+                                                    replaceFile
+                                                        ? 'border-emerald-500/40 bg-emerald-500/5 text-emerald-400'
+                                                        : 'border-white/10 text-gray-500 hover:border-emerald-500/30'
+                                                )}
+                                            >
+                                                <Upload className="w-3.5 h-3.5 shrink-0" />
+                                                <span className="truncate">
+                                                    {replaceFile ? replaceFile.name : t('admin.teachers.documents.replaceFile')}
+                                                </span>
+                                            </div>
+
+                                            <div className="flex justify-end gap-2 pt-1">
+                                                <button
+                                                    type="button"
+                                                    onClick={cancelEdit}
+                                                    disabled={savingEdit}
+                                                    className="p-1.5 text-gray-500 hover:text-white rounded-lg hover:bg-white/5 transition-colors"
+                                                >
+                                                    <X className="w-3.5 h-3.5" />
+                                                </button>
+                                                <button
+                                                    type="button"
+                                                    onClick={() => handleSaveEditAdmin(doc)}
+                                                    disabled={savingEdit || !editName.trim()}
+                                                    className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-500 hover:bg-emerald-400 disabled:opacity-50 disabled:cursor-not-allowed text-black text-xs font-bold rounded-lg transition-colors"
+                                                >
+                                                    {savingEdit ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Check className="w-3.5 h-3.5" />}
+                                                    {t('admin.teachers.documents.saveEdit')}
+                                                </button>
+                                            </div>
+                                        </div>
+                                    )
+                                }
+
+                                if (isDeleting) {
+                                    return (
+                                        <div key={doc.id} className="p-4 sm:p-5 flex items-center justify-between bg-[#0F1720] border-b border-white/5 animate-in fade-in duration-150">
+                                            <span className="text-xs text-red-400 flex-1">{t('admin.teachers.documents.deleteConfirm')}</span>
+                                            <div className="flex gap-2">
+                                                <button
+                                                    type="button"
+                                                    onClick={() => handleDeleteAdmin(doc.id)}
+                                                    disabled={deleting}
+                                                    className="px-3 py-1 text-xs font-bold bg-red-500/15 border border-red-500/30 text-red-400 rounded-lg hover:bg-red-500/25 transition-colors disabled:opacity-50"
+                                                >
+                                                    {deleting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : t('admin.teachers.documents.deleteConfirmYes')}
+                                                </button>
+                                                <button
+                                                    type="button"
+                                                    onClick={() => setDeleteConfirmId(null)}
+                                                    disabled={deleting}
+                                                    className="px-3 py-1 text-xs font-bold bg-white/5 border border-white/10 text-gray-400 rounded-lg hover:text-white transition-colors"
+                                                >
+                                                    {t('admin.teachers.documents.deleteConfirmNo')}
+                                                </button>
+                                            </div>
+                                        </div>
+                                    )
+                                }
+
                                 return (
                                     <div key={doc.id} className="p-4 sm:p-5 flex items-center justify-between hover:bg-[#0F1720] transition-colors group">
                                         <div className="flex items-center gap-4">
@@ -373,6 +521,12 @@ export function TeacherDocuments({ teacherId }: TeacherDocumentsProps) {
                                                     </Button>
                                                     <Button variant="ghost" size="icon" className="text-gray-400 hover:text-white h-8 w-8" onClick={() => handleDownload(doc.file_url, localizedName)}>
                                                         <Download className="w-4 h-4" />
+                                                    </Button>
+                                                    <Button variant="ghost" size="icon" className="text-gray-400 hover:text-blue-400 h-8 w-8" onClick={() => startEditAdmin(doc)}>
+                                                        <Pencil className="w-4 h-4" />
+                                                    </Button>
+                                                    <Button variant="ghost" size="icon" className="text-gray-400 hover:text-red-400 h-8 w-8" onClick={() => setDeleteConfirmId(doc.id)}>
+                                                        <Trash2 className="w-4 h-4" />
                                                     </Button>
                                                 </div>
                                             )}

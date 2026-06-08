@@ -9,6 +9,7 @@ import { cn } from '@/lib/utils'
 import { createClient } from '@/utils/supabase/client'
 import { toast } from 'sonner'
 import { useLanguage } from '@/i18n'
+import { formatDateTime, formatDateTimeShort } from '@/utils/locale';
 
 interface ParentDoc {
     id: string
@@ -29,7 +30,7 @@ interface ParentDocumentsProps {
 }
 
 export function ParentDocuments({ parentId, parentName, schoolId }: ParentDocumentsProps) {
-    const { t } = useLanguage()
+    const { t, language } = useLanguage()
     const [docs, setDocs]       = useState<ParentDoc[]>([])
     const [loading, setLoading] = useState(true)
     const [tab, setTab]         = useState<'files' | 'requests'>('files')
@@ -238,8 +239,7 @@ export function ParentDocuments({ parentId, parentName, schoolId }: ParentDocume
     const requests = docs.filter(d => d.is_request)
     const pendingCount = requests.filter(r => r.request_status === 'pending').length
 
-    const formatDate = (d: string) =>
-        new Date(d).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', year: 'numeric' })
+    const formatDate = (d: string) => formatDateTimeShort(d, language)
 
     /* ── Render ── */
 
@@ -631,6 +631,10 @@ export function ParentDocuments({ parentId, parentName, schoolId }: ParentDocume
                                             {req.description && (
                                                 <p className="text-[11px] text-gray-500 mt-1">{req.description}</p>
                                             )}
+                                            <p className="text-[10px] text-gray-600 mt-1 flex items-center gap-1">
+                                                <Clock className="w-2.5 h-2.5 shrink-0" />
+                                                {formatDateTime(req.created_at, language)}
+                                            </p>
                                         </div>
                                         <div className="flex gap-1 shrink-0">
                                             {req.file_url && (

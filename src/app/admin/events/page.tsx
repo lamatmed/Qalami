@@ -353,16 +353,17 @@ export default function AdminEventsPage() {
         setEvents(prev => prev.filter(e => e.id !== id))
     }
 
-    const now = new Date()
+    const startOfToday = new Date()
+    startOfToday.setHours(0, 0, 0, 0)
     const filtered = events.filter(ev => {
         if (filterType !== 'all' && ev.event_type !== filterType) return false
         if (search && !ev.title.toLowerCase().includes(search.toLowerCase())) return false
         const evDate = new Date(ev.start_date)
-        if (filterTime === 'upcoming' && evDate < now) return false
-        if (filterTime === 'past' && evDate >= now) return false
+        if (filterTime === 'upcoming' && evDate < startOfToday) return false
+        if (filterTime === 'past' && evDate >= startOfToday) return false
         return true
     })
-    const upcomingCount = events.filter(e => new Date(e.start_date) >= now).length
+    const upcomingCount = events.filter(e => new Date(e.start_date) >= startOfToday).length
 
     if (ctxLoading || loading) return <div className="flex items-center justify-center h-64"><Loader2 className="w-7 h-7 animate-spin text-blue-500" /></div>
 
@@ -424,7 +425,7 @@ export default function AdminEventsPage() {
                 <motion.div variants={c} initial="hidden" animate="show" className="space-y-3">
                     {filtered.map(ev => {
                         const ti = typeInfo(ev.event_type)
-                        const isPast = new Date(ev.start_date) < now
+                        const isPast = new Date(ev.start_date) < startOfToday
                         const isExpanded = expandedId === ev.id
                         const summary = audienceSummary(ev.visibility || [], classes, t, language)
                         return (

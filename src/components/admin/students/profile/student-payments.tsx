@@ -457,6 +457,7 @@ export function StudentPayments({ studentId, studentName, schoolId, isArchived }
         printWindow.focus()
         setTimeout(() => {
             printWindow.print()
+            printWindow.close()
         }, 300)
     }
 
@@ -727,6 +728,7 @@ export function StudentPayments({ studentId, studentName, schoolId, isArchived }
                         <div>
                             <label className="text-xs text-gray-400 font-bold mb-1.5 block">{t('common.type')}</label>
                             <select
+                                title={t('common.type')}
                                 className="w-full h-11 bg-[#0D1117] border border-white/10 rounded-xl px-3 text-white text-sm"
                                 value={paymentType}
                                 onChange={(e) => setPaymentType(e.target.value)}

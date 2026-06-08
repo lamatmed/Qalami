@@ -9,6 +9,7 @@ import {
 import { cn } from '@/lib/utils'
 import { toast } from 'sonner'
 import { useLanguage } from '@/i18n'
+import { formatDateTime, formatDateTimeShort } from '@/utils/locale'
 import {
     getDocumentRequests, updateDocRequestStatus, getMySchoolId,
     removeFileFromRequest,
@@ -19,7 +20,7 @@ import { DOC_TYPE_LABELS } from './constants'
 type FilterTab = 'all' | DocRequestStatus
 
 export default function RequestsPage() {
-    const { t } = useLanguage()
+    const { t, language } = useLanguage()
 
     const STATUS_CONFIG: Record<DocRequestStatus, { label: string; color: string; bg: string }> = {
         pending:     { label: t('adminRequests.pending'),     color: 'text-amber-400',   bg: 'bg-amber-500/10 border-amber-500/20'    },
@@ -178,7 +179,7 @@ export default function RequestsPage() {
                         </p>
                     </div>
                 </div>
-                <button type="button" onClick={load}
+                <button type="button" onClick={load} title={t('common.refresh')}
                     className="p-2 rounded-xl text-gray-500 hover:text-white hover:bg-white/5 transition-colors">
                     <RefreshCw className="w-4 h-4" />
                 </button>
@@ -272,8 +273,8 @@ export default function RequestsPage() {
                                                 <IdCard className="w-3 h-3 text-gray-600" />
                                                 <span className="text-gray-600 font-mono text-[10px]">{req.student.national_id}</span>
                                             </>}
-                                            <span className="text-gray-600 ml-auto">
-                                                {new Date(req.created_at).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short' })}
+                                            <span className="text-gray-600 ml-auto font-mono text-[10px]">
+                                                {formatDateTimeShort(req.created_at, language)}
                                             </span>
                                         </div>
                                     </button>
@@ -317,8 +318,8 @@ export default function RequestsPage() {
                                             </div>
                                             <div className="bg-white/5 rounded-xl p-3">
                                                 <p className="text-gray-500 mb-1">{t('adminRequests.requestDate')}</p>
-                                                <p className="text-white font-bold">
-                                                    {new Date(req.created_at).toLocaleDateString('fr-FR', { day: '2-digit', month: 'long', year: 'numeric' })}
+                                                <p className="text-white font-bold text-xs">
+                                                    {formatDateTime(req.created_at, language)}
                                                 </p>
                                             </div>
                                             {req.student?.national_id && (
@@ -350,6 +351,7 @@ export default function RequestsPage() {
                                                         )}
                                                     </div>
                                                     <a href={req.file_path} target="_blank" rel="noopener noreferrer"
+                                                        title={t('common.download')}
                                                         className="shrink-0 p-1.5 rounded-lg text-cyan-400 hover:bg-cyan-500/10 transition-colors">
                                                         <Download className="w-3.5 h-3.5" />
                                                     </a>
@@ -429,7 +431,7 @@ export default function RequestsPage() {
                                         {req.fulfilled_at && (
                                             <p className="text-[10px] text-gray-600">
                                                 {t('adminRequests.treatedOn', {
-                                                    date: new Date(req.fulfilled_at).toLocaleDateString('fr-FR', { day: '2-digit', month: 'long', year: 'numeric' })
+                                                    date: formatDateTime(req.fulfilled_at, language)
                                                 })}
                                             </p>
                                         )}

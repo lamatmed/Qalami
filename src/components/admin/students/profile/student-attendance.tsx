@@ -222,15 +222,16 @@ export function StudentAttendance({ studentId, schoolId }: { studentId: string; 
                                         rel="noopener noreferrer"
                                         className="inline-flex items-center gap-1 text-xs font-bold text-emerald-400 hover:text-emerald-300 bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/20 rounded-lg px-2.5 py-1 transition-colors"
                                     >
-                                        <Eye className="w-3 h-3" /> Voir
+                                        <Eye className="w-3 h-3" /> {t('common.view')}
                                     </a>
                                     <a
                                         href={f.publicUrl}
                                         target="_blank"
                                         rel="noopener noreferrer"
                                         className="inline-flex items-center gap-1 text-xs font-bold text-gray-400 hover:text-white bg-white/5 hover:bg-white/10 border border-white/10 rounded-lg px-2.5 py-1 transition-colors"
+                                        download
                                     >
-                                        <Download className="w-3 h-3" /> Télécharger
+                                        <Download className="w-3 h-3" /> {t('common.download')}
                                     </a>
                                 </div>
                             </div>

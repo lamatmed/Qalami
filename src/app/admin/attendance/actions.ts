@@ -831,3 +831,42 @@ export async function getClassAttendanceDetails(classId: string) {
         return { periods: [], subjectStats: [], enrolled: [], stats: [] }
     }
 }
+
+// ─── Today's attendance for a class (per-student status) ─────────────────────
+
+export async function getTodayClassAttendance(classId: string) {
+    const ctx = await getSchoolAndUser()
+    if (!ctx) return { students: [], date: '', hasData: false }
+
+    const { supabase, schoolId } = ctx
+
+    const now = new Date()
+    const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`
+
+    const [enrolledRes, attendanceRes] = await Promise.all([
+        supabase
+            .from('enrollments')
+            .select('student_id, profiles!enrollments_student_id_fkey(id, full_name, avatar_url)')
+            .eq('class_id', classId)
+            .eq('school_id', schoolId)
+            .eq('status', 'active')
+            .order('student_id'),
+        supabase
+            .from('attendance')
+            .select('student_id, status')
+            .eq('class_id', classId)
+            .eq('date', today),
+    ])
+
+    const enrolled = enrolledRes.data ?? []
+    const attendance = attendanceRes.data ?? []
+    const statusMap = new Map(attendance.map((a: any) => [a.student_id, a.status as string]))
+
+    const students = (enrolled as any[]).map(e => ({
+        id: e.student_id as string,
+        name: (e.profiles as any)?.full_name ?? '—',
+        status: (statusMap.get(e.student_id) ?? null) as string | null,
+    })).sort((a, b) => a.name.localeCompare(b.name))
+
+    return { students, date: today, hasData: attendance.length > 0 }
+}

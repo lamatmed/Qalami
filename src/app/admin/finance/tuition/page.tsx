@@ -43,7 +43,20 @@ const STATUS_CONFIG: Record<string, { color: string; icon: React.ElementType }> 
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default function TuitionPage() {
-    const { t } = useLanguage()
+    const { t, language } = useLanguage()
+
+    const formatDateTime = (dateStr: string) => {
+        const locale = language === 'ar' ? 'ar-u-ca-gregory' : 'fr-FR'
+        const d = new Date(dateStr)
+        return d.toLocaleDateString(locale, { day: 'numeric', month: 'short', year: 'numeric' })
+            + ' · '
+            + d.toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit' })
+    }
+
+    const formatDateOnly = (dateStr: string) => {
+        const locale = language === 'ar' ? 'ar-u-ca-gregory' : 'fr-FR'
+        return new Date(dateStr).toLocaleDateString(locale, { day: 'numeric', month: 'short', year: 'numeric' })
+    }
     const [payments, setPayments] = useState<PaymentRow[]>([])
     const [loading, setLoading] = useState(true)
     const [search, setSearch] = useState('')
@@ -102,16 +115,35 @@ export default function TuitionPage() {
             .order('name')
         setClasses(classData || [])
 
-        // Fetch payments with student name
-        const { data: paymentsData, error } = await supabase
-            .from('payments')
-            .select(`
-                id, student_id, payment_type, amount,
-                payment_status, due_date, paid_at, academic_year_id,
-                profiles!payments_student_id_fkey(full_name)
-            `)
-            .eq('school_id', profile.school_id)
-            .order('created_at', { ascending: false })
+        // Fetch payments + transactions in parallel
+        const [
+            { data: paymentsData, error },
+            { data: txData },
+            { data: enrollments },
+        ] = await Promise.all([
+            supabase
+                .from('payments')
+                .select(`
+                    id, student_id, payment_type, amount,
+                    payment_status, due_date, paid_at, academic_year_id,
+                    profiles!payments_student_id_fkey(full_name)
+                `)
+                .eq('school_id', profile.school_id)
+                .order('created_at', { ascending: false }),
+            // Completed income transactions linked to a student
+            supabase
+                .from('transactions')
+                .select('related_profile_id, amount')
+                .eq('school_id', profile.school_id)
+                .eq('type', 'income')
+                .eq('status', 'completed')
+                .not('related_profile_id', 'is', null),
+            supabase
+                .from('enrollments')
+                .select('student_id, class_id, classes(name)')
+                .eq('school_id', profile.school_id)
+                .eq('status', 'active'),
+        ])
 
         if (error) {
             console.error("Tuition load error:", error)
@@ -120,20 +152,43 @@ export default function TuitionPage() {
             return
         }
 
-        // Fetch active enrollments to get class names
-        const { data: enrollments } = await supabase
-            .from('enrollments')
-            .select('student_id, class_id, classes(name)')
-            .eq('school_id', profile.school_id)
-            .eq('status', 'active')
+        // ── Credit balance per student from transactions ───────────────────────
+        const txBalance = new Map<string, number>()
+        ;(txData || []).forEach((tx: any) => {
+            const id = tx.related_profile_id
+            if (!id) return
+            txBalance.set(id, (txBalance.get(id) ?? 0) + Number(tx.amount))
+        })
 
+        // Deduct already-paid payments so we don't double-count
+        ;(paymentsData || [])
+            .filter((p: any) => p.payment_status === 'paid')
+            .forEach((p: any) => {
+                const cur = txBalance.get(p.student_id) ?? 0
+                txBalance.set(p.student_id, Math.max(0, cur - Number(p.amount)))
+            })
+
+        // Consume the transaction balance oldest-due-date first (regardless of display order)
+        const effectivelyPaidIds = new Set<string>()
+        ;[...(paymentsData || [])]
+            .filter((p: any) => p.payment_status !== 'paid')
+            .sort((a: any, b: any) => (a.due_date ?? '').localeCompare(b.due_date ?? ''))
+            .forEach((p: any) => {
+                const bal = txBalance.get(p.student_id) ?? 0
+                if (bal >= Number(p.amount)) {
+                    effectivelyPaidIds.add(p.id)
+                    txBalance.set(p.student_id, bal - Number(p.amount))
+                }
+            })
+
+        // ── Class names map ────────────────────────────────────────────────────
         const enrollmentMap: Record<string, string> = {}
         ;(enrollments || []).forEach((e: any) => {
             enrollmentMap[e.student_id] = e.classes?.name ?? null
         })
 
         const rows: PaymentRow[] = (paymentsData || []).map((p: any) => {
-            const isPaid = p.payment_status === 'paid'
+            const isPaid = p.payment_status === 'paid' || effectivelyPaidIds.has(p.id)
             const numericAmt = Number(p.amount) || 0
             return {
                 id: p.id,
@@ -143,9 +198,9 @@ export default function TuitionPage() {
                 payment_type: p.payment_type ?? 'scolarite',
                 amount: numericAmt,
                 amount_paid: isPaid ? numericAmt : 0,
-                status: p.payment_status ?? 'pending',
+                status: isPaid ? 'paid' : (p.payment_status ?? 'pending'),
                 due_date: p.due_date,
-                paid_at: p.paid_at,
+                paid_at: isPaid ? (p.paid_at ?? new Date().toISOString()) : null,
                 academic_year_id: p.academic_year_id,
             }
         })
@@ -433,7 +488,7 @@ export default function TuitionPage() {
                                             <th className="text-right px-4 py-3 text-[11px] font-semibold text-gray-500 uppercase tracking-wider">{t('admin.tuition.table.paid')}</th>
                                             <th className="text-right px-4 py-3 text-[11px] font-semibold text-gray-500 uppercase tracking-wider">{t('admin.tuition.table.remaining')}</th>
                                             <th className="text-center px-4 py-3 text-[11px] font-semibold text-gray-500 uppercase tracking-wider">{t('admin.tuition.table.status')}</th>
-                                            <th className="text-left px-4 py-3 text-[11px] font-semibold text-gray-500 uppercase tracking-wider">{t('admin.tuition.table.dueDate')}</th>
+                                            <th className="text-left px-4 py-3 text-[11px] font-semibold text-gray-500 uppercase tracking-wider whitespace-nowrap">Date</th>
                                         </tr>
                                     </thead>
                                     <tbody className="divide-y divide-white/5">
@@ -486,10 +541,18 @@ export default function TuitionPage() {
                                                             {t(`admin.tuition.status.${p.status}`)}
                                                         </span>
                                                     </td>
-                                                    <td className="px-4 py-3 text-xs text-gray-500">
-                                                        {p.due_date
-                                                            ? new Date(p.due_date).toLocaleDateString('fr-FR')
-                                                            : '—'}
+                                                    <td className="px-4 py-3 text-xs whitespace-nowrap">
+                                                        {p.status === 'paid' && p.paid_at ? (
+                                                            <span className="text-emerald-400">
+                                                                {formatDateTime(p.paid_at)}
+                                                            </span>
+                                                        ) : p.due_date ? (
+                                                            <span className="text-gray-500">
+                                                                {formatDateOnly(p.due_date)}
+                                                            </span>
+                                                        ) : (
+                                                            <span className="text-gray-600">—</span>
+                                                        )}
                                                     </td>
                                                 </tr>
                                             )

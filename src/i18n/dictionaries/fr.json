@@ -50,6 +50,7 @@
     "send": "Envoyer",
     "submit": "Soumettre",
     "reset": "Réinitialiser",
+    "refresh": "Actualiser",
     "noData": "Aucune donnée",
     "noResults": "Aucun résultat",
     "error": "Erreur",
@@ -871,6 +872,8 @@
       "nni": "Numéro National d'Identité (NNI)",
       "nniPlaceholder": "10 chiffres",
       "nniHint": "Le NNI est requis pour l'enregistrement officiel au ministère.",
+      "address": "Adresse",
+      "addressPlaceholder": "Ex: Tevragh Zeina, Nouakchott",
       "tempPassword": "Mot de passe instantané *",
       "tempPasswordPlaceholder": "6 chiffres (ex. 123456)",
       "tempPasswordHint": "Exactement 6 chiffres. Ce code sera communiqué à l'enseignant pour la première connexion.",
@@ -1622,6 +1625,40 @@
         "warningMessage": "L'emploi du temps de {target} sera entièrement remplacé par celui de {source}.",
         "errorSameClass": "La source et la destination doivent être différentes",
         "successMessage": "{count} cours copiés avec succès"
+      },
+      "selectClassPrompt": "Sélectionnez une classe",
+      "selectTeacherPrompt": "Sélectionnez un enseignant",
+      "previousWeek": "Semaine précédente",
+      "todayBtn": "Aujourd'hui",
+      "nextWeek": "Semaine suivante",
+      "unavailable": "Indisponible",
+      "deleteError": "Erreur lors de la suppression",
+      "courseDeleted": "Cours supprimé",
+      "conflictDetected": "conflit(s) détecté(s)",
+      "conflictSimultaneous": "deux cours simultanés",
+      "otherSchoolTitle": "Autre établissement",
+      "conflictPlanningTitle": "Conflit de planning",
+      "deleteConfirm": "Supprimer ce cours ?",
+      "courseAdded": "Cours ajouté avec succès",
+      "addError": "Erreur lors de l'ajout",
+      "selectSubjectFirst": "Sélectionnez d'abord une matière",
+      "selectSubjectRequired": "Veuillez sélectionner une matière",
+      "selectTeacherRequired": "Veuillez sélectionner un enseignant",
+      "selectClassRequired": "Veuillez sélectionner une classe",
+      "teacherUnavailable": "Enseignant indisponible",
+      "teacherBusy": "Occupé : {schoolName} - {className}",
+      "sessionTypeLabel": "Type de séance",
+      "roomPlaceholder": "Ex: Salle 101, Labo 1...",
+      "recurringLabel": "Répéter chaque semaine",
+      "recurringAllWeeks": "Apparaîtra sur toutes les semaines",
+      "recurringOnlyDate": "Uniquement pour cette date",
+      "sessionType": {
+        "course": "Cours",
+        "exam": "Examen",
+        "homework": "Devoir",
+        "revision": "Révision",
+        "lab": "TP",
+        "activity": "Activité"
       }
     },
     "structure": {
@@ -1791,6 +1828,10 @@
       "children": "Enfants",
       "unlink": "Délier",
       "addChildToAccount": "Ajouter un enfant au compte",
+      "addChild": "Ajouter un enfant",
+      "addedToAccount": "{name} ajouté(e) au compte de {parent}",
+      "parentLabel": "Parent",
+      "searchByNamePlaceholder": "Rechercher un élève par nom...",
       "call": "Appeler",
       "message": "Message",
       "finances": "Finances",
@@ -2149,6 +2190,13 @@
       "sessionsCountShort": "{count} séance{s}",
       "generalRollCall": "Appel général",
       "noEnrolledStudents": "Aucun élève inscrit",
+      "todayAttendance": "Présences du jour",
+      "noAttendanceToday": "Aucune présence enregistrée aujourd'hui",
+      "notRecorded": "Non enregistré",
+      "presentToday": "Présents",
+      "absentToday": "Absents",
+      "lateToday": "Retards",
+      "excusedToday": "Excusés",
       "status": {
         "present": "Présent",
         "absent": "Absent",
@@ -2202,7 +2250,9 @@
         "allTypes": "Tous les types",
         "allClasses": "Toutes les classes",
         "noClass": "Sans classe"
-      }
+      },
+      "markAsPaid": "Marquer comme payé",
+      "markedAsPaid": "Paiement marqué comme payé"
     },
     "payroll": {
       "budgetTotal": "Budget Total ({month})",
@@ -2434,7 +2484,9 @@
         "publish_reports": "Bulletins publiés",
         "assign_parents": "Parent(s) affecté(s)",
         "update_settings": "Paramètres modifiés",
-        "remove_student_from_class": "Élève retiré de classe"
+        "remove_student_from_class": "Élève retiré de classe",
+        "reintegrate_student": "Élève réintégré",
+        "transfer_student_external": "Élève transféré (externe)"
       }
     }
   },

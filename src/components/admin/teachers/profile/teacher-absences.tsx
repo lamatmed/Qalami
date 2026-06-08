@@ -52,14 +52,16 @@ export function TeacherAbsences({ teacherId }: { teacherId: string }) {
     const [saving, setSaving] = useState(false)
     const [deletingId, setDeletingId] = useState<string | null>(null)
 
-    useEffect(() => {
-        async function load() {
+    const loadAbsences = async () => {
+        setLoading(true)
+        try {
             const supabase = createClient()
             const ctx = await getMySchoolContext()
             const currentSchoolId = ctx?.school_id
             setSchoolId(currentSchoolId || null)
 
-            const { data, error } = await supabase
+            // 1. Fetch manual absences
+            const { data: manualData, error: manualErr } = await supabase
                 .from('teacher_attendance' as any)
                 .select(`
                     id, date, status, justified, justification_note,
@@ -71,15 +73,165 @@ export function TeacherAbsences({ teacherId }: { teacherId: string }) {
                 .neq('status', 'present')
                 .order('date', { ascending: false })
 
-            if (error) {
-                if (error.code === '42P01') setTableExists(false)
+            if (manualErr) {
+                if (manualErr.code === '42P01') setTableExists(false)
                 setLoading(false)
                 return
             }
-            if (data) setRecords(data as unknown as AbsenceRecord[])
+
+            // 2. Fetch teacher's schedule
+            const { data: scheduleData } = await supabase
+                .from('schedule')
+                .select(`
+                    id,
+                    day_of_week,
+                    start_time,
+                    end_time,
+                    is_recurring,
+                    event_date,
+                    subjects:subject_id(name),
+                    classes:class_id(name)
+                `)
+                .eq('teacher_id', teacherId)
+                .eq('school_id', currentSchoolId)
+
+            const schedule = scheduleData || []
+
+            // 3. Fetch roll calls taken in the last 30 days
+            const startDate = new Date()
+            startDate.setDate(startDate.getDate() - 30)
+            const startDateStr = startDate.toISOString().split('T')[0]
+
+            let attendanceLogs: { schedule_id: string; date: string }[] = []
+            const scheduleIds = schedule.map(s => s.id)
+            if (scheduleIds.length > 0) {
+                const { data: attData } = await supabase
+                    .from('attendance')
+                    .select('schedule_id, date')
+                    .in('schedule_id', scheduleIds)
+                    .gte('date', startDateStr)
+                attendanceLogs = attData || []
+            }
+
+            const todayStr = new Date().toISOString().split('T')[0]
+            const now = new Date()
+            const currentHourMins = now.getHours() * 60 + now.getMinutes()
+
+            const autoAbsences: AbsenceRecord[] = []
+
+            // Helper to get time in minutes from HH:MM:SS
+            const timeToMins = (t: string) => {
+                const [h, m] = t.split(':').map(Number)
+                return h * 60 + m
+            }
+
+            // Loop over last 30 days
+            for (let i = 0; i <= 30; i++) {
+                const checkDate = new Date()
+                checkDate.setDate(checkDate.getDate() - i)
+                const dateStr = checkDate.toISOString().split('T')[0]
+
+                // Split safely to get local day index
+                const [y, m, d] = dateStr.split('-').map(Number)
+                const localDate = new Date(y, m - 1, d)
+                const dayOfWeek = localDate.getDay() // 0 = Sunday, 1 = Monday, etc.
+
+                // Filter schedule slots for this day
+                const daySlots = schedule.filter(slot => {
+                    if (slot.is_recurring) {
+                        return slot.day_of_week === dayOfWeek
+                    } else {
+                        return slot.event_date === dateStr
+                    }
+                })
+
+                for (const slot of daySlots) {
+                    // If it is today, ensure the class slot has already ended before counting it as absent
+                    if (dateStr === todayStr) {
+                        const endTimeMins = timeToMins(slot.end_time)
+                        if (currentHourMins < endTimeMins) {
+                            continue // Class has not ended yet, do not mark absent
+                        }
+                    }
+
+                    // Check if attendance was taken
+                    const rollCallTaken = attendanceLogs.some(log => log.schedule_id === slot.id && log.date === dateStr)
+
+                    if (!rollCallTaken) {
+                        // Compute slot duration in hours
+                        const startMins = timeToMins(slot.start_time)
+                        const endMins = timeToMins(slot.end_time)
+                        const durationHours = Math.max(0, (endMins - startMins) / 60)
+
+                        const subjectName = (slot.subjects as any)?.name || 'Matière'
+                        const className = (slot.classes as any)?.name || 'Classe'
+
+                        autoAbsences.push({
+                            id: `auto-${slot.id}-${dateStr}`,
+                            date: dateStr,
+                            status: 'absent',
+                            justified: false,
+                            justification_note: `Appel non fait : ${subjectName} (${className})`,
+                            made_up: false,
+                            made_up_date: null,
+                            recorder: null,
+                            hours: durationHours,
+                            is_automated: true,
+                            class_name: className,
+                            subject_name: subjectName,
+                            start_time: slot.start_time,
+                            end_time: slot.end_time
+                        })
+                    }
+                }
+            }
+
+            // Add hours to manual records
+            const processedManualRecords = (manualData || []).map((mr: any) => {
+                const [y, m, d] = mr.date.split('-').map(Number)
+                const mrDateObj = new Date(y, m - 1, d)
+                const mrDayOfWeek = mrDateObj.getDay()
+
+                // Sum scheduled hours for this day of week
+                const daySlots = schedule.filter(slot => {
+                    if (slot.is_recurring) {
+                        return slot.day_of_week === mrDayOfWeek
+                    } else {
+                        return slot.event_date === mr.date
+                    }
+                })
+
+                let totalHours = 0
+                for (const slot of daySlots) {
+                    const startMins = timeToMins(slot.start_time)
+                    const endMins = timeToMins(slot.end_time)
+                    totalHours += Math.max(0, (endMins - startMins) / 60)
+                }
+
+                return {
+                    ...mr,
+                    hours: totalHours || 1.0 // fallback to 1.0 hour if no schedule slots
+                }
+            })
+
+            // Filter out automated absences for dates that already have manual records
+            const filteredAutoAbsences = autoAbsences.filter(aa => {
+                return !processedManualRecords.some(mr => mr.date === aa.date)
+            })
+
+            // Combine both lists and sort by date descending
+            const combinedRecords = [...processedManualRecords, ...filteredAutoAbsences].sort((a, b) => b.date.localeCompare(a.date))
+
+            setRecords(combinedRecords)
+        } catch (err) {
+            console.error('[loadAbsences] error:', err)
+        } finally {
             setLoading(false)
         }
-        load()
+    }
+
+    useEffect(() => {
+        loadAbsences()
     }, [teacherId])
 
     const handleAddAbsence = async () => {
@@ -89,7 +241,7 @@ export function TeacherAbsences({ teacherId }: { teacherId: string }) {
             const supabase = createClient()
             const { data: { user } } = await supabase.auth.getUser()
 
-            const { data, error } = await supabase
+            const { error } = await supabase
                 .from('teacher_attendance' as any)
                 .insert({
                     teacher_id: teacherId,
@@ -101,22 +253,16 @@ export function TeacherAbsences({ teacherId }: { teacherId: string }) {
                     made_up: false,
                     recorded_by: user?.id || null,
                 })
-                .select(`
-                    id, date, status, justified, justification_note,
-                    made_up, made_up_date,
-                    recorder:profiles!teacher_attendance_recorded_by_fkey ( full_name )
-                `)
-                .single()
 
             if (error) throw error
 
-            setRecords(prev => [data as unknown as AbsenceRecord, ...prev].sort((a, b) => b.date.localeCompare(a.date)))
             setAddFormOpen(false)
             setAddDate(new Date().toISOString().split('T')[0])
             setAddStatus('absent')
             setAddJustified(false)
             setAddNote('')
             toast.success(t('admin.teachers.absences.addSuccess'))
+            loadAbsences()
         } catch (err: any) {
             console.error('[TeacherAbsences] add error:', err)
             toast.error(t('admin.teachers.absences.addError'))
@@ -129,20 +275,40 @@ export function TeacherAbsences({ teacherId }: { teacherId: string }) {
         setJustifying(true)
         try {
             const supabase = createClient()
-            const { error } = await supabase
-                .from('teacher_attendance' as any)
-                .update({ justified: true, justification_note: justifyNote.trim() || null })
-                .eq('id', id)
+            const { data: { user } } = await supabase.auth.getUser()
+
+            let error = null
+            if (id.startsWith('auto-')) {
+                const virtualRec = records.find(r => r.id === id)
+                if (!virtualRec) throw new Error('Enregistrement introuvable')
+
+                const { error: insertErr } = await supabase
+                    .from('teacher_attendance' as any)
+                    .insert({
+                        teacher_id: teacherId,
+                        school_id: schoolId,
+                        date: virtualRec.date,
+                        status: 'absent',
+                        justified: true,
+                        justification_note: justifyNote.trim() || `Appel non fait (justifié) : ${virtualRec.class_name || ''}`,
+                        recorded_by: user?.id || null,
+                        made_up: false,
+                    })
+                error = insertErr
+            } else {
+                const { error: updateErr } = await supabase
+                    .from('teacher_attendance' as any)
+                    .update({ justified: true, justification_note: justifyNote.trim() || null })
+                    .eq('id', id)
+                error = updateErr
+            }
 
             if (error) throw error
 
-            setRecords(prev => prev.map(r => r.id === id
-                ? { ...r, justified: true, justification_note: justifyNote.trim() || null }
-                : r
-            ))
             setJustifyId(null)
             setJustifyNote('')
             toast.success(t('admin.teachers.absences.justifySuccess'))
+            loadAbsences()
         } catch (err: any) {
             console.error('[TeacherAbsences] justify error:', err)
             toast.error(t('admin.teachers.absences.justifyError'))
@@ -167,12 +333,9 @@ export function TeacherAbsences({ teacherId }: { teacherId: string }) {
         })
         setSaving(false)
         if (result.error) { toast.error(result.error); return }
-        setRecords(prev => prev.map(r => r.id === editId
-            ? { ...r, date: editDate, status: editStatus, justified: editJustified, justification_note: editNote.trim() || null }
-            : r
-        ).sort((a, b) => b.date.localeCompare(a.date)))
         setEditId(null)
         toast.success('Absence modifiée')
+        loadAbsences()
     }
 
     const handleDeleteAbsence = async (id: string) => {
@@ -181,8 +344,8 @@ export function TeacherAbsences({ teacherId }: { teacherId: string }) {
         const result = await deleteTeacherAbsenceAction(id)
         setDeletingId(null)
         if (result.error) { toast.error(result.error); return }
-        setRecords(prev => prev.filter(r => r.id !== id))
         toast.success('Absence supprimée')
+        loadAbsences()
     }
 
     const stats = useMemo(() => {
@@ -190,12 +353,18 @@ export function TeacherAbsences({ teacherId }: { teacherId: string }) {
         const justified   = records.filter(r => r.status === 'absent' && r.justified)
         const late        = records.filter(r => r.status === 'late')
         const made_up     = records.filter(r => r.made_up)
+        
+        const totalHours = records
+            .filter(r => r.status === 'absent')
+            .reduce((sum, r) => sum + (r.hours || 0), 0)
+
         return {
             total: records.length,
             unjustified: unjustified.length,
             justified: justified.length,
             late: late.length,
             made_up: made_up.length,
+            totalHours,
         }
     }, [records])
 
@@ -222,7 +391,6 @@ export function TeacherAbsences({ teacherId }: { teacherId: string }) {
             </p>
         </div>
     )
-
     return (
         <div className="space-y-5 animate-in fade-in slide-in-from-bottom-4 duration-500">
 
@@ -344,11 +512,19 @@ export function TeacherAbsences({ teacherId }: { teacherId: string }) {
             </div>
 
             {/* Total */}
-            <div className="bg-[#1A2530] rounded-2xl border border-white/5 px-5 py-3 flex justify-between items-center">
-                <p className="text-sm text-gray-400">{t('admin.teachers.absences.totalLabel')}</p>
-                <p className="text-lg font-black text-white">
-                    {t('admin.teachers.absences.eventCount').replace('{count}', stats.total.toString()).replace('{plural}', stats.total !== 1 ? 's' : '')}
-                </p>
+            <div className="bg-[#1A2530] rounded-2xl border border-white/5 px-5 py-4 grid grid-cols-2 gap-4">
+                <div>
+                    <p className="text-xs text-gray-500 uppercase font-bold">{t('admin.teachers.absences.totalLabel') || 'Total des événements'}</p>
+                    <p className="text-lg font-black text-white mt-0.5">
+                        {t('admin.teachers.absences.eventCount').replace('{count}', stats.total.toString()).replace('{plural}', stats.total !== 1 ? 's' : '')}
+                    </p>
+                </div>
+                <div className="border-l border-white/5 pl-4">
+                    <p className="text-xs text-gray-500 uppercase font-bold">Total des heures d'absence</p>
+                    <p className="text-lg font-black text-red-400 mt-0.5">
+                        {stats.totalHours.toFixed(1)} h
+                    </p>
+                </div>
             </div>
 
             {/* Filters */}
@@ -398,7 +574,7 @@ export function TeacherAbsences({ teacherId }: { teacherId: string }) {
                                 ? { icon: Clock,        color: 'text-blue-400',   bg: 'bg-blue-500/10 border-blue-500/20',     label: t('admin.teachers.absences.lateSingle') }
                                 : isJustified
                                 ? { icon: CheckCircle2, color: 'text-amber-400',  bg: 'bg-amber-500/10 border-amber-500/20',   label: t('admin.teachers.absences.justifiedSingle') }
-                                : { icon: XCircle,      color: 'text-red-400',    bg: 'bg-red-500/10 border-red-500/20',       label: t('admin.teachers.absences.unjustifiedSingle') }
+                                : { icon: XCircle,      color: 'text-red-400',    bg: 'bg-red-500/10 border-red-500/20',       label: r.is_automated ? "Appel non fait" : t('admin.teachers.absences.unjustifiedSingle') }
                             const Icon = cfg.icon
 
                             const isJustifying = justifyId === r.id
@@ -413,6 +589,15 @@ export function TeacherAbsences({ teacherId }: { teacherId: string }) {
                                             <div className="flex items-center justify-between gap-2 flex-wrap">
                                                 <div className="flex items-center gap-2 flex-wrap">
                                                     <p className={cn("text-sm font-bold", cfg.color)}>{cfg.label}</p>
+                                                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-white/10 text-gray-300 border border-white/10 flex items-center gap-1">
+                                                        <Clock className="w-2.5 h-2.5" />
+                                                        {r.hours ? `${r.hours.toFixed(1)} h` : '1.0 h'}
+                                                    </span>
+                                                    {r.is_automated && (
+                                                        <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-red-500/10 text-red-400 border border-red-500/20">
+                                                            Absence automatique
+                                                        </span>
+                                                    )}
                                                     {r.made_up && (
                                                         <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 flex items-center gap-1">
                                                             <RefreshCw className="w-2.5 h-2.5" /> {t('admin.teachers.absences.madeUpLabel')}
@@ -430,26 +615,33 @@ export function TeacherAbsences({ teacherId }: { teacherId: string }) {
                                                             {t('admin.teachers.absences.markAsJustified')}
                                                         </button>
                                                     )}
-                                                    {editId !== r.id && (
+                                                    {editId !== r.id && !r.is_automated && (
                                                         <button type="button" onClick={() => { startEdit(r); setJustifyId(null) }}
                                                             className="p-1 text-gray-500 hover:text-blue-400 transition-colors rounded-md hover:bg-white/5">
                                                             <Pencil className="w-3.5 h-3.5" />
                                                         </button>
                                                     )}
-                                                    <button type="button" onClick={() => handleDeleteAbsence(r.id)}
-                                                        disabled={deletingId === r.id}
-                                                        className="p-1 text-gray-500 hover:text-red-400 transition-colors rounded-md hover:bg-white/5">
-                                                        {deletingId === r.id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Trash2 className="w-3.5 h-3.5" />}
-                                                    </button>
+                                                    {!r.is_automated && (
+                                                        <button type="button" onClick={() => handleDeleteAbsence(r.id)}
+                                                            disabled={deletingId === r.id}
+                                                            className="p-1 text-gray-500 hover:text-red-400 transition-colors rounded-md hover:bg-white/5">
+                                                            {deletingId === r.id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Trash2 className="w-3.5 h-3.5" />}
+                                                        </button>
+                                                    )}
                                                     <p className="text-xs text-gray-600">
                                                         {new Date(r.date).toLocaleDateString(t('common.locale') || 'fr-FR', { weekday: 'short', day: '2-digit', month: 'short', year: 'numeric' })}
                                                     </p>
                                                 </div>
                                             </div>
+                                            {r.is_automated && (
+                                                <p className="text-xs text-gray-500 mt-1">
+                                                    Cours planifié : <strong className="text-gray-300">{r.subject_name}</strong> en <strong className="text-gray-300">{r.class_name}</strong> de <strong className="text-gray-300">{r.start_time?.substring(0, 5)} à {r.end_time?.substring(0, 5)}</strong>.
+                                                </p>
+                                            )}
                                             {r.recorder?.full_name && (
                                                 <p className="text-xs text-gray-600 mt-0.5">{t('admin.teachers.absences.recordedBy')} {r.recorder.full_name}</p>
                                             )}
-                                            {r.justification_note && (
+                                            {r.justification_note && !r.is_automated && (
                                                 <div className="mt-2 flex items-start gap-1.5 bg-white/5 rounded-lg px-3 py-2">
                                                     <StickyNote className="w-3 h-3 text-gray-500 shrink-0 mt-0.5" />
                                                     <p className="text-xs text-gray-400 italic">{r.justification_note}</p>

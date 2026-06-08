@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -23,6 +23,15 @@ export function EditTeacherDialog({ open, onOpenChange, teacherId, initialData, 
     const [nni, setNni] = useState(initialData.nni ?? '')
     const [address, setAddress] = useState(initialData.address ?? '')
     const [saving, setSaving] = useState(false)
+
+    useEffect(() => {
+        if (open) {
+            setFullName(initialData.full_name)
+            setEmail(initialData.email ?? '')
+            setNni(initialData.nni ?? '')
+            setAddress(initialData.address ?? '')
+        }
+    }, [open, initialData])
 
     const handleSave = async () => {
         if (!fullName.trim()) { toast.error('Le nom est obligatoire'); return }

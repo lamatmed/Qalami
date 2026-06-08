@@ -29,6 +29,7 @@ export function TeacherContract({ teacherId }: { teacherId?: string }) {
     const [walletApp, setWalletApp] = useState('')
     const [walletPhone, setWalletPhone] = useState('')
     const [position, setPosition] = useState('')
+    const [dbWarning, setDbWarning] = useState(false)
 
     // Meta state
     const [contractId, setContractId] = useState<string | null>(null)
@@ -47,6 +48,10 @@ export function TeacherContract({ teacherId }: { teacherId?: string }) {
                 console.error('[TeacherContract] load error:', result.error)
                 setLoading(false)
                 return
+            }
+            if (result.warning === 'missing_columns') {
+                setDbWarning(true)
+                toast.warning("Attention : Les colonnes de paiement n'existent pas dans la base de données. Veuillez exécuter la migration '20260601_contracts_payment_method.sql'.")
             }
             const contract = result.contract
             if (contract) {
@@ -97,7 +102,13 @@ export function TeacherContract({ teacherId }: { teacherId?: string }) {
             if (result.contractId && !contractId) setContractId(result.contractId)
 
             setSaved(true)
-            toast.success(t('admin.teachers.contract.saveSuccess') || 'Contrat enregistré avec succès')
+            if (result.warning === 'missing_columns') {
+                setDbWarning(true)
+                toast.warning("Attention : Enregistré sans les informations de paiement car les colonnes n'existent pas dans la base de données.")
+            } else {
+                setDbWarning(false)
+                toast.success(t('admin.teachers.contract.saveSuccess') || 'Contrat enregistré avec succès')
+            }
             setTimeout(() => setSaved(false), 3000)
         } catch (err: any) {
             console.error('[TeacherContract] save error:', err)
@@ -128,6 +139,14 @@ export function TeacherContract({ teacherId }: { teacherId?: string }) {
                 <h3 className="text-xl font-bold text-white">{t('admin.teachers.contract.title')}</h3>
                 <p className="text-gray-400 text-sm">{t('admin.teachers.contract.subtitle')}</p>
             </div>
+
+            {dbWarning && (
+                <div className="bg-red-500/10 border border-red-500/20 text-red-400 p-4 rounded-xl text-sm leading-relaxed animate-in fade-in slide-in-from-top-2">
+                    <p className="font-bold mb-1">⚠️ Erreur de Base de Données : Colonnes manquantes</p>
+                    <p>Les colonnes pour les informations de paiement n'existent pas dans votre table <code>contracts</code>.</p>
+                    <p className="mt-2 text-xs opacity-90">Pour corriger cela, veuillez appliquer la migration <code>supabase/migrations/20260601_contracts_payment_method.sql</code> via votre SQL Editor Supabase ou via la CLI.</p>
+                </div>
+            )}
 
             {/* Position */}
             <div className="space-y-2">

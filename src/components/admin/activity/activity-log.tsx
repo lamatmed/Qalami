@@ -52,6 +52,8 @@ const ACTION_ICONS: Record<string, { icon: React.ElementType; color: string; bg:
     publish_reports:       { icon: FileText,      color: 'text-blue-400',    bg: 'bg-blue-500/10' },
     assign_parents:        { icon: Users,         color: 'text-emerald-400', bg: 'bg-emerald-500/10' },
     update_settings:       { icon: Settings,      color: 'text-gray-400',    bg: 'bg-gray-500/10' },
+    reintegrate_student:   { icon: Users,         color: 'text-emerald-400', bg: 'bg-emerald-500/10' },
+    transfer_student_external: { icon: Users,     color: 'text-orange-400',  bg: 'bg-orange-500/10' },
 }
 
 const ACTION_KEYS = Object.keys(ACTION_ICONS)
@@ -276,24 +278,32 @@ export function ActivityLog() {
 
                                             {/* Content */}
                                             <div className="flex-1 min-w-0">
-                                                <div className="flex flex-wrap items-center gap-2 mb-0.5">
-                                                    <span className="font-bold text-white text-sm">{getActionLabel(log.action)}</span>
+                                                {/* Actor Header */}
+                                                <div className="flex flex-wrap items-center gap-2 mb-1">
+                                                    <span className="font-bold text-white text-sm">
+                                                        {log.actor_name}
+                                                    </span>
+                                                    {log.actor_phone && (
+                                                        <span className="text-xs font-mono text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-full">
+                                                            {log.actor_phone}
+                                                        </span>
+                                                    )}
                                                     <Badge variant="secondary" className="bg-white/5 text-gray-400 border-0 text-[10px] px-1.5 py-0">
                                                         {getRoleLabel(log.actor_role)}
                                                     </Badge>
                                                 </div>
-                                                <p className="text-gray-400 text-sm">{log.details}</p>
-                                                <div className="flex items-center gap-3 mt-1">
-                                                    <span className="text-xs font-semibold text-gray-500">
-                                                        {log.actor_name}
-                                                        {log.actor_phone && (
-                                                            <span className="text-gray-600 font-mono font-normal ml-1.5">
-                                                                ({log.actor_phone})
-                                                            </span>
-                                                        )}
+
+                                                {/* Action & Details */}
+                                                <div className="text-gray-400 text-sm">
+                                                    <span className="text-gray-300 font-semibold mr-1.5">
+                                                        {getActionLabel(log.action)}:
                                                     </span>
-                                                    <span className="text-gray-700 text-xs">·</span>
-                                                    <span className="text-xs text-gray-600 font-mono">{formatTime(log.created_at)}</span>
+                                                    {log.details}
+                                                </div>
+
+                                                {/* Time */}
+                                                <div className="text-xs text-gray-600 font-mono mt-1">
+                                                    {formatTime(log.created_at)}
                                                 </div>
                                             </div>
                                         </div>

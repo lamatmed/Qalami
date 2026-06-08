@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Button } from '@/components/ui/button'
-import { Camera, User, Phone, Mail, Briefcase, KeyRound, Loader2, UserPlus, AlertTriangle } from 'lucide-react'
+import { Camera, User, Phone, Mail, Briefcase, KeyRound, Loader2, UserPlus, AlertTriangle, MapPin } from 'lucide-react'
 import { useLanguage } from '@/i18n'
 import { cn } from '@/lib/utils'
 
@@ -271,6 +271,20 @@ export function PersonalInfoStep({ data, onUpdate, onNext, isSubmitting }: Perso
                                         maxLength={6}
                                     />
                                 </div>
+                            </div>
+                        </div>
+
+                        <div className="space-y-2">
+                            <Label className={cn("text-gray-300 block w-full", direction === 'rtl' ? 'text-right' : 'text-left')}>{t('common.address') || 'Adresse'}</Label>
+                            <div className="relative">
+                                <MapPin className={cn("absolute top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500", direction === 'rtl' ? 'right-3' : 'left-3')} />
+                                <Input
+                                    placeholder={t('admin.teachers.addressPlaceholder') || "Ex: Tevragh Zeina, Nouakchott"}
+                                    className={cn("bg-[#0F1720] border-white/10 text-white focus:ring-emerald-500/50", direction === 'rtl' ? 'pr-10 pl-3 text-right' : 'pl-10 pr-3 text-left')}
+                                    defaultValue={data.address}
+                                    onChange={(e) => onUpdate({ ...data, address: e.target.value })}
+                                    dir={direction}
+                                />
                             </div>
                         </div>
                     </div>

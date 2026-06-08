@@ -335,7 +335,11 @@ export function PayrollOverview({ onSelectTeacher, refreshKey }: { onSelectTeach
         if (!win) { toast.error('Autorisez les popups pour imprimer'); return }
         win.document.write(html)
         win.document.close()
-        setTimeout(() => { win.focus(); win.print() }, 400)
+        setTimeout(() => { 
+            win.focus()
+            win.print()
+            win.close()
+        }, 400)
     }
 
     const handleExport = () => {
@@ -428,7 +432,11 @@ export function PayrollOverview({ onSelectTeacher, refreshKey }: { onSelectTeach
         }
         win.document.write(html)
         win.document.close()
-        setTimeout(() => { win.focus(); win.print() }, 400)
+        setTimeout(() => { 
+            win.focus()
+            win.print()
+            win.close()
+        }, 400)
     }
 
     if (loading) {
