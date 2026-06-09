@@ -73,7 +73,7 @@ export default function AdminDashboard() {
             supabase.from('classes').select('id, name').eq('school_id', sid),
             supabase.from('profiles').select('id').eq('school_id', sid).eq('role', 'student').eq('status', 'active'),
             supabase.from('enrollments').select('student_id, class_id').eq('school_id', sid).eq('status', 'active'),
-            supabase.from('payments').select('amount, payment_status').eq('school_id', sid),
+            supabase.from('payments').select('student_id, amount, payment_status').eq('school_id', sid),
             supabase.from('announcements').select('id, title, content, target_audience, priority, created_at').eq('school_id', sid).order('created_at', { ascending: false }).limit(4),
             supabase.from('events').select('id, title, event_type, start_date, color').eq('school_id', sid).gte('start_date', new Date().toISOString()).order('start_date', { ascending: true }).limit(4),
         ])
@@ -151,8 +151,9 @@ export default function AdminDashboard() {
             }))
             .sort((a: ClassStat, b: ClassStat) => b.studentCount - a.studentCount)
 
-        // Finance - Dynamic Recouvrement
-        const payData = totalPayments || []
+        // Finance - Dynamic Recouvrement (only students with active enrollment)
+        const enrolledStudentIds = new Set((enrolled || []).map((e: any) => e.student_id))
+        const payData = (totalPayments || []).filter((p: any) => enrolledStudentIds.has(p.student_id))
         const totalExpected = payData.reduce((s: number, p: any) => s + Number(p.amount), 0)
         const totalPaid = payData.reduce((s: number, p: any) => s + (p.payment_status === 'paid' ? Number(p.amount) : 0), 0)
         const recoveryRate = totalExpected > 0 ? Math.round((totalPaid / totalExpected) * 100) : null

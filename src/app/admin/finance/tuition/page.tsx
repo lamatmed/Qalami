@@ -218,9 +218,10 @@ export default function TuitionPage() {
     const uniquePaymentTypes = Array.from(new Set(payments.map(p => p.payment_type))).sort()
 
     const filtered = payments.filter(p => {
+        if (!p.class_name) return false
         const matchSearch = search === '' ||
             p.student_name.toLowerCase().includes(search.toLowerCase()) ||
-            (p.class_name ?? '').toLowerCase().includes(search.toLowerCase())
+            p.class_name.toLowerCase().includes(search.toLowerCase())
         // 'pending' filter also captures DB records stored with status='overdue'
         const matchStatus = filterStatus === 'all'
             ? true
@@ -228,12 +229,7 @@ export default function TuitionPage() {
                 ? (p.status === 'pending' || p.status === 'overdue')
                 : p.status === filterStatus
         const matchType = filterType === 'all' || p.payment_type === filterType
-        // '__none__' matches students with no class assignment
-        const matchClass = filterClass === 'all'
-            ? true
-            : filterClass === '__none__'
-                ? !p.class_name
-                : p.class_name === filterClass
+        const matchClass = filterClass === 'all' || p.class_name === filterClass
         return matchSearch && matchStatus && matchType && matchClass
     })
 
@@ -271,20 +267,22 @@ export default function TuitionPage() {
     })
 
     const lateStudentsList = Object.values(lateStudentsMap)
+        .filter(s => !!s.className)
         .sort((a, b) => b.monthsLate - a.monthsLate)
         .filter(s => {
             if (search === '') return true
-            return s.studentName.toLowerCase().includes(search.toLowerCase()) || 
-                   (s.className ?? '').toLowerCase().includes(search.toLowerCase())
+            return s.studentName.toLowerCase().includes(search.toLowerCase()) ||
+                   s.className!.toLowerCase().includes(search.toLowerCase())
         })
 
     // ── Stats ─────────────────────────────────────────────────────────────────
-    const overduePayments = payments.filter(p => p.status !== 'paid' && (p.status === 'overdue' || (p.due_date && p.due_date < todayStr)))
-    
-    const totalExpected = payments.reduce((s, p) => s + p.amount, 0)
-    const totalReceived = payments.reduce((s, p) => s + p.amount_paid, 0)
+    const knownPayments = payments.filter(p => !!p.class_name)
+    const overduePayments = knownPayments.filter(p => p.status !== 'paid' && (p.status === 'overdue' || (p.due_date && p.due_date < todayStr)))
+
+    const totalExpected = knownPayments.reduce((s, p) => s + p.amount, 0)
+    const totalReceived = knownPayments.reduce((s, p) => s + p.amount_paid, 0)
     const totalOverdue = overduePayments.reduce((s, p) => s + (p.amount - p.amount_paid), 0)
-    const totalStudents = new Set(payments.map(p => p.student_id)).size
+    const totalStudents = new Set(knownPayments.map(p => p.student_id)).size
     const recoveryRate = totalExpected > 0 ? Math.round((totalReceived / totalExpected) * 100) : 0
 
     // ── CSV Export ────────────────────────────────────────────────────────────
