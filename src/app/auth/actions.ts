@@ -260,6 +260,204 @@ export async function checkUserByPhone(phone: string) {
     }
 }
 
+export async function getStudentByNNI(nni: string) {
+    if (!nni?.trim()) return { exists: false as const }
+    const supabase = await createClient()
+    const adminClient = createAdminClient()
+
+    const { data: adminProfile } = await supabase
+        .from('profiles')
+        .select('school_id')
+        .eq('id', (await supabase.auth.getUser()).data.user?.id ?? '')
+        .single()
+
+    const { data } = await adminClient
+        .from('profiles')
+        .select('id, full_name, national_id, date_of_birth, gender, place_of_birth, school_id')
+        .eq('national_id', nni.trim())
+        .eq('role', 'student')
+        .maybeSingle()
+    if (!data) return { exists: false as const }
+
+    if (adminProfile?.school_id && data.school_id === adminProfile.school_id) {
+        return { exists: true as const, sameSchool: true as const, fullName: data.full_name, id: data.id, nationalId: data.national_id, dateOfBirth: data.date_of_birth, gender: data.gender, placeOfBirth: data.place_of_birth }
+    }
+
+    // Check if student still has an active enrollment at another school
+    const { data: activeEnrollment } = await adminClient
+        .from('enrollments')
+        .select('id')
+        .eq('student_id', data.id)
+        .eq('status', 'active')
+        .maybeSingle()
+
+    return {
+        exists: true as const,
+        sameSchool: false as const,
+        stillEnrolled: !!activeEnrollment,
+        id: data.id,
+        fullName: data.full_name,
+        nationalId: data.national_id,
+        dateOfBirth: data.date_of_birth,
+        gender: data.gender,
+        placeOfBirth: data.place_of_birth,
+    }
+}
+
+export async function enrollExistingStudent(params: {
+    studentId: string
+    academic: {
+        className: string
+        academicYear?: string
+        registrationFee: number
+        monthlyTuition: number
+        isPaid: boolean
+        advanceMonths?: number
+    }
+    parentIds?: string[]
+}) {
+    const supabase = await createClient()
+    const adminClient = createAdminClient()
+
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return { error: 'Non authentifié' }
+
+    const { data: adminProfile } = await supabase
+        .from('profiles')
+        .select('role, school_id')
+        .eq('id', user.id)
+        .single()
+
+    if (!adminProfile || !['admin', 'super_admin', 'school_staff'].includes(adminProfile.role)) {
+        return { error: 'Accès non autorisé' }
+    }
+    if (!adminProfile.school_id) return { error: 'Aucune école associée' }
+
+    const { data: student } = await adminClient
+        .from('profiles')
+        .select('id, full_name, school_id')
+        .eq('id', params.studentId)
+        .eq('role', 'student')
+        .maybeSingle()
+
+    if (!student) return { error: 'Élève non trouvé' }
+
+    if (student.school_id === adminProfile.school_id) {
+        return { error: 'Cet élève est déjà inscrit dans votre école.' }
+    }
+
+    // Block if student still has an active enrollment at another school
+    const { data: activeEnrollment } = await adminClient
+        .from('enrollments')
+        .select('id')
+        .eq('student_id', params.studentId)
+        .eq('status', 'active')
+        .maybeSingle()
+
+    if (activeEnrollment) {
+        return { error: 'Cet élève est encore inscrit dans une autre école. Il doit d\'abord être transféré officiellement avant de rejoindre votre établissement.' }
+    }
+
+    const { error: profileErr } = await adminClient
+        .from('profiles')
+        .update({ school_id: adminProfile.school_id, status: 'active' })
+        .eq('id', params.studentId)
+
+    if (profileErr) return { error: profileErr.message }
+
+    await adminClient
+        .from('enrollments')
+        .update({ status: 'transferred' })
+        .eq('student_id', params.studentId)
+        .eq('status', 'active')
+
+    let academicYearId: string | null = null
+    let yearData: any = null
+    if (params.academic.academicYear) {
+        const { data } = await adminClient
+            .from('academic_years')
+            .select('id, start_date, end_date')
+            .eq('school_id', adminProfile.school_id)
+            .eq('name', params.academic.academicYear)
+            .maybeSingle()
+        yearData = data
+        academicYearId = data?.id ?? null
+    }
+
+    if (params.academic.className) {
+        const { data: classData } = await adminClient
+            .from('classes')
+            .select('id')
+            .eq('school_id', adminProfile.school_id)
+            .eq('name', params.academic.className)
+            .single()
+
+        if (classData) {
+            await adminClient.from('enrollments').insert({
+                student_id: params.studentId,
+                class_id: classData.id,
+                academic_year_id: academicYearId,
+                school_id: adminProfile.school_id,
+                status: 'active',
+                custom_registration_fee: params.academic.registrationFee,
+                custom_monthly_tuition: params.academic.monthlyTuition,
+            })
+        }
+    }
+
+    for (let i = 0; i < (params.parentIds?.length ?? 0); i++) {
+        await adminClient.from('parent_student_links').insert({
+            parent_id: params.parentIds![i],
+            student_id: params.studentId,
+            relationship: 'parent',
+            is_primary: i === 0,
+        })
+    }
+
+    if (params.academic.registrationFee > 0) {
+        await adminClient.from('payments').insert({
+            student_id: params.studentId,
+            school_id: adminProfile.school_id,
+            amount: params.academic.registrationFee,
+            payment_type: 'inscription',
+            payment_status: params.academic.isPaid ? 'paid' : 'pending',
+            paid_at: params.academic.isPaid ? new Date().toISOString() : null,
+            due_date: new Date().toISOString().split('T')[0],
+            academic_year_id: academicYearId,
+            description: `Frais d'inscription (transfert)`,
+        })
+    }
+
+    if (params.academic.monthlyTuition > 0) {
+        const start = yearData?.start_date ? new Date(yearData.start_date) : new Date(`${new Date().getFullYear()}-10-01`)
+        const end = yearData?.end_date ? new Date(yearData.end_date) : new Date(`${new Date().getFullYear() + 1}-06-30`)
+        const schedule = []
+        const current = new Date(start)
+        current.setDate(5)
+        const totalAdvance = params.academic.advanceMonths || 0
+        let advanceApplied = 0
+        while (current <= end) {
+            const isAdvance = advanceApplied < totalAdvance
+            if (isAdvance) advanceApplied++
+            schedule.push({
+                student_id: params.studentId,
+                school_id: adminProfile.school_id,
+                amount: params.academic.monthlyTuition,
+                payment_type: 'scolarite',
+                payment_status: isAdvance ? 'paid' : 'pending',
+                paid_at: isAdvance ? new Date().toISOString() : null,
+                due_date: current.toISOString().split('T')[0],
+                academic_year_id: academicYearId,
+                description: `Mensualité - ${current.toLocaleString('fr-FR', { month: 'long', year: 'numeric' })}`
+            })
+            current.setMonth(current.getMonth() + 1)
+        }
+        if (schedule.length > 0) await adminClient.from('payments').insert(schedule)
+    }
+
+    return { success: true, studentId: params.studentId, fullName: student.full_name }
+}
+
 // Alias for backward compat if needed
 export async function checkStudentByNNI(nni: string) {
     if (!nni || !nni.trim()) return { exists: false }

@@ -539,7 +539,33 @@
           "3": "Classe",
           "4": "Confirmation"
         },
+        "transferSteps": {
+          "1": "Recherche",
+          "2": "Classe",
+          "3": "Confirmation"
+        },
         "saving": "Inscription en cours...",
+        "transferSaving": "Transfert en cours...",
+        "mode": {
+          "title": "Comment inscrire l'élève ?",
+          "subtitle": "Choisissez si l'élève est nouveau ou s'il provient d'une autre école.",
+          "new": {
+            "label": "Nouvel élève",
+            "desc": "Créer un nouveau profil et inscrire l'élève dans votre école."
+          },
+          "transfer": {
+            "label": "Élève d'une autre école",
+            "desc": "L'élève existe déjà dans le système — inscrire via son NNI."
+          }
+        },
+        "transferLookup": {
+          "title": "Recherche de l'élève",
+          "subtitle": "Saisissez le NNI pour retrouver le profil existant de l'élève.",
+          "nniPlaceholder": "10 chiffres",
+          "notFound": "Aucun élève trouvé avec ce NNI dans le système.",
+          "sameSchoolError": "{name} est déjà inscrit(e) dans votre école.",
+          "stillEnrolledError": "{name} est encore actif(ve) dans une autre école. Il doit d'abord être transféré officiellement."
+        },
         "errors": {
           "registrationFailed": "Erreur lors de l'inscription",
           "nniLengthError": "Le NNI doit contenir exactement 10 chiffres.",
