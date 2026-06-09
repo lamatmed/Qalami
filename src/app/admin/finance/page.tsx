@@ -14,6 +14,7 @@ export default function AccountingPage() {
     const { t } = useLanguage()
     const [isAddTxOpen, setIsAddTxOpen] = useState(false)
     const [generating, setGenerating] = useState(false)
+    const [refreshKey, setRefreshKey] = useState(0)
 
     const handleMonthlyReport = async () => {
         setGenerating(true)
@@ -120,11 +121,11 @@ export default function AccountingPage() {
 
             {/* Main Ledger Section */}
             <div className="h-[600px]">
-                <TransactionLedger />
+                <TransactionLedger refreshTrigger={refreshKey} />
             </div>
 
             {/* Dialogs */}
-            <AddTransactionDialog open={isAddTxOpen} onOpenChange={setIsAddTxOpen} />
+            <AddTransactionDialog open={isAddTxOpen} onOpenChange={setIsAddTxOpen} onSuccess={() => setRefreshKey(k => k + 1)} />
         </div>
     )
 }

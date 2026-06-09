@@ -2,15 +2,15 @@
 
 import React from 'react'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { Search, ArrowUpRight, ArrowDownRight, MoreHorizontal, Download, Loader2, RefreshCw, Calendar, X, Pencil, Trash2, Check } from 'lucide-react'
+import { Search, ArrowUpRight, ArrowDownRight, Eye, Loader2, RefreshCw, Calendar, X, Download } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useLanguage } from '@/i18n'
 import { toast } from 'sonner'
-import { getTransactionsAction, updateTransactionAction, deleteTransactionAction } from '@/app/admin/finance/actions'
+import { getTransactionsAction } from '@/app/admin/finance/actions'
 
 interface Transaction {
     id: string
@@ -21,29 +21,22 @@ interface Transaction {
     status: string
     transaction_date: string
     created_at: string
+    related_profile_id?: string | null
+    reference_number?: string | null
 }
 
-const INCOME_CATEGORIES = ['tuition', 'inscription', 'scolarite', 'other']
-const EXPENSE_CATEGORIES = ['salary', 'transport', 'maintenance', 'supplies', 'cantine', 'activites', 'other']
 
-export function TransactionLedger() {
+export function TransactionLedger({ refreshTrigger }: { refreshTrigger?: number }) {
     const [transactions, setTransactions] = useState<Transaction[]>([])
     const [loading, setLoading] = useState(true)
     const [searchQuery, setSearchQuery] = useState('')
     const [dateFrom, setDateFrom] = useState('')
     const [dateTo, setDateTo] = useState('')
-    const [expandedId, setExpandedId] = useState<string | null>(null)
-
-    // Edit / delete state
-    const [editingId, setEditingId] = useState<string | null>(null)
-    const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null)
-    const [editForm, setEditForm] = useState<Partial<Transaction>>({})
-    const [saving, setSaving] = useState(false)
-    const [deleting, setDeleting] = useState(false)
+    const [generatingPdfId, setGeneratingPdfId] = useState<string | null>(null)
 
     const { t, language } = useLanguage()
 
-    const fetchTransactions = async (from = dateFrom, to = dateTo) => {
+    const fetchTransactions = useCallback(async (from = dateFrom, to = dateTo) => {
         setLoading(true)
         try {
             const result = await getTransactionsAction({ dateFrom: from || undefined, dateTo: to || undefined })
@@ -57,16 +50,48 @@ export function TransactionLedger() {
         } finally {
             setLoading(false)
         }
-    }
+    }, [dateFrom, dateTo])
 
     useEffect(() => {
         fetchTransactions(dateFrom, dateTo)
-    }, [dateFrom, dateTo])
+    }, [dateFrom, dateTo, refreshTrigger, fetchTransactions])
+
+    const getCategoryLabel = (cat: string | null) => {
+        const labels: Record<string, string> = {
+            transport: "Transport",
+            restauration: "Restauration",
+            cotisation: "Cotisation",
+            autre: "Autres",
+            tuition: t('admin.finance.tuition'),
+            salary: t('admin.finance.salaries'),
+            maintenance: t('admin.finance.maintenance'),
+            supplies: t('admin.accounting.supplies'),
+            other: t('admin.finance.others'),
+            inscription: "Inscription",
+            scolarite: "Scolarité",
+            cantine: "Cantine",
+            bus: "Transport",
+            activites: "Activités"
+        }
+        return labels[cat ?? ''] ?? cat ?? 'N/A'
+    }
+
+    const buildRef = (trx: Transaction) => {
+        const d = new Date(trx.transaction_date)
+        const m = d.getMonth() + 1
+        const y = d.getFullYear()
+        const cat = getCategoryLabel(trx.category)
+        return trx.description ? `${cat} ${m}/${y} — ${trx.description}` : `${cat} ${m}/${y}`
+    }
 
     const filteredTransactions = transactions.filter(trx => {
-        const matchesSearch = !searchQuery ||
-            (trx.description?.toLowerCase() ?? '').includes(searchQuery.toLowerCase()) ||
-            (trx.category?.toLowerCase() ?? '').includes(searchQuery.toLowerCase())
+        const q = searchQuery.toLowerCase()
+        const matchesSearch = !q ||
+            (trx.description?.toLowerCase() ?? '').includes(q) ||
+            (trx.category?.toLowerCase() ?? '').includes(q) ||
+            (trx.reference_number?.toLowerCase() ?? '').includes(q) ||
+            trx.id.slice(0, 8).toLowerCase().includes(q) ||
+            buildRef(trx).toLowerCase().includes(q)
         return matchesSearch
     })
 
@@ -94,83 +119,130 @@ export function TransactionLedger() {
         return `${datePart} · ${timePart}`
     }
 
-    const getCategoryLabel = (cat: string | null) => {
-        const labels: Record<string, string> = {
-            tuition: t('admin.finance.tuition'),
-            salary: t('admin.finance.salaries'),
-            maintenance: t('admin.finance.maintenance'),
-            transport: t('admin.finance.transport'),
-            supplies: t('admin.accounting.supplies'),
-            other: t('admin.finance.others'),
-            inscription: "Inscription",
-            scolarite: "Scolarité",
-            cantine: "Cantine",
-            bus: "Transport",
-            activites: "Activités"
+    const handleViewPdf = async (trx: Transaction) => {
+        setGeneratingPdfId(trx.id)
+        try {
+            // Fetch related person info if profile linked
+            let person: { full_name: string | null, national_id: string | null, phone: string | null, role: string | null } | null = null
+            if (trx.related_profile_id) {
+                const { createClient } = await import('@/utils/supabase/client')
+                const supabase = createClient()
+                const { data } = await supabase
+                    .from('profiles')
+                    .select('full_name, national_id, phone, role')
+                    .eq('id', trx.related_profile_id)
+                    .maybeSingle()
+                if (data) person = data
+            }
+
+            const { jsPDF } = await import('jspdf')
+
+            // ── Thermal receipt 80mm — modern, large fonts
+            const W = 80
+            const ml = 6
+            const mr = W - 6
+            const cx = W / 2
+            const fmt = (n: number) => Math.round(n).toString().replace(/\B(?=(\d{3})+(?!\d))/g, ' ')
+
+            const isIncome = trx.type === 'income' || trx.type === 'tuition'
+            const shortId = trx.id.slice(0, 8).toUpperCase()
+            const printDate = new Date().toLocaleDateString('fr-FR', { day: '2-digit', month: 'long', year: 'numeric' })
+            const txDate = formatDate(trx.transaction_date)
+            const isPaid = trx.status === 'completed'
+            const BK: [number,number,number] = [10,  10,  10]
+            const GR: [number,number,number] = [150, 150, 150]
+
+            const hline = (yPos: number, thick = 0.3) => {
+                doc.setDrawColor(...BK)
+                doc.setLineWidth(thick)
+                doc.line(ml, yPos, mr, yPos)
+            }
+
+            let estimatedH = 210
+            if (person) estimatedH += (person.national_id || person.phone) ? 40 : 28
+
+            const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: [W, estimatedH] })
+
+            let y = 11
+
+            // ─── Header
+            doc.setFont('Helvetica', 'bold'); doc.setFontSize(14); doc.setTextColor(...BK)
+            doc.text('QALAMI', ml, y); y += 6
+            doc.setFont('Helvetica', 'normal'); doc.setFontSize(8.5); doc.setTextColor(...GR)
+            doc.text('School Manager  ·  Gestion Scolaire', ml, y); y += 7
+
+            hline(y, 0.8); y += 5
+
+            doc.setFont('Helvetica', 'bold'); doc.setFontSize(8); doc.setTextColor(...GR)
+            doc.text('RECU DE TRANSACTION', ml, y)
+            doc.setFont('Helvetica', 'normal'); doc.setFontSize(8)
+            doc.text(printDate, mr, y, { align: 'right' }); y += 5
+
+            hline(y, 0.3); y += 7
+
+            // ─── Description
+            const refText = trx.description || getCategoryLabel(trx.category)
+            const splitRef = doc.splitTextToSize(refText, mr - ml)
+            doc.setFont('Helvetica', 'bold'); doc.setFontSize(11); doc.setTextColor(...BK)
+            doc.text(splitRef, ml, y); y += splitRef.length * 6.5 + 2
+
+            doc.setFont('Helvetica', 'normal'); doc.setFontSize(8); doc.setTextColor(...GR)
+            doc.text(`REF  ${shortId}`, ml, y); y += 9
+
+            // ─── Amount box
+            hline(y, 0.8); y += 6
+            doc.setFont('Helvetica', 'normal'); doc.setFontSize(8); doc.setTextColor(...GR)
+            doc.text(isIncome ? 'MONTANT RECU' : 'MONTANT REGLE', cx, y, { align: 'center' }); y += 10
+            doc.setFont('Helvetica', 'bold'); doc.setFontSize(28); doc.setTextColor(...BK)
+            doc.text(fmt(trx.amount), cx, y, { align: 'center' }); y += 6
+            doc.setFont('Helvetica', 'bold'); doc.setFontSize(11)
+            doc.text('MRU', cx, y, { align: 'center' }); y += 7
+            hline(y, 0.8); y += 9
+
+            // ─── Detail rows: label left gray / value right bold
+            const row = (label: string, value: string) => {
+                doc.setFont('Helvetica', 'normal'); doc.setFontSize(8); doc.setTextColor(...GR)
+                doc.text(label, ml, y)
+                doc.setFont('Helvetica', 'bold'); doc.setFontSize(9); doc.setTextColor(...BK)
+                doc.text(value, mr, y, { align: 'right' }); y += 7
+            }
+
+            row('Categorie', getCategoryLabel(trx.category))
+            row('Date', txDate)
+            row('Statut', isPaid ? 'COMPLETE' : 'EN ATTENTE')
+
+            // ─── Beneficiary
+            if (person) {
+                y += 2; hline(y, 0.3); y += 6
+
+                const roleLabel = person.role === 'teacher' ? 'Enseignant' :
+                                  person.role === 'student' ? 'Eleve' : 'Personnel'
+
+                doc.setFont('Helvetica', 'normal'); doc.setFontSize(8); doc.setTextColor(...GR)
+                doc.text(`BENEFICIAIRE  ·  ${roleLabel.toUpperCase()}`, ml, y); y += 6
+                doc.setFont('Helvetica', 'bold'); doc.setFontSize(11); doc.setTextColor(...BK)
+                doc.text(person.full_name || '—', ml, y); y += 8
+
+                if (person.national_id) { row('NNI', person.national_id) }
+                if (person.phone)       { row('Tel', person.phone) }
+            }
+
+            // ─── Footer
+            y += 3; hline(y, 0.3); y += 6
+            doc.setFont('Helvetica', 'normal'); doc.setFontSize(8); doc.setTextColor(...GR)
+            doc.text(`Genere le ${printDate}`, ml, y)
+            doc.setFont('Helvetica', 'bold'); doc.setFontSize(8.5); doc.setTextColor(...BK)
+            doc.text('Qalami School Manager', mr, y, { align: 'right' })
+
+            doc.save(`recu-${shortId}.pdf`)
+            toast.success('PDF téléchargé')
+        } catch {
+            toast.error('Erreur lors de la génération du PDF')
+        } finally {
+            setGeneratingPdfId(null)
         }
-        return labels[cat ?? ''] ?? cat ?? 'N/A'
     }
 
-    const openEdit = (trx: Transaction) => {
-        setEditForm({
-            type: trx.type,
-            category: trx.category ?? '',
-            description: trx.description ?? '',
-            amount: trx.amount,
-            status: trx.status,
-            transaction_date: trx.transaction_date.slice(0, 10),
-        })
-        setEditingId(trx.id)
-        setDeleteConfirmId(null)
-    }
-
-    const cancelEdit = () => {
-        setEditingId(null)
-        setEditForm({})
-    }
-
-    const handleSaveEdit = async (trx: Transaction) => {
-        if (!editForm.amount || Number(editForm.amount) <= 0) {
-            toast.error(t('admin.accounting.fillRequired'))
-            return
-        }
-        setSaving(true)
-        const result = await updateTransactionAction(trx.id, {
-            type: editForm.type,
-            category: editForm.category ?? undefined,
-            description: editForm.description ?? undefined,
-            amount: Number(editForm.amount),
-            status: editForm.status,
-            transaction_date: editForm.transaction_date,
-        })
-        if (result.error) {
-            toast.error(result.error)
-        } else {
-            toast.success(t('admin.accounting.transactionUpdated'))
-            setTransactions(prev => prev.map(t => t.id === trx.id ? { ...t, ...editForm, amount: Number(editForm.amount) } as Transaction : t))
-            setEditingId(null)
-            setEditForm({})
-        }
-        setSaving(false)
-    }
-
-    const handleDelete = async (id: string) => {
-        setDeleting(true)
-        const result = await deleteTransactionAction(id)
-        if (result.error) {
-            toast.error(result.error)
-        } else {
-            toast.success(t('admin.accounting.transactionDeleted'))
-            setTransactions(prev => prev.filter(t => t.id !== id))
-            setExpandedId(null)
-            setDeleteConfirmId(null)
-        }
-        setDeleting(false)
-    }
-
-    const currentCategories = (editForm.type === 'income' || editForm.type === 'tuition')
-        ? INCOME_CATEGORIES
-        : EXPENSE_CATEGORIES
 
     return (
         <div className="bg-[#161B22] border border-white/5 rounded-3xl overflow-hidden flex flex-col h-full">
@@ -233,17 +305,19 @@ export function TransactionLedger() {
                     </div>
                     <input
                         type="date"
+                        title={t('admin.accounting.filterByDate')}
                         value={dateFrom}
                         onChange={e => setDateFrom(e.target.value)}
-                        className="bg-[#0D1117] border border-white/10 text-white text-sm rounded-md h-8 px-3 focus:outline-none focus:border-emerald-500/50 [color-scheme:dark] cursor-pointer"
+                        className="bg-[#0D1117] border border-white/10 text-white text-sm rounded-md h-8 px-3 focus:outline-none focus:border-emerald-500/50 scheme-dark cursor-pointer"
                     />
                     <span className="text-gray-600 text-xs">{t('admin.accounting.dateTo')}</span>
                     <input
                         type="date"
+                        title={t('admin.accounting.dateTo')}
                         value={dateTo}
                         min={dateFrom || undefined}
                         onChange={e => setDateTo(e.target.value)}
-                        className="bg-[#0D1117] border border-white/10 text-white text-sm rounded-md h-8 px-3 focus:outline-none focus:border-emerald-500/50 [color-scheme:dark] cursor-pointer"
+                        className="bg-[#0D1117] border border-white/10 text-white text-sm rounded-md h-8 px-3 focus:outline-none focus:border-emerald-500/50 scheme-dark cursor-pointer"
                     />
                     {(dateFrom || dateTo) && (
                         <button
@@ -278,7 +352,7 @@ export function TransactionLedger() {
                                 <th className="px-6 py-4">{t('common.date')}</th>
                                 <th className="px-6 py-4">{t('common.status')}</th>
                                 <th className="px-6 py-4 text-right">{t('common.amount')}</th>
-                                <th className="px-6 py-4"></th>
+                                <th className="px-6 py-4"><span className="sr-only">Actions</span></th>
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-white/5">
@@ -296,7 +370,7 @@ export function TransactionLedger() {
                                                     {trx.type === 'income' || trx.type === 'tuition' ? <ArrowUpRight className="w-5 h-5" /> : <ArrowDownRight className="w-5 h-5" />}
                                                 </div>
                                                 <div>
-                                                    <p className="font-bold text-white text-sm">{trx.description || 'Transaction'}</p>
+                                                    <p className="font-bold text-white text-sm">{buildRef(trx)}</p>
                                                     <p className="text-[10px] text-gray-500 font-mono">{trx.id.slice(0, 8).toUpperCase()}</p>
                                                 </div>
                                             </div>
@@ -327,224 +401,18 @@ export function TransactionLedger() {
                                             <Button
                                                 variant="ghost"
                                                 size="icon"
-                                                className="h-8 w-8 text-gray-500 hover:text-white"
-                                                onClick={() => {
-                                                    const opening = expandedId !== trx.id
-                                                    setExpandedId(opening ? trx.id : null)
-                                                    if (!opening) { cancelEdit(); setDeleteConfirmId(null) }
-                                                }}
+                                                className="h-8 w-8 text-gray-500 hover:text-emerald-400 disabled:opacity-50"
+                                                disabled={generatingPdfId === trx.id}
+                                                onClick={() => handleViewPdf(trx)}
                                             >
-                                                <MoreHorizontal className="w-4 h-4" />
+                                                {generatingPdfId === trx.id
+                                                    ? <Loader2 className="w-4 h-4 animate-spin" />
+                                                    : <Eye className="w-4 h-4" />
+                                                }
                                             </Button>
                                         </td>
                                     </tr>
 
-                                    {expandedId === trx.id && (
-                                        <tr className="bg-[#0D1117]">
-                                            <td colSpan={6} className="px-6 py-4">
-                                                <div className="animate-in fade-in slide-in-from-top-2 duration-200">
-
-                                                    {/* ── Edit form ── */}
-                                                    {editingId === trx.id ? (
-                                                        <div className="space-y-4">
-                                                            <p className="text-xs font-bold text-gray-400 uppercase tracking-wider">{t('admin.accounting.editTransaction')}</p>
-
-                                                            {/* Type toggle */}
-                                                            <div className="grid grid-cols-2 gap-2 p-1 bg-[#161B22] rounded-xl border border-white/5 w-fit">
-                                                                <button
-                                                                    type="button"
-                                                                    onClick={() => setEditForm(f => ({ ...f, type: 'income', category: 'tuition' }))}
-                                                                    className={cn(
-                                                                        'flex items-center gap-1.5 px-4 py-2 rounded-lg text-xs font-bold transition-all',
-                                                                        editForm.type === 'income' ? 'bg-emerald-500/15 text-emerald-400' : 'text-gray-500 hover:text-gray-300'
-                                                                    )}
-                                                                >
-                                                                    <ArrowUpRight className="w-3.5 h-3.5" /> {t('admin.finance.income')}
-                                                                </button>
-                                                                <button
-                                                                    type="button"
-                                                                    onClick={() => setEditForm(f => ({ ...f, type: 'expense', category: 'other' }))}
-                                                                    className={cn(
-                                                                        'flex items-center gap-1.5 px-4 py-2 rounded-lg text-xs font-bold transition-all',
-                                                                        editForm.type === 'expense' ? 'bg-red-500/15 text-red-400' : 'text-gray-500 hover:text-gray-300'
-                                                                    )}
-                                                                >
-                                                                    <ArrowDownRight className="w-3.5 h-3.5" /> {t('admin.finance.expenses')}
-                                                                </button>
-                                                            </div>
-
-                                                            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                                                                {/* Amount */}
-                                                                <div>
-                                                                    <label className="text-[10px] font-bold text-gray-500 uppercase tracking-wider block mb-1">{t('common.amount')} (MRU)</label>
-                                                                    <input
-                                                                        type="number"
-                                                                        value={editForm.amount ?? ''}
-                                                                        onChange={e => setEditForm(f => ({ ...f, amount: Number(e.target.value) }))}
-                                                                        className="w-full bg-[#161B22] border border-white/10 text-white text-sm rounded-lg px-3 py-2 focus:outline-none focus:border-emerald-500/50"
-                                                                    />
-                                                                </div>
-
-                                                                {/* Category */}
-                                                                <div>
-                                                                    <label className="text-[10px] font-bold text-gray-500 uppercase tracking-wider block mb-1">{t('admin.accounting.category')}</label>
-                                                                    <select
-                                                                        value={editForm.category ?? ''}
-                                                                        onChange={e => setEditForm(f => ({ ...f, category: e.target.value }))}
-                                                                        className="w-full bg-[#161B22] border border-white/10 text-white text-sm rounded-lg px-3 py-2 focus:outline-none focus:border-emerald-500/50"
-                                                                    >
-                                                                        {currentCategories.map(cat => (
-                                                                            <option key={cat} value={cat} className="bg-[#161B22]">{getCategoryLabel(cat)}</option>
-                                                                        ))}
-                                                                    </select>
-                                                                </div>
-
-                                                                {/* Date */}
-                                                                <div>
-                                                                    <label className="text-[10px] font-bold text-gray-500 uppercase tracking-wider block mb-1">Date</label>
-                                                                    <input
-                                                                        type="date"
-                                                                        value={editForm.transaction_date ?? ''}
-                                                                        onChange={e => setEditForm(f => ({ ...f, transaction_date: e.target.value }))}
-                                                                        className="w-full bg-[#161B22] border border-white/10 text-white text-sm rounded-lg px-3 py-2 focus:outline-none focus:border-emerald-500/50 [color-scheme:dark]"
-                                                                    />
-                                                                </div>
-
-                                                                {/* Status */}
-                                                                <div>
-                                                                    <label className="text-[10px] font-bold text-gray-500 uppercase tracking-wider block mb-1">{t('common.status')}</label>
-                                                                    <select
-                                                                        value={editForm.status ?? 'completed'}
-                                                                        onChange={e => setEditForm(f => ({ ...f, status: e.target.value }))}
-                                                                        className="w-full bg-[#161B22] border border-white/10 text-white text-sm rounded-lg px-3 py-2 focus:outline-none focus:border-emerald-500/50"
-                                                                    >
-                                                                        <option value="completed" className="bg-[#161B22]">{t('admin.finance.completed')}</option>
-                                                                        <option value="pending" className="bg-[#161B22]">{t('common.pending')}</option>
-                                                                    </select>
-                                                                </div>
-                                                            </div>
-
-                                                            {/* Description */}
-                                                            <div>
-                                                                <label className="text-[10px] font-bold text-gray-500 uppercase tracking-wider block mb-1">{t('common.description')}</label>
-                                                                <input
-                                                                    type="text"
-                                                                    value={editForm.description ?? ''}
-                                                                    onChange={e => setEditForm(f => ({ ...f, description: e.target.value }))}
-                                                                    placeholder={t('admin.accounting.descriptionPlaceholder')}
-                                                                    className="w-full bg-[#161B22] border border-white/10 text-white text-sm rounded-lg px-3 py-2 focus:outline-none focus:border-emerald-500/50 placeholder:text-gray-600"
-                                                                />
-                                                            </div>
-
-                                                            <div className="flex gap-2 pt-1">
-                                                                <Button
-                                                                    size="sm"
-                                                                    onClick={() => handleSaveEdit(trx)}
-                                                                    disabled={saving}
-                                                                    className="bg-emerald-600 hover:bg-emerald-500 text-white font-bold"
-                                                                >
-                                                                    {saving ? <Loader2 className="w-3.5 h-3.5 me-1.5 animate-spin" /> : <Check className="w-3.5 h-3.5 me-1.5" />}
-                                                                    {t('common.save')}
-                                                                </Button>
-                                                                <Button
-                                                                    size="sm"
-                                                                    variant="outline"
-                                                                    onClick={cancelEdit}
-                                                                    disabled={saving}
-                                                                    className="border-white/10 text-gray-400 hover:text-white bg-transparent"
-                                                                >
-                                                                    {t('common.cancel')}
-                                                                </Button>
-                                                            </div>
-                                                        </div>
-
-                                                    /* ── Delete confirm ── */
-                                                    ) : deleteConfirmId === trx.id ? (
-                                                        <div className="flex items-center gap-4 p-3 bg-red-500/5 border border-red-500/20 rounded-xl">
-                                                            <Trash2 className="w-4 h-4 text-red-400 shrink-0" />
-                                                            <p className="text-sm text-red-300 font-medium flex-1">{t('admin.accounting.confirmDelete')}</p>
-                                                            <Button
-                                                                size="sm"
-                                                                onClick={() => handleDelete(trx.id)}
-                                                                disabled={deleting}
-                                                                className="bg-red-600 hover:bg-red-500 text-white font-bold"
-                                                            >
-                                                                {deleting ? <Loader2 className="w-3.5 h-3.5 me-1.5 animate-spin" /> : null}
-                                                                {t('common.confirm')}
-                                                            </Button>
-                                                            <Button
-                                                                size="sm"
-                                                                variant="outline"
-                                                                onClick={() => setDeleteConfirmId(null)}
-                                                                disabled={deleting}
-                                                                className="border-white/10 text-gray-400 hover:text-white bg-transparent"
-                                                            >
-                                                                {t('common.cancel')}
-                                                            </Button>
-                                                        </div>
-
-                                                    /* ── Detail view ── */
-                                                    ) : (
-                                                        <div className="space-y-2">
-                                                            <p className="text-sm text-gray-300"><strong>Description:</strong> {trx.description || 'Aucune description'}</p>
-                                                            <p className="text-sm text-gray-300"><strong>Catégorie:</strong> {getCategoryLabel(trx.category)}</p>
-                                                            <p className="text-sm text-gray-300"><strong>Date:</strong> {formatDateTime(trx.transaction_date, trx.created_at)}</p>
-                                                            <p className="text-sm text-gray-300"><strong>Montant:</strong> {Number(trx.amount).toLocaleString()} MRU</p>
-                                                            <p className="text-sm text-gray-300"><strong>Statut:</strong> {trx.status === 'completed' ? t('admin.finance.completed') : t('common.pending')}</p>
-                                                            <p className="text-xs text-gray-500">ID: {trx.id}</p>
-                                                            <div className="flex gap-2 pt-2">
-                                                                <Button
-                                                                    size="sm"
-                                                                    variant="outline"
-                                                                    onClick={() => openEdit(trx)}
-                                                                    className="border-white/10 text-gray-300 hover:text-white bg-transparent text-xs"
-                                                                >
-                                                                    <Pencil className="w-3 h-3 me-1.5" /> {t('admin.accounting.editTransaction')}
-                                                                </Button>
-                                                                <Button
-                                                                    size="sm"
-                                                                    variant="outline"
-                                                                    onClick={() => setDeleteConfirmId(trx.id)}
-                                                                    className="border-red-500/20 text-red-400 hover:text-red-300 hover:bg-red-500/10 bg-transparent text-xs"
-                                                                >
-                                                                    <Trash2 className="w-3 h-3 me-1.5" /> {t('admin.accounting.deleteTransaction')}
-                                                                </Button>
-                                                                <Button
-                                                                    size="sm"
-                                                                    variant="outline"
-                                                                    className="ms-auto border-white/10 text-gray-400 hover:text-white bg-transparent text-xs"
-                                                                    onClick={() => {
-                                                                        const receipt = [
-                                                                            'RECU DE TRANSACTION',
-                                                                            `ID: ${trx.id}`,
-                                                                            `Description: ${trx.description || '—'}`,
-                                                                            `Categorie: ${getCategoryLabel(trx.category)}`,
-                                                                            `Date: ${formatDate(trx.transaction_date)}`,
-                                                                            `Montant: ${Number(trx.amount).toLocaleString()} MRU`,
-                                                                            `Statut: ${trx.status}`,
-                                                                            '', 'Genere par Qalami'
-                                                                        ].join('\n')
-                                                                        const blob = new Blob([receipt], { type: 'text/plain;charset=utf-8;' })
-                                                                        const url = URL.createObjectURL(blob)
-                                                                        const a = document.createElement('a')
-                                                                        a.href = url
-                                                                        a.download = `recu-${trx.id.slice(0, 8)}.txt`
-                                                                        document.body.appendChild(a)
-                                                                        a.click()
-                                                                        document.body.removeChild(a)
-                                                                        URL.revokeObjectURL(url)
-                                                                        toast.success('Reçu téléchargé')
-                                                                    }}
-                                                                >
-                                                                    <Download className="w-3 h-3 me-1.5" /> Télécharger reçu
-                                                                </Button>
-                                                            </div>
-                                                        </div>
-                                                    )}
-                                                </div>
-                                            </td>
-                                        </tr>
-                                    )}
                                 </React.Fragment>
                             ))}
                         </tbody>

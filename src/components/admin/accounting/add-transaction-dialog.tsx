@@ -23,17 +23,51 @@ export function AddTransactionDialog({ open, onOpenChange, onSuccess }: AddTrans
     const [isPending, startTransition] = useTransition()
     const [type, setType] = useState<'income' | 'expense'>('income')
     const [amount, setAmount] = useState('')
-    const [category, setCategory] = useState('tuition')
+    const [category, setCategory] = useState('transport')
     const [date, setDate] = useState(new Date().toISOString().split('T')[0])
     const [description, setDescription] = useState('')
+    const [studentNni, setStudentNni] = useState('')
+    const [nniSearching, setNniSearching] = useState(false)
+    const [foundStudent, setFoundStudent] = useState<{ id: string, full_name: string | null } | null>(null)
+    const [nniError, setNniError] = useState('')
     const { t } = useLanguage()
 
     const handleTypeChange = (newType: 'income' | 'expense') => {
         setType(newType)
         if (newType === 'income') {
-            setCategory('tuition')
+            setCategory('transport')
         } else {
-            setCategory('') // Force user to pick an expense category
+            setCategory('')
+        }
+        setStudentNni('')
+        setFoundStudent(null)
+        setNniError('')
+    }
+
+    const handleNniChange = async (value: string) => {
+        setStudentNni(value)
+        setFoundStudent(null)
+        setNniError('')
+        if (value.trim().length < 3) return
+        setNniSearching(true)
+        try {
+            const { data: { user } } = await supabase.auth.getUser()
+            if (!user) return
+            const { data: profile } = await supabase.from('profiles').select('school_id').eq('id', user.id).single()
+            if (!profile?.school_id) return
+            const { data } = await supabase
+                .from('profiles')
+                .select('id, full_name')
+                .eq('national_id', value.trim())
+                .eq('school_id', profile.school_id)
+                .maybeSingle()
+            if (data) {
+                setFoundStudent(data)
+            } else {
+                setNniError('Aucun élève trouvé avec ce NNI')
+            }
+        } finally {
+            setNniSearching(false)
         }
     }
 
@@ -57,6 +91,11 @@ export function AddTransactionDialog({ open, onOpenChange, onSuccess }: AddTrans
 
                 if (!profile?.school_id) throw new Error('No school associated')
 
+                let relatedProfileId: string | null = null
+                if (type === 'income' && foundStudent) {
+                    relatedProfileId = foundStudent.id
+                }
+
                 const { error } = await supabase.from('transactions').insert({
                     school_id: profile.school_id,
                     type: type,
@@ -65,7 +104,8 @@ export function AddTransactionDialog({ open, onOpenChange, onSuccess }: AddTrans
                     description: description,
                     transaction_date: date,
                     created_by: user.id,
-                    status: 'completed'
+                    status: 'completed',
+                    ...(relatedProfileId ? { related_profile_id: relatedProfileId } : {})
                 })
 
                 if (error) throw error
@@ -74,10 +114,13 @@ export function AddTransactionDialog({ open, onOpenChange, onSuccess }: AddTrans
 
                 // Reset form
                 setAmount('')
-                setCategory('tuition')
+                setCategory('transport')
                 setType('income')
                 setDescription('')
                 setDate(new Date().toISOString().split('T')[0])
+                setStudentNni('')
+                setFoundStudent(null)
+                setNniError('')
 
                 onOpenChange(false)
                 onSuccess?.()
@@ -142,11 +185,15 @@ export function AddTransactionDialog({ open, onOpenChange, onSuccess }: AddTrans
                                 </SelectTrigger>
                                 <SelectContent className="bg-[#161B22] border-white/10 text-white">
                                     {type === 'income' ? (
-                                        <SelectItem value="tuition">{t('admin.finance.tuition')}</SelectItem>
+                                        <>
+                                            <SelectItem value="transport">Transport</SelectItem>
+                                            <SelectItem value="restauration">Restauration</SelectItem>
+                                            <SelectItem value="cotisation">Cotisation</SelectItem>
+                                            <SelectItem value="autre">Autres</SelectItem>
+                                        </>
                                     ) : (
                                         <>
                                             <SelectItem value="transport">{t('admin.finance.transport')}</SelectItem>
-                                            <SelectItem value="salary">{t('admin.finance.salaries')}</SelectItem>
                                             <SelectItem value="maintenance">{t('admin.finance.maintenance')}</SelectItem>
                                             <SelectItem value="supplies">{t('admin.accounting.supplies')}</SelectItem>
                                             <SelectItem value="other">{t('admin.finance.others')}</SelectItem>
@@ -178,6 +225,32 @@ export function AddTransactionDialog({ open, onOpenChange, onSuccess }: AddTrans
                             className="bg-[#0D1117] border-white/10 h-12 text-white"
                         />
                     </div>
+
+                    {/* NNI Élève (income only) */}
+                    {type === 'income' && (
+                        <div className="space-y-2">
+                            <Label className="text-xs text-gray-400 uppercase font-bold">NNI Élève concerné</Label>
+                            <div className="relative">
+                                <Input
+                                    placeholder="Entrez le NNI de l'élève"
+                                    value={studentNni}
+                                    onChange={(e) => handleNniChange(e.target.value)}
+                                    className="bg-[#0D1117] border-white/10 h-12 text-white pr-10"
+                                />
+                                {nniSearching && (
+                                    <Loader2 className="absolute right-3 top-3.5 w-4 h-4 animate-spin text-gray-400" />
+                                )}
+                            </div>
+                            {foundStudent && (
+                                <p className="text-xs text-emerald-400 font-medium px-1">
+                                    ✓ {foundStudent.full_name}
+                                </p>
+                            )}
+                            {nniError && !nniSearching && studentNni.trim().length >= 3 && (
+                                <p className="text-xs text-red-400 px-1">{nniError}</p>
+                            )}
+                        </div>
+                    )}
                 </div>
 
                 <div className="p-4 bg-[#0D1117] border-t border-white/5 flex gap-3">

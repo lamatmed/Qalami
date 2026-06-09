@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { Button } from '@/components/ui/button'
-import { CheckCircle2, ArrowLeft, FileText, Download, Bell } from 'lucide-react'
+import { CheckCircle2, ArrowLeft, FileText, Download, Bell, Loader2 } from 'lucide-react'
 import { useLanguage } from '@/i18n'
 import { cn } from '@/lib/utils'
 import { createClient } from '@/utils/supabase/client'
@@ -25,6 +25,7 @@ export function PaymentConfirmation({
     const [schoolName, setSchoolName] = useState('')
     const [schoolLogo, setSchoolLogo] = useState('')
     const [adminName, setAdminName] = useState('')
+    const [isGeneratingPdf, setIsGeneratingPdf] = useState(false)
 
     const now = new Date()
     const monthKeys = ['january', 'february', 'march', 'april', 'may', 'june',
@@ -95,127 +96,187 @@ export function PaymentConfirmation({
         URL.revokeObjectURL(url)
     }
 
-    const handlePrintSlip = () => {
-        const printWindow = window.open('', '_blank', 'width=720,height=950')
-        if (!printWindow) return
+    const handlePrintSlip = async () => {
+        setIsGeneratingPdf(true)
+        try {
+            const { jsPDF } = await import('jspdf')
+            const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' })
+            const fmt = (n: number) => Math.round(n).toString().replace(/\B(?=(\d{3})+(?!\d))/g, ' ')
 
-        const contractLabel = teacher.contractType === 'hourly'
-            ? 'Contrat Horaire / عقد بالساعة'
-            : 'Contrat Temps Plein / عقد دائم'
-        const printDate = now.toLocaleDateString('fr-FR', { day: '2-digit', month: 'long', year: 'numeric' })
-        const grossSalary = breakdown.baseSalary + breakdown.bonuses
+            const isHourly = teacher.contractType === 'hourly'
+            const printDate = now.toLocaleDateString('fr-FR', { day: '2-digit', month: 'long', year: 'numeric' })
+            const grossSalary = breakdown.baseSalary + breakdown.bonuses
 
-        printWindow.document.write(`
-<!DOCTYPE html>
-<html dir="ltr">
-<head>
-  <meta charset="utf-8">
-  <title>Bulletin de Paie — ${teacher.name}</title>
-  <style>
-    body { font-family: Arial, sans-serif; padding: 30px; max-width: 650px; margin: 0 auto; color: #333; }
-    .receipt-container { border: 2px dashed #10b981; border-radius: 16px; padding: 24px; background: #fff; }
-    .header { display: flex; flex-direction: column; align-items: center; text-align: center; border-bottom: 2px solid #10b981; padding-bottom: 16px; margin-bottom: 20px; gap: 8px; }
-    .logo-container { width: 70px; height: 70px; border-radius: 50%; overflow: hidden; display: flex; align-items: center; justify-content: center; background: #ecfdf5; border: 2px solid #10b981; }
-    .school-logo { width: 100%; height: 100%; object-fit: cover; }
-    .school-title { font-size: 20px; font-weight: 800; color: #10b981; margin: 0; }
-    .school-subtitle { font-size: 11px; color: #6b7280; margin: 2px 0 0 0; }
-    .receipt-title { text-align: center; margin: 15px 0; }
-    .receipt-title h2 { margin: 0; font-size: 18px; color: #1f2937; letter-spacing: 0.5px; }
-    .receipt-title p { margin: 4px 0 0 0; font-size: 12px; color: #6b7280; }
-    .meta-info { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 20px; background: #f9fafb; padding: 12px 16px; border-radius: 8px; font-size: 13px; }
-    .meta-row { display: flex; justify-content: space-between; align-items: center; padding: 3px 0; }
-    .meta-label { color: #6b7280; }
-    .meta-value { font-weight: bold; color: #1f2937; }
-    .section-title { font-size: 11px; font-weight: bold; text-transform: uppercase; color: #6b7280; letter-spacing: 0.8px; margin: 16px 0 6px 0; padding-bottom: 4px; border-bottom: 1px solid #e5e7eb; }
-    .table-header { display: grid; grid-template-columns: 2.5fr 1fr; font-weight: bold; padding-bottom: 6px; font-size: 12px; color: #4b5563; border-bottom: 2px solid #e5e7eb; }
-    .table-row { display: grid; grid-template-columns: 2.5fr 1fr; padding: 9px 0; border-bottom: 1px solid #f3f4f6; align-items: center; font-size: 13px; }
-    .item-desc { font-weight: 500; color: #1f2937; }
-    .item-amount-green { text-align: right; font-weight: bold; color: #10b981; font-size: 14px; }
-    .item-amount-red { text-align: right; font-weight: bold; color: #ef4444; font-size: 14px; }
-    .total-section { margin-top: 16px; padding-top: 10px; border-top: 2px solid #e5e7eb; }
-    .total-row { display: flex; justify-content: space-between; align-items: center; padding: 4px 0; font-size: 13px; }
-    .total-row.net { margin-top: 10px; padding-top: 10px; border-top: 2px solid #d1fae5; }
-    .total-label { color: #4b5563; }
-    .total-label-net { font-size: 15px; font-weight: bold; color: #1f2937; }
-    .total-value { font-weight: bold; color: #1f2937; }
-    .total-value-net { font-size: 22px; font-weight: 800; color: #10b981; }
-    .status-badge { background-color: #d1fae5; color: #065f46; font-size: 11px; font-weight: bold; padding: 3px 8px; border-radius: 9999px; display: inline-block; }
-    .ref-box { background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 8px; padding: 10px 14px; margin-top: 16px; font-size: 12px; display: flex; justify-content: space-between; }
-    .signatures-section { display: grid; grid-template-columns: 1fr 1fr; gap: 40px; margin-top: 50px; font-size: 13px; text-align: center; }
-    .signature-box { border-top: 1px solid #d1d5db; padding-top: 8px; color: #6b7280; }
-    .footer { text-align: center; margin-top: 30px; font-size: 11px; color: #9ca3af; border-top: 1px solid #f3f4f6; padding-top: 12px; }
-    @media print { body { padding: 0; } .receipt-container { border: 2px solid #10b981; } }
-  </style>
-</head>
-<body>
-  <div class="receipt-container">
-    <div class="header">
-      <div class="logo-container">
-        ${schoolLogo ? `<img src="${schoolLogo}" alt="Logo" class="school-logo" />` : `<span style="font-size:32px">🎓</span>`}
-      </div>
-      <div>
-        <h1 class="school-title">${schoolName || 'ECOLE QALAMI / مدرسة قلمي'}</h1>
-        <p class="school-subtitle">Système de Gestion Scolaire / نظام إدارة المدارس</p>
-      </div>
-    </div>
+            const E: [number,number,number] = [16, 185, 129]
+            const G: [number,number,number] = [107, 114, 128]
+            const D: [number,number,number] = [31, 41, 55]
+            const R: [number,number,number] = [239, 68, 68]
 
-    <div class="receipt-title">
-      <h2>BULLETIN DE PAIE / بطاقة الراتب</h2>
-      <p>Période / الفترة : <strong>${monthName} ${year}</strong></p>
-    </div>
+            doc.setDrawColor(...E)
+            doc.setLineWidth(0.8)
+            doc.rect(10, 10, 190, 275)
 
-    <div class="meta-info">
-      <div>
-        <div class="meta-row"><span class="meta-label">Employé / الموظف :</span><span class="meta-value">${teacher.name}</span></div>
-        <div class="meta-row"><span class="meta-label">Poste / المنصب :</span><span class="meta-value">${teacher.subject || '—'}</span></div>
-        <div class="meta-row"><span class="meta-label">NNI :</span><span class="meta-value" style="font-family:monospace">${teacher.nni || '—'}</span></div>
-      </div>
-      <div>
-        <div class="meta-row"><span class="meta-label">Téléphone / الهاتف :</span><span class="meta-value">${teacher.phone || '—'}</span></div>
-        <div class="meta-row"><span class="meta-label">Contrat / العقد :</span><span class="meta-value">${contractLabel}</span></div>
-        <div class="meta-row"><span class="meta-label">Date / التاريخ :</span><span class="meta-value">${printDate}</span></div>
-        <div class="meta-row"><span class="meta-label">Statut / الحالة :</span><span class="meta-value"><span class="status-badge">PAYÉ / مدفوع</span></span></div>
-      </div>
-    </div>
+            doc.setFont('Helvetica', 'bold')
+            doc.setFontSize(17)
+            doc.setTextColor(...E)
+            doc.text(schoolName || 'ECOLE QALAMI', 105, 28, { align: 'center' })
+            doc.setFont('Helvetica', 'normal')
+            doc.setFontSize(8)
+            doc.setTextColor(...G)
+            doc.text('Systeme de Gestion Scolaire', 105, 34, { align: 'center' })
+            doc.setDrawColor(...E)
+            doc.setLineWidth(0.4)
+            doc.line(20, 37, 190, 37)
 
-    <div class="section-title">RÉMUNÉRATION / الأجر</div>
-    <div class="table-header"><div>Désignation / البيان</div><div style="text-align:right">Montant / المبلغ</div></div>
-    <div class="table-row"><div class="item-desc">Salaire de base / الراتب الأساسي</div><div class="item-amount-green">${breakdown.baseSalary.toLocaleString('fr-FR')} MRU</div></div>
-    <div class="table-row"><div class="item-desc">Éléments variables / العناصر المتغيرة<br><small style="color:#6b7280">Heures supp. + Primes</small></div><div class="item-amount-green">+${breakdown.bonuses.toLocaleString('fr-FR')} MRU</div></div>
+            doc.setFont('Helvetica', 'bold')
+            doc.setFontSize(14)
+            doc.setTextColor(...D)
+            doc.text('BULLETIN DE PAIE', 105, 47, { align: 'center' })
+            doc.setFont('Helvetica', 'normal')
+            doc.setFontSize(10)
+            doc.setTextColor(...G)
+            doc.text(`Periode : ${monthName} ${year}`, 105, 54, { align: 'center' })
 
-    <div class="section-title">RETENUES / الخصومات</div>
-    <div class="table-header"><div>Désignation / البيان</div><div style="text-align:right">Montant / المبلغ</div></div>
-    <div class="table-row"><div class="item-desc">Total retenues / مجموع الخصومات<br><small style="color:#6b7280">Absences + Cotisation CNSS</small></div><div class="item-amount-red">-${breakdown.deductions.toLocaleString('fr-FR')} MRU</div></div>
+            doc.setFillColor(249, 250, 251)
+            doc.roundedRect(15, 59, 180, 44, 2, 2, 'F')
 
-    <div class="total-section">
-      <div class="total-row"><span class="total-label">Total Brut / المجموع الإجمالي</span><span class="total-value">${grossSalary.toLocaleString('fr-FR')} MRU</span></div>
-      <div class="total-row"><span class="total-label" style="color:#ef4444">Total Retenues / مجموع الخصومات</span><span class="total-value" style="color:#ef4444">-${breakdown.deductions.toLocaleString('fr-FR')} MRU</span></div>
-      <div class="total-row net"><span class="total-label-net">NET À PAYER / الراتب الصافي</span><span class="total-value-net">${netSalary.toLocaleString('fr-FR')} MRU</span></div>
-    </div>
+            const metaRow = (label: string, value: string, x: number, y: number) => {
+                doc.setFont('Helvetica', 'normal')
+                doc.setFontSize(8.5)
+                doc.setTextColor(...G)
+                doc.text(label, x, y)
+                doc.setFont('Helvetica', 'bold')
+                doc.setFontSize(9.5)
+                doc.setTextColor(...D)
+                doc.text(String(value), x + 28, y)
+            }
+            metaRow('Employe :', teacher.name, 20, 68)
+            metaRow('Telephone :', teacher.phone || '--', 110, 68)
+            metaRow('Poste :', teacher.subject || '--', 20, 76)
+            metaRow('Contrat :', isHourly ? 'Horaire' : 'Temps Plein', 110, 76)
+            metaRow('NNI :', teacher.nni || '--', 20, 84)
+            metaRow('Date :', printDate, 110, 84)
 
-    <div class="ref-box">
-      <span style="color:#6b7280">Référence transaction / مرجع المعاملة :</span>
-      <span style="font-family:monospace; font-weight:bold; color:#10b981">${transactionId}</span>
-    </div>
+            doc.setFillColor(209, 250, 229)
+            doc.roundedRect(110, 87, 20, 6, 1.5, 1.5, 'F')
+            doc.setFontSize(7.5)
+            doc.setFont('Helvetica', 'bold')
+            doc.setTextColor(6, 95, 70)
+            doc.text('PAYE', 120, 91.5, { align: 'center' })
 
-    <div class="signatures-section">
-      <div class="signature-box">Employé / الموظف<br><strong>${teacher.name}</strong></div>
-      <div class="signature-box">Administration / الإدارة<br><strong>${adminName || 'Directeur'}</strong></div>
-    </div>
+            let y = 113
+            const section = (title: string) => {
+                doc.setFontSize(8)
+                doc.setFont('Helvetica', 'bold')
+                doc.setTextColor(...G)
+                doc.text(title, 15, y)
+                doc.setDrawColor(229, 231, 235)
+                doc.setLineWidth(0.2)
+                doc.line(15, y + 2, 195, y + 2)
+                y += 9
+            }
+            const tableRow = (label: string, amount: string, color: [number,number,number]) => {
+                doc.setFont('Helvetica', 'normal')
+                doc.setFontSize(9.5)
+                doc.setTextColor(...D)
+                doc.text(label, 15, y)
+                doc.setFont('Helvetica', 'bold')
+                doc.setTextColor(...color)
+                doc.text(amount, 195, y, { align: 'right' })
+                doc.setDrawColor(243, 244, 246)
+                doc.setLineWidth(0.15)
+                doc.line(15, y + 2, 195, y + 2)
+                y += 10
+            }
 
-    <div class="footer">
-      <p>Merci pour votre confiance / شكراً لثقتكم</p>
-      <p style="margin-top:4px">Généré le ${printDate} — ${schoolName || 'Qalami School Manager'}</p>
-    </div>
-  </div>
-</body>
-</html>`)
-        printWindow.document.close()
-        printWindow.focus()
-        setTimeout(() => {
-            printWindow.print()
-            printWindow.close()
-        }, 300)
+            section('REMUNERATION')
+            tableRow('Salaire de base', `${fmt(breakdown.baseSalary)} MRU`, E)
+            tableRow('Elements variables (Heures supp. + Primes)', `+${fmt(breakdown.bonuses)} MRU`, E)
+            y += 3
+            section('RETENUES')
+            tableRow('Total retenues (Absences + Cotisation CNSS)', `-${fmt(breakdown.deductions)} MRU`, R)
+
+            y += 5
+            doc.setDrawColor(209, 213, 219)
+            doc.setLineWidth(0.4)
+            doc.line(15, y - 3, 195, y - 3)
+
+            doc.setFont('Helvetica', 'normal')
+            doc.setFontSize(10)
+            doc.setTextColor(75, 85, 99)
+            doc.text('Total Brut', 15, y)
+            doc.setFont('Helvetica', 'bold')
+            doc.setTextColor(...D)
+            doc.text(`${fmt(grossSalary)} MRU`, 195, y, { align: 'right' })
+            y += 8
+
+            doc.setFont('Helvetica', 'normal')
+            doc.setTextColor(75, 85, 99)
+            doc.text('Total Retenues', 15, y)
+            doc.setFont('Helvetica', 'bold')
+            doc.setTextColor(...R)
+            doc.text(`-${fmt(breakdown.deductions)} MRU`, 195, y, { align: 'right' })
+            y += 6
+
+            doc.setDrawColor(209, 250, 229)
+            doc.setLineWidth(0.8)
+            doc.line(15, y, 195, y)
+            y += 9
+
+            doc.setFont('Helvetica', 'bold')
+            doc.setFontSize(11)
+            doc.setTextColor(...D)
+            doc.text('NET A PAYER', 15, y)
+            doc.setFontSize(16)
+            doc.setTextColor(...E)
+            doc.text(`${fmt(netSalary)} MRU`, 195, y, { align: 'right' })
+            y += 14
+
+            doc.setFillColor(249, 250, 251)
+            doc.roundedRect(15, y - 4, 180, 11, 1.5, 1.5, 'F')
+            doc.setFontSize(8.5)
+            doc.setFont('Helvetica', 'normal')
+            doc.setTextColor(...G)
+            doc.text('Ref. transaction :', 20, y + 3)
+            doc.setFont('Helvetica', 'bold')
+            doc.setTextColor(...E)
+            doc.text(transactionId, 65, y + 3)
+            y += 20
+
+            doc.setDrawColor(209, 213, 219)
+            doc.setLineWidth(0.4)
+            doc.line(20, y, 85, y)
+            doc.line(115, y, 185, y)
+            y += 6
+            doc.setFont('Helvetica', 'normal')
+            doc.setFontSize(8.5)
+            doc.setTextColor(...G)
+            doc.text('Employe', 52, y, { align: 'center' })
+            doc.text('Administration', 150, y, { align: 'center' })
+            y += 5
+            doc.setFont('Helvetica', 'bold')
+            doc.setFontSize(9.5)
+            doc.setTextColor(...D)
+            doc.text(teacher.name, 52, y, { align: 'center' })
+            doc.text(adminName || 'Directeur', 150, y, { align: 'center' })
+            y += 18
+
+            doc.setDrawColor(243, 244, 246)
+            doc.setLineWidth(0.2)
+            doc.line(15, y, 195, y)
+            y += 6
+            doc.setFont('Helvetica', 'normal')
+            doc.setFontSize(7.5)
+            doc.setTextColor(156, 163, 175)
+            doc.text('Merci pour votre confiance', 105, y, { align: 'center' })
+            y += 4
+            doc.text(`Genere le ${printDate} - ${schoolName || 'Qalami School Manager'}`, 105, y, { align: 'center' })
+
+            const monthNum = String(now.getMonth() + 1).padStart(2, '0')
+            doc.save(`bulletin-${teacher.name.replace(/\s+/g, '-')}-${year}-${monthNum}.pdf`)
+        } finally {
+            setIsGeneratingPdf(false)
+        }
     }
 
     return (
@@ -286,9 +347,13 @@ export function PaymentConfirmation({
                     <Button
                         type="button"
                         onClick={handlePrintSlip}
-                        className="bg-emerald-500 hover:bg-emerald-600 text-black font-bold w-full"
+                        disabled={isGeneratingPdf}
+                        className="bg-emerald-500 hover:bg-emerald-600 text-black font-bold w-full disabled:opacity-70"
                     >
-                        <FileText className="w-4 h-4 mr-2" /> {t('admin.payroll.slip')}
+                        {isGeneratingPdf
+                            ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> PDF...</>
+                            : <><FileText className="w-4 h-4 mr-2" /> {t('admin.payroll.slip')}</>
+                        }
                     </Button>
                 </div>
             </div>
