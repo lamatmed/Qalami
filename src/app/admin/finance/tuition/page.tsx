@@ -73,7 +73,6 @@ export default function TuitionPage() {
     const handleViewPdf = async (p: PaymentRow) => {
         setGeneratingPdfId(p.id)
         try {
-            // Fetch student NNI + phone
             const supabase = createClient()
             const { data: profile } = await supabase
                 .from('profiles')
@@ -83,99 +82,141 @@ export default function TuitionPage() {
 
             const { jsPDF } = await import('jspdf')
 
-            const W = 80
-            const ml = 6
-            const mr = W - 6
-            const cx = W / 2
-            const fmt = (n: number) => Math.round(n).toString().replace(/\B(?=(\d{3})+(?!\d))/g, ' ')
-            const BK: [number,number,number] = [10, 10, 10]
-            const GR: [number,number,number] = [150, 150, 150]
+            // ─── Design tokens ─────────────────────────────────────────────────
+            const W = 210, H = 297, ML = 18, MR = 192, CX = 105
+            const EM:     [number,number,number] = [16, 185, 129]   // emerald
+            const DK:     [number,number,number] = [15,  23,  42]   // dark
+            const GR:     [number,number,number] = [100, 116, 139]  // gray
+            const LBG:    [number,number,number] = [248, 250, 252]  // light bg
+            const BDR:    [number,number,number] = [226, 232, 240]  // border
+            const WH:     [number,number,number] = [255, 255, 255]
+            const HT:     [number,number,number] = [174, 234, 211]  // header tint
 
-            const hline = (yPos: number, thick = 0.3) => {
-                doc.setDrawColor(...BK); doc.setLineWidth(thick)
-                doc.line(ml, yPos, mr, yPos)
+            const statusColor: [number,number,number] =
+                p.status === 'paid'    ? [16, 185, 129] :
+                p.status === 'partial' ? [245, 158, 11] :
+                p.status === 'overdue' ? [239,  68,  68] : [99, 102, 241]
+            const statusLabel =
+                p.status === 'paid'    ? 'PAYÉ'      :
+                p.status === 'partial' ? 'PARTIEL'   :
+                p.status === 'overdue' ? 'EN RETARD' : 'EN ATTENTE'
+
+            const typeLabels: Record<string, string> = {
+                scolarite: 'Scolarité', inscription: 'Inscription',
+                bus: 'Transport',       cantine: 'Cantine', activites: 'Activités',
             }
+            const typeLabel  = typeLabels[p.payment_type] ?? p.payment_type
+            const printDate  = new Date().toLocaleDateString('fr-FR', { day: '2-digit', month: 'long', year: 'numeric' })
+            const shortId    = p.id.slice(0, 8).toUpperCase()
+            const remaining  = p.amount - p.amount_paid
+            const fmt        = (n: number) => Math.round(n).toString().replace(/\B(?=(\d{3})+(?!\d))/g, ' ')
 
-            const statusLabel = p.status === 'paid' ? 'PAYE' :
-                                p.status === 'partial' ? 'PARTIEL' :
-                                p.status === 'overdue' ? 'EN RETARD' : 'EN ATTENTE'
+            const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' })
 
-            const paymentTypeLabel: Record<string, string> = {
-                scolarite: 'Scolarité', inscription: 'Inscription', bus: 'Transport',
-                cantine: 'Cantine', activites: 'Activités'
-            }
-            const typeLabel = paymentTypeLabel[p.payment_type] ?? p.payment_type
-            const printDate = new Date().toLocaleDateString('fr-FR', { day: '2-digit', month: 'long', year: 'numeric' })
-            const shortId = p.id.slice(0, 8).toUpperCase()
-            const remaining = p.amount - p.amount_paid
+            // ─── Header band ───────────────────────────────────────────────────
+            doc.setFillColor(...EM)
+            doc.rect(0, 0, W, 50, 'F')
 
-            let estimatedH = 215
-            if (profile?.national_id || profile?.phone) estimatedH += 20
+            // Branding left
+            doc.setFont('Helvetica', 'bold'); doc.setFontSize(24); doc.setTextColor(...WH)
+            doc.text('QALAMI', ML, 17)
+            doc.setFont('Helvetica', 'normal'); doc.setFontSize(9); doc.setTextColor(...HT)
+            doc.text('School Manager  ·  Gestion Scolaire', ML, 24)
 
-            const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: [W, estimatedH] })
-            let y = 11
+            // Receipt title right
+            doc.setFont('Helvetica', 'bold'); doc.setFontSize(15); doc.setTextColor(...WH)
+            doc.text('REÇU DE PAIEMENT', MR, 17, { align: 'right' })
+            doc.setFont('Helvetica', 'normal'); doc.setFontSize(9); doc.setTextColor(...HT)
+            doc.text(`Réf : ${shortId}`, MR, 24, { align: 'right' })
 
-            // ─── Header
-            doc.setFont('Helvetica', 'bold'); doc.setFontSize(14); doc.setTextColor(...BK)
-            doc.text('QALAMI', ml, y); y += 6
+            // Thin divider inside band
+            doc.setDrawColor(...HT); doc.setLineWidth(0.2)
+            doc.line(ML, 30, MR, 30)
+
+            // Emission date
+            doc.setFont('Helvetica', 'normal'); doc.setFontSize(8.5); doc.setTextColor(...HT)
+            doc.text(`Émis le ${printDate}`, ML, 39)
+
+            // ─── Amount card ───────────────────────────────────────────────────
+            let y = 62
+            doc.setFillColor(...LBG); doc.setDrawColor(...BDR); doc.setLineWidth(0.3)
+            doc.roundedRect(ML, y, MR - ML, 50, 4, 4, 'FD')
+
+            // Status badge — top-right inside card
+            const bW = statusLabel.length > 6 ? 36 : 28
+            const bX = MR - bW - 5, bY = y + 5
+            doc.setFillColor(...statusColor)
+            doc.roundedRect(bX, bY, bW, 9, 2, 2, 'F')
+            doc.setFont('Helvetica', 'bold'); doc.setFontSize(7.5); doc.setTextColor(...WH)
+            doc.text(statusLabel, bX + bW / 2, bY + 6.2, { align: 'center' })
+
+            // "MONTANT PAYÉ" label
             doc.setFont('Helvetica', 'normal'); doc.setFontSize(8.5); doc.setTextColor(...GR)
-            doc.text('School Manager  ·  Gestion Scolaire', ml, y); y += 7
+            doc.text('MONTANT PAYÉ', ML + 7, y + 16)
 
-            hline(y, 0.8); y += 5
-            doc.setFont('Helvetica', 'bold'); doc.setFontSize(8); doc.setTextColor(...GR)
-            doc.text('RECU DE PAIEMENT', ml, y)
-            doc.setFont('Helvetica', 'normal'); doc.setFontSize(8)
-            doc.text(printDate, mr, y, { align: 'right' }); y += 5
-            hline(y, 0.3); y += 7
+            // Big amount
+            doc.setFont('Helvetica', 'bold'); doc.setFontSize(38); doc.setTextColor(...DK)
+            doc.text(fmt(p.amount_paid), ML + 7, y + 38)
 
-            // ─── Title
-            doc.setFont('Helvetica', 'bold'); doc.setFontSize(11); doc.setTextColor(...BK)
-            const titleLines = doc.splitTextToSize(typeLabel, mr - ml)
-            doc.text(titleLines, ml, y); y += titleLines.length * 6.5 + 2
-            doc.setFont('Helvetica', 'normal'); doc.setFontSize(8); doc.setTextColor(...GR)
-            doc.text(`REF  ${shortId}`, ml, y); y += 9
+            // MRU suffix right after amount
+            doc.setFontSize(38)
+            const amtW = doc.getTextWidth(fmt(p.amount_paid))
+            doc.setFont('Helvetica', 'bold'); doc.setFontSize(13); doc.setTextColor(...EM)
+            doc.text('MRU', ML + 7 + amtW + 3, y + 38)
 
-            // ─── Amount box
-            hline(y, 0.8); y += 6
-            doc.setFont('Helvetica', 'normal'); doc.setFontSize(8); doc.setTextColor(...GR)
-            doc.text('MONTANT PAYE', cx, y, { align: 'center' }); y += 10
-            doc.setFont('Helvetica', 'bold'); doc.setFontSize(28); doc.setTextColor(...BK)
-            doc.text(fmt(p.amount_paid), cx, y, { align: 'center' }); y += 6
-            doc.setFont('Helvetica', 'bold'); doc.setFontSize(11)
-            doc.text('MRU', cx, y, { align: 'center' }); y += 7
-            hline(y, 0.8); y += 9
+            // ─── Section + row helpers ──────────────────────────────────────────
+            y += 63
 
-            // ─── Details
-            const row = (label: string, value: string) => {
-                doc.setFont('Helvetica', 'normal'); doc.setFontSize(8); doc.setTextColor(...GR)
-                doc.text(label, ml, y)
-                doc.setFont('Helvetica', 'bold'); doc.setFontSize(9); doc.setTextColor(...BK)
-                doc.text(value, mr, y, { align: 'right' }); y += 7
+            const section = (title: string) => {
+                doc.setFont('Helvetica', 'bold'); doc.setFontSize(8.5); doc.setTextColor(...EM)
+                doc.text(title, ML, y)
+                doc.setDrawColor(...EM); doc.setLineWidth(0.5)
+                doc.line(ML, y + 2, ML + doc.getTextWidth(title), y + 2)
+                y += 12
             }
 
-            row('Type', typeLabel)
-            row('Montant total', `${fmt(p.amount)} MRU`)
-            if (remaining > 0) row('Reste a payer', `${fmt(remaining)} MRU`)
-            row('Statut', statusLabel)
-            if (p.paid_at) row('Date paiement', formatDateTime(p.paid_at))
-            else if (p.due_date) row('Date echeance', formatDateOnly(p.due_date))
+            const detailRow = (label: string, value: string, shade = false) => {
+                if (shade) {
+                    doc.setFillColor(...LBG); doc.setDrawColor(...LBG); doc.setLineWidth(0)
+                    doc.rect(ML, y - 6.5, MR - ML, 10.5, 'F')
+                }
+                doc.setFont('Helvetica', 'normal'); doc.setFontSize(9.5); doc.setTextColor(...GR)
+                doc.text(label, ML + 5, y)
+                doc.setFont('Helvetica', 'bold'); doc.setFontSize(9.5); doc.setTextColor(...DK)
+                doc.text(value, MR - 5, y, { align: 'right' })
+                y += 11
+            }
 
-            // ─── Student
-            y += 2; hline(y, 0.3); y += 6
-            doc.setFont('Helvetica', 'normal'); doc.setFontSize(8); doc.setTextColor(...GR)
-            doc.text('ELEVE', ml, y); y += 6
-            doc.setFont('Helvetica', 'bold'); doc.setFontSize(11); doc.setTextColor(...BK)
-            doc.text(p.student_name, ml, y); y += 8
-            if (p.class_name) { row('Classe', p.class_name) }
-            if (profile?.national_id) { row('NNI', profile.national_id) }
-            if (profile?.phone) { row('Tel', profile.phone) }
+            // ─── Payment info ──────────────────────────────────────────────────
+            section('INFORMATIONS DU PAIEMENT')
+            let shade = false
+            detailRow('Type de paiement', typeLabel, shade);          shade = !shade
+            detailRow('Montant total',    `${fmt(p.amount)} MRU`, shade); shade = !shade
+            if (remaining > 0) { detailRow('Reste à payer', `${fmt(remaining)} MRU`, shade); shade = !shade }
+            if (p.paid_at)     { detailRow('Date de paiement',   formatDateTime(p.paid_at),   shade) }
+            else if (p.due_date){ detailRow("Date d'échéance",   formatDateOnly(p.due_date),  shade) }
 
-            // ─── Footer
-            y += 3; hline(y, 0.3); y += 6
-            doc.setFont('Helvetica', 'normal'); doc.setFontSize(8); doc.setTextColor(...GR)
-            doc.text(`Genere le ${printDate}`, ml, y)
-            doc.setFont('Helvetica', 'bold'); doc.setFontSize(8.5); doc.setTextColor(...BK)
-            doc.text('Qalami School Manager', mr, y, { align: 'right' })
+            // ─── Student info ──────────────────────────────────────────────────
+            y += 8
+            section('ÉLÈVE')
+            shade = false
+            detailRow('Nom complet', p.student_name, shade);   shade = !shade
+            if (p.class_name)        { detailRow('Classe',     p.class_name,          shade); shade = !shade }
+            if (profile?.national_id){ detailRow('NNI',        profile.national_id,   shade); shade = !shade }
+            if (profile?.phone)      { detailRow('Téléphone',  profile.phone,         shade) }
+
+            // ─── Footer band ───────────────────────────────────────────────────
+            doc.setFillColor(...LBG)
+            doc.rect(0, H - 26, W, 26, 'F')
+            doc.setDrawColor(...BDR); doc.setLineWidth(0.3)
+            doc.line(0, H - 26, W, H - 26)
+
+            doc.setFont('Helvetica', 'normal'); doc.setFontSize(8.5); doc.setTextColor(...GR)
+            doc.text(`Généré le ${printDate}`, ML, H - 15)
+            doc.setFont('Helvetica', 'bold'); doc.setFontSize(9); doc.setTextColor(...EM)
+            doc.text('Qalami School Manager', MR, H - 15, { align: 'right' })
+            doc.setFont('Helvetica', 'normal'); doc.setFontSize(7); doc.setTextColor(195, 210, 220)
+            doc.text('Ce document est généré automatiquement et ne nécessite pas de signature.', CX, H - 7, { align: 'center' })
 
             doc.save(`recu-${p.student_name.replace(/\s+/g, '-')}-${shortId}.pdf`)
             toast.success('PDF téléchargé')

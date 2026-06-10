@@ -5,6 +5,7 @@ import { redirect } from 'next/navigation'
 import { TeacherProvider } from '@/context/teacher-context'
 import { TeacherSpaceTitle } from '@/components/teacher/space-title'
 import { TeacherLayoutFrame } from '@/components/teacher/layout-frame'
+import { NotificationBell } from '@/components/shared/notification-bell'
 
 export default async function TeacherLayout({
     children,
@@ -41,7 +42,9 @@ export default async function TeacherLayout({
                             <span dir="ltr">{profile?.phone || user.email}</span>
                         </div>
                     )}
-                    
+
+                    <NotificationBell />
+
                     {/* Clickable Teacher Profile Widget */}
                     <Link 
                         href="/teacher/settings" 

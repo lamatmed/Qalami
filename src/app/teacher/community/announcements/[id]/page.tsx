@@ -6,7 +6,7 @@ import { useParams, useRouter } from 'next/navigation'
 import { useTeacher } from '@/context/teacher-context'
 import { useReadNotifications } from '@/hooks/use-read-notifications'
 import { useLanguage } from '@/i18n'
-import { ArrowLeft, Megaphone, Loader2, Pin, AlertTriangle, Globe, Clock, GraduationCap, Users, BookOpen } from 'lucide-react'
+import { ArrowLeft, Megaphone, Loader2, Pin, AlertTriangle, Globe, Clock, GraduationCap, Users, BookOpen, Paperclip, Download } from 'lucide-react'
 import Link from 'next/link'
 import { motion } from 'framer-motion'
 import { cn } from '@/lib/utils'
@@ -114,10 +114,26 @@ export default function AnnouncementDetailsPage() {
                         </div>
                         
                         <div className="h-px w-full bg-slate-100 dark:bg-white/5" />
-                        
+
                         <div className="prose dark:prose-invert max-w-none text-slate-700 dark:text-slate-300">
                             <p className="whitespace-pre-wrap leading-relaxed">{announcement.content}</p>
                         </div>
+
+                        {announcement.attachment_url && (
+                            <div className="pt-2">
+                                <a
+                                    href={announcement.attachment_url}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    download={announcement.attachment_name || true}
+                                    className="inline-flex items-center gap-2.5 px-4 py-2.5 bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/20 text-emerald-500 text-sm font-bold rounded-xl transition-colors"
+                                >
+                                    <Paperclip className="w-4 h-4" />
+                                    {announcement.attachment_name || 'Télécharger la pièce jointe'}
+                                    <Download className="w-3.5 h-3.5 opacity-70" />
+                                </a>
+                            </div>
+                        )}
                     </div>
                 </div>
             </div>

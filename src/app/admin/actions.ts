@@ -300,20 +300,102 @@ export async function notifyAdminSelf(params: {
     })
 }
 
+const DOC_TYPE_LABELS_NOTIF: Record<string, string> = {
+    attestation_scolarite: 'Attestation de scolarité',
+    certificat_scolarite: 'Certificat de scolarité',
+    bulletin: 'Bulletin scolaire',
+    releve_notes: 'Relevé de notes',
+    convention_stage: 'Convention de stage',
+    autre: 'Autre',
+}
+
 export async function getAdminNotifications(schoolId: string) {
     const ctx = await getMySchoolContext()
     if (!ctx || (ctx.school_id !== schoolId && ctx.role !== 'super_admin')) {
         return []
     }
     const adminClient = createAdminClient()
-    const { data } = await adminClient
+
+    // 1. Absence justification notifications (real rows)
+    const { data: absenceNotifs } = await adminClient
         .from('notifications')
         .select('*')
         .eq('user_id', ctx.user_id)
-        .in('event_type', ['parent_request', 'absence_justification'])
+        .eq('event_type', 'absence_justification')
         .order('created_at', { ascending: false })
-        .limit(50)
-    return data || []
+        .limit(30)
+
+    // 2. Pending/in-progress document requests → synthesized as notifications
+    const { data: pendingReqs } = await adminClient
+        .from('document_requests')
+        .select(`id, created_at, doc_type, custom_title, status,
+            parent:profiles!document_requests_parent_id_fkey(full_name),
+            student:profiles!document_requests_student_id_fkey(full_name)`)
+        .eq('school_id', schoolId)
+        .in('status', ['pending', 'in_progress'])
+        .order('created_at', { ascending: false })
+        .limit(30)
+
+    const reqNotifs = (pendingReqs || []).map((req: any) => {
+        const docLabel = DOC_TYPE_LABELS_NOTIF[req.doc_type] ?? req.doc_type
+        const parentName = req.parent?.full_name ?? 'Parent'
+        const studentName = req.student?.full_name ?? ''
+        return {
+            id: `req_${req.id}`,
+            user_id: ctx.user_id,
+            title: 'Nouvelle demande de document',
+            message: `${parentName} demande : ${docLabel}${studentName ? ` (élève : ${studentName})` : ''}`,
+            type: 'action' as const,
+            action_url: '/admin/requests',
+            is_read: req.status === 'in_progress',
+            created_at: req.created_at,
+            school_id: schoolId,
+            event_type: 'parent_request',
+        }
+    })
+
+    // 3. Pending absence justifications (parent uploaded file awaiting admin review)
+    const { data: pendingJustifs } = await adminClient
+        .from('attendance')
+        .select('id, date, student_id, justification_attachment_url, classes!inner(school_id)')
+        .eq('classes.school_id', schoolId)
+        .eq('justification_status', 'pending')
+        .order('date', { ascending: false })
+        .limit(30)
+
+    const justifStudentIds = [...new Set((pendingJustifs || []).map((j: any) => j.student_id).filter(Boolean))]
+    const justifStudentNames: Record<string, string> = {}
+    if (justifStudentIds.length > 0) {
+        const { data: students } = await adminClient
+            .from('profiles')
+            .select('id, full_name')
+            .in('id', justifStudentIds)
+        for (const s of students || []) justifStudentNames[s.id] = s.full_name || 'Élève'
+    }
+
+    const justifNotifs = (pendingJustifs || []).map((j: any) => {
+        const studentName = justifStudentNames[j.student_id] || 'Élève'
+        const dateStr = new Date(j.date).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: 'numeric' })
+        const filename = (j.justification_attachment_url || '').split('/').pop() || ''
+        const tsMatch = filename.match(/^(\d{13})_/)
+        const createdAt = tsMatch ? new Date(parseInt(tsMatch[1], 10)).toISOString() : j.date
+        return {
+            id: `justif_${j.id}`,
+            user_id: ctx.user_id,
+            title: "Justificatif d'absence",
+            message: `${studentName} a soumis un justificatif pour le ${dateStr}`,
+            type: 'action' as const,
+            action_url: `/admin/students/${j.student_id}`,
+            is_read: false,
+            created_at: createdAt,
+            school_id: schoolId,
+            event_type: 'absence_justification_pending',
+        }
+    })
+
+    const combined = [...justifNotifs, ...reqNotifs, ...(absenceNotifs || [])]
+    combined.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+    return combined.slice(0, 50)
 }
 
 export async function getAdminUnreadNotificationsCount(schoolId: string) {
@@ -322,11 +404,24 @@ export async function getAdminUnreadNotificationsCount(schoolId: string) {
         return 0
     }
     const adminClient = createAdminClient()
-    const { count } = await adminClient
-        .from('notifications')
-        .select('*', { count: 'exact', head: true })
-        .eq('user_id', ctx.user_id)
-        .eq('is_read', false)
-        .in('event_type', ['parent_request', 'absence_justification'])
-    return count || 0
+
+    const [{ count: absenceCount }, { count: pendingReqCount }, { count: pendingJustifCount }] = await Promise.all([
+        adminClient
+            .from('notifications')
+            .select('*', { count: 'exact', head: true })
+            .eq('user_id', ctx.user_id)
+            .eq('is_read', false)
+            .eq('event_type', 'absence_justification'),
+        adminClient
+            .from('document_requests')
+            .select('*', { count: 'exact', head: true })
+            .eq('school_id', schoolId)
+            .eq('status', 'pending'),
+        adminClient
+            .from('attendance')
+            .select('id, classes!inner(school_id)', { count: 'exact', head: true })
+            .eq('classes.school_id', schoolId)
+            .eq('justification_status', 'pending'),
+    ])
+    return (absenceCount || 0) + (pendingReqCount || 0) + (pendingJustifCount || 0)
 }

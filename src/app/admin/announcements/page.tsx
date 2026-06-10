@@ -11,6 +11,7 @@ import {
     Megaphone, Plus, Search, Trash2, Pencil, X,
     Loader2, AlertTriangle, Bell, ChevronDown,
     GraduationCap, Users, BookOpen, Globe, School,
+    Paperclip, Download, FileText,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { notifyAdminSelf } from '@/app/admin/actions'
@@ -26,6 +27,8 @@ interface Announcement {
     published_at: string | null
     expires_at: string | null
     created_at: string
+    attachment_url?: string | null
+    attachment_name?: string | null
 }
 interface ClassOption { id: string; name: string }
 
@@ -91,9 +94,15 @@ function Modal({ open, onClose, onSaved, editing, classes, schoolId, userId }: {
     const [saving, setSaving] = useState(false)
 
     // Targeting
-    const [roles, setRoles] = useState<string[]>(['all'])          // 'all' | combo of eleves/parents/enseignants
-    const [scopeAll, setScopeAll] = useState(true)                 // true=whole school, false=selected classes
-    const [selClasses, setSelClasses] = useState<string[]>([])     // selected class IDs
+    const [roles, setRoles] = useState<string[]>(['all'])
+    const [scopeAll, setScopeAll] = useState(true)
+    const [selClasses, setSelClasses] = useState<string[]>([])
+
+    // Attachment
+    const [attachFile, setAttachFile] = useState<File | null>(null)
+    const [attachUrl, setAttachUrl] = useState<string | null>(null)
+    const [attachName, setAttachName] = useState<string | null>(null)
+    const [attachRemoved, setAttachRemoved] = useState(false)
 
     useEffect(() => {
         if (!open) return
@@ -105,9 +114,14 @@ function Modal({ open, onClose, onSaved, editing, classes, schoolId, userId }: {
             setRoles(r.length ? r : ['all'])
             setSelClasses(classIds)
             setScopeAll(classIds.length === 0)
+            setAttachFile(null)
+            setAttachUrl(editing.attachment_url || null)
+            setAttachName(editing.attachment_name || null)
+            setAttachRemoved(false)
         } else {
             setTitle(''); setContent(''); setPriority('normal'); setExpiresAt('')
             setRoles(['all']); setSelClasses([]); setScopeAll(true)
+            setAttachFile(null); setAttachUrl(null); setAttachName(null); setAttachRemoved(false)
         }
     }, [editing, open])
 
@@ -128,6 +142,21 @@ function Modal({ open, onClose, onSaved, editing, classes, schoolId, userId }: {
         if (!content.trim()) { toast.error(t('adminAnnouncements.contentRequiredToast')); return }
         if (!scopeAll && selClasses.length === 0) { toast.error(t('adminAnnouncements.selectClassToast')); return }
         setSaving(true)
+
+        // Upload attachment if a new file was selected
+        let finalAttachUrl = attachRemoved ? null : attachUrl
+        let finalAttachName = attachRemoved ? null : attachName
+        if (attachFile) {
+            const fd = new FormData()
+            fd.append('file', attachFile)
+            fd.append('schoolId', schoolId)
+            const res = await fetch('/api/admin/upload-announcement', { method: 'POST', body: fd })
+            const json = await res.json()
+            if (json.error) { toast.error(json.error); setSaving(false); return }
+            finalAttachUrl = json.publicUrl
+            finalAttachName = json.fileName
+        }
+
         const audience = encodeAudience(roles, scopeAll ? [] : selClasses)
         const payload: any = {
             school_id: schoolId, title: title.trim(), content: content.trim(), priority,
@@ -137,6 +166,11 @@ function Modal({ open, onClose, onSaved, editing, classes, schoolId, userId }: {
             expires_at: expiresAt ? new Date(expiresAt).toISOString() : null,
             published_at: new Date().toISOString(),
             created_by: userId, updated_at: new Date().toISOString(),
+        }
+        // Only include attachment columns when they have a value (requires migration to be applied)
+        if (finalAttachUrl !== null) {
+            payload.attachment_url = finalAttachUrl
+            payload.attachment_name = finalAttachName
         }
         const { error } = editing
             ? await supabase.from('announcements').update(payload).eq('id', editing.id)
@@ -170,7 +204,7 @@ function Modal({ open, onClose, onSaved, editing, classes, schoolId, userId }: {
                         </div>
                         <h2 className="text-sm font-bold text-white">{editing ? t('adminAnnouncements.edit') : t('adminAnnouncements.new')}</h2>
                     </div>
-                    <button onClick={onClose} className="text-gray-500 hover:text-white"><X className="w-5 h-5" /></button>
+                    <button type="button" title="Fermer" onClick={onClose} className="text-gray-500 hover:text-white"><X className="w-5 h-5" /></button>
                 </div>
 
                 <div className="p-6 space-y-5 max-h-[72vh] overflow-y-auto">
@@ -264,14 +298,55 @@ function Modal({ open, onClose, onSaved, editing, classes, schoolId, userId }: {
                     {/* Expires */}
                     <div>
                         <label className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-1.5 block">{t('adminAnnouncements.expiresAtOptional')}</label>
-                        <input type="datetime-local" value={expiresAt} onChange={e => setExpiresAt(e.target.value)}
+                        <input type="datetime-local" title="Date d'expiration" value={expiresAt} onChange={e => setExpiresAt(e.target.value)}
                             className="w-full bg-[#0D1117] border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-emerald-500/50 [color-scheme:dark]" />
+                    </div>
+
+                    {/* Attachment */}
+                    <div>
+                        <label className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-1.5 block">
+                            Pièce jointe <span className="text-gray-600 font-normal normal-case">(optionnel)</span>
+                        </label>
+
+                        {/* Show existing attachment when editing */}
+                        {(attachUrl && !attachRemoved && !attachFile) && (
+                            <div className="flex items-center gap-3 bg-emerald-500/10 border border-emerald-500/20 rounded-xl px-4 py-2.5 mb-2">
+                                <FileText className="w-4 h-4 text-emerald-400 shrink-0" />
+                                <span className="text-sm text-emerald-300 truncate flex-1">{attachName || 'Fichier joint'}</span>
+                                <button type="button" title="Supprimer la pièce jointe" onClick={() => setAttachRemoved(true)}
+                                    className="text-gray-500 hover:text-red-400 transition-colors shrink-0">
+                                    <X className="w-4 h-4" />
+                                </button>
+                            </div>
+                        )}
+
+                        {/* New file selected preview */}
+                        {attachFile && (
+                            <div className="flex items-center gap-3 bg-blue-500/10 border border-blue-500/20 rounded-xl px-4 py-2.5 mb-2">
+                                <FileText className="w-4 h-4 text-blue-400 shrink-0" />
+                                <span className="text-sm text-blue-300 truncate flex-1">{attachFile.name}</span>
+                                <button type="button" title="Annuler la sélection" onClick={() => setAttachFile(null)}
+                                    className="text-gray-500 hover:text-red-400 transition-colors shrink-0">
+                                    <X className="w-4 h-4" />
+                                </button>
+                            </div>
+                        )}
+
+                        {/* File input */}
+                        {!attachFile && !(attachUrl && !attachRemoved) && (
+                            <label className="flex items-center gap-3 bg-[#0D1117] border border-white/10 border-dashed rounded-xl px-4 py-3 cursor-pointer hover:border-emerald-500/40 transition-colors group">
+                                <Paperclip className="w-4 h-4 text-gray-500 group-hover:text-emerald-400 transition-colors shrink-0" />
+                                <span className="text-sm text-gray-500 group-hover:text-gray-300 transition-colors">Choisir un fichier (PDF, image, Word…)</span>
+                                <input type="file" className="hidden" accept=".pdf,.doc,.docx,.png,.jpg,.jpeg,.webp"
+                                    onChange={e => { const f = e.target.files?.[0]; if (f) { setAttachFile(f); setAttachRemoved(false) } }} />
+                            </label>
+                        )}
                     </div>
                 </div>
 
                 <div className="px-6 py-4 border-t border-white/5 flex justify-end gap-3">
-                    <button onClick={onClose} className="px-4 py-2 text-sm text-gray-400 hover:text-white">{t('common.cancel')}</button>
-                    <button onClick={handleSave} disabled={saving}
+                    <button type="button" onClick={onClose} className="px-4 py-2 text-sm text-gray-400 hover:text-white">{t('common.cancel')}</button>
+                    <button type="button" onClick={handleSave} disabled={saving}
                         className="flex items-center gap-2 px-5 py-2 bg-emerald-500 hover:bg-emerald-400 text-black font-bold text-sm rounded-xl transition-all disabled:opacity-60">
                         {saving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Megaphone className="w-3.5 h-3.5" />}
                         {saving ? t('adminAnnouncements.creating') : editing ? t('adminAnnouncements.updateBtn') : t('adminAnnouncements.publishBtn')}
@@ -411,7 +486,20 @@ export default function AdminAnnouncementsPage() {
                                                 <div className="flex items-center gap-2 mt-2 flex-wrap">
                                                     <span className="text-[10px] text-muted-foreground/50">{relDate(ann.created_at, t, language)}</span>
                                                     <span className="text-[10px] bg-muted text-muted-foreground px-2 py-0.5 rounded-full font-medium">{summary}</span>
+                                                    {ann.attachment_url && (
+                                                        <span className="flex items-center gap-1 text-[10px] bg-emerald-500/10 text-emerald-400 px-2 py-0.5 rounded-full font-medium border border-emerald-500/20">
+                                                            <Paperclip className="w-2.5 h-2.5" /> Pièce jointe
+                                                        </span>
+                                                    )}
                                                 </div>
+                                                {isExpanded && ann.attachment_url && (
+                                                    <div className="mt-3" onClick={e => e.stopPropagation()}>
+                                                        <a href={ann.attachment_url} target="_blank" rel="noopener noreferrer" download={ann.attachment_name || true}
+                                                            className="inline-flex items-center gap-2 px-3 py-1.5 bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/20 text-emerald-400 text-xs font-bold rounded-lg transition-colors">
+                                                            <Download className="w-3 h-3" /> {ann.attachment_name || 'Télécharger la pièce jointe'}
+                                                        </a>
+                                                    </div>
+                                                )}
                                             </div>
                                         </div>
                                         <div className="flex items-center gap-1 shrink-0">

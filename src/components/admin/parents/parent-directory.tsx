@@ -192,6 +192,7 @@ export function ParentDirectory() {
         })
 
         setParents(parentsData)
+        setSelectedParent(prev => prev ? (parentsData.find(p => p.id === prev.id) ?? prev) : null)
         setLoading(false)
     }
 
@@ -697,7 +698,7 @@ export function ParentDirectory() {
                                         <ArrowLeft className="w-4 h-4" /> {t('admin.students.profile.backToStudent')}
                                     </a>
                                 )}
-                                <ParentProfile parent={selectedParent} schoolId={schoolId} onClose={() => setSelectedParent(null)} />
+                                <ParentProfile parent={selectedParent} schoolId={schoolId} onClose={() => setSelectedParent(null)} onParentUpdated={fetchParents} />
                             </div>
                         ) : (
                             <div className="h-full bg-[#161B22] border border-white/5 rounded-3xl p-6 flex flex-col items-center justify-center text-center">

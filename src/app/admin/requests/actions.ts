@@ -206,7 +206,7 @@ export async function submitDocumentRequest(params: {
 
     // Notify all admins with parent name + student name
     const [{ data: admins }, { data: parentProfile }, { data: studentProfile }] = await Promise.all([
-        admin.from('profiles').select('id').eq('school_id', ctx.schoolId).in('role', ['admin', 'super_admin', 'staff']),
+        admin.from('profiles').select('id').eq('school_id', ctx.schoolId).in('role', ['admin', 'super_admin', 'school_staff']),
         admin.from('profiles').select('full_name').eq('id', ctx.userId).single(),
         admin.from('profiles').select('full_name').eq('id', params.studentId).single(),
     ])

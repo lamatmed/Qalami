@@ -536,6 +536,11 @@ export interface AttendanceWithFile {
     justified: boolean
     justification_note: string | null
     justification_file_url: string | null
+    justification_status: 'pending' | 'approved' | 'rejected' | null
+    justification_reviewed_by: string | null
+    justification_review_note: string | null
+    justification_attachment_signed_url: string | null
+    justification_attachment_filename: string | null
     subjects: { name: string } | null
     recorder: { full_name: string | null } | null
 }
@@ -553,6 +558,7 @@ export async function getStudentAttendanceWithFiles(
         .from('attendance')
         .select(`
             id, date, status, justified, justification_note, justification_file_url,
+            justification_status, justification_reviewed_by, justification_review_note, justification_attachment_url,
             subjects ( name ),
             recorder:profiles!attendance_recorded_by_fkey ( full_name ),
             classes!inner ( school_id )
@@ -567,6 +573,7 @@ export async function getStudentAttendanceWithFiles(
             .from('attendance')
             .select(`
                 id, date, status, justified, justification_note,
+                justification_status, justification_reviewed_by, justification_review_note, justification_attachment_url,
                 subjects ( name ),
                 recorder:profiles!attendance_recorded_by_fkey ( full_name ),
                 classes!inner ( school_id )
@@ -598,6 +605,17 @@ export async function getStudentAttendanceWithFiles(
         }
     }
 
+    // Generate signed URLs for parent-uploaded justification attachments stored in DB
+    const attachSignedUrls: Record<string, string> = {}
+    await Promise.all(records.map(async (r: any) => {
+        if (r.justification_attachment_url) {
+            const { data: signed } = await admin.storage
+                .from(BUCKET)
+                .createSignedUrl(r.justification_attachment_url, 3600)
+            if (signed?.signedUrl) attachSignedUrls[r.id] = signed.signedUrl
+        }
+    }))
+
     return records.map((r: any) => ({
         id: r.id,
         date: r.date,
@@ -605,6 +623,13 @@ export async function getStudentAttendanceWithFiles(
         justified: r.justified,
         justification_note: r.justification_note,
         justification_file_url: r.justification_file_url || bucketFileMap[r.id] || null,
+        justification_status: r.justification_status ?? null,
+        justification_reviewed_by: r.justification_reviewed_by ?? null,
+        justification_review_note: r.justification_review_note ?? null,
+        justification_attachment_signed_url: attachSignedUrls[r.id] ?? null,
+        justification_attachment_filename: r.justification_attachment_url
+            ? (r.justification_attachment_url as string).split('/').pop() ?? null
+            : null,
         subjects: r.subjects,
         recorder: r.recorder,
     }))
@@ -767,4 +792,42 @@ export async function reintegrateExternalStudent(studentId: string) {
     revalidatePath(`/admin/students/${studentId}`)
     revalidatePath('/admin/students')
     return { success: true }
+}
+
+// ─── Admin review of student absence justification ─────────────────────────────
+
+export async function reviewAttendanceJustification(
+    attendanceId: string,
+    decision: 'approved' | 'rejected',
+    note?: string
+): Promise<{ error?: string }> {
+    const ctx = await getActionContext()
+    if (!ctx) return { error: 'Non authentifié' }
+    const admin = createAdminClient()
+
+    // Verify the record belongs to this admin's school
+    const { data: existing, error: checkErr } = await admin
+        .from('attendance')
+        .select('id, classes!inner(school_id)')
+        .eq('id', attendanceId)
+        .eq('classes.school_id', ctx.schoolId)
+        .single()
+
+    if (checkErr || !existing) return { error: 'Enregistrement introuvable' }
+
+    const update: Record<string, any> = {
+        justification_status: decision,
+        justification_reviewed_by: ctx.userId,
+        justification_reviewed_at: new Date().toISOString(),
+        justified: decision === 'approved',
+    }
+    if (note?.trim()) update.justification_review_note = note.trim()
+
+    const { error } = await admin
+        .from('attendance')
+        .update(update)
+        .eq('id', attendanceId)
+
+    if (error) return { error: error.message }
+    return {}
 }

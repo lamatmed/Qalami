@@ -3,6 +3,7 @@
 import { createAdminClient } from '@/utils/supabase/admin'
 import { createClient } from '@/utils/supabase/server'
 import { logActivity } from '@/lib/activity-log'
+import { getActionContext } from '@/lib/auth-action'
 
 export async function getFeeStructuresAction() {
     const supabase = await createClient()
@@ -51,49 +52,52 @@ export async function getFeeStructuresAction() {
 }
 
 export async function deleteStaffMember(profileId: string) {
-    console.log('[deleteStaff] START profileId:', profileId)
-
     if (!profileId) return { error: 'ID profil manquant' }
 
     const supabase = await createClient()
-    const { data: { user }, error: authError } = await supabase.auth.getUser()
-    console.log('[deleteStaff] auth user:', user?.id, 'authError:', authError?.message)
+    const { data: { user } } = await supabase.auth.getUser()
     if (!user) return { error: 'Non authentifié' }
 
-    const { data: callerProfile, error: callerError } = await supabase
+    const { data: callerProfile } = await supabase
         .from('profiles')
         .select('school_id, role')
         .eq('id', user.id)
         .single()
-    console.log('[deleteStaff] callerProfile:', callerProfile, 'callerError:', callerError?.message)
 
     if (!callerProfile?.school_id) return { error: 'École introuvable' }
 
     const admin = createAdminClient()
 
-    const { data: staffProfile, error: staffError } = await admin
+    const { data: staffProfile } = await admin
         .from('profiles')
-        .select('id, school_id, role, full_name')
+        .select('id, school_id, full_name')
         .eq('id', profileId)
         .single()
-    console.log('[deleteStaff] staffProfile:', staffProfile, 'staffError:', staffError?.message)
 
-    if (!staffProfile) return { error: `Staff introuvable: ${staffError?.message}` }
+    if (!staffProfile) return { error: 'Staff introuvable' }
+    if (staffProfile.school_id !== callerProfile.school_id) return { error: 'Permission refusée' }
 
-    if (staffProfile.school_id !== callerProfile.school_id) {
-        console.log('[deleteStaff] school mismatch:', staffProfile.school_id, '!=', callerProfile.school_id)
-        return { error: 'Permission refusée (école différente)' }
+    // 1. Nullify FK on transactions to avoid constraint error
+    await admin.from('transactions').update({ related_profile_id: null }).eq('related_profile_id', profileId)
+
+    // 2. Delete payroll records
+    await admin.from('payroll').delete().eq('employee_id', profileId)
+
+    // 3. Delete contracts
+    await admin.from('contracts').delete().eq('employee_id', profileId)
+
+    // 4. Delete profile_schools links
+    await admin.from('profile_schools').delete().eq('profile_id', profileId)
+
+    // 5. Delete teacher_attendance records
+    await (admin.from as any)('teacher_attendance').delete().eq('teacher_id', profileId)
+
+    // 6. Delete auth user (cascades to profile row)
+    const { error: authDeleteError } = await admin.auth.admin.deleteUser(profileId)
+    if (authDeleteError) {
+        // Fallback: delete profile directly
+        await admin.from('profiles').delete().eq('id', profileId)
     }
-
-    const { error: deleteError, count } = await admin
-        .from('profiles')
-        .delete({ count: 'exact' })
-        .eq('id', profileId)
-
-    console.log('[deleteStaff] delete result: error=', deleteError?.message, 'code=', deleteError?.code, 'count=', count)
-
-    if (deleteError) return { error: `${deleteError.message} (${deleteError.code})` }
-    if (count === 0) return { error: `Aucune ligne supprimée (id=${profileId})` }
 
     logActivity({
         actorId: user.id,
@@ -105,6 +109,44 @@ export async function deleteStaffMember(profileId: string) {
     })
 
     return { error: null }
+}
+
+export async function updateStaffMemberAction(profileId: string, payload: {
+    name: string
+    role: string
+    phone: string
+    nni: string
+    salary: number
+    contractType: 'CDI' | 'CDD' | 'hourly'
+}) {
+    const ctx = await getActionContext()
+    if (!ctx) return { error: 'Non authentifié' }
+    const admin = createAdminClient()
+
+    // Verify this staff belongs to the caller's school
+    const { data: staffProfile } = await admin.from('profiles').select('school_id').eq('id', profileId).single()
+    if (!staffProfile || staffProfile.school_id !== ctx.schoolId) return { error: 'Permission refusée' }
+
+    // Update profile
+    const { error: profileError } = await admin.from('profiles').update({
+        full_name: payload.name.trim(),
+        phone: payload.phone.trim() || null,
+        national_id: payload.nni.trim() || null,
+        updated_at: new Date().toISOString(),
+    }).eq('id', profileId)
+    if (profileError) return { error: profileError.message }
+
+    // Update active contract
+    const { data: contract } = await admin.from('contracts').select('id').eq('employee_id', profileId).eq('status', 'active').maybeSingle()
+    if (contract) {
+        await admin.from('contracts').update({
+            position: payload.role,
+            monthly_salary: payload.salary,
+            contract_type: payload.contractType,
+        }).eq('id', contract.id)
+    }
+
+    return { success: true }
 }
 
 export async function getStaffAction() {
@@ -454,6 +496,62 @@ export async function updateDefaultGradingScaleAction(scale: number) {
         .update({ default_grading_scale: scale })
         .eq('school_id', profile.school_id)
 
+    if (error) return { error: error.message }
+    return { success: true }
+}
+
+// ── Staff absences ────────────────────────────────────────────────────────────
+
+export async function getStaffAbsencesAction(staffId: string, month: number, year: number) {
+    const ctx = await getActionContext()
+    if (!ctx) return { error: 'Non authentifié', absences: [] }
+    const admin = createAdminClient()
+
+    const startDate = `${year}-${String(month).padStart(2, '0')}-01`
+    const endDate = new Date(year, month, 0).toISOString().split('T')[0]
+
+    const { data, error } = await (admin.from as any)('teacher_attendance')
+        .select('id, date, justified, justification_note')
+        .eq('teacher_id', staffId)
+        .eq('school_id', ctx.schoolId)
+        .gte('date', startDate)
+        .lte('date', endDate)
+        .order('date', { ascending: false })
+
+    if (error) return { error: error.message, absences: [] }
+    return { absences: (data || []) as { id: string; date: string; justified: boolean; justification_note: string | null }[], error: null }
+}
+
+export async function addStaffAbsenceAction(data: {
+    staffId: string
+    date: string
+    justified: boolean
+    note?: string | null
+}) {
+    const ctx = await getActionContext()
+    if (!ctx) return { error: 'Non authentifié' }
+    const admin = createAdminClient()
+
+    const { error } = await (admin.from as any)('teacher_attendance').insert({
+        teacher_id: data.staffId,
+        school_id: ctx.schoolId,
+        date: data.date,
+        status: 'absent',
+        justified: data.justified,
+        justification_note: data.note || null,
+        made_up: false,
+        recorded_by: ctx.userId,
+    })
+
+    if (error) return { error: error.message }
+    return { success: true }
+}
+
+export async function deleteStaffAbsenceAction(id: string) {
+    const ctx = await getActionContext()
+    if (!ctx) return { error: 'Non authentifié' }
+    const admin = createAdminClient()
+    const { error } = await (admin.from as any)('teacher_attendance').delete().eq('id', id)
     if (error) return { error: error.message }
     return { success: true }
 }

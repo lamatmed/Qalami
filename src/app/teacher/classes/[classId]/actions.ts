@@ -399,3 +399,129 @@ export async function deleteGradeAction(gradeId: string) {
     }
     return { success: true }
 }
+
+// ─── Publications (subject_posts) ─────────────────────────────────────────────
+
+export interface SubjectPost {
+    id: string
+    title: string | null
+    content: string
+    post_type: 'cours' | 'tp' | 'td' | 'devoir' | 'correction' | 'ressource' | 'annonce'
+    teacher_id: string
+    teacher_name: string | null
+    subject_id: string | null
+    subject_name: string | null
+    created_at: string
+    attachments: { id: string; file_url: string; file_name: string; file_type: string | null }[]
+}
+
+export async function loadPostsAction(classId: string): Promise<SubjectPost[]> {
+    const supabase = await createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) throw new Error('Non authentifié')
+
+    const admin = createAdminClient()
+    const { data, error } = await admin
+        .from('subject_posts')
+        .select(`
+            id, title, content, post_type, teacher_id, subject_id, created_at,
+            teacher:profiles!subject_posts_teacher_id_fkey(full_name),
+            subject:subjects!subject_posts_subject_id_fkey(name),
+            attachments:subject_post_attachments(id, file_url, file_name, file_type)
+        `)
+        .eq('class_id', classId)
+        .eq('is_published', true)
+        .order('created_at', { ascending: false })
+
+    if (error) throw new Error(error.message)
+
+    return (data || []).map((p: any) => ({
+        id: p.id,
+        title: p.title,
+        content: p.content,
+        post_type: p.post_type,
+        teacher_id: p.teacher_id,
+        teacher_name: p.teacher?.full_name ?? null,
+        subject_id: p.subject_id,
+        subject_name: p.subject?.name ?? null,
+        created_at: p.created_at,
+        attachments: (p.attachments || []).sort((a: any, b: any) => a.display_order - b.display_order),
+    }))
+}
+
+export async function createPostAction(
+    classId: string,
+    payload: {
+        title?: string
+        content: string
+        post_type: string
+        subject_id?: string | null
+    },
+    attachments?: { file_url: string; file_name: string; file_type: string }[]
+): Promise<{ id: string }> {
+    const supabase = await createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) throw new Error('Non authentifié')
+
+    const admin = createAdminClient()
+
+    const { data: classData } = await admin
+        .from('classes')
+        .select('school_id')
+        .eq('id', classId)
+        .single()
+    if (!classData) throw new Error('Classe introuvable')
+
+    const { data: post, error } = await admin
+        .from('subject_posts')
+        .insert({
+            school_id: classData.school_id,
+            class_id: classId,
+            teacher_id: user.id,
+            subject_id: payload.subject_id || null,
+            title: payload.title?.trim() || null,
+            content: payload.content.trim(),
+            post_type: payload.post_type,
+            is_published: true,
+            published_at: new Date().toISOString(),
+        })
+        .select('id')
+        .single()
+
+    if (error) throw new Error(error.message)
+
+    if (attachments && attachments.length > 0) {
+        await admin.from('subject_post_attachments').insert(
+            attachments.map((a, i) => ({
+                post_id: post.id,
+                file_url: a.file_url,
+                file_name: a.file_name,
+                file_type: a.file_type,
+                display_order: i,
+            }))
+        )
+    }
+
+    return { id: post.id }
+}
+
+export async function deletePostAction(postId: string, classId: string): Promise<void> {
+    const supabase = await createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) throw new Error('Non authentifié')
+
+    const admin = createAdminClient()
+
+    const { data: post } = await admin
+        .from('subject_posts')
+        .select('teacher_id')
+        .eq('id', postId)
+        .eq('class_id', classId)
+        .single()
+
+    if (!post) throw new Error('Publication introuvable')
+    if (post.teacher_id !== user.id) throw new Error('Non autorisé')
+
+    await admin.from('subject_post_attachments').delete().eq('post_id', postId)
+    await admin.from('subject_posts').delete().eq('id', postId)
+}

@@ -56,7 +56,7 @@ interface TeacherProfile {
 export function TeacherProfileLayout({ id }: { id: string }) {
     const router = useRouter()
     const { t } = useLanguage()
-    const [activeTab, setActiveTab] = useState('averages')
+    const [activeTab, setActiveTab] = useState('absences')
     const [teacher, setTeacher] = useState<TeacherProfile | null>(null)
     const [loading, setLoading] = useState(true)
     const [statusDialogOpen, setStatusDialogOpen] = useState(false)

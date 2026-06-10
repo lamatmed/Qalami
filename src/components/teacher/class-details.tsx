@@ -20,7 +20,12 @@ import {
     Save,
     Plus,
     Edit2,
-    Trash2
+    Trash2,
+    Paperclip,
+    FileText,
+    Send,
+    BookOpen,
+    Download,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -34,16 +39,20 @@ import { cn } from '@/lib/utils'
 import { createClient } from '@/utils/supabase/client'
 import { toast } from 'sonner'
 import { useLanguage } from '@/i18n'
-import { 
-    loadGradesAction, 
-    loadScheduleAction, 
-    loadAttendanceHistoryAction, 
-    loadTeacherSubjectsAction, 
-    saveAttendanceAction, 
+import {
+    loadGradesAction,
+    loadScheduleAction,
+    loadAttendanceHistoryAction,
+    loadTeacherSubjectsAction,
+    saveAttendanceAction,
     saveGradesAction,
     loadActiveSessionAttendanceAction,
     updateGradeAction,
-    deleteGradeAction
+    deleteGradeAction,
+    loadPostsAction,
+    createPostAction,
+    deletePostAction,
+    type SubjectPost,
 } from '@/app/teacher/classes/[classId]/actions'
 
 interface Student {
@@ -134,6 +143,16 @@ export function ClassDetails({ classId, className, students }: ClassDetailsProps
     const [attendanceHistory, setAttendanceHistory] = useState<any[]>([])
     const [loadingStats, setLoadingStats] = useState(false)
 
+    // State for Publications tab
+    const [posts, setPosts] = useState<SubjectPost[]>([])
+    const [loadingPosts, setLoadingPosts] = useState(false)
+    const [showPostForm, setShowPostForm] = useState(false)
+    const [postForm, setPostForm] = useState({ title: '', content: '', post_type: 'cours', subject_id: '' })
+    const [postFile, setPostFile] = useState<File | null>(null)
+    const [submittingPost, setSubmittingPost] = useState(false)
+    const [deletingPostId, setDeletingPostId] = useState<string | null>(null)
+    const [currentUserId, setCurrentUserId] = useState<string | null>(null)
+
     const filteredStudents = students.filter(s =>
         s.full_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
         (s.national_id && s.national_id.toLowerCase().includes(searchQuery.toLowerCase()))
@@ -187,6 +206,63 @@ export function ClassDetails({ classId, className, students }: ClassDetailsProps
         }
     }
 
+    // Load publications for this class
+    const loadPosts = async () => {
+        setLoadingPosts(true)
+        try {
+            const data = await loadPostsAction(classId)
+            setPosts(data)
+        } catch (error) {
+            console.error('Error loading posts:', error)
+        } finally {
+            setLoadingPosts(false)
+        }
+    }
+
+    const handleCreatePost = async () => {
+        if (!postForm.content.trim()) return
+        setSubmittingPost(true)
+        try {
+            let attachments: { file_url: string; file_name: string; file_type: string }[] = []
+            if (postFile) {
+                const fd = new FormData()
+                fd.append('file', postFile)
+                fd.append('classId', classId)
+                const res = await fetch('/api/teacher/upload-post-attachment', { method: 'POST', body: fd })
+                const json = await res.json()
+                if (json.publicUrl) {
+                    attachments = [{ file_url: json.publicUrl, file_name: json.fileName, file_type: json.fileType }]
+                }
+            }
+            await createPostAction(classId, {
+                title: postForm.title || undefined,
+                content: postForm.content,
+                post_type: postForm.post_type,
+                subject_id: postForm.subject_id || null,
+            }, attachments)
+            setPostForm({ title: '', content: '', post_type: 'cours', subject_id: '' })
+            setPostFile(null)
+            setShowPostForm(false)
+            await loadPosts()
+        } catch (error) {
+            console.error('Error creating post:', error)
+        } finally {
+            setSubmittingPost(false)
+        }
+    }
+
+    const handleDeletePost = async (postId: string) => {
+        setDeletingPostId(postId)
+        try {
+            await deletePostAction(postId, classId)
+            setPosts(prev => prev.filter(p => p.id !== postId))
+        } catch (error) {
+            console.error('Error deleting post:', error)
+        } finally {
+            setDeletingPostId(null)
+        }
+    }
+
     // Load teacher's subjects for this class + current term
     const loadTeacherSubjects = async () => {
         try {
@@ -198,6 +274,7 @@ export function ClassDetails({ classId, className, students }: ClassDetailsProps
             
             if (result.subjects && result.subjects.length > 0) {
                 setNewGrade(prev => ({ ...prev, subjectId: result.subjects[0].id }))
+                setPostForm(prev => prev.subject_id ? prev : ({ ...prev, subject_id: result.subjects[0].id }))
             }
         } catch (error) {
             console.error('Error loading teacher subjects:', error)
@@ -228,6 +305,10 @@ export function ClassDetails({ classId, className, students }: ClassDetailsProps
         loadAttendanceHistory()
         loadTeacherSubjects()
         loadActiveAttendance()
+        loadPosts()
+        supabase.auth.getUser().then(({ data: { user } }) => {
+            if (user) setCurrentUserId(user.id)
+        })
     }, [classId])
 
     // Synchronize the grade insertion form with the top filter selection
@@ -481,7 +562,8 @@ export function ClassDetails({ classId, className, students }: ClassDetailsProps
                         { value: 'notes', label: t('teacher.classes.details.notes') || 'Notes' },
                         { value: 'stats', label: t('teacher.classes.details.stats') || 'Stats' },
                         { value: 'presences', label: t('common.attendance') || 'Présences' },
-                        { value: 'planning', label: t('common.schedule') || 'Planning' }
+                        { value: 'planning', label: t('common.schedule') || 'Planning' },
+                        { value: 'publications', label: 'Publications' }
                     ].map((tab) => (
                         <TabsTrigger
                             key={tab.value}
@@ -1115,6 +1197,190 @@ export function ClassDetails({ classId, className, students }: ClassDetailsProps
                                     </CardContent>
                                 </Card>
                             ))}
+                        </div>
+                    )}
+                </TabsContent>
+
+                {/* Content: Publications */}
+                <TabsContent value="publications" className="space-y-4 mt-6">
+                    <div className="flex items-center justify-between">
+                        <h3 className="font-semibold text-sm text-muted-foreground uppercase tracking-wider">Publications</h3>
+                        <Button
+                            size="sm"
+                            onClick={() => setShowPostForm(!showPostForm)}
+                            className="rounded-xl gap-2"
+                        >
+                            <Plus className="w-4 h-4" />
+                            Nouvelle publication
+                        </Button>
+                    </div>
+
+                    {showPostForm && (
+                        <Card className="bg-card border-border/50 p-4 space-y-3">
+                            <Select value={postForm.post_type} onValueChange={(v) => setPostForm(prev => ({ ...prev, post_type: v }))}>
+                                <SelectTrigger className="h-10 rounded-xl">
+                                    <SelectValue placeholder="Type de publication" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="cours">Cours</SelectItem>
+                                    <SelectItem value="tp">TP</SelectItem>
+                                    <SelectItem value="td">TD</SelectItem>
+                                    <SelectItem value="devoir">Devoir</SelectItem>
+                                    <SelectItem value="correction">Correction</SelectItem>
+                                    <SelectItem value="ressource">Ressource</SelectItem>
+                                    <SelectItem value="annonce">Annonce</SelectItem>
+                                </SelectContent>
+                            </Select>
+
+                            <Input
+                                placeholder="Titre (optionnel)"
+                                value={postForm.title}
+                                onChange={(e) => setPostForm(prev => ({ ...prev, title: e.target.value }))}
+                                className="h-10 rounded-xl bg-background/50 border-border/50"
+                            />
+
+                            <Select value={postForm.subject_id} onValueChange={(v) => setPostForm(prev => ({ ...prev, subject_id: v }))}>
+                                <SelectTrigger className="h-10 rounded-xl">
+                                    <SelectValue placeholder="Matière *" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    {teacherSubjects.map(s => (
+                                        <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+
+                            <textarea
+                                placeholder="Contenu de la publication..."
+                                value={postForm.content}
+                                onChange={(e) => setPostForm(prev => ({ ...prev, content: e.target.value }))}
+                                rows={4}
+                                className="w-full px-3 py-2 text-sm bg-background/50 border border-border/50 rounded-xl resize-none focus:outline-none focus:ring-2 focus:ring-primary/30"
+                            />
+
+                            <div className="flex items-center gap-2">
+                                <label className="flex items-center gap-2 cursor-pointer text-sm text-muted-foreground hover:text-foreground transition-colors">
+                                    <Paperclip className="w-4 h-4" />
+                                    {postFile ? postFile.name : 'Joindre un fichier'}
+                                    <input
+                                        type="file"
+                                        className="hidden"
+                                        onChange={(e) => setPostFile(e.target.files?.[0] || null)}
+                                        accept=".pdf,.doc,.docx,.ppt,.pptx,.jpg,.jpeg,.png"
+                                    />
+                                </label>
+                                {postFile && (
+                                    <button onClick={() => setPostFile(null)} className="text-xs text-red-400 hover:text-red-500">
+                                        <X className="w-3 h-3" />
+                                    </button>
+                                )}
+                            </div>
+
+                            <div className="flex gap-2 justify-end">
+                                <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={() => {
+                                        setShowPostForm(false)
+                                        setPostForm({ title: '', content: '', post_type: 'cours', subject_id: '' })
+                                        setPostFile(null)
+                                    }}
+                                    disabled={submittingPost}
+                                    className="rounded-xl"
+                                >
+                                    Annuler
+                                </Button>
+                                <Button
+                                    size="sm"
+                                    onClick={handleCreatePost}
+                                    disabled={submittingPost || !postForm.content.trim() || !postForm.subject_id}
+                                    className="rounded-xl gap-2"
+                                >
+                                    {submittingPost ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
+                                    Publier
+                                </Button>
+                            </div>
+                        </Card>
+                    )}
+
+                    {loadingPosts ? (
+                        <div className="flex items-center justify-center py-10">
+                            <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
+                        </div>
+                    ) : posts.length === 0 ? (
+                        <Card className="p-8 text-center border-dashed">
+                            <BookOpen className="w-12 h-12 mx-auto text-muted-foreground mb-4" />
+                            <p className="text-muted-foreground text-sm">Aucune publication pour cette classe</p>
+                        </Card>
+                    ) : (
+                        <div className="space-y-3">
+                            {posts.map(post => {
+                                const typeColors: Record<string, string> = {
+                                    cours: 'bg-blue-500/10 text-blue-400 border-blue-500/20',
+                                    tp: 'bg-purple-500/10 text-purple-400 border-purple-500/20',
+                                    td: 'bg-orange-500/10 text-orange-400 border-orange-500/20',
+                                    devoir: 'bg-red-500/10 text-red-400 border-red-500/20',
+                                    correction: 'bg-green-500/10 text-green-400 border-green-500/20',
+                                    ressource: 'bg-teal-500/10 text-teal-400 border-teal-500/20',
+                                    annonce: 'bg-amber-500/10 text-amber-400 border-amber-500/20',
+                                }
+                                const typeLabels: Record<string, string> = {
+                                    cours: 'Cours', tp: 'TP', td: 'TD', devoir: 'Devoir',
+                                    correction: 'Correction', ressource: 'Ressource', annonce: 'Annonce',
+                                }
+                                return (
+                                    <Card key={post.id} className="bg-card border-border/50 p-4 space-y-2">
+                                        <div className="flex items-start justify-between gap-2">
+                                            <div className="flex items-center gap-2 flex-wrap">
+                                                <span className={`text-[10px] font-bold uppercase px-2 py-0.5 rounded border ${typeColors[post.post_type] || 'bg-slate-500/10 text-slate-400 border-slate-500/20'}`}>
+                                                    {typeLabels[post.post_type] || post.post_type}
+                                                </span>
+                                                {post.subject_name && (
+                                                    <span className="text-[10px] text-muted-foreground bg-white/5 px-2 py-0.5 rounded border border-border/30">
+                                                        {post.subject_name}
+                                                    </span>
+                                                )}
+                                            </div>
+                                            {currentUserId === post.teacher_id && (
+                                                <button
+                                                    onClick={() => handleDeletePost(post.id)}
+                                                    disabled={deletingPostId === post.id}
+                                                    className="text-muted-foreground hover:text-red-400 transition-colors shrink-0"
+                                                >
+                                                    {deletingPostId === post.id
+                                                        ? <Loader2 className="w-4 h-4 animate-spin" />
+                                                        : <Trash2 className="w-4 h-4" />}
+                                                </button>
+                                            )}
+                                        </div>
+                                        {post.title && <p className="font-semibold text-sm">{post.title}</p>}
+                                        <p className="text-sm text-muted-foreground whitespace-pre-wrap">{post.content}</p>
+                                        {post.attachments.length > 0 && (
+                                            <div className="space-y-1 pt-1">
+                                                {post.attachments.map(att => (
+                                                    <a
+                                                        key={att.id}
+                                                        href={att.file_url}
+                                                        target="_blank"
+                                                        rel="noopener noreferrer"
+                                                        className="flex items-center gap-2 text-xs text-primary hover:underline"
+                                                    >
+                                                        <FileText className="w-3.5 h-3.5 shrink-0" />
+                                                        <span className="truncate">{att.file_name}</span>
+                                                        <Download className="w-3.5 h-3.5 shrink-0" />
+                                                    </a>
+                                                ))}
+                                            </div>
+                                        )}
+                                        <div className="flex items-center justify-between pt-1">
+                                            <span className="text-[10px] text-muted-foreground">{post.teacher_name || 'Enseignant'}</span>
+                                            <span className="text-[10px] text-muted-foreground">
+                                                {new Date(post.created_at).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: 'numeric' })}
+                                            </span>
+                                        </div>
+                                    </Card>
+                                )
+                            })}
                         </div>
                     )}
                 </TabsContent>

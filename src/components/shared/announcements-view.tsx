@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { Megaphone, AlertTriangle, Bell, ChevronLeft, Loader2 } from 'lucide-react'
+import { Megaphone, AlertTriangle, Bell, ChevronLeft, Loader2, Paperclip, Download } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 import { createClient } from '@/utils/supabase/client'
@@ -18,6 +18,8 @@ interface Announcement {
     priority: string | null
     created_at: string
     published_at: string | null
+    attachment_url?: string | null
+    attachment_name?: string | null
 }
 
 interface Props {
@@ -84,7 +86,7 @@ export function AnnouncementsView({ userRole, backUrl = '/student' }: Props) {
 
                 const { data } = await supabase
                     .from('announcements')
-                    .select('id, title, content, target_audience, target_scope, target_class_id, target_profile_id, priority, created_at, published_at')
+                    .select('id, title, content, target_audience, target_scope, target_class_id, target_profile_id, priority, created_at, published_at, attachment_url, attachment_name')
                     .eq('school_id', profile.school_id)
                     .order('created_at', { ascending: false })
                     .limit(50)
@@ -272,13 +274,15 @@ function AnnouncementCard({
                         <Megaphone className="w-4 h-4 text-white" />
                     </div>
                     <div>
-                        <h3 className={cn(
-                            "font-bold text-sm",
-                            isUrgent && "text-red-400"
-                        )}>{announcement.title}</h3>
+                        <h3 className={cn("font-bold text-sm", isUrgent && "text-red-400")}>{announcement.title}</h3>
+                        {announcement.attachment_url && (
+                            <span className="flex items-center gap-1 text-[10px] text-emerald-400 font-medium mt-0.5">
+                                <Paperclip className="w-2.5 h-2.5" /> Pièce jointe
+                            </span>
+                        )}
                     </div>
                 </div>
-                <span className="text-[10px] text-gray-500">{formatDate(announcement)}</span>
+                <span className="text-[10px] text-gray-500 shrink-0">{formatDate(announcement)}</span>
             </div>
 
             <p className={cn(
@@ -290,6 +294,21 @@ function AnnouncementCard({
 
             {!isExpanded && announcement.content.length > 100 && (
                 <span className="text-xs text-blue-500 mt-2 block">Voir plus...</span>
+            )}
+
+            {isExpanded && announcement.attachment_url && (
+                <div className="mt-3" onClick={e => e.stopPropagation()}>
+                    <a
+                        href={announcement.attachment_url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        download={announcement.attachment_name || true}
+                        className="inline-flex items-center gap-2 px-3 py-2 bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/20 text-emerald-400 text-xs font-bold rounded-xl transition-colors"
+                    >
+                        <Download className="w-3.5 h-3.5" />
+                        {announcement.attachment_name || 'Télécharger la pièce jointe'}
+                    </a>
+                </div>
             )}
         </div>
     )

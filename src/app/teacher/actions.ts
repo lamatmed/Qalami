@@ -53,7 +53,15 @@ export async function getTeacherScheduleAction(teacherId: string, dayOfWeek: num
         throw new Error(error.message)
     }
 
-    return data || []
+    // Deduplicate — same (class, subject, start, end) can appear multiple times
+    // when PostgREST resolves ambiguous FK paths (school_id direct vs via classes)
+    const seen = new Set<string>()
+    return (data || []).filter((s: any) => {
+        const key = `${s.class_id}-${s.subject_id ?? ''}-${s.start_time}-${s.end_time}`
+        if (seen.has(key)) return false
+        seen.add(key)
+        return true
+    })
 }
 
 /**
@@ -131,14 +139,24 @@ export async function getClassStudentsAction(classId: string) {
     if (!profile) throw new Error("Profil introuvable")
 
     if (profile.role === 'teacher') {
-        // Verify teacher is assigned to this class
-        const { data: assignment } = await admin
-            .from('teacher_assignments')
-            .select('id')
-            .eq('teacher_id', user.id)
-            .eq('class_id', classId)
-            .maybeSingle()
-        if (!assignment) {
+        // Check teacher_assignments OR schedule — either grants access
+        const [{ data: assignment }, { data: scheduleEntry }] = await Promise.all([
+            admin
+                .from('teacher_assignments')
+                .select('id')
+                .eq('teacher_id', user.id)
+                .eq('class_id', classId)
+                .limit(1)
+                .maybeSingle(),
+            admin
+                .from('schedule')
+                .select('id')
+                .eq('teacher_id', user.id)
+                .eq('class_id', classId)
+                .limit(1)
+                .maybeSingle(),
+        ])
+        if (!assignment && !scheduleEntry) {
             throw new Error("Non autorisé à voir les élèves de cette classe")
         }
     } else if (profile.role !== 'admin' && profile.role !== 'super_admin' && profile.role !== 'school_staff') {
@@ -298,4 +316,92 @@ export async function updateTeacherProfile(formData: {
     }
 
     return { success: true }
+}
+
+// ─── Teacher notifications (announcements + events + real notifications) ───────
+
+export async function getTeacherNotifications(teacherId: string, schoolId: string) {
+    const supabase = await createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return []
+
+    const admin = createAdminClient()
+
+    // Get teacher's class IDs for audience matching
+    const { data: schedule } = await admin
+        .from('schedule')
+        .select('class_id')
+        .eq('teacher_id', teacherId)
+    const classIds = [...new Set((schedule || []).map((s: any) => s.class_id).filter(Boolean))]
+    const targetKeys = ['all', 'enseignants', ...classIds.map((id: string) => `cls:${id}`)]
+
+    const since14d = new Date(Date.now() - 14 * 24 * 60 * 60 * 1000).toISOString()
+    const since7d  = new Date(Date.now() - 7  * 24 * 60 * 60 * 1000).toISOString()
+
+    const [{ data: realNotifs }, { data: announcements }, { data: events }] = await Promise.all([
+        admin
+            .from('notifications')
+            .select('*')
+            .eq('user_id', teacherId)
+            .order('created_at', { ascending: false })
+            .limit(15),
+        admin
+            .from('announcements')
+            .select('id, title, content, priority, target_audience, created_at')
+            .eq('school_id', schoolId)
+            .gte('created_at', since14d)
+            .order('created_at', { ascending: false })
+            .limit(20),
+        admin
+            .from('events')
+            .select('id, title, event_type, start_date, location')
+            .eq('school_id', schoolId)
+            .overlaps('visibility', ['enseignants', 'all'])
+            .gte('start_date', since7d)
+            .order('start_date', { ascending: true })
+            .limit(10),
+    ])
+
+    const annNotifs = (announcements || [])
+        .filter((a: any) => {
+            let aud: string[] = []
+            if (Array.isArray(a.target_audience)) aud = a.target_audience
+            else if (typeof a.target_audience === 'string') {
+                try { aud = JSON.parse(a.target_audience) } catch { aud = [] }
+            }
+            return aud.length > 0 ? aud.some((k: string) => targetKeys.includes(k)) : false
+        })
+        .map((a: any) => ({
+            id: `ann_${a.id}`,
+            user_id: teacherId,
+            title: a.title,
+            message: (a.content || '').slice(0, 100),
+            type: (a.priority === 'urgent' || a.priority === 'high' ? 'warning' : 'info') as any,
+            action_url: `/teacher/community/announcements/${a.id}`,
+            is_read: false,
+            created_at: a.created_at,
+            school_id: schoolId,
+            event_type: 'announcement',
+        }))
+
+    const evtNotifs = (events || []).map((e: any) => ({
+        id: `evt_${e.id}`,
+        user_id: teacherId,
+        title: e.title,
+        message: e.location ? `📍 ${e.location}` : '',
+        type: 'action' as any,
+        action_url: `/teacher/community`,
+        is_read: false,
+        created_at: e.start_date,
+        school_id: schoolId,
+        event_type: 'school_event',
+    }))
+
+    // Skip announcements already present as real notifications (avoid duplicates)
+    const realEntityIds = new Set((realNotifs || []).map((n: any) => n.entity_id).filter(Boolean))
+    const dedupedAnn = annNotifs.filter((n: any) => !realEntityIds.has(n.id.replace('ann_', '')))
+
+    const combined = [...dedupedAnn, ...evtNotifs, ...(realNotifs || [])]
+    combined.sort((a: any, b: any) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+    return combined.slice(0, 30)
 }

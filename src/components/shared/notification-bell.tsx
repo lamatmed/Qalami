@@ -9,6 +9,7 @@ import { markAsRead, markAllAsRead, formatNotificationTime, type Notification, t
 import { useRouter } from 'next/navigation'
 import { useLanguage } from '@/i18n'
 import { getAdminNotifications } from '@/app/admin/actions'
+import { getTeacherNotifications } from '@/app/teacher/actions'
 
 function getLocalizedNotification(n: Notification, t: any, language: string) {
     let title = n.title
@@ -58,9 +59,16 @@ function getLocalizedNotification(n: Notification, t: any, language: string) {
         if (title === "Nouvelle justification d'absence") {
             title = 'تبرير غياب جديد'
         }
+        if (title === "Justificatif d'absence") {
+            title = 'تبرير غياب'
+        }
         const justifMatch = message.match(/^(.*) a envoyé une justification pour : (.*)$/)
         if (justifMatch) {
             message = `${justifMatch[1]} أرسل تبريراً للغياب عن : ${justifMatch[2]}`
+        }
+        const justifPendingMatch = message.match(/^(.*) a soumis un justificatif pour le (.*)$/)
+        if (justifPendingMatch) {
+            message = `${justifPendingMatch[1]} قدم تبريراً للغياب بتاريخ ${justifPendingMatch[2]}`
         }
 
         // --- 2. Document prêt ---
@@ -190,8 +198,9 @@ export function NotificationBell() {
     const [notifications, setNotifications] = useState<Notification[]>([])
     const [loading, setLoading] = useState(true)
     const [userRole, setUserRole] = useState<string>('')
+    const [localReadIds, setLocalReadIds] = useState<Set<string>>(new Set())
     const dropdownRef = useRef<HTMLDivElement>(null)
-    const userContextRef = useRef<{ userId: string, schoolId: string | null, isAdmin: boolean, excludeIds: Set<string> } | null>(null)
+    const userContextRef = useRef<{ userId: string, schoolId: string | null, isAdmin: boolean, isTeacher: boolean, excludeIds: Set<string> } | null>(null)
 
     const unreadCount = notifications.filter(n => !n.is_read).length
 
@@ -206,25 +215,35 @@ export function NotificationBell() {
                 const role = profile?.role || ''
                 setUserRole(role)
                 const isAdmin = ['admin', 'super_admin', 'school_staff'].includes(role)
-                
-                userContextRef.current = { userId: user.id, schoolId: profile?.school_id || null, isAdmin, excludeIds: new Set() }
+                const isTeacher = role === 'teacher'
 
-                let query = supabase
-                    .from('notifications')
-                    .select('*')
-                    .order('created_at', { ascending: false })
-                    .limit(20)
+                userContextRef.current = { userId: user.id, schoolId: profile?.school_id || null, isAdmin, isTeacher, excludeIds: new Set() }
 
-                let data;
+                // Load virtual-notification read state from localStorage
+                const storedRead = localStorage.getItem(`qalami_read_${user.id}`)
+                const readSet = new Set<string>(storedRead ? JSON.parse(storedRead) : [])
+                setLocalReadIds(readSet)
+
+                let data: any[] = []
                 if (isAdmin && profile?.school_id) {
                     data = await getAdminNotifications(profile.school_id)
+                } else if (isTeacher && profile?.school_id) {
+                    const raw = await getTeacherNotifications(user.id, profile.school_id)
+                    // Apply localStorage read state to virtual notifications
+                    data = (raw ?? []).map((n: any) =>
+                        isVirtualNotification(n.id) ? { ...n, is_read: readSet.has(n.id) } : n
+                    )
                 } else {
-                    query = query.eq('user_id', user.id)
-                    const { data: userData } = await query
-                    data = userData
+                    const { data: userData } = await supabase
+                        .from('notifications')
+                        .select('*')
+                        .eq('user_id', user.id)
+                        .order('created_at', { ascending: false })
+                        .limit(20)
+                    data = userData ?? []
                 }
 
-                setNotifications(data ?? [])
+                setNotifications(data)
                 setLoading(false)
             } catch (error: any) {
                 if (error?.name === 'AbortError') {
@@ -248,7 +267,7 @@ export function NotificationBell() {
                     if (!ctx) return
 
                     if (newNotification.user_id === ctx.userId) {
-                        if (ctx.isAdmin && !['parent_request', 'absence_justification'].includes(newNotification.event_type ?? '')) return
+                        if (ctx.isAdmin && newNotification.event_type !== 'absence_justification') return
                         setNotifications(prev => [newNotification, ...prev].slice(0, 50))
                     }
                 }
@@ -260,6 +279,44 @@ export function NotificationBell() {
                     setNotifications(prev =>
                         prev.map(n => n.id === updated.id ? updated : n)
                     )
+                }
+            )
+            .on('postgres_changes',
+                { event: 'UPDATE', schema: 'public', table: 'attendance' },
+                async (payload) => {
+                    const ctx = userContextRef.current
+                    if (!ctx?.isAdmin || !ctx.schoolId) return
+                    const updated = payload.new as any
+                    if (['pending', 'approved', 'rejected'].includes(updated.justification_status)) {
+                        const data = await getAdminNotifications(ctx.schoolId)
+                        setNotifications(data ?? [])
+                    }
+                }
+            )
+            .on('postgres_changes',
+                { event: 'INSERT', schema: 'public', table: 'announcements' },
+                async () => {
+                    const ctx = userContextRef.current
+                    if (!ctx?.isTeacher || !ctx.schoolId) return
+                    const storedRead = localStorage.getItem(`qalami_read_${ctx.userId}`)
+                    const readSet = new Set<string>(storedRead ? JSON.parse(storedRead) : [])
+                    const raw = await getTeacherNotifications(ctx.userId, ctx.schoolId)
+                    setNotifications((raw ?? []).map((n: any) =>
+                        isVirtualNotification(n.id) ? { ...n, is_read: readSet.has(n.id) } : n
+                    ))
+                }
+            )
+            .on('postgres_changes',
+                { event: 'INSERT', schema: 'public', table: 'events' },
+                async () => {
+                    const ctx = userContextRef.current
+                    if (!ctx?.isTeacher || !ctx.schoolId) return
+                    const storedRead = localStorage.getItem(`qalami_read_${ctx.userId}`)
+                    const readSet = new Set<string>(storedRead ? JSON.parse(storedRead) : [])
+                    const raw = await getTeacherNotifications(ctx.userId, ctx.schoolId)
+                    setNotifications((raw ?? []).map((n: any) =>
+                        isVirtualNotification(n.id) ? { ...n, is_read: readSet.has(n.id) } : n
+                    ))
                 }
             )
             .subscribe()
@@ -280,9 +337,26 @@ export function NotificationBell() {
         return () => document.removeEventListener('mousedown', handleClickOutside)
     }, [])
 
+    const isVirtualNotification = (id: string) =>
+        id.startsWith('req_') || id.startsWith('justif_') || id.startsWith('ann_') || id.startsWith('evt_')
+
     const handleNotificationClick = async (notification: Notification) => {
         if (!notification.is_read) {
-            await markAsRead(notification.id)
+            if (isVirtualNotification(notification.id)) {
+                // Persist read state in localStorage (for teacher ann_/evt_, req_, justif_ have no DB row)
+                const ctx = userContextRef.current
+                if (ctx) {
+                    const storedRead = localStorage.getItem(`qalami_read_${ctx.userId}`)
+                    const ids: string[] = storedRead ? JSON.parse(storedRead) : []
+                    if (!ids.includes(notification.id)) {
+                        ids.push(notification.id)
+                        localStorage.setItem(`qalami_read_${ctx.userId}`, JSON.stringify(ids))
+                        setLocalReadIds(new Set(ids))
+                    }
+                }
+            } else {
+                await markAsRead(notification.id)
+            }
             setNotifications(prev =>
                 prev.map(n => n.id === notification.id ? { ...n, is_read: true } : n)
             )
@@ -312,6 +386,15 @@ export function NotificationBell() {
     }
 
     const handleMarkAllRead = async () => {
+        const ctx = userContextRef.current
+        const virtualIds = notifications.filter(n => isVirtualNotification(n.id)).map(n => n.id)
+        if (virtualIds.length > 0 && ctx) {
+            const storedRead = localStorage.getItem(`qalami_read_${ctx.userId}`)
+            const existing: string[] = storedRead ? JSON.parse(storedRead) : []
+            const merged = [...new Set([...existing, ...virtualIds])]
+            localStorage.setItem(`qalami_read_${ctx.userId}`, JSON.stringify(merged))
+            setLocalReadIds(new Set(merged))
+        }
         await markAllAsRead()
         setNotifications(prev => prev.map(n => ({ ...n, is_read: true })))
     }
