@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useCallback } from 'react'
 import { createClient } from '@/utils/supabase/client'
-import { Loader2, Search, Download, AlertCircle, CheckCircle, Clock, TrendingUp, Users, CreditCard, Bell, Calendar } from 'lucide-react'
+import { Loader2, Search, Download, AlertCircle, CheckCircle, Clock, TrendingUp, Users, CreditCard, Bell, Calendar, Eye } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { Input } from '@/components/ui/input'
 import {
@@ -68,6 +68,123 @@ export default function TuitionPage() {
     
     const [activeTab, setActiveTab] = useState<'all' | 'late'>('all')
     const [notifyingIds, setNotifyingIds] = useState<Record<string, boolean>>({})
+    const [generatingPdfId, setGeneratingPdfId] = useState<string | null>(null)
+
+    const handleViewPdf = async (p: PaymentRow) => {
+        setGeneratingPdfId(p.id)
+        try {
+            // Fetch student NNI + phone
+            const supabase = createClient()
+            const { data: profile } = await supabase
+                .from('profiles')
+                .select('national_id, phone')
+                .eq('id', p.student_id)
+                .maybeSingle()
+
+            const { jsPDF } = await import('jspdf')
+
+            const W = 80
+            const ml = 6
+            const mr = W - 6
+            const cx = W / 2
+            const fmt = (n: number) => Math.round(n).toString().replace(/\B(?=(\d{3})+(?!\d))/g, ' ')
+            const BK: [number,number,number] = [10, 10, 10]
+            const GR: [number,number,number] = [150, 150, 150]
+
+            const hline = (yPos: number, thick = 0.3) => {
+                doc.setDrawColor(...BK); doc.setLineWidth(thick)
+                doc.line(ml, yPos, mr, yPos)
+            }
+
+            const statusLabel = p.status === 'paid' ? 'PAYE' :
+                                p.status === 'partial' ? 'PARTIEL' :
+                                p.status === 'overdue' ? 'EN RETARD' : 'EN ATTENTE'
+
+            const paymentTypeLabel: Record<string, string> = {
+                scolarite: 'Scolarité', inscription: 'Inscription', bus: 'Transport',
+                cantine: 'Cantine', activites: 'Activités'
+            }
+            const typeLabel = paymentTypeLabel[p.payment_type] ?? p.payment_type
+            const printDate = new Date().toLocaleDateString('fr-FR', { day: '2-digit', month: 'long', year: 'numeric' })
+            const shortId = p.id.slice(0, 8).toUpperCase()
+            const remaining = p.amount - p.amount_paid
+
+            let estimatedH = 215
+            if (profile?.national_id || profile?.phone) estimatedH += 20
+
+            const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: [W, estimatedH] })
+            let y = 11
+
+            // ─── Header
+            doc.setFont('Helvetica', 'bold'); doc.setFontSize(14); doc.setTextColor(...BK)
+            doc.text('QALAMI', ml, y); y += 6
+            doc.setFont('Helvetica', 'normal'); doc.setFontSize(8.5); doc.setTextColor(...GR)
+            doc.text('School Manager  ·  Gestion Scolaire', ml, y); y += 7
+
+            hline(y, 0.8); y += 5
+            doc.setFont('Helvetica', 'bold'); doc.setFontSize(8); doc.setTextColor(...GR)
+            doc.text('RECU DE PAIEMENT', ml, y)
+            doc.setFont('Helvetica', 'normal'); doc.setFontSize(8)
+            doc.text(printDate, mr, y, { align: 'right' }); y += 5
+            hline(y, 0.3); y += 7
+
+            // ─── Title
+            doc.setFont('Helvetica', 'bold'); doc.setFontSize(11); doc.setTextColor(...BK)
+            const titleLines = doc.splitTextToSize(typeLabel, mr - ml)
+            doc.text(titleLines, ml, y); y += titleLines.length * 6.5 + 2
+            doc.setFont('Helvetica', 'normal'); doc.setFontSize(8); doc.setTextColor(...GR)
+            doc.text(`REF  ${shortId}`, ml, y); y += 9
+
+            // ─── Amount box
+            hline(y, 0.8); y += 6
+            doc.setFont('Helvetica', 'normal'); doc.setFontSize(8); doc.setTextColor(...GR)
+            doc.text('MONTANT PAYE', cx, y, { align: 'center' }); y += 10
+            doc.setFont('Helvetica', 'bold'); doc.setFontSize(28); doc.setTextColor(...BK)
+            doc.text(fmt(p.amount_paid), cx, y, { align: 'center' }); y += 6
+            doc.setFont('Helvetica', 'bold'); doc.setFontSize(11)
+            doc.text('MRU', cx, y, { align: 'center' }); y += 7
+            hline(y, 0.8); y += 9
+
+            // ─── Details
+            const row = (label: string, value: string) => {
+                doc.setFont('Helvetica', 'normal'); doc.setFontSize(8); doc.setTextColor(...GR)
+                doc.text(label, ml, y)
+                doc.setFont('Helvetica', 'bold'); doc.setFontSize(9); doc.setTextColor(...BK)
+                doc.text(value, mr, y, { align: 'right' }); y += 7
+            }
+
+            row('Type', typeLabel)
+            row('Montant total', `${fmt(p.amount)} MRU`)
+            if (remaining > 0) row('Reste a payer', `${fmt(remaining)} MRU`)
+            row('Statut', statusLabel)
+            if (p.paid_at) row('Date paiement', formatDateTime(p.paid_at))
+            else if (p.due_date) row('Date echeance', formatDateOnly(p.due_date))
+
+            // ─── Student
+            y += 2; hline(y, 0.3); y += 6
+            doc.setFont('Helvetica', 'normal'); doc.setFontSize(8); doc.setTextColor(...GR)
+            doc.text('ELEVE', ml, y); y += 6
+            doc.setFont('Helvetica', 'bold'); doc.setFontSize(11); doc.setTextColor(...BK)
+            doc.text(p.student_name, ml, y); y += 8
+            if (p.class_name) { row('Classe', p.class_name) }
+            if (profile?.national_id) { row('NNI', profile.national_id) }
+            if (profile?.phone) { row('Tel', profile.phone) }
+
+            // ─── Footer
+            y += 3; hline(y, 0.3); y += 6
+            doc.setFont('Helvetica', 'normal'); doc.setFontSize(8); doc.setTextColor(...GR)
+            doc.text(`Genere le ${printDate}`, ml, y)
+            doc.setFont('Helvetica', 'bold'); doc.setFontSize(8.5); doc.setTextColor(...BK)
+            doc.text('Qalami School Manager', mr, y, { align: 'right' })
+
+            doc.save(`recu-${p.student_name.replace(/\s+/g, '-')}-${shortId}.pdf`)
+            toast.success('PDF téléchargé')
+        } catch {
+            toast.error('Erreur lors de la génération du PDF')
+        } finally {
+            setGeneratingPdfId(null)
+        }
+    }
 
     const handleNotify = async (studentId: string, overdueCount: number, totalOwed: number, studentName: string) => {
         setNotifyingIds(prev => ({ ...prev, [studentId]: true }))
@@ -219,9 +336,11 @@ export default function TuitionPage() {
 
     const filtered = payments.filter(p => {
         if (!p.class_name) return false
-        const matchSearch = search === '' ||
-            p.student_name.toLowerCase().includes(search.toLowerCase()) ||
-            p.class_name.toLowerCase().includes(search.toLowerCase())
+        const q = search.toLowerCase()
+        const matchSearch = q === '' ||
+            p.student_name.toLowerCase().includes(q) ||
+            (p.class_name?.toLowerCase() ?? '').includes(q) ||
+            p.id.slice(0, 8).toLowerCase().includes(q)
         // 'pending' filter also captures DB records stored with status='overdue'
         const matchStatus = filterStatus === 'all'
             ? true
@@ -487,6 +606,7 @@ export default function TuitionPage() {
                                             <th className="text-right px-4 py-3 text-[11px] font-semibold text-gray-500 uppercase tracking-wider">{t('admin.tuition.table.remaining')}</th>
                                             <th className="text-center px-4 py-3 text-[11px] font-semibold text-gray-500 uppercase tracking-wider">{t('admin.tuition.table.status')}</th>
                                             <th className="text-left px-4 py-3 text-[11px] font-semibold text-gray-500 uppercase tracking-wider whitespace-nowrap">Date</th>
+                                            <th className="px-4 py-3"><span className="sr-only">PDF</span></th>
                                         </tr>
                                     </thead>
                                     <tbody className="divide-y divide-white/5">
@@ -551,6 +671,19 @@ export default function TuitionPage() {
                                                         ) : (
                                                             <span className="text-gray-600">—</span>
                                                         )}
+                                                    </td>
+                                                    <td className="px-4 py-3">
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => handleViewPdf(p)}
+                                                            disabled={generatingPdfId === p.id}
+                                                            className="p-1.5 rounded-lg text-gray-500 hover:text-white hover:bg-white/10 transition-colors disabled:opacity-50"
+                                                        >
+                                                            {generatingPdfId === p.id
+                                                                ? <Loader2 className="w-4 h-4 animate-spin" />
+                                                                : <Eye className="w-4 h-4" />
+                                                            }
+                                                        </button>
                                                     </td>
                                                 </tr>
                                             )

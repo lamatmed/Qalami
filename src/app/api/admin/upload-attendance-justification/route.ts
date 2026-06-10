@@ -53,6 +53,38 @@ export async function POST(req: NextRequest) {
             return NextResponse.json({ error: dbError.message }, { status: 500 })
         }
 
+        // Notify admins — fire-and-forget, don't block the response
+        ;(async () => {
+            try {
+                const [{ data: parentProfile }, { data: studentProfile }, { data: attRow }] = await Promise.all([
+                    admin.from('profiles').select('full_name').eq('id', user.id).single(),
+                    admin.from('profiles').select('full_name').eq('id', studentId).single(),
+                    admin.from('attendance').select('school_id').eq('id', attendanceId).single(),
+                ])
+                const schoolId = (attRow as any)?.school_id
+                if (!schoolId) return
+                const { data: admins } = await admin
+                    .from('profiles').select('id')
+                    .eq('school_id', schoolId)
+                    .in('role', ['admin', 'super_admin', 'school_staff'])
+                if (!admins?.length) return
+                const parentName = (parentProfile as any)?.full_name ?? 'Parent'
+                const studentName = (studentProfile as any)?.full_name ?? ''
+                await admin.from('notifications').insert(
+                    admins.map((a: any) => ({
+                        user_id: a.id,
+                        school_id: schoolId,
+                        title: "Nouvelle justification d'absence",
+                        message: `${parentName} a envoyé une justification pour : ${studentName}`,
+                        type: 'action',
+                        action_url: `/admin/students/${studentId}`,
+                        event_type: 'absence_justification',
+                        is_read: false,
+                    }))
+                )
+            } catch { /* silent */ }
+        })()
+
         return NextResponse.json({ success: true, publicUrl })
     } catch (err: any) {
         console.error('Upload API error:', err)

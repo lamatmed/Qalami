@@ -54,6 +54,15 @@ function getLocalizedNotification(n: Notification, t: any, language: string) {
             }
         }
 
+        // --- 1b. Justification d'absence ---
+        if (title === "Nouvelle justification d'absence") {
+            title = 'تبرير غياب جديد'
+        }
+        const justifMatch = message.match(/^(.*) a envoyé une justification pour : (.*)$/)
+        if (justifMatch) {
+            message = `${justifMatch[1]} أرسل تبريراً للغياب عن : ${justifMatch[2]}`
+        }
+
         // --- 2. Document prêt ---
         if (title.startsWith('Document prêt : ')) {
             const doc = title.replace('Document prêt : ', '')
@@ -239,6 +248,7 @@ export function NotificationBell() {
                     if (!ctx) return
 
                     if (newNotification.user_id === ctx.userId) {
+                        if (ctx.isAdmin && !['parent_request', 'absence_justification'].includes(newNotification.event_type ?? '')) return
                         setNotifications(prev => [newNotification, ...prev].slice(0, 50))
                     }
                 }

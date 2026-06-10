@@ -310,6 +310,7 @@ export async function getAdminNotifications(schoolId: string) {
         .from('notifications')
         .select('*')
         .eq('user_id', ctx.user_id)
+        .in('event_type', ['parent_request', 'absence_justification'])
         .order('created_at', { ascending: false })
         .limit(50)
     return data || []
@@ -326,5 +327,6 @@ export async function getAdminUnreadNotificationsCount(schoolId: string) {
         .select('*', { count: 'exact', head: true })
         .eq('user_id', ctx.user_id)
         .eq('is_read', false)
+        .in('event_type', ['parent_request', 'absence_justification'])
     return count || 0
 }

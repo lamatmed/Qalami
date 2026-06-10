@@ -204,22 +204,24 @@ export async function submitDocumentRequest(params: {
 
     if (error) return { error: error.message }
 
-    // Notify all admins
-    const { data: admins } = await admin
-        .from('profiles')
-        .select('id')
-        .eq('school_id', ctx.schoolId)
-        .in('role', ['admin', 'super_admin', 'staff'])
+    // Notify all admins with parent name + student name
+    const [{ data: admins }, { data: parentProfile }, { data: studentProfile }] = await Promise.all([
+        admin.from('profiles').select('id').eq('school_id', ctx.schoolId).in('role', ['admin', 'super_admin', 'staff']),
+        admin.from('profiles').select('full_name').eq('id', ctx.userId).single(),
+        admin.from('profiles').select('full_name').eq('id', params.studentId).single(),
+    ])
 
     if (admins?.length) {
         const docLabel = DOC_TYPE_LABELS[params.docType] ?? params.docType
-        const title = params.customTitle || docLabel
+        const parentName = (parentProfile as any)?.full_name ?? 'Parent'
+        const studentName = (studentProfile as any)?.full_name ?? ''
+        const msgStudent = studentName ? ` (élève : ${studentName})` : ''
         await admin.from('notifications').insert(
             admins.map(a => ({
                 user_id: a.id,
                 school_id: ctx.schoolId,
-                title: `Nouvelle demande : ${title}`,
-                message: `Un parent demande : ${docLabel}${params.notes ? ` — ${params.notes}` : ''}`,
+                title: 'Nouvelle demande de document',
+                message: `${parentName} demande : ${docLabel}${msgStudent}`,
                 type: 'action',
                 action_url: '/admin/requests',
                 event_type: 'parent_request',

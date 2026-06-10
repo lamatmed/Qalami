@@ -163,17 +163,27 @@ export async function saveAttendanceAction(records: any[]) {
 
     if (slotsError) throw new Error(`Erreur de validation du planning: ${slotsError.message}`)
 
-    // Find slot corresponding to current server time (with 15-minute early buffer and 30-minute late buffer)
-    const activeSlot = (slots || []).find(slot => {
-        const timeToMins = (t: string) => {
-            const [h, m] = t.split(':').map(Number)
-            return h * 60 + m
-        }
-        const nowMins = now.getHours() * 60 + now.getMinutes()
-        const startMins = timeToMins(slot.start_time)
-        const endMins = timeToMins(slot.end_time)
-        return nowMins >= (startMins - 15) && nowMins <= (endMins + 30)
+    const timeToMins = (t: string) => { const [h, m] = t.split(':').map(Number); return h * 60 + m }
+    const nowMins = now.getHours() * 60 + now.getMinutes()
+
+    // Deduplicate slots by (start_time, end_time, subject_id) — DB may have duplicates
+    const seenSlotKeys = new Set<string>()
+    const dedupedSlots = (slots || []).filter(s => {
+        const k = `${s.start_time}::${s.end_time}::${s.subject_id}`
+        if (seenSlotKeys.has(k)) return false
+        seenSlotKeys.add(k)
+        return true
     })
+
+    // Find active slot:
+    //  1st priority — slot where current time is strictly within [start, end] (teacher is in class)
+    //  2nd priority — slot in buffer zone (±15/30 min), prefer the latest start to avoid
+    //                 picking a just-ended earlier slot over a slot that just started
+    const activeSlot =
+        dedupedSlots.find(s => nowMins >= timeToMins(s.start_time) && nowMins <= timeToMins(s.end_time))
+        ?? [...dedupedSlots]
+            .sort((a, b) => timeToMins(b.start_time) - timeToMins(a.start_time))
+            .find(s => nowMins >= (timeToMins(s.start_time) - 15) && nowMins <= (timeToMins(s.end_time) + 30))
 
     if (!activeSlot) {
         const DAYS_FR = ["Dimanche", "Lundi", "Mardi", "Mercredi", "Jeudi", "Vendredi", "Samedi"]
@@ -187,7 +197,7 @@ export async function saveAttendanceAction(records: any[]) {
                 errorParams: { day: currentDayName, dayOfWeek } 
             }
         } else {
-            const slotTimes = slots.map(s => `${s.start_time.substring(0, 5)} à ${s.end_time.substring(0, 5)}`).join(', ')
+            const slotTimes = dedupedSlots.map(s => `${s.start_time.substring(0, 5)} à ${s.end_time.substring(0, 5)}`).join(', ')
             return { 
                 success: false, 
                 errorType: 'out_of_schedule_hours', 

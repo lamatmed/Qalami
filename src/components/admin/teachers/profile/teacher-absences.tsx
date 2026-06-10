@@ -2,12 +2,12 @@
 
 import { useState, useEffect, useMemo } from 'react'
 import { createClient } from '@/utils/supabase/client'
-import { XCircle, Clock, CheckCircle2, RefreshCw, Loader2, CalendarDays, StickyNote, Plus, X, Check, Pencil, Trash2 } from 'lucide-react'
+import { XCircle, Clock, CheckCircle2, Loader2, CalendarDays, StickyNote, Plus, X, Check, Pencil, Trash2 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useLanguage } from '@/i18n'
 import { getMySchoolContext } from '@/app/admin/actions'
 import { toast } from 'sonner'
-import { updateTeacherAbsenceAction, deleteTeacherAbsenceAction } from '@/app/admin/teachers/actions'
+import { addTeacherAbsenceAction, updateTeacherAbsenceAction, justifyTeacherAbsenceAction, removeTeacherJustificationAction } from '@/app/admin/teachers/actions'
 
 interface AbsenceRecord {
     id: string
@@ -18,9 +18,16 @@ interface AbsenceRecord {
     made_up: boolean
     made_up_date: string | null
     recorder: { full_name: string | null } | null
+    // automated absence fields
+    hours?: number
+    is_automated?: boolean
+    class_name?: string
+    subject_name?: string
+    start_time?: string
+    end_time?: string
 }
 
-type FilterType = 'all' | 'unjustified' | 'justified' | 'late' | 'made_up'
+type FilterType = 'all' | 'unjustified' | 'justified' | 'late'
 
 export function TeacherAbsences({ teacherId }: { teacherId: string }) {
     const { t } = useLanguage()
@@ -34,6 +41,7 @@ export function TeacherAbsences({ teacherId }: { teacherId: string }) {
     const [addFormOpen, setAddFormOpen] = useState(false)
     const [addDate, setAddDate] = useState(() => new Date().toISOString().split('T')[0])
     const [addStatus, setAddStatus] = useState<'absent' | 'late'>('absent')
+    const [addHours, setAddHours] = useState<2 | 4 | 6 | 8>(2)
     const [addJustified, setAddJustified] = useState(false)
     const [addNote, setAddNote] = useState('')
     const [adding, setAdding] = useState(false)
@@ -50,7 +58,7 @@ export function TeacherAbsences({ teacherId }: { teacherId: string }) {
     const [editJustified, setEditJustified] = useState(false)
     const [editNote, setEditNote] = useState('')
     const [saving, setSaving] = useState(false)
-    const [deletingId, setDeletingId] = useState<string | null>(null)
+    const [removingJustificationId, setRemovingJustificationId] = useState<string | null>(null)
 
     const loadAbsences = async () => {
         setLoading(true)
@@ -79,38 +87,78 @@ export function TeacherAbsences({ teacherId }: { teacherId: string }) {
                 return
             }
 
-            // 2. Fetch teacher's schedule
+            // 2. Fetch teacher's schedule — include class_id + subject_id for class-based matching
             const { data: scheduleData } = await supabase
                 .from('schedule')
                 .select(`
-                    id,
-                    day_of_week,
-                    start_time,
-                    end_time,
-                    is_recurring,
-                    event_date,
-                    subjects:subject_id(name),
-                    classes:class_id(name)
+                    id, day_of_week, start_time, end_time, is_recurring, event_date,
+                    class_id, subject_id,
+                    subjects:subject_id(name), classes:class_id(name)
                 `)
                 .eq('teacher_id', teacherId)
                 .eq('school_id', currentSchoolId)
 
-            const schedule = scheduleData || []
+            // Deduplicate schedule rows: same (day/date, start, end, subject, class) → one slot
+            type SlotWithIds = { id: string; day_of_week: number; start_time: string; end_time: string; is_recurring: boolean; event_date: string | null; class_id: string | null; subject_id: string | null; subjects: unknown; classes: unknown; allIds: string[] }
+            const slotKeyMap = new Map<string, SlotWithIds>()
+            for (const s of scheduleData ?? []) {
+                const dayKey = s.is_recurring ? `d${s.day_of_week}` : `e${s.event_date}`
+                const key = `${dayKey}::${s.start_time}::${s.end_time}::${(s.subjects as any)?.name ?? ''}::${(s.classes as any)?.name ?? ''}`
+                if (slotKeyMap.has(key)) {
+                    slotKeyMap.get(key)!.allIds.push(s.id)
+                } else {
+                    slotKeyMap.set(key, { ...s, allIds: [s.id] })
+                }
+            }
+            const schedule: SlotWithIds[] = [...slotKeyMap.values()]
 
-            // 3. Fetch roll calls taken in the last 30 days
+            // 3. Build coveredWindows using created_at to find the CORRECT window,
+            //    ignoring schedule_id (which may point to the wrong duplicate slot)
             const startDate = new Date()
             startDate.setDate(startDate.getDate() - 30)
             const startDateStr = startDate.toISOString().split('T')[0]
 
-            let attendanceLogs: { schedule_id: string; date: string }[] = []
-            const scheduleIds = schedule.map(s => s.id)
-            if (scheduleIds.length > 0) {
-                const { data: attData } = await supabase
+            const tmFn = (t: string) => { const [h, mm] = t.split(':').map(Number); return h * 60 + mm }
+            const coveredWindows = new Set<string>()
+
+            const schedClassIds = [...new Set((scheduleData ?? []).map((s: any) => s.class_id).filter(Boolean))]
+            if (schedClassIds.length > 0) {
+                const { data: attByClass } = await supabase
                     .from('attendance')
-                    .select('schedule_id, date')
-                    .in('schedule_id', scheduleIds)
+                    .select('class_id, subject_id, date, created_at')
+                    .in('class_id', schedClassIds)
                     .gte('date', startDateStr)
-                attendanceLogs = attData || []
+
+                // Group by (date, class_id, subject_id), keep earliest created_at per group
+                const attGroups = new Map<string, { date: string; classId: string; subjectId: string | null; tMins: number }>()
+                for (const att of attByClass ?? []) {
+                    const key = `${att.date}::${att.class_id}::${att.subject_id ?? 'null'}`
+                    if (attGroups.has(key)) continue
+                    const ca = att.created_at ? new Date(att.created_at) : null
+                    const tMins = ca ? ca.getUTCHours() * 60 + ca.getUTCMinutes() : -1
+                    attGroups.set(key, { date: att.date, classId: att.class_id, subjectId: att.subject_id ?? null, tMins })
+                }
+
+                // Match each group to the best schedule window by created_at time
+                for (const [, g] of attGroups) {
+                    if (g.tMins < 0) continue
+                    const [y, m, d] = g.date.split('-').map(Number)
+                    const dow = new Date(y, m - 1, d).getDay()
+
+                    const candidates = (scheduleData ?? []).filter((s: any) =>
+                        s.class_id === g.classId && s.subject_id === g.subjectId &&
+                        (s.is_recurring ? s.day_of_week === dow : s.event_date === g.date)
+                    )
+
+                    // Prefer slot strictly containing created_at time; else pick latest-starting in buffer
+                    const best =
+                        candidates.find((s: any) => g.tMins >= tmFn(s.start_time) && g.tMins <= tmFn(s.end_time))
+                        ?? [...candidates]
+                            .sort((a: any, b: any) => tmFn(b.start_time) - tmFn(a.start_time))
+                            .find((s: any) => g.tMins >= (tmFn(s.start_time) - 15) && g.tMins <= (tmFn(s.end_time) + 60))
+
+                    if (best) coveredWindows.add(`${g.date}::${best.start_time}::${best.end_time}`)
+                }
             }
 
             const todayStr = new Date().toISOString().split('T')[0]
@@ -154,8 +202,8 @@ export function TeacherAbsences({ teacherId }: { teacherId: string }) {
                         }
                     }
 
-                    // Check if attendance was taken
-                    const rollCallTaken = attendanceLogs.some(log => log.schedule_id === slot.id && log.date === dateStr)
+                    // Check if attendance was taken for this time window on this date
+                    const rollCallTaken = coveredWindows.has(`${dateStr}::${slot.start_time}::${slot.end_time}`)
 
                     if (!rollCallTaken) {
                         // Compute slot duration in hours
@@ -188,30 +236,34 @@ export function TeacherAbsences({ teacherId }: { teacherId: string }) {
 
             // Add hours to manual records
             const processedManualRecords = (manualData || []).map((mr: any) => {
+                // Parse encoded hours from justification_note: [h:4] optional note
+                let storedHours: number | null = null
+                let cleanNote: string | null = mr.justification_note
+                const hoursMatch = mr.justification_note?.match(/^\[h:(\d+(?:\.\d+)?)\](.*)$/)
+                if (hoursMatch) {
+                    storedHours = parseFloat(hoursMatch[1])
+                    cleanNote = hoursMatch[2].trim() || null
+                }
+
+                if (storedHours && storedHours > 0) {
+                    return { ...mr, justification_note: cleanNote, hours: storedHours }
+                }
+
                 const [y, m, d] = mr.date.split('-').map(Number)
                 const mrDateObj = new Date(y, m - 1, d)
                 const mrDayOfWeek = mrDateObj.getDay()
 
-                // Sum scheduled hours for this day of week
                 const daySlots = schedule.filter(slot => {
-                    if (slot.is_recurring) {
-                        return slot.day_of_week === mrDayOfWeek
-                    } else {
-                        return slot.event_date === mr.date
-                    }
+                    if (slot.is_recurring) return slot.day_of_week === mrDayOfWeek
+                    return slot.event_date === mr.date
                 })
 
                 let totalHours = 0
                 for (const slot of daySlots) {
-                    const startMins = timeToMins(slot.start_time)
-                    const endMins = timeToMins(slot.end_time)
-                    totalHours += Math.max(0, (endMins - startMins) / 60)
+                    totalHours += Math.max(0, (timeToMins(slot.end_time) - timeToMins(slot.start_time)) / 60)
                 }
 
-                return {
-                    ...mr,
-                    hours: totalHours || 1.0 // fallback to 1.0 hour if no schedule slots
-                }
+                return { ...mr, justification_note: cleanNote, hours: totalHours || 1.0 }
             })
 
             // Filter out automated absences for dates that already have manual records
@@ -238,27 +290,22 @@ export function TeacherAbsences({ teacherId }: { teacherId: string }) {
         if (!schoolId) return
         setAdding(true)
         try {
-            const supabase = createClient()
-            const { data: { user } } = await supabase.auth.getUser()
+            const result = await addTeacherAbsenceAction({
+                teacherId,
+                schoolId,
+                date: addDate,
+                status: addStatus,
+                justified: addJustified,
+                justificationNote: addNote.trim() || null,
+                hours: addHours,
+            })
 
-            const { error } = await supabase
-                .from('teacher_attendance' as any)
-                .insert({
-                    teacher_id: teacherId,
-                    school_id: schoolId,
-                    date: addDate,
-                    status: addStatus,
-                    justified: addJustified,
-                    justification_note: addNote.trim() || null,
-                    made_up: false,
-                    recorded_by: user?.id || null,
-                })
-
-            if (error) throw error
+            if (result.error) throw new Error(result.error)
 
             setAddFormOpen(false)
             setAddDate(new Date().toISOString().split('T')[0])
             setAddStatus('absent')
+            setAddHours(2)
             setAddJustified(false)
             setAddNote('')
             toast.success(t('admin.teachers.absences.addSuccess'))
@@ -274,36 +321,23 @@ export function TeacherAbsences({ teacherId }: { teacherId: string }) {
     const handleMarkJustified = async (id: string) => {
         setJustifying(true)
         try {
-            const supabase = createClient()
-            const { data: { user } } = await supabase.auth.getUser()
+            const isAuto = id.startsWith('auto-')
+            const virtualRec = isAuto ? records.find(r => r.id === id) : null
+            if (isAuto && !virtualRec) throw new Error('Enregistrement introuvable')
 
-            let error = null
-            if (id.startsWith('auto-')) {
-                const virtualRec = records.find(r => r.id === id)
-                if (!virtualRec) throw new Error('Enregistrement introuvable')
+            const result = await justifyTeacherAbsenceAction(
+                id,
+                justifyNote.trim() || null,
+                isAuto,
+                isAuto && virtualRec ? {
+                    teacherId,
+                    schoolId: schoolId!,
+                    date: virtualRec.date,
+                    className: virtualRec.class_name,
+                } : undefined
+            )
 
-                const { error: insertErr } = await supabase
-                    .from('teacher_attendance' as any)
-                    .insert({
-                        teacher_id: teacherId,
-                        school_id: schoolId,
-                        date: virtualRec.date,
-                        status: 'absent',
-                        justified: true,
-                        justification_note: justifyNote.trim() || `Appel non fait (justifié) : ${virtualRec.class_name || ''}`,
-                        recorded_by: user?.id || null,
-                        made_up: false,
-                    })
-                error = insertErr
-            } else {
-                const { error: updateErr } = await supabase
-                    .from('teacher_attendance' as any)
-                    .update({ justified: true, justification_note: justifyNote.trim() || null })
-                    .eq('id', id)
-                error = updateErr
-            }
-
-            if (error) throw error
+            if (result.error) throw new Error(result.error)
 
             setJustifyId(null)
             setJustifyNote('')
@@ -338,13 +372,13 @@ export function TeacherAbsences({ teacherId }: { teacherId: string }) {
         loadAbsences()
     }
 
-    const handleDeleteAbsence = async (id: string) => {
-        if (!confirm('Supprimer cette absence ?')) return
-        setDeletingId(id)
-        const result = await deleteTeacherAbsenceAction(id)
-        setDeletingId(null)
+    const handleRemoveJustification = async (id: string) => {
+        if (!confirm('Supprimer la justification ?')) return
+        setRemovingJustificationId(id)
+        const result = await removeTeacherJustificationAction(id)
+        setRemovingJustificationId(null)
         if (result.error) { toast.error(result.error); return }
-        toast.success('Absence supprimée')
+        toast.success('Justification supprimée')
         loadAbsences()
     }
 
@@ -352,10 +386,9 @@ export function TeacherAbsences({ teacherId }: { teacherId: string }) {
         const unjustified = records.filter(r => r.status === 'absent' && !r.justified)
         const justified   = records.filter(r => r.status === 'absent' && r.justified)
         const late        = records.filter(r => r.status === 'late')
-        const made_up     = records.filter(r => r.made_up)
-        
+
         const totalHours = records
-            .filter(r => r.status === 'absent')
+            .filter(r => r.status === 'absent' && !r.justified)
             .reduce((sum, r) => sum + (r.hours || 0), 0)
 
         return {
@@ -363,7 +396,6 @@ export function TeacherAbsences({ teacherId }: { teacherId: string }) {
             unjustified: unjustified.length,
             justified: justified.length,
             late: late.length,
-            made_up: made_up.length,
             totalHours,
         }
     }, [records])
@@ -372,7 +404,6 @@ export function TeacherAbsences({ teacherId }: { teacherId: string }) {
         if (filter === 'unjustified') return records.filter(r => r.status === 'absent' && !r.justified)
         if (filter === 'justified')   return records.filter(r => r.status === 'absent' && r.justified)
         if (filter === 'late')        return records.filter(r => r.status === 'late')
-        if (filter === 'made_up')     return records.filter(r => r.made_up)
         return records
     }, [records, filter])
 
@@ -423,6 +454,7 @@ export function TeacherAbsences({ teacherId }: { teacherId: string }) {
                             <label className="text-[10px] text-gray-500 uppercase font-bold">{t('admin.teachers.absences.formDate')}</label>
                             <input
                                 type="date"
+                                title={t('admin.teachers.absences.formDate')}
                                 value={addDate}
                                 onChange={e => setAddDate(e.target.value)}
                                 className="w-full bg-[#0D1117] border border-white/10 rounded-xl px-3 py-2 text-sm text-white focus:outline-none focus:border-emerald-500/50"
@@ -439,6 +471,28 @@ export function TeacherAbsences({ teacherId }: { teacherId: string }) {
                                 <option value="absent">{t('admin.teachers.absences.absent')}</option>
                                 <option value="late">{t('admin.teachers.absences.late')}</option>
                             </select>
+                        </div>
+                    </div>
+
+                    {/* Duration */}
+                    <div className="space-y-1.5">
+                        <label className="text-[10px] text-gray-500 uppercase font-bold">Durée</label>
+                        <div className="flex gap-2">
+                            {([2, 4, 6, 8] as const).map(h => (
+                                <button
+                                    key={h}
+                                    type="button"
+                                    onClick={() => setAddHours(h)}
+                                    className={cn(
+                                        "flex-1 py-2 rounded-xl text-xs font-bold border transition-all",
+                                        addHours === h
+                                            ? "bg-emerald-500/20 border-emerald-500/40 text-emerald-400"
+                                            : "bg-white/5 border-white/10 text-gray-500 hover:text-gray-300 hover:bg-white/10"
+                                    )}
+                                >
+                                    {h}h
+                                </button>
+                            ))}
                         </div>
                     </div>
 
@@ -488,7 +542,7 @@ export function TeacherAbsences({ teacherId }: { teacherId: string }) {
             )}
 
             {/* Stats */}
-            <div className="grid grid-cols-4 gap-3">
+            <div className="grid grid-cols-3 gap-3">
                 <div className="bg-[#1A2530] rounded-2xl border border-red-500/20 p-4 text-center">
                     <XCircle className="w-4 h-4 text-red-400 mx-auto mb-1.5" />
                     <p className="text-2xl font-black text-red-400">{stats.unjustified}</p>
@@ -503,11 +557,6 @@ export function TeacherAbsences({ teacherId }: { teacherId: string }) {
                     <Clock className="w-4 h-4 text-blue-400 mx-auto mb-1.5" />
                     <p className="text-2xl font-black text-blue-400">{stats.late}</p>
                     <p className="text-[10px] text-gray-500 font-bold uppercase mt-0.5">{t('admin.teachers.absences.lates')}</p>
-                </div>
-                <div className="bg-[#1A2530] rounded-2xl border border-emerald-500/20 p-4 text-center">
-                    <RefreshCw className="w-4 h-4 text-emerald-400 mx-auto mb-1.5" />
-                    <p className="text-2xl font-black text-emerald-400">{stats.made_up}</p>
-                    <p className="text-[10px] text-gray-500 font-bold uppercase mt-0.5">{t('admin.teachers.absences.madeUp')}</p>
                 </div>
             </div>
 
@@ -534,7 +583,6 @@ export function TeacherAbsences({ teacherId }: { teacherId: string }) {
                     { key: 'unjustified', label: t('admin.teachers.absences.unjustified'),  count: stats.unjustified },
                     { key: 'justified',   label: t('admin.teachers.absences.justified'),    count: stats.justified },
                     { key: 'late',        label: t('admin.teachers.absences.lates'),        count: stats.late },
-                    { key: 'made_up',     label: t('admin.teachers.absences.madeUp'),       count: stats.made_up },
                 ] as { key: FilterType; label: string; count: number }[]).map(f => (
                     <button
                         key={f.key}
@@ -598,34 +646,28 @@ export function TeacherAbsences({ teacherId }: { teacherId: string }) {
                                                             Absence automatique
                                                         </span>
                                                     )}
-                                                    {r.made_up && (
-                                                        <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 flex items-center gap-1">
-                                                            <RefreshCw className="w-2.5 h-2.5" /> {t('admin.teachers.absences.madeUpLabel')}
-                                                            {r.made_up_date && ` ${t('admin.teachers.absences.madeUpOn')} ${new Date(r.made_up_date).toLocaleDateString(t('common.locale') || 'fr-FR', { day: '2-digit', month: 'short' })}`}
-                                                        </span>
-                                                    )}
                                                 </div>
                                                 <div className="flex items-center gap-2 shrink-0 flex-wrap justify-end">
                                                     {isUnjustified && !isJustifying && editId !== r.id && (
                                                         <button
                                                             type="button"
                                                             onClick={() => { setJustifyId(r.id); setJustifyNote(''); setAddFormOpen(false) }}
-                                                            className="text-[10px] font-bold px-2.5 py-1 rounded-lg bg-amber-500/10 border border-amber-500/20 text-amber-400 hover:bg-amber-500/20 transition-all"
+                                                            className="text-[10px] font-bold px-2.5 py-1 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 hover:bg-emerald-500/20 transition-all"
                                                         >
                                                             {t('admin.teachers.absences.markAsJustified')}
                                                         </button>
                                                     )}
                                                     {editId !== r.id && !r.is_automated && (
-                                                        <button type="button" onClick={() => { startEdit(r); setJustifyId(null) }}
+                                                        <button type="button" aria-label="Modifier" onClick={() => { startEdit(r); setJustifyId(null) }}
                                                             className="p-1 text-gray-500 hover:text-blue-400 transition-colors rounded-md hover:bg-white/5">
                                                             <Pencil className="w-3.5 h-3.5" />
                                                         </button>
                                                     )}
-                                                    {!r.is_automated && (
-                                                        <button type="button" onClick={() => handleDeleteAbsence(r.id)}
-                                                            disabled={deletingId === r.id}
-                                                            className="p-1 text-gray-500 hover:text-red-400 transition-colors rounded-md hover:bg-white/5">
-                                                            {deletingId === r.id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Trash2 className="w-3.5 h-3.5" />}
+                                                    {!r.is_automated && r.justified && editId !== r.id && (
+                                                        <button type="button" aria-label="Supprimer la justification" onClick={() => handleRemoveJustification(r.id)}
+                                                            disabled={removingJustificationId === r.id}
+                                                            className="p-1 text-gray-500 hover:text-amber-400 transition-colors rounded-md hover:bg-white/5">
+                                                            {removingJustificationId === r.id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Trash2 className="w-3.5 h-3.5" />}
                                                         </button>
                                                     )}
                                                     <p className="text-xs text-gray-600">

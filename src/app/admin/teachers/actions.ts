@@ -218,6 +218,35 @@ export async function updateTeacherInfoAction(teacherId: string, data: {
 }
 
 // ── Edit / delete absence ─────────────────────────────────────────────────────
+export async function addTeacherAbsenceAction(data: {
+    teacherId: string
+    schoolId: string
+    date: string
+    status: 'absent' | 'late'
+    justified: boolean
+    justificationNote?: string | null
+    hours?: number | null
+}) {
+    const ctx = await getActionContext()
+    if (!ctx) return { error: 'Non authentifié' }
+    const admin = createAdminClient()
+    const noteWithHours = data.hours
+        ? `[h:${data.hours}]${data.justificationNote ? ' ' + data.justificationNote : ''}`
+        : (data.justificationNote || null)
+    const { error } = await (admin.from as any)('teacher_attendance').insert({
+        teacher_id: data.teacherId,
+        school_id: data.schoolId,
+        date: data.date,
+        status: data.status,
+        justified: data.justified,
+        justification_note: noteWithHours,
+        made_up: false,
+        recorded_by: ctx.userId,
+    })
+    if (error) return { error: error.message }
+    return { success: true }
+}
+
 export async function updateTeacherAbsenceAction(id: string, data: {
     date: string; status: string; justified: boolean; justification_note?: string | null
 }) {
@@ -238,5 +267,47 @@ export async function deleteTeacherAbsenceAction(id: string) {
     const admin = createAdminClient()
     const { error } = await admin.from('teacher_attendance').delete().eq('id', id)
     if (error) return { error: error.message }
+    return { success: true }
+}
+
+export async function removeTeacherJustificationAction(id: string) {
+    const ctx = await getActionContext()
+    if (!ctx) return { error: 'Non authentifié' }
+    const admin = createAdminClient()
+    const { error } = await (admin.from as any)('teacher_attendance')
+        .update({ justified: false, justification_note: null })
+        .eq('id', id)
+    if (error) return { error: error.message }
+    return { success: true }
+}
+
+export async function justifyTeacherAbsenceAction(
+    id: string,
+    note: string | null,
+    isAuto: boolean,
+    autoData?: { teacherId: string; schoolId: string; date: string; className?: string }
+) {
+    const ctx = await getActionContext()
+    if (!ctx) return { error: 'Non authentifié' }
+    const admin = createAdminClient()
+
+    if (isAuto && autoData) {
+        const { error } = await (admin.from as any)('teacher_attendance').insert({
+            teacher_id: autoData.teacherId,
+            school_id: autoData.schoolId,
+            date: autoData.date,
+            status: 'absent',
+            justified: true,
+            justification_note: note || `Appel non fait (justifié) : ${autoData.className || ''}`,
+            recorded_by: ctx.userId,
+            made_up: false,
+        })
+        if (error) return { error: error.message }
+    } else {
+        const { error } = await (admin.from as any)('teacher_attendance')
+            .update({ justified: true, justification_note: note || null })
+            .eq('id', id)
+        if (error) return { error: error.message }
+    }
     return { success: true }
 }

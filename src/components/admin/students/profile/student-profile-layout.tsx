@@ -57,7 +57,7 @@ interface StudentProfile {
 export function StudentProfileLayout({ id }: { id: string }) {
     const { t, language } = useLanguage()
     const router = useRouter()
-    const [activeTab, setActiveTab] = useState('grades')
+    const [activeTab, setActiveTab] = useState('attendance')
     const [student, setStudent] = useState<StudentProfile | null>(null)
     const [currentSchoolId, setCurrentSchoolId] = useState<string | null>(null)
     const [loading, setLoading] = useState(true)

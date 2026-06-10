@@ -77,15 +77,19 @@ export function TeacherSchedule({ teacherId }: { teacherId: string }) {
             // Convert JS day to our day_of_week (1=Mon, ..., 7=Sun)
             const todayMapped = todayDow === 0 ? 7 : todayDow
  
-            // Group by day
+            // Group by day — deduplicate by (day, start, end, subject, class)
             const dayMap: Record<number, ScheduleEvent[]> = {}
+            const seen = new Set<string>()
             for (const item of data || []) {
-                if (!dayMap[item.day_of_week]) dayMap[item.day_of_week] = []
                 const subjectName = (item.subjects as any)?.name || 'Matière'
                 const className = (item.classes as any)?.name || ''
                 const start = item.start_time.substring(0, 5)
                 const end = item.end_time.substring(0, 5)
- 
+                const key = `${item.day_of_week}::${start}::${end}::${subjectName}::${className}`
+                if (seen.has(key)) continue
+                seen.add(key)
+
+                if (!dayMap[item.day_of_week]) dayMap[item.day_of_week] = []
                 dayMap[item.day_of_week].push({
                     id: item.id,
                     subject: `${subjectName}${className ? ' - ' + className : ''}`,

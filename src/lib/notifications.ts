@@ -12,6 +12,7 @@ export interface Notification {
     is_read: boolean
     created_at: string
     school_id?: string | null
+    event_type?: string | null
 }
 
 /**
