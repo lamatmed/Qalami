@@ -34,6 +34,7 @@ export function TeacherHome() {
     const { teacherId, teacherName, loading, classes, schoolId } = useTeacher()
     const [nextClass, setNextClass] = useState<NextClass | null>(null)
     const [stats, setStats] = useState<TeacherStats>({ remainingClasses: 0, pendingAttendance: 0, remarksCount: 0 })
+    const [todayClassCount, setTodayClassCount] = useState(0)
     const [loadingData, setLoadingData] = useState(true)
     const [currentTime, setCurrentTime] = useState(new Date())
     const [unreadCount, setUnreadCount] = useState(0)
@@ -66,9 +67,13 @@ export function TeacherHome() {
                 const todaySchedule = await getTeacherScheduleAction(teacherId, dayOfWeek)
  
                 if (todaySchedule && todaySchedule.length > 0) {
-                    // Calculate remaining classes
+                    // Calculate remaining classes (not yet ended)
                     const remaining = todaySchedule.filter((s: any) => s.end_time > currentTimeStr).length
- 
+
+                    // Distinct classes scheduled today
+                    const distinctToday = new Set(todaySchedule.map((s: any) => s.class_id)).size
+                    setTodayClassCount(distinctToday)
+
                     // Find next class (first one that hasn't ended)
                     const next = todaySchedule.find((s: any) => s.end_time > currentTimeStr)
                     if (next) {
@@ -85,20 +90,16 @@ export function TeacherHome() {
                     } else {
                         setNextClass(null)
                     }
- 
-                    // Calculate pending attendance
-                    const startedClasses = todaySchedule.filter((s: any) =>
+
+                    // Calculate pending attendance (session started but not ended)
+                    const pendingCount = todaySchedule.filter((s: any) =>
                         s.start_time <= currentTimeStr && s.end_time > currentTimeStr
-                    )
-                    const pendingCount = startedClasses.length
- 
-                    setStats({
-                        remainingClasses: remaining,
-                        pendingAttendance: pendingCount,
-                        remarksCount: 0
-                    })
+                    ).length
+
+                    setStats({ remainingClasses: remaining, pendingAttendance: pendingCount, remarksCount: 0 })
                 } else {
                     setStats({ remainingClasses: 0, pendingAttendance: 0, remarksCount: 0 })
+                    setTodayClassCount(0)
                     setNextClass(null)
                 }
             } catch (err) {
@@ -110,6 +111,8 @@ export function TeacherHome() {
  
         if (!loading && teacherId) {
             fetchTeacherData()
+        } else if (!loading && !teacherId) {
+            setLoadingData(false)
         }
     }, [teacherId, loading])
 
@@ -285,7 +288,7 @@ export function TeacherHome() {
                     [
                         { count: stats.remainingClasses, label: t('teacher.home.remainingClasses') || 'Cours Restants', color: "from-emerald-500 to-emerald-600", text: "text-emerald-600 dark:text-emerald-400" },
                         { count: stats.pendingAttendance, label: t('teacher.home.attendanceToDo') || 'Appels à Faire', color: "from-cyan-500 to-blue-600", text: "text-cyan-600 dark:text-cyan-400" },
-                        { count: classes.length, label: t('teacher.home.classesCount') || 'Mes Classes', color: "from-amber-500 to-orange-600", text: "text-amber-600 dark:text-amber-400" }
+                        { count: todayClassCount, label: t('teacher.home.classesCount') || 'Classes Aujourd\'hui', color: "from-amber-500 to-orange-600", text: "text-amber-600 dark:text-amber-400" }
                     ].map((stat, idx) => (
                         <motion.div
                             key={idx}
