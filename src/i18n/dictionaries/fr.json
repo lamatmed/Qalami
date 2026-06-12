@@ -2595,6 +2595,7 @@
       "dashboard": "Tableau de bord",
       "myClasses": "Mes classes",
       "schedule": "Emploi du temps",
+      "stats": "Statistiques",
       "attendance": "Remarques",
       "grades": "Notes & Évaluations",
       "quizzes": "Évaluations",
@@ -2602,6 +2603,38 @@
       "documents": "Documents",
       "settings": "Paramètres",
       "community": "Communauté"
+    },
+    "statistique": {
+      "title": "Statistiques",
+      "days": {
+        "0": "Dim",
+        "1": "Lun",
+        "2": "Mar",
+        "3": "Mer",
+        "4": "Jeu",
+        "5": "Ven",
+        "6": "Sam"
+      },
+      "status": {
+        "done": "Effectué",
+        "missed": "Non effectué",
+        "overdue": "En attente",
+        "upcoming": "À venir",
+        "scheduled": "Planifié"
+      },
+      "cards": {
+        "todayCourses": "Cours aujourd'hui",
+        "remaining": "Cours restants",
+        "callsDone": "Appels effectués",
+        "callsLate": "Appels en retard"
+      },
+      "pendingTitle": "Appels en attente",
+      "takeRoll": "Prendre l'appel",
+      "myClasses": "Mes classes",
+      "thisWeek": "— cette semaine",
+      "weekPlanning": "Planning de la semaine",
+      "callsProgress": "{done} / {total} appels effectués",
+      "noClassesWeek": "Aucun cours planifié cette semaine"
     },
     "documents": {
       "title": "Mes Documents",

@@ -2595,6 +2595,7 @@
       "dashboard": "لوحة القيادة",
       "myClasses": "فصولي الدراسية",
       "schedule": "جدول الحصص",
+      "stats": "الإحصائيات",
       "attendance": "الملاحظات",
       "grades": "الدرجات والتقييمات",
       "quizzes": "التقييمات",
@@ -2602,6 +2603,38 @@
       "documents": "المستندات",
       "settings": "الإعدادات",
       "community": "المجتمع المدرسي"
+    },
+    "statistique": {
+      "title": "الإحصائيات",
+      "days": {
+        "0": "أحد",
+        "1": "اثنين",
+        "2": "ثلاثاء",
+        "3": "أربعاء",
+        "4": "خميس",
+        "5": "جمعة",
+        "6": "سبت"
+      },
+      "status": {
+        "done": "مسجَّل",
+        "missed": "لم يُسجَّل",
+        "overdue": "في الانتظار",
+        "upcoming": "قادم",
+        "scheduled": "مجدول"
+      },
+      "cards": {
+        "todayCourses": "حصص اليوم",
+        "remaining": "الحصص المتبقية",
+        "callsDone": "الحضور المسجَّل",
+        "callsLate": "الحضور المتأخر"
+      },
+      "pendingTitle": "الحضور في الانتظار",
+      "takeRoll": "تسجيل الحضور",
+      "myClasses": "أقسامي",
+      "thisWeek": "— هذا الأسبوع",
+      "weekPlanning": "برنامج الأسبوع",
+      "callsProgress": "{done} / {total} حضور مسجَّل",
+      "noClassesWeek": "لا توجد حصص مجدولة هذا الأسبوع"
     },
     "documents": {
       "title": "وثائقي",

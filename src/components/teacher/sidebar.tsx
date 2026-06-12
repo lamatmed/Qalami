@@ -14,7 +14,8 @@ import {
     ChevronRight,
     Settings,
     Bell,
-    FolderOpen
+    FolderOpen,
+    BarChart3,
 } from 'lucide-react'
 import { createClient } from '@/utils/supabase/client'
 import { useLanguage } from '@/i18n'
@@ -25,6 +26,7 @@ export function useTeacherSidebarItems() {
     const { t } = useLanguage()
     return [
         { icon: LayoutDashboard, label: t('teacher.sidebar.dashboard'), href: '/teacher' },
+        { icon: BarChart3, label: t('teacher.sidebar.stats'), href: '/teacher/statistique' },
         { icon: GraduationCap, label: t('teacher.sidebar.myClasses'), href: '/teacher/classes' },
         { icon: Calendar, label: t('teacher.sidebar.schedule'), href: '/teacher/schedule' },
         { icon: BrainCircuit, label: t('teacher.sidebar.quizzes'), href: '/teacher/quizzes' },
@@ -37,6 +39,7 @@ export function useTeacherSidebarItems() {
 
 export const sidebarItems = [
     { icon: LayoutDashboard, label: 'teacher.sidebar.dashboard', href: '/teacher' },
+    { icon: BarChart3, label: 'teacher.sidebar.stats', href: '/teacher/statistique' },
     { icon: GraduationCap, label: 'teacher.sidebar.myClasses', href: '/teacher/classes' },
     { icon: Calendar, label: 'teacher.sidebar.schedule', href: '/teacher/schedule' },
     { icon: BrainCircuit, label: 'teacher.sidebar.quizzes', href: '/teacher/quizzes' },

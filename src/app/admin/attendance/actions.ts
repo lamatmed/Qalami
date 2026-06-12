@@ -647,15 +647,16 @@ export async function getClassAttendanceDetails(classId: string) {
         if (!ctx) return { periods: [], subjectStats: [], enrolled: [], stats: [] }
 
         const { supabase, schoolId } = ctx
+        const admin = createAdminClient()
 
-        // ── Strategy: group directly from the attendance table by (date, subject_id).
-        // This merges stale/duplicate attendance_periods automatically and includes
-        // both admin-portal (period_id) and teacher-portal (no period_id) records.
+        // ── Strategy: group directly from the attendance table.
+        // Key: (date, subject_id, schedule_id) — separate sessions of the same subject
+        // on the same day when they have distinct schedule_ids (teacher portal).
 
         // 1. All attendance records for this class
         const { data: attRows } = await supabase
             .from('attendance')
-            .select('student_id, status, date, subject_id')
+            .select('student_id, status, date, subject_id, schedule_id')
             .eq('class_id', classId)
             .order('date', { ascending: false })
 
@@ -672,43 +673,87 @@ export async function getClassAttendanceDetails(classId: string) {
             if (!statusMap.has(k) || p.status === 'open') statusMap.set(k, p.status as string)
         })
 
-        // 3. Group attendance by (date, subject_id); dedup by student_id keeping worst status
+        // 3. Group attendance rows.
+        // Rows WITH schedule_id → separate group per (date, subject_id, schedule_id).
+        // Rows WITHOUT schedule_id → separate bucket per (date, subject_id) to merge later.
         const WR: Record<string, number> = { absent: 0, late: 1, excused: 2, present: 3 }
-        const groupMap = new Map<string, { date: string; subjectId: string | null; students: Map<string, string> }>()
+
+        type GroupEntry = { date: string; subjectId: string | null; scheduleId: string | null; students: Map<string, string> }
+        const schedGroups  = new Map<string, GroupEntry>()  // key: date::subjectId::schedId
+        const noSchedBuckets = new Map<string, GroupEntry>() // key: date::subjectId
+
+        const addToGroup = (map: Map<string, GroupEntry>, key: string, date: string, subjectId: string | null, scheduleId: string | null, studentId: string, status: string) => {
+            if (!map.has(key)) map.set(key, { date, subjectId, scheduleId, students: new Map() })
+            const g = map.get(key)!
+            const ex = g.students.get(studentId)
+            if (!ex || (WR[status] ?? 99) < (WR[ex] ?? 99)) g.students.set(studentId, status)
+        }
 
         ;(attRows ?? []).forEach((r: any) => {
-            const key = `${r.date}::${r.subject_id ?? 'null'}`
-            if (!groupMap.has(key)) {
-                groupMap.set(key, { date: r.date, subjectId: r.subject_id ?? null, students: new Map() })
-            }
-            const g = groupMap.get(key)!
-            const ex = g.students.get(r.student_id)
-            if (!ex || (WR[r.status] ?? 99) < (WR[ex] ?? 99)) {
-                g.students.set(r.student_id, r.status as string)
+            if (r.schedule_id) {
+                addToGroup(schedGroups, `${r.date}::${r.subject_id ?? 'null'}::${r.schedule_id}`, r.date, r.subject_id ?? null, r.schedule_id, r.student_id, r.status)
+            } else {
+                addToGroup(noSchedBuckets, `${r.date}::${r.subject_id ?? 'null'}`, r.date, r.subject_id ?? null, null, r.student_id, r.status)
             }
         })
 
+        // Merge no-sched buckets into schedule groups when unambiguous (exactly one sched group
+        // for that date+subject). If 0 or 2+ sched groups exist, keep bucket as its own period.
+        for (const [bucketKey, bucket] of noSchedBuckets) {
+            const matching = [...schedGroups.keys()].filter(k => k.startsWith(bucketKey + '::'))
+            if (matching.length === 1) {
+                const target = schedGroups.get(matching[0])!
+                bucket.students.forEach((status, sid) => {
+                    const ex = target.students.get(sid)
+                    if (!ex || (WR[status] ?? 99) < (WR[ex] ?? 99)) target.students.set(sid, status)
+                })
+            } else {
+                // No schedule group or ambiguous → keep as standalone group
+                schedGroups.set(`${bucketKey}::__nosched__`, { ...bucket })
+            }
+        }
+
         // 4. Subject names
-        const subjectIds = [...new Set([...groupMap.values()].map(g => g.subjectId).filter(Boolean))] as string[]
+        const allSubjectIds = [...new Set([...schedGroups.values()].map(g => g.subjectId).filter(Boolean))] as string[]
         const subjectNameMap = new Map<string, string>()
-        if (subjectIds.length > 0) {
-            const { data: subs } = await supabase.from('subjects').select('id, name').in('id', subjectIds)
+        if (allSubjectIds.length > 0) {
+            const { data: subs } = await supabase.from('subjects').select('id, name').in('id', allSubjectIds)
             ;(subs ?? []).forEach((s: any) => subjectNameMap.set(s.id as string, s.name as string))
         }
 
-        // 5. Build one period per (date, subject_id)
-        const builtPeriods: any[] = [...groupMap.entries()].map(([key, g]) => {
+        // 4b. Fetch start/end times for all schedule_ids present in groups
+        const uniqueSchedIds = [...new Set([...schedGroups.values()].map(g => g.scheduleId).filter(Boolean))] as string[]
+        type SchedInfo = { startTime: string | null; endTime: string | null; teacherName: string | null }
+        const schedInfoMap = new Map<string, SchedInfo>()
+        if (uniqueSchedIds.length > 0) {
+            const { data: schedRows } = await admin
+                .from('schedule')
+                .select('id, start_time, end_time, profiles!schedule_teacher_id_fkey(full_name)')
+                .in('id', uniqueSchedIds)
+            ;(schedRows ?? []).forEach((s: any) => {
+                schedInfoMap.set(s.id as string, {
+                    startTime: (s.start_time as string | null) ?? null,
+                    endTime: (s.end_time as string | null) ?? null,
+                    teacherName: (s.profiles as any)?.full_name ?? null,
+                })
+            })
+        }
+
+        // 5. Build one period per group
+        const baseKey = (g: GroupEntry) => `${g.date}::${g.subjectId ?? 'null'}`
+        const builtPeriods: any[] = [...schedGroups.entries()].map(([key, g]) => {
             const stats = { present: 0, absent: 0, late: 0, excused: 0 }
             g.students.forEach(st => { ;(stats as any)[st] = ((stats as any)[st] ?? 0) + 1 })
+            const sched = g.scheduleId ? schedInfoMap.get(g.scheduleId) : undefined
             return {
                 id: `grp-${key}`,
                 date: g.date,
-                status: statusMap.get(key) ?? 'closed',
+                status: statusMap.get(baseKey(g)) ?? 'closed',
                 subjectId: g.subjectId,
                 subjectName: g.subjectId ? (subjectNameMap.get(g.subjectId) ?? null) : null,
-                startTime: null,
-                endTime: null,
-                teacherName: null,
+                startTime: sched?.startTime ?? null,
+                endTime: sched?.endTime ?? null,
+                teacherName: sched?.teacherName ?? null,
                 stats,
             }
         }).sort((a, b) => b.date.localeCompare(a.date))
@@ -740,7 +785,7 @@ export async function getClassAttendanceDetails(classId: string) {
         // 8. Per-student overall stats (from grouped data — no double-counting)
         const studentMap = new Map<string, { id: string; name: string; present: number; absent: number; late: number; excused: number; total: number }>()
         builtEnrolled.forEach(e => studentMap.set(e.id, { id: e.id, name: e.full_name, present: 0, absent: 0, late: 0, excused: 0, total: 0 }))
-        groupMap.forEach(g => {
+        schedGroups.forEach(g => {
             g.students.forEach((status, sid) => {
                 if (!studentMap.has(sid)) studentMap.set(sid, { id: sid, name: '—', present: 0, absent: 0, late: 0, excused: 0, total: 0 })
                 const s = studentMap.get(sid)!
@@ -1126,7 +1171,7 @@ export async function getTodayPeriods(todayStr: string) {
     const { data: scheduleSlots } = await admin
         .from('schedule')
         .select(`
-            class_id, subject_id, start_time, end_time,
+            id, class_id, subject_id, start_time, end_time,
             subjects!schedule_subject_id_fkey(id, name),
             profiles!schedule_teacher_id_fkey(full_name, phone)
         `)
@@ -1215,49 +1260,78 @@ export async function getTodayPeriods(todayStr: string) {
         }
     })
 
+    // Build a fast lookup: schedule slot ID → time/teacher info (from already-fetched scheduleSlots)
+    type SlotDetail = { startTime: string | null; endTime: string | null; teacherName: string | null; teacherPhone: string | null; subjectId: string | null; subjectName: string | null }
+    const slotById = new Map<string, SlotDetail>()
+    ;(scheduleSlots ?? []).forEach((s: any) => {
+        slotById.set(s.id as string, {
+            startTime: s.start_time ?? null,
+            endTime: s.end_time ?? null,
+            teacherName: (s.profiles as any)?.full_name ?? null,
+            teacherPhone: (s.profiles as any)?.phone ?? null,
+            subjectId: s.subject_id ?? null,
+            subjectName: (s.subjects as any)?.name ?? null,
+        })
+    })
+
     // ── 2. For classes with NO period record, build synthetic appels from attendance table
     const classesWithoutPeriod = classIds.filter(id => !classesWithPeriod.has(id))
     if (classesWithoutPeriod.length > 0) {
         const { data: directRows } = await supabase
             .from('attendance')
-            .select('class_id, subject_id, status, subjects(id, name)')
+            .select('class_id, subject_id, schedule_id, status, subjects(id, name)')
             .in('class_id', classesWithoutPeriod)
             .eq('date', todayStr)
 
-        // Group by (class_id, subject_id)
-        const syntheticMap = new Map<string, {
+        // Separate by schedule_id — rows with same schedule_id = same session.
+        // No-sched rows merged when only one sched group exists for that (class, subject).
+        type SynEntry = {
             classId: string; subjectId: string | null; subjectName: string | null
+            scheduleId: string | null
             stats: { present: number; absent: number; late: number; excused: number }
-        }>()
+        }
+        const synSchedMap   = new Map<string, SynEntry>() // key: classId::subjectId::schedId
+        const synNoSchedMap = new Map<string, SynEntry>() // key: classId::subjectId
 
         ;(directRows ?? []).forEach((row: any) => {
-            const key = `${row.class_id}::${row.subject_id ?? 'null'}`
-            if (!syntheticMap.has(key)) {
-                syntheticMap.set(key, {
-                    classId: row.class_id,
-                    subjectId: row.subject_id ?? null,
-                    subjectName: (row.subjects as any)?.name ?? null,
-                    stats: { present: 0, absent: 0, late: 0, excused: 0 },
-                })
+            if (row.schedule_id) {
+                const key = `${row.class_id}::${row.subject_id ?? 'null'}::${row.schedule_id}`
+                if (!synSchedMap.has(key)) synSchedMap.set(key, { classId: row.class_id, subjectId: row.subject_id ?? null, subjectName: (row.subjects as any)?.name ?? null, scheduleId: row.schedule_id, stats: { present: 0, absent: 0, late: 0, excused: 0 } })
+                const e = synSchedMap.get(key)!
+                e.stats[row.status as keyof typeof e.stats] = (e.stats[row.status as keyof typeof e.stats] ?? 0) + 1
+            } else {
+                const key = `${row.class_id}::${row.subject_id ?? 'null'}`
+                if (!synNoSchedMap.has(key)) synNoSchedMap.set(key, { classId: row.class_id, subjectId: row.subject_id ?? null, subjectName: (row.subjects as any)?.name ?? null, scheduleId: null, stats: { present: 0, absent: 0, late: 0, excused: 0 } })
+                const e = synNoSchedMap.get(key)!
+                e.stats[row.status as keyof typeof e.stats] = (e.stats[row.status as keyof typeof e.stats] ?? 0) + 1
             }
-            const entry = syntheticMap.get(key)!
-            entry.stats[row.status as keyof typeof entry.stats] =
-                (entry.stats[row.status as keyof typeof entry.stats] ?? 0) + 1
         })
 
-        syntheticMap.forEach(entry => {
-            let sched = scheduleMap.get(`${entry.classId}::${entry.subjectId ?? 'null'}`)
+        // Merge no-sched rows into the unique sched group if unambiguous
+        synNoSchedMap.forEach((bucket, bucketKey) => {
+            const matching = [...synSchedMap.keys()].filter(k => k.startsWith(bucketKey + '::'))
+            if (matching.length === 1) {
+                const target = synSchedMap.get(matching[0])!
+                ;(['present', 'absent', 'late', 'excused'] as const).forEach(s => { target.stats[s] += bucket.stats[s] })
+            } else {
+                synSchedMap.set(`${bucketKey}::__nosched__`, bucket)
+            }
+        })
+
+        synSchedMap.forEach((entry, key) => {
+            const slot = entry.scheduleId ? slotById.get(entry.scheduleId) : undefined
+            let sched = slot ?? scheduleMap.get(`${entry.classId}::${entry.subjectId ?? 'null'}`)
             if (!sched && !entry.subjectId) sched = scheduleByClass.get(entry.classId)
             result.push({
-                id: `syn-${entry.classId}-${entry.subjectId ?? 'none'}`,
+                id: `syn-${key}`,
                 classId: entry.classId,
                 className: classNameMap.get(entry.classId) ?? '—',
                 subjectId: entry.subjectId ?? sched?.subjectId ?? null,
                 subjectName: entry.subjectName ?? sched?.subjectName ?? null,
-                startTime: sched?.startTime ?? null,
-                endTime: sched?.endTime ?? null,
-                teacherName: sched?.teacherName ?? null,
-                teacherPhone: sched?.teacherPhone ?? null,
+                startTime: slot?.startTime ?? sched?.startTime ?? null,
+                endTime: slot?.endTime ?? sched?.endTime ?? null,
+                teacherName: slot?.teacherName ?? sched?.teacherName ?? null,
+                teacherPhone: slot?.teacherPhone ?? sched?.teacherPhone ?? null,
                 status: 'closed',
                 stats: entry.stats,
                 synthetic: true,

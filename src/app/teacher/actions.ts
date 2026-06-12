@@ -405,3 +405,209 @@ export async function getTeacherNotifications(teacherId: string, schoolId: strin
     combined.sort((a: any, b: any) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
     return combined.slice(0, 30)
 }
+
+// ─── Teacher statistics ────────────────────────────────────────────────────────
+
+export interface TeacherStatsData {
+    todayStats: { total: number; remaining: number; done: number; overdue: number }
+    pendingSessions: {
+        id: string; classId: string; subjectId: string
+        className: string; subjectName: string; subjectIcon: string | null
+        startTime: string; endTime: string
+    }[]
+    classStats: {
+        classId: string; className: string
+        schoolId: string | null; schoolName: string; schoolLogoUrl: string | null
+        subjects: { name: string; icon: string | null }[]
+        weekTotal: number; weekDone: number; weekRate: number
+    }[]
+    weekView: {
+        dayOfWeek: number; dateStr: string; isPast: boolean; isToday: boolean
+        sessions: {
+            id: string; className: string; subjectName: string; subjectIcon: string | null
+            startTime: string; endTime: string; done: boolean
+        }[]
+    }[]
+}
+
+export async function getTeacherStatsAction(teacherId: string): Promise<TeacherStatsData> {
+    const supabase = await createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) throw new Error('Non authentifié')
+
+    const admin = createAdminClient()
+
+    const today    = new Date()
+    const todayStr = today.toISOString().split('T')[0]
+    const todayDow = today.getDay()
+    const nowHHMM  = today.toTimeString().substring(0, 5)
+
+    // Week bounds (Mon → Sun)
+    const diffToMon = todayDow === 0 ? -6 : 1 - todayDow
+    const monday = new Date(today); monday.setDate(today.getDate() + diffToMon)
+    const sunday = new Date(monday); sunday.setDate(monday.getDate() + 6)
+    const weekStart = monday.toISOString().split('T')[0]
+    const weekEnd   = sunday.toISOString().split('T')[0]
+
+    // All schedule entries across ALL schools — school_id from schedule table avoids FK ambiguity
+    const { data: raw } = await admin
+        .from('schedule')
+        .select('id, day_of_week, start_time, end_time, class_id, subject_id, school_id, subjects(name, icon), classes(name)')
+        .eq('teacher_id', teacherId)
+        .order('start_time')
+
+    // Deduplicate same-slot entries — keep ALL ids per slot to survive DB duplicates
+    const slotIds = new Map<string, Set<string>>()   // slotKey → all UUIDs in DB for that slot
+    const seenKeys = new Set<string>()
+    const schedule = (raw || []).filter((s: any) => {
+        const key = `${s.day_of_week}-${s.class_id}-${s.subject_id ?? ''}-${s.start_time}-${s.end_time}`
+        if (!slotIds.has(key)) slotIds.set(key, new Set())
+        slotIds.get(key)!.add(s.id)
+        if (seenKeys.has(key)) return false
+        seenKeys.add(key)
+        return true
+    })
+
+    // Use `attendance` table (written by saveAttendanceAction) — one record per student.
+    // attendance has no teacher_id column; filter by the schedule IDs already belonging to this teacher.
+    const allTeacherSchedIds = [...new Set([...slotIds.values()].flatMap(s => [...s]))]
+    const { data: attRows } = allTeacherSchedIds.length > 0
+        ? await admin
+            .from('attendance')
+            .select('class_id, subject_id, schedule_id, date')
+            .in('schedule_id', allTeacherSchedIds)
+            .gte('date', weekStart)
+            .lte('date', weekEnd)
+        : { data: [] }
+
+    // Collapse to unique session keys so isDoneOn runs in O(1)
+    const doneKeys = new Set<string>()
+    for (const r of attRows || []) {
+        if (r.schedule_id) doneKeys.add(`${r.date}|sid:${r.schedule_id}`)
+        if (r.class_id)    doneKeys.add(`${r.date}|cls:${r.class_id}|sub:${r.subject_id ?? ''}`)
+    }
+
+    const isDoneOn = (s: any, dStr: string) => {
+        const slotKey = `${s.day_of_week}-${s.class_id}-${s.subject_id ?? ''}-${s.start_time}-${s.end_time}`
+        const allSlotIds = slotIds.get(slotKey) ?? new Set([s.id])
+
+        // 1. Any DB duplicate of this slot has an attendance record → definitive hit
+        for (const sid of allSlotIds) {
+            if (doneKeys.has(`${dStr}|sid:${sid}`)) return true
+        }
+
+        // 2. Fallback by class+subject — only safe when no sibling session shares same class+subject today
+        const siblingsToday = schedule.filter(
+            (x: any) => x.day_of_week === s.day_of_week &&
+                        x.class_id   === s.class_id    &&
+                        (x.subject_id ?? null) === (s.subject_id ?? null)
+        ).length
+        if (siblingsToday > 1) return false
+
+        // Accept class-only when subject is absent on either side, otherwise require subject match
+        const clsSubKey = `${dStr}|cls:${s.class_id}|sub:`
+        const clsSubKeyFull = `${dStr}|cls:${s.class_id}|sub:${s.subject_id ?? ''}`
+        return doneKeys.has(clsSubKey) || doneKeys.has(clsSubKeyFull)
+    }
+
+    const todaySchedule = schedule.filter((s: any) => s.day_of_week === todayDow)
+
+    const pendingSessions = todaySchedule
+        .filter((s: any) => !isDoneOn(s, todayStr) && s.start_time.substring(0, 5) <= nowHHMM)
+        .map((s: any) => ({
+            id: s.id, classId: s.class_id, subjectId: s.subject_id,
+            className:   (s.classes  as any)?.name ?? '—',
+            subjectName: (s.subjects as any)?.name ?? '—',
+            subjectIcon: (s.subjects as any)?.icon ?? null,
+            startTime: s.start_time.substring(0, 5),
+            endTime:   s.end_time.substring(0, 5),
+        }))
+
+    // Fetch school names and logos for all schools found in the schedule
+    const uniqueSchoolIds = [...new Set((schedule as any[]).map(s => s.school_id).filter(Boolean))]
+    const { data: schoolsData } = uniqueSchoolIds.length > 0
+        ? await admin.from('schools').select('id, name, logo_url').in('id', uniqueSchoolIds)
+        : { data: [] }
+    const schoolNameMap = new Map((schoolsData || []).map((s: any) => [s.id, s.name as string]))
+    const schoolLogoMap = new Map((schoolsData || []).map((s: any) => [s.id, s.logo_url as string | null]))
+
+    // Per-class stats (only count days up to today)
+    const classMap = new Map<string, {
+        className: string
+        schoolId: string | null
+        subjectsMap: Map<string, { name: string; icon: string | null }>
+        weekTotal: number; weekDone: number
+    }>()
+
+    for (const s of schedule) {
+        if (!classMap.has(s.class_id)) {
+            classMap.set(s.class_id, {
+                className: (s.classes as any)?.name ?? '—',
+                schoolId: (s as any).school_id ?? null,
+                subjectsMap: new Map(),
+                weekTotal: 0, weekDone: 0,
+            })
+        }
+        const entry = classMap.get(s.class_id)!
+        if (s.subject_id && (s.subjects as any)?.name) {
+            entry.subjectsMap.set(s.subject_id, { name: (s.subjects as any).name, icon: (s.subjects as any).icon ?? null })
+        }
+    }
+
+    for (let i = 0; i < 7; i++) {
+        const d = new Date(monday); d.setDate(monday.getDate() + i)
+        const dow  = d.getDay()
+        const dStr = d.toISOString().split('T')[0]
+        if (dStr > todayStr) continue
+        for (const [classId, entry] of classMap) {
+            const daySessions = schedule.filter((s: any) => s.day_of_week === dow && s.class_id === classId)
+            entry.weekTotal += daySessions.length
+            entry.weekDone  += daySessions.filter((s: any) => isDoneOn(s, dStr)).length
+        }
+    }
+
+    const classStats = Array.from(classMap.entries()).map(([classId, e]) => ({
+        classId, className: e.className,
+        schoolId: e.schoolId,
+        schoolName: schoolNameMap.get(e.schoolId ?? '') || '—',
+        schoolLogoUrl: schoolLogoMap.get(e.schoolId ?? '') ?? null,
+        subjects: Array.from(e.subjectsMap.values()),
+        weekTotal: e.weekTotal, weekDone: e.weekDone,
+        weekRate: e.weekTotal > 0 ? Math.round((e.weekDone / e.weekTotal) * 100) : 0,
+    }))
+
+    // Week view — only days that have sessions
+    const weekView = Array.from({ length: 7 }, (_, i) => {
+        const d = new Date(monday); d.setDate(monday.getDate() + i)
+        const dow  = d.getDay()
+        const dStr = d.toISOString().split('T')[0]
+        return {
+            dayOfWeek: dow, dateStr: dStr,
+            isPast:  dStr < todayStr,
+            isToday: dStr === todayStr,
+            sessions: schedule
+                .filter((s: any) => s.day_of_week === dow)
+                .map((s: any) => ({
+                    id: s.id,
+                    className:   (s.classes  as any)?.name ?? '—',
+                    subjectName: (s.subjects as any)?.name ?? '—',
+                    subjectIcon: (s.subjects as any)?.icon ?? null,
+                    startTime: s.start_time.substring(0, 5),
+                    endTime:   s.end_time.substring(0, 5),
+                    done: isDoneOn(s, dStr),
+                })),
+        }
+    }).filter(day => day.sessions.length > 0)
+
+    return {
+        todayStats: {
+            total:     todaySchedule.length,
+            remaining: todaySchedule.filter((s: any) => s.end_time.substring(0, 5) > nowHHMM).length,
+            done:      todaySchedule.filter((s: any) => isDoneOn(s, todayStr)).length,
+            overdue:   pendingSessions.length,
+        },
+        pendingSessions,
+        classStats,
+        weekView,
+    }
+}

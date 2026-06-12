@@ -84,13 +84,20 @@ function SessionCard({ period, classId, open: initOpen, router }: {
         setLoading(true)
         try {
             const sb = createClient()
-            // grp- and virtual- IDs are synthetic — query by (date, class_id, subject_id)
             const isSynthetic = period.id.startsWith('virtual-') || period.id.startsWith('grp-')
+            // Extract schedule_id from grp- IDs: format is grp-date::subjectId::scheduleId
+            // Split on '::' — part[0]=date, part[1]=subjectId or 'null', part[2]=scheduleId or '__nosched__'
+            const uuidRe = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+            const idParts = period.id.replace(/^grp-/, '').split('::')
+            const embeddedSchedId = idParts.length >= 3 && uuidRe.test(idParts[2]) ? idParts[2] : null
+
             let q = sb.from('attendance')
                 .select('student_id, status, profiles!attendance_student_id_fkey(full_name)')
             if (isSynthetic) {
                 q = (q.eq('date', period.date) as any).eq('class_id', classId)
                 if (period.subjectId) q = (q as any).eq('subject_id', period.subjectId)
+                // If this group was built from a specific schedule slot, scope to it
+                if (embeddedSchedId) q = (q as any).eq('schedule_id', embeddedSchedId)
             } else {
                 q = q.eq('period_id', period.id) as any
             }
