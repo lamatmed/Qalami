@@ -154,7 +154,11 @@ export function TeacherProvider({ children }: { children: ReactNode }) {
             }
         }
 
-        initializeTeacher()
+        // Safety net: if initializeTeacher hangs (slow auth/network on localhost),
+        // release the loading spinner after 10 s so the UI is not stuck forever.
+        const safetyTimer = setTimeout(() => setLoading(false), 10_000)
+
+        initializeTeacher().finally(() => clearTimeout(safetyTimer))
     }, [])
 
     // Reactively load Classes when teacherId OR schoolId changes!

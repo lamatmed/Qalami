@@ -60,12 +60,18 @@ export function TeacherHome() {
                 const now = new Date()
                 let dayOfWeek = now.getDay()
                 dayOfWeek = dayOfWeek === 0 ? 7 : dayOfWeek
- 
+
                 const currentTimeStr = now.toTimeString().slice(0, 5)
- 
-                // Fetch today's schedule for this teacher across all authorized schools
-                const todaySchedule = await getTeacherScheduleAction(teacherId, dayOfWeek)
- 
+
+                // Timeout guard: on localhost Turbopack may delay server action compilation.
+                // If no response in 12 s, fall back to empty schedule so the spinner clears.
+                const todaySchedule: any[] = await Promise.race([
+                    getTeacherScheduleAction(teacherId, dayOfWeek),
+                    new Promise<never>((_, reject) =>
+                        setTimeout(() => reject(new Error('schedule-timeout')), 12_000)
+                    ),
+                ]).catch(() => [])
+
                 if (todaySchedule && todaySchedule.length > 0) {
                     // Calculate remaining classes (not yet ended)
                     const remaining = todaySchedule.filter((s: any) => s.end_time > currentTimeStr).length
@@ -104,9 +110,9 @@ export function TeacherHome() {
                 }
             } catch (err) {
                 console.error('Error fetching teacher data:', err)
+            } finally {
+                setLoadingData(false)
             }
- 
-            setLoadingData(false)
         }
  
         if (!loading && teacherId) {
