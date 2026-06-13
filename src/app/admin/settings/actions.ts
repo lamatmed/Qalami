@@ -136,14 +136,33 @@ export async function updateStaffMemberAction(profileId: string, payload: {
     }).eq('id', profileId)
     if (profileError) return { error: profileError.message }
 
-    // Update active contract
-    const { data: contract } = await admin.from('contracts').select('id').eq('employee_id', profileId).eq('status', 'active').maybeSingle()
+    // Upsert active contract — create if missing, update if exists
+    const { data: contract } = await admin
+        .from('contracts')
+        .select('id')
+        .eq('employee_id', profileId)
+        .eq('status', 'active')
+        .maybeSingle()
+
     if (contract) {
-        await admin.from('contracts').update({
+        const { error: contractError } = await admin.from('contracts').update({
             position: payload.role,
             monthly_salary: payload.salary,
             contract_type: payload.contractType,
         }).eq('id', contract.id)
+        if (contractError) return { error: contractError.message }
+    } else {
+        // No contract yet — create one so salary and role are persisted
+        const { error: contractError } = await admin.from('contracts').insert({
+            school_id: ctx.schoolId,
+            employee_id: profileId,
+            position: payload.role,
+            monthly_salary: payload.salary,
+            contract_type: payload.contractType,
+            start_date: new Date().toISOString().split('T')[0],
+            status: 'active',
+        })
+        if (contractError) return { error: contractError.message }
     }
 
     return { success: true }
@@ -189,7 +208,31 @@ export async function getStaffAction() {
         }
     })
 
-    return { staff, error: null }
+    // Preload current-month unjustified absence counts for all staff
+    const staffIds = staff.map(s => s.id)
+    const unjustifiedCountMap: Record<string, number> = {}
+    if (staffIds.length > 0) {
+        const now = new Date()
+        const month = now.getMonth() + 1
+        const year = now.getFullYear()
+        const monthStart = `${year}-${String(month).padStart(2, '0')}-01`
+        const monthEnd = new Date(year, month, 0).toISOString().split('T')[0]
+
+        const { data: absRows } = await admin
+            .from('teacher_attendance')
+            .select('teacher_id')
+            .in('teacher_id', staffIds)
+            .eq('justified', false)
+            .eq('status', 'absent')
+            .gte('date', monthStart)
+            .lte('date', monthEnd)
+
+        for (const row of absRows ?? []) {
+            unjustifiedCountMap[(row as any).teacher_id] = (unjustifiedCountMap[(row as any).teacher_id] || 0) + 1
+        }
+    }
+
+    return { staff, unjustifiedCountMap, error: null }
 }
 
 export async function addStaffMemberAction(payload: {

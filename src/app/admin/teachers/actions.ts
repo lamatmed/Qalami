@@ -311,3 +311,122 @@ export async function justifyTeacherAbsenceAction(
     }
     return { success: true }
 }
+
+// ── Staff adjustments (heures supp, primes, déductions) ──────────────────────
+
+export async function getStaffAdjustmentsAction(profileId: string) {
+    const ctx = await getActionContext()
+    if (!ctx) return { data: null, error: 'Non authentifié' }
+    const { schoolId } = ctx
+    const admin = createAdminClient()
+    const { data, error } = await admin
+        .from('staff_adjustments')
+        .select('*')
+        .eq('school_id', schoolId)
+        .eq('profile_id', profileId)
+        .order('date', { ascending: false })
+        .order('created_at', { ascending: false })
+    return { data: data || [], error: error?.message || null }
+}
+
+export async function addStaffAdjustmentAction(payload: {
+    profileId: string
+    type: 'heures_sup' | 'prime' | 'deduction' | 'autre'
+    description: string
+    hours?: number
+    hourlyRate?: number
+    amount: number
+    date: string
+}) {
+    const ctx = await getActionContext()
+    if (!ctx) return { error: 'Non authentifié' }
+    const { schoolId, userId } = ctx
+    const admin = createAdminClient()
+    const { error } = await admin.from('staff_adjustments').insert({
+        school_id: schoolId,
+        profile_id: payload.profileId,
+        type: payload.type,
+        description: payload.description || null,
+        hours: payload.hours ?? null,
+        hourly_rate: payload.hourlyRate ?? null,
+        amount: payload.amount,
+        date: payload.date,
+        is_included: false,
+        created_by: userId,
+    })
+    return { error: error?.message || null }
+}
+
+export async function deleteStaffAdjustmentAction(id: string) {
+    const ctx = await getActionContext()
+    if (!ctx) return { error: 'Non authentifié' }
+    const { schoolId } = ctx
+    const admin = createAdminClient()
+    const { error } = await admin
+        .from('staff_adjustments')
+        .delete()
+        .eq('id', id)
+        .eq('school_id', schoolId)
+        .eq('is_included', false)
+    return { error: error?.message || null }
+}
+
+export async function markAdjustmentsIncludedAction(profileId: string, payrollId?: string) {
+    const ctx = await getActionContext()
+    if (!ctx) return { error: 'Non authentifié' }
+    const { schoolId } = ctx
+    const admin = createAdminClient()
+    const update: Record<string, unknown> = { is_included: true }
+    if (payrollId) update.payroll_id = payrollId
+    const { error } = await admin
+        .from('staff_adjustments')
+        .update(update)
+        .eq('school_id', schoolId)
+        .eq('profile_id', profileId)
+        .eq('is_included', false)
+    return { error: error?.message || null }
+}
+
+export async function recordTeacherPaymentAction(payload: {
+    teacherId: string
+    amount: number
+    category: string
+    description: string
+    date: string
+    paymentMethod?: string
+}) {
+    const ctx = await getActionContext()
+    if (!ctx) return { error: 'Non authentifié' }
+    const { schoolId, userId } = ctx
+    const admin = createAdminClient()
+    const { error } = await admin.from('transactions').insert({
+        school_id: schoolId,
+        type: 'expense',
+        category: payload.category,
+        amount: payload.amount,
+        description: payload.description || null,
+        related_profile_id: payload.teacherId,
+        payment_method: payload.paymentMethod || null,
+        transaction_date: payload.date,
+        created_by: userId,
+        status: 'completed',
+    })
+    if (error) return { error: error.message }
+    return { success: true }
+}
+
+export async function getTeacherTransactionsAction(teacherId: string) {
+    const ctx = await getActionContext()
+    if (!ctx) return { error: 'Non authentifié', data: [] }
+    const { schoolId } = ctx
+    const admin = createAdminClient()
+    const { data, error } = await admin
+        .from('transactions')
+        .select('id, type, category, description, amount, status, transaction_date, created_at, payment_method, reference_number, notes')
+        .eq('school_id', schoolId)
+        .eq('related_profile_id', teacherId)
+        .order('created_at', { ascending: false })
+        .limit(60)
+    if (error) return { error: error.message, data: [] }
+    return { data: data ?? [], error: null }
+}

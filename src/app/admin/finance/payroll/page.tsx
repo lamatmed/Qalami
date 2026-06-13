@@ -19,6 +19,8 @@ export default function PayrollPage() {
     const [selectedTeacher, setSelectedTeacher] = useState<any>(null)
     const [confirmedNet, setConfirmedNet] = useState(0)
     const [confirmedBreakdown, setConfirmedBreakdown] = useState({ baseSalary: 0, bonuses: 0, deductions: 0 })
+    const [confirmedNotes, setConfirmedNotes] = useState('')
+    const [confirmedMethod, setConfirmedMethod] = useState('')
     const [transactionId, setTransactionId] = useState('')
     const [refreshKey, setRefreshKey] = useState(0)
 
@@ -32,11 +34,13 @@ export default function PayrollPage() {
         setSelectedTeacher(null)
     }
 
-    const handleValidate = (data: { netSalary: number, baseSalary: number, bonuses: number, deductions: number }) => {
+    const handleValidate = (data: { netSalary: number, baseSalary: number, bonuses: number, deductions: number, notes: string, paymentMethod: string }) => {
         const txId = generateTransactionId()
         setTransactionId(txId)
         setConfirmedNet(data.netSalary)
         setConfirmedBreakdown({ baseSalary: data.baseSalary, bonuses: data.bonuses, deductions: data.deductions })
+        setConfirmedNotes(data.notes)
+        setConfirmedMethod(data.paymentMethod)
         setView('confirmation')
 
         if (selectedTeacher?.employeeId) {
@@ -48,6 +52,8 @@ export default function PayrollPage() {
                 deductions: data.deductions,
                 netSalary: data.netSalary,
                 transactionRef: txId,
+                notes: data.notes,
+                paymentMethod: data.paymentMethod,
             })
         }
     }
@@ -57,6 +63,8 @@ export default function PayrollPage() {
         setSelectedTeacher(null)
         setConfirmedNet(0)
         setConfirmedBreakdown({ baseSalary: 0, bonuses: 0, deductions: 0 })
+        setConfirmedNotes('')
+        setConfirmedMethod('')
         setTransactionId('')
         setRefreshKey(k => k + 1)
     }
@@ -82,6 +90,8 @@ export default function PayrollPage() {
                     netSalary={confirmedNet}
                     breakdown={confirmedBreakdown}
                     transactionId={transactionId}
+                    notes={confirmedNotes}
+                    paymentMethod={confirmedMethod}
                     onReset={handleReset}
                 />
             )}

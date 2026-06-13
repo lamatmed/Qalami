@@ -5,8 +5,9 @@ import { createAdminClient } from '@/utils/supabase/admin'
 import { logActivity } from '@/lib/activity-log'
 
 const PERMISSIONS = [
-    'students', 'teachers', 'parents', 'finance', 'classes',
+    'students', 'teachers', 'parents', 'employees', 'finance', 'classes',
     'schedule', 'reports', 'attendance', 'settings', 'users',
+    'announcements', 'requests',
 ] as const
 
 export type Permission = typeof PERMISSIONS[number]
@@ -203,8 +204,8 @@ export async function adminUpdateUserPassword(targetUserId: string, newPassword:
     const { supabase, userId: actorId, schoolId } = ctx
     const adminClient = createAdminClient()
 
-    if (!newPassword || !/^\d{6}$/.test(newPassword.trim())) {
-        return { error: 'Le mot de passe doit être exactement 6 chiffres' }
+    if (!newPassword || newPassword.trim().length < 6) {
+        return { error: 'Le mot de passe doit contenir au moins 6 caractères' }
     }
 
     const { data: targetProfile, error: profileError } = await adminClient

@@ -45,6 +45,8 @@ export function UploadDocumentDialog({
     const [classId, setClassId] = useState(defaultClassId || 'none')
     const [teacherId, setTeacherId] = useState(defaultTeacherId || 'none')
     const [academicYear, setAcademicYear] = useState('')
+    const [description, setDescription] = useState('')
+    const [nni, setNni] = useState('')
     const [uploading, setUploading] = useState(false)
 
     const [subjects, setSubjects] = useState<{ id: string; name: string; icon: string | null }[]>([])
@@ -129,6 +131,8 @@ export function UploadDocumentDialog({
             formData.append('subjectId', subjectId || 'none')
             formData.append('teacherId', teacherId || defaultTeacherId || 'none')
             formData.append('academicYear', academicYear || '')
+            formData.append('description', description.trim())
+            formData.append('nni', nni.trim())
 
             const res = await fetch('/api/admin/upload-document', {
                 method: 'POST',
@@ -156,6 +160,8 @@ export function UploadDocumentDialog({
         setSubjectId(defaultSubjectId || 'none')
         setClassId(defaultClassId || 'none')
         setTeacherId(defaultTeacherId || 'none')
+        setDescription('')
+        setNni('')
         if (fileInputRef.current) fileInputRef.current.value = ''
         onClose()
     }
@@ -198,6 +204,20 @@ export function UploadDocumentDialog({
                                 <p className="text-[10px] text-gray-600 mt-1">{t('admin.documents.dialog.fileFormats')}</p>
                             </>
                         )}
+                    </div>
+
+                    {/* Description */}
+                    <div className="space-y-1.5">
+                        <Label className="text-xs text-gray-400 uppercase font-bold">
+                            {t('admin.documents.dialog.descriptionLabel')} <span className="normal-case text-gray-600">{t('admin.documents.dialog.optional')}</span>
+                        </Label>
+                        <textarea
+                            value={description}
+                            onChange={e => setDescription(e.target.value)}
+                            placeholder={t('admin.documents.dialog.descriptionPlaceholder')}
+                            rows={2}
+                            className="w-full bg-[#0D1117] border border-white/10 text-white text-sm rounded-lg px-3 py-2 resize-none focus:outline-none focus:border-cyan-500/50 placeholder:text-gray-600"
+                        />
                     </div>
 
                     {/* Type + Category row */}
@@ -297,6 +317,19 @@ export function UploadDocumentDialog({
                                 onChange={e => setAcademicYear(e.target.value)}
                                 placeholder="2024-2025"
                                 className="bg-[#0D1117] border-white/10 text-white h-9"
+                            />
+                        </div>
+
+                        {/* NNI */}
+                        <div className="space-y-1.5">
+                            <Label className="text-xs text-gray-400 uppercase font-bold">
+                                {t('admin.documents.dialog.nniLabel')} <span className="normal-case text-gray-600">{t('admin.documents.dialog.optional')}</span>
+                            </Label>
+                            <Input
+                                value={nni}
+                                onChange={e => setNni(e.target.value)}
+                                placeholder={t('admin.documents.dialog.nniPlaceholder')}
+                                className="bg-[#0D1117] border-white/10 text-white h-9 font-mono"
                             />
                         </div>
                     </div>

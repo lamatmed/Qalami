@@ -245,8 +245,11 @@ export function StudentRemarks({ studentId, schoolId, isArchived }: { studentId:
     )
     const getTypeInfo = (type: string) => TYPE_CONFIG[type] || TYPE_CONFIG.default
 
-    const formatDate = (d: string) =>
-        new Date(d).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', year: 'numeric' })
+    const formatDate = (d: string) => {
+        const dt = new Date(d)
+        return dt.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', year: 'numeric' })
+            + ' ' + dt.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })
+    }
 
     /* ─── Render ─── */
 

@@ -42,6 +42,7 @@ import {
     Activity,
     Inbox,
     ArrowLeftRight,
+    Briefcase,
 } from 'lucide-react'
 
 import { createClient } from '@/utils/supabase/client'
@@ -84,6 +85,7 @@ export const sidebarItems = [
     { icon: ArrowLeftRight, label: 'admin.sidebar.transferredStudents', href: '/admin/students/transferred' },
     { icon: UserCheck, label: 'admin.sidebar.parents', href: '/admin/parents' },
     { icon: BookOpen, label: 'admin.sidebar.teachers', href: '/admin/teachers' },
+    { icon: Briefcase, label: 'admin.sidebar.employees', href: '/admin/employees' },
     { icon: Megaphone, label: 'admin.sidebar.announcements', href: '/admin/announcements' },
     { icon: CalendarDays, label: 'admin.sidebar.events', href: '/admin/events' },
     { icon: GraduationCap, label: 'admin.sidebar.classes', href: '/admin/classes' },
@@ -251,14 +253,16 @@ export function AdminSidebar() {
         students:      ['/admin/students', '/admin/students/transferred'],
         parents:       ['/admin/parents'],
         teachers:      ['/admin/teachers'],
+        employees:     ['/admin/employees'],
         classes:       ['/admin/classes', '/admin/subjects', '/admin/assignments'],
         schedule:      ['/admin/schedule', '/admin/terms'],
         attendance:    ['/admin/attendance'],
         reports:       ['/admin/reports'],
         finance:       ['/admin/finance', '/admin/finance/tuition', '/admin/finance/payroll'],
+        announcements: ['/admin/announcements', '/admin/events'],
+        requests:      ['/admin/requests'],
         settings:      ['/admin/settings', '/admin/documents'],
         users:         ['/admin/users'],
-        announcements: ['/admin/announcements', '/admin/events'],
     }
 
     const isStaff = userInfo?.role === 'school_staff'
@@ -288,6 +292,7 @@ export function AdminSidebar() {
                 { icon: ArrowLeftRight, label: t('admin.sidebar.transferredStudents'), href: '/admin/students/transferred' },
                 { icon: UserCheck, label: t('admin.sidebar.parents'), href: '/admin/parents' },
                 { icon: BookOpen, label: t('admin.sidebar.teachers'), href: '/admin/teachers' },
+                { icon: Briefcase, label: t('admin.sidebar.employees'), href: '/admin/employees' },
                 { icon: Inbox, label: t('admin.sidebar.requests'), href: '/admin/requests', badge: pendingRequests },
                 { icon: Megaphone, label: t('admin.sidebar.announcements'), href: '/admin/announcements' },
                 { icon: CalendarDays, label: t('admin.sidebar.events'), href: '/admin/events' },
@@ -348,12 +353,27 @@ export function AdminSidebar() {
 
 
     const toggleGroup = (id: string) => {
-        setOpenGroups(prev => 
+        setOpenGroups(prev =>
             prev.includes(id) ? [] : [id]
         )
     }
 
-
+    // Auto-expand the sidebar group matching the current URL (e.g. when navigating via notification bell)
+    useEffect(() => {
+        const GROUP_HREFS: Record<string, string[]> = {
+            general:   ['/admin', '/admin/analytics'],
+            community: ['/admin/students', '/admin/parents', '/admin/teachers', '/admin/employees', '/admin/requests', '/admin/announcements', '/admin/events'],
+            pedagogy:  ['/admin/classes', '/admin/subjects', '/admin/assignments', '/admin/schedule', '/admin/terms', '/admin/attendance', '/admin/reports'],
+            finance:   ['/admin/finance'],
+            system:    ['/admin/users', '/admin/documents', '/admin/settings', '/admin/activity'],
+        }
+        const activeGroupId = Object.entries(GROUP_HREFS).find(([, hrefs]) =>
+            hrefs.some(href => href === '/admin' ? pathname === '/admin' : pathname.startsWith(href))
+        )?.[0]
+        if (activeGroupId) {
+            setOpenGroups(prev => prev.includes(activeGroupId) ? prev : [activeGroupId])
+        }
+    }, [pathname])
 
     const handleLogout = async () => {
         const supabase = createClient()

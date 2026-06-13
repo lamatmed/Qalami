@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import {
-    Loader2, Save, Info, Bus, Utensils, GraduationCap, Zap, DollarSign, Calendar, BookOpen, School, Layers
+    Loader2, Save, Info, Bus, Utensils, GraduationCap, Zap, DollarSign, Calendar, BookOpen, School, Layers, Plus, Trash2, PenLine
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { toast } from 'sonner'
@@ -37,6 +37,14 @@ interface CycleConfig {
 }
 
 type CycleState = Record<'fondamental' | 'college' | 'lycee', CycleConfig>
+
+interface CustomFee {
+    id: string
+    label: string
+    amount: string
+    frequency: 'monthly' | 'trimester' | 'annual'
+    due_day: string
+}
 
 const FEE_TYPES: FeeType[] = [
     { id: 'bus',       label: 'Transport',   icon: Bus,            color: 'text-blue-400  bg-blue-500/10  border-blue-500/20',   description: 'Transport scolaire' },
@@ -73,6 +81,8 @@ export function FeeStructures() {
         lycee: { registration: '', tuition: '' }
     })
     
+    const [customFees, setCustomFees] = useState<CustomFee[]>([])
+    const [deletedCustomFeeIds, setDeletedCustomFeeIds] = useState<string[]>([])
     const [currentYear, setCurrentYear] = useState<{ id: string; name: string } | null>(null)
     const [saving, setSaving] = useState(false)
     const [loading, setLoading] = useState(true)
@@ -111,6 +121,7 @@ export function FeeStructures() {
 
                 if (result.feeStructures.length > 0) {
                     const loadedFees = defaultFees()
+                    const loadedCustom: CustomFee[] = []
                     result.feeStructures.forEach((row: any) => {
                         if (row.fee_type in loadedFees) {
                             loadedFees[row.fee_type] = {
@@ -119,9 +130,19 @@ export function FeeStructures() {
                                 due_day:   row.due_day?.toString() || '5',
                                 enabled:   true,
                             }
+                        } else if (row.fee_type?.startsWith('autre_')) {
+                            const id = row.fee_type.slice(6)
+                            loadedCustom.push({
+                                id,
+                                label: row.name || 'Autre',
+                                amount: row.amount?.toString() || '',
+                                frequency: row.frequency || 'monthly',
+                                due_day: row.due_day?.toString() || '5',
+                            })
                         }
                     })
                     setFees(loadedFees)
+                    if (loadedCustom.length > 0) setCustomFees(loadedCustom)
                 }
 
                 // Fallback: localStorage when no academic year configured
@@ -172,7 +193,7 @@ export function FeeStructures() {
                 default_monthly_tuition: parseFloat(cVals.tuition) || 0,
             }))
 
-            const activeFees = FEE_TYPES
+            const standardActiveFees = FEE_TYPES
                 .filter(t_item => fees[t_item.id].enabled && fees[t_item.id].amount)
                 .map(t_item => ({
                     fee_type: t_item.id,
@@ -182,9 +203,22 @@ export function FeeStructures() {
                     due_day: parseInt(fees[t_item.id].due_day) || 5,
                 }))
 
-            const disabledFeeTypes = FEE_TYPES
-                .filter(t_item => !fees[t_item.id].enabled)
-                .map(t_item => t_item.id)
+            const customActiveFees = customFees
+                .filter(cf => cf.label.trim() && cf.amount)
+                .map(cf => ({
+                    fee_type: `autre_${cf.id}`,
+                    name: cf.label.trim(),
+                    amount: parseFloat(cf.amount) || 0,
+                    frequency: cf.frequency,
+                    due_day: parseInt(cf.due_day) || 5,
+                }))
+
+            const activeFees = [...standardActiveFees, ...customActiveFees]
+
+            const disabledFeeTypes = [
+                ...FEE_TYPES.filter(t_item => !fees[t_item.id].enabled).map(t_item => t_item.id),
+                ...deletedCustomFeeIds.map(id => `autre_${id}`),
+            ]
 
             const result = await saveFeeStructuresAction({
                 schoolId,
@@ -212,6 +246,27 @@ export function FeeStructures() {
         if (fee.frequency === 'monthly') return amount * 10
         if (fee.frequency === 'trimester') return amount * 3
         return amount
+    }
+
+    function annualEquivalentCustom(cf: CustomFee): number {
+        const amount = parseFloat(cf.amount) || 0
+        if (cf.frequency === 'monthly') return amount * 10
+        if (cf.frequency === 'trimester') return amount * 3
+        return amount
+    }
+
+    const addCustomFee = () => {
+        const id = Math.random().toString(36).slice(2, 10)
+        setCustomFees(prev => [...prev, { id, label: '', amount: '', frequency: 'monthly', due_day: '5' }])
+    }
+
+    const updateCustomFee = (id: string, field: keyof CustomFee, value: string) => {
+        setCustomFees(prev => prev.map(cf => cf.id === id ? { ...cf, [field]: value } : cf))
+    }
+
+    const removeCustomFee = (id: string) => {
+        setCustomFees(prev => prev.filter(cf => cf.id !== id))
+        setDeletedCustomFeeIds(prev => [...prev, id])
     }
 
     if (loading) {
@@ -436,10 +491,102 @@ export function FeeStructures() {
                         )
                     })}
                 </div>
+
+                {/* Custom "Autre" fees */}
+                {customFees.map(cf => {
+                    const annual = annualEquivalentCustom(cf)
+                    return (
+                        <div key={cf.id} className="rounded-2xl border bg-[#1A2530] border-white/10 shadow-lg shadow-black/10">
+                            {/* Header */}
+                            <div className="flex items-center gap-4 p-4">
+                                <div className="w-10 h-10 rounded-xl flex items-center justify-center border shrink-0 text-gray-400 bg-white/5 border-white/10">
+                                    <PenLine className="w-5 h-5" />
+                                </div>
+                                <input
+                                    type="text"
+                                    value={cf.label}
+                                    onChange={e => updateCustomFee(cf.id, 'label', e.target.value)}
+                                    placeholder="Nom du frais (ex. Uniforme, Examen…)"
+                                    className="flex-1 bg-transparent text-white font-bold text-sm placeholder-gray-600 focus:outline-none border-b border-white/10 focus:border-white/30 py-0.5 transition-colors"
+                                />
+                                <button
+                                    type="button"
+                                    onClick={() => removeCustomFee(cf.id)}
+                                    className="p-1.5 rounded-lg text-gray-600 hover:text-red-400 hover:bg-red-500/10 transition-colors shrink-0"
+                                >
+                                    <Trash2 className="w-4 h-4" />
+                                </button>
+                            </div>
+                            {/* Config */}
+                            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 px-4 pb-4 border-t border-white/5 pt-4">
+                                <div className="space-y-1.5">
+                                    <Label className="text-[11px] font-bold text-gray-400 uppercase tracking-wider">Montant</Label>
+                                    <div className="relative">
+                                        <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-500" />
+                                        <Input
+                                            type="number"
+                                            value={cf.amount}
+                                            onChange={e => updateCustomFee(cf.id, 'amount', e.target.value)}
+                                            placeholder="0"
+                                            className="pl-8 bg-[#0F1720] border-white/10 text-white font-mono h-10 focus:border-emerald-500/50"
+                                        />
+                                    </div>
+                                </div>
+                                <div className="space-y-1.5">
+                                    <Label className="text-[11px] font-bold text-gray-400 uppercase tracking-wider">Fréquence</Label>
+                                    <div className="flex gap-1 flex-wrap bg-[#0F1720] p-1 rounded-xl border border-white/5">
+                                        {(['monthly', 'trimester', 'annual'] as const).map(f => (
+                                            <button
+                                                type="button"
+                                                key={f}
+                                                onClick={() => updateCustomFee(cf.id, 'frequency', f)}
+                                                className={cn(
+                                                    "flex-1 text-center px-3 py-1.5 rounded-lg text-xs font-bold transition-all",
+                                                    cf.frequency === f
+                                                        ? "bg-emerald-500 text-black shadow-md shadow-emerald-500/20"
+                                                        : "text-gray-400 hover:text-white hover:bg-white/5"
+                                                )}
+                                            >
+                                                {f === 'monthly' ? 'Mensuel' : f === 'trimester' ? 'Trimestriel' : 'Annuel'}
+                                            </button>
+                                        ))}
+                                    </div>
+                                </div>
+                                <div className="space-y-1.5">
+                                    <Label className="text-[11px] font-bold text-gray-400 uppercase tracking-wider">Jour d'échéance</Label>
+                                    <Input
+                                        type="number"
+                                        min="1"
+                                        max="28"
+                                        value={cf.due_day}
+                                        onChange={e => updateCustomFee(cf.id, 'due_day', e.target.value)}
+                                        placeholder="5"
+                                        className="bg-[#0F1720] border-white/10 text-white font-mono h-10 focus:border-emerald-500/50"
+                                    />
+                                    {annual > 0 && (
+                                        <p className="text-[11px] text-emerald-400 font-semibold mt-1 animate-in fade-in">
+                                            ✨ Équivalent annuel : {annual.toLocaleString('fr-FR')} MRU
+                                        </p>
+                                    )}
+                                </div>
+                            </div>
+                        </div>
+                    )
+                })}
+
+                {/* Add custom fee button */}
+                <button
+                    type="button"
+                    onClick={addCustomFee}
+                    className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-2xl border-2 border-dashed border-white/10 text-gray-500 hover:text-white hover:border-white/20 transition-all text-sm font-bold"
+                >
+                    <Plus className="w-4 h-4" />
+                    Ajouter un frais personnalisé
+                </button>
             </div>
 
             {/* 📝 Annual summary of optional services */}
-            {FEE_TYPES.some(t_item => fees[t_item.id].enabled && fees[t_item.id].amount) && (
+            {(FEE_TYPES.some(t_item => fees[t_item.id].enabled && fees[t_item.id].amount) || customFees.some(cf => cf.amount)) && (
                 <div className="bg-[#1A2530] rounded-2xl border border-white/5 p-5 animate-in slide-in-from-bottom-2 duration-300">
                     <h4 className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-4 flex items-center gap-2">
                         <Info className="w-3.5 h-3.5 text-gray-500" />
@@ -458,13 +605,26 @@ export function FeeStructures() {
                                 </div>
                             )
                         })}
+                        {customFees.filter(cf => cf.amount).map(cf => (
+                            <div key={cf.id} className="flex justify-between items-center text-sm">
+                                <span className="text-gray-400 flex items-center gap-2">
+                                    <div className="w-2 h-2 rounded-full bg-gray-500" />
+                                    {cf.label || 'Frais personnalisé'}
+                                </span>
+                                <span className="font-mono font-bold text-white">{annualEquivalentCustom(cf).toLocaleString('fr-FR')} <span className="text-gray-500 text-[10px] font-normal">MRU / an</span></span>
+                            </div>
+                        ))}
                         <div className="pt-3 border-t border-white/10 flex justify-between items-center text-sm font-bold">
                              <span className="text-white">{t('admin.settings.fees.totalAnnual') || "Total Compléments Annuel"}</span>
                              <span className="font-mono text-emerald-400 bg-emerald-500/10 px-3 py-1 rounded-lg border border-emerald-500/20">
-                                 {FEE_TYPES
-                                     .filter(t_item => fees[t_item.id].enabled && fees[t_item.id].amount)
-                                     .reduce((s, t_item) => s + annualEquivalent(fees[t_item.id]), 0)
-                                     .toLocaleString('fr-FR')}{' '}
+                                 {(
+                                     FEE_TYPES
+                                         .filter(t_item => fees[t_item.id].enabled && fees[t_item.id].amount)
+                                         .reduce((s, t_item) => s + annualEquivalent(fees[t_item.id]), 0)
+                                     + customFees
+                                         .filter(cf => cf.amount)
+                                         .reduce((s, cf) => s + annualEquivalentCustom(cf), 0)
+                                 ).toLocaleString('fr-FR')}{' '}
                                  <span className="text-gray-500 text-[10px] font-normal">MRU</span>
                              </span>
                         </div>

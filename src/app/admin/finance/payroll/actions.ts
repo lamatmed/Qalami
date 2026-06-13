@@ -3,6 +3,7 @@
 import { createAdminClient } from '@/utils/supabase/admin'
 import { createClient } from '@/utils/supabase/server'
 import { logActivity } from '@/lib/activity-log'
+import { markAdjustmentsIncludedAction } from '@/app/admin/teachers/actions'
 
 export async function confirmPaymentAction(payload: {
     employeeId: string
@@ -12,6 +13,8 @@ export async function confirmPaymentAction(payload: {
     deductions: number
     netSalary: number
     transactionRef: string
+    notes?: string
+    paymentMethod?: string
 }) {
     const supabase = await createClient()
     const { data: { user } } = await supabase.auth.getUser()
@@ -95,6 +98,8 @@ export async function confirmPaymentAction(payload: {
             category: 'Salaire du personnel',
             amount: payload.netSalary,
             description: `Salaire ${month}/${year} — ${payload.employeeName}`,
+            notes: payload.notes?.trim() || null,
+            payment_method: payload.paymentMethod || null,
             related_profile_id: payload.employeeId,
             reference_number: payload.transactionRef,
             status: 'completed',
@@ -103,6 +108,9 @@ export async function confirmPaymentAction(payload: {
         })
         if (txErr) return { error: txErr.message }
     }
+
+    // Mark all pending journal entries for this employee as included in this payroll
+    await markAdjustmentsIncludedAction(payload.employeeId, existing?.id)
 
     logActivity({
         actorId: user.id,

@@ -37,18 +37,21 @@ const COUNTRY_CODES = [
 import { useLanguage } from '@/i18n'
 import {
     getStaffUsers, createStaffUser, updateStaffPermissions,
-    deleteStaffUser, getActivityLogs, type Permission
+    deleteStaffUser, getActivityLogs, adminUpdateUserPassword, type Permission
 } from '@/app/admin/users/actions'
 
 const ALL_PERMISSIONS: { key: Permission; label: string; icon: string }[] = [
     { key: 'students', label: 'Élèves', icon: '👨‍🎓' },
     { key: 'teachers', label: 'Enseignants', icon: '👩‍🏫' },
     { key: 'parents', label: 'Parents', icon: '👪' },
+    { key: 'employees', label: 'Personnel', icon: '💼' },
     { key: 'classes', label: 'Classes', icon: '🏫' },
     { key: 'schedule', label: 'Emploi du temps', icon: '🗓️' },
     { key: 'attendance', label: 'Présences', icon: '✅' },
     { key: 'reports', label: 'Bulletins', icon: '📋' },
     { key: 'finance', label: 'Comptabilité', icon: '💰' },
+    { key: 'announcements', label: 'Annonces & Événements', icon: '📢' },
+    { key: 'requests', label: 'Demandes', icon: '📥' },
     { key: 'settings', label: 'Paramètres', icon: '⚙️' },
     { key: 'users', label: 'Utilisateurs', icon: '👤' },
 ]
@@ -94,6 +97,11 @@ export function UsersManagement() {
     const [showPassword, setShowPassword] = useState(false)
     const [newPerms, setNewPerms] = useState<Permission[]>([])
     const [creating, setCreating] = useState(false)
+
+    const [changePwdUser, setChangePwdUser] = useState<StaffUser | null>(null)
+    const [newPwd, setNewPwd] = useState('')
+    const [showNewPwd, setShowNewPwd] = useState(false)
+    const [changingPwd, setChangingPwd] = useState(false)
 
     useEffect(() => {
         loadUsers()
@@ -163,10 +171,30 @@ export function UsersManagement() {
         setDeletingId(null)
     }
 
+    async function handleChangePassword() {
+        if (!changePwdUser) return
+        if (newPwd.trim().length < 6) {
+            toast.error(t('admin.users.passwordMinLength'))
+            return
+        }
+        setChangingPwd(true)
+        const result = await adminUpdateUserPassword(changePwdUser.id, newPwd.trim())
+        setChangingPwd(false)
+        if (result.error) {
+            toast.error(result.error)
+        } else {
+            toast.success(t('admin.users.passwordUpdated'))
+            setChangePwdUser(null)
+            setNewPwd('')
+            setShowNewPwd(false)
+        }
+    }
+
     const togglePerm = (perms: Permission[], perm: Permission): Permission[] =>
         perms.includes(perm) ? perms.filter(p => p !== perm) : [...perms, perm]
 
     return (
+        <>
         <div className="space-y-6">
             <div className="flex justify-end">
                 <Button
@@ -392,6 +420,13 @@ export function UsersManagement() {
                                             <Shield className="w-4 h-4" />
                                         </button>
                                         <button
+                                            onClick={() => { setChangePwdUser(u); setNewPwd(''); setShowNewPwd(false) }}
+                                            className="p-2 rounded-lg hover:bg-blue-50 dark:hover:bg-blue-500/10 text-gray-400 hover:text-blue-500 transition-colors"
+                                            title={t('admin.users.changePassword')}
+                                        >
+                                            <KeyRound className="w-4 h-4" />
+                                        </button>
+                                        <button
                                             onClick={() => handleDelete(u.id)}
                                             disabled={deletingId === u.id}
                                             className="p-2 rounded-lg hover:bg-red-50 text-gray-400 hover:text-red-500 transition-colors"
@@ -531,5 +566,67 @@ export function UsersManagement() {
                 </div>
             )}
         </div>
+
+        {/* Change password modal */}
+        {changePwdUser && (
+            <div className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center p-4" onClick={() => !changingPwd && setChangePwdUser(null)}>
+                <div className="bg-white dark:bg-[#0F1720] border border-gray-200 dark:border-white/10 rounded-3xl p-6 w-full max-w-sm shadow-2xl" onClick={e => e.stopPropagation()}>
+                    <div className="flex items-center gap-3 mb-5">
+                        <div className="w-10 h-10 bg-blue-500/10 rounded-xl flex items-center justify-center">
+                            <KeyRound className="w-5 h-5 text-blue-500" />
+                        </div>
+                        <div>
+                            <h2 className="text-base font-bold text-gray-900 dark:text-white">{t('admin.users.changePassword')}</h2>
+                            <p className="text-xs text-gray-400 truncate max-w-[200px]">{changePwdUser.full_name}</p>
+                        </div>
+                    </div>
+
+                    <div className="space-y-2">
+                        <Label className="text-sm text-gray-600 dark:text-gray-400">{t('admin.users.password')}</Label>
+                        <div className="relative">
+                            <KeyRound className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                            <Input
+                                type={showNewPwd ? 'text' : 'password'}
+                                value={newPwd}
+                                onChange={e => setNewPwd(e.target.value)}
+                                onKeyDown={e => { if (e.key === 'Enter') handleChangePassword() }}
+                                placeholder={t('admin.users.passwordPlaceholder')}
+                                autoFocus
+                                className="pl-9 pr-10 bg-gray-50 dark:bg-[#1A2530] border-gray-200 dark:border-white/5"
+                            />
+                            <button
+                                type="button"
+                                onClick={() => setShowNewPwd(v => !v)}
+                                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors"
+                                tabIndex={-1}
+                            >
+                                {showNewPwd ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                            </button>
+                        </div>
+                        <p className="text-[11px] text-gray-400">{t('admin.users.passwordMinLength')}</p>
+                    </div>
+
+                    <div className="flex gap-3 mt-5">
+                        <Button
+                            variant="outline"
+                            className="flex-1 dark:border-white/10"
+                            onClick={() => setChangePwdUser(null)}
+                            disabled={changingPwd}
+                        >
+                            {t('admin.users.cancel')}
+                        </Button>
+                        <Button
+                            className="flex-1 bg-blue-500 hover:bg-blue-600 text-white font-bold"
+                            onClick={handleChangePassword}
+                            disabled={changingPwd || newPwd.trim().length < 6}
+                        >
+                            {changingPwd ? <RefreshCw className="w-4 h-4 animate-spin mr-2" /> : <KeyRound className="w-4 h-4 mr-2" />}
+                            {changingPwd ? t('admin.users.saving') : t('admin.users.changePassword')}
+                        </Button>
+                    </div>
+                </div>
+            </div>
+        )}
+        </>
     )
 }

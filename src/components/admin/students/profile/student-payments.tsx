@@ -18,7 +18,7 @@ interface StudentPaymentsProps {
     isArchived?: boolean
 }
 
-interface Payment {
+interface FinanceItem {
     id: string
     amount: number
     payment_type: string
@@ -27,11 +27,12 @@ interface Payment {
     paid_at: string | null
     description?: string | null
     receipt_number?: string | null
+    source: 'payment' | 'transaction'
 }
 
 export function StudentPayments({ studentId, studentName, schoolId, isArchived }: StudentPaymentsProps) {
     const { t, language } = useLanguage()
-    const [payments, setPayments] = useState<Payment[]>([])
+    const [payments, setPayments] = useState<FinanceItem[]>([])
     const [loading, setLoading] = useState(true)
     const [showPaymentForm, setShowPaymentForm] = useState(false)
     const [submitting, setSubmitting] = useState(false)
@@ -57,18 +58,49 @@ export function StudentPayments({ studentId, studentName, schoolId, isArchived }
         }
 
         const supabase = createClient()
-        const { data, error } = await supabase
-            .from('payments')
-            .select('id, amount, payment_type, payment_status, due_date, paid_at, description, receipt_number')
-            .eq('student_id', studentId)
-            .eq('school_id', schoolId)
-            .order('due_date', { ascending: false })
+        const [paymentsRes, transactionsRes] = await Promise.all([
+            supabase
+                .from('payments')
+                .select('id, amount, payment_type, payment_status, due_date, paid_at, description, receipt_number')
+                .eq('student_id', studentId)
+                .eq('school_id', schoolId)
+                .order('due_date', { ascending: false }),
+            supabase
+                .from('transactions')
+                .select('id, amount, category, description, transaction_date, created_at')
+                .eq('related_profile_id', studentId)
+                .eq('school_id', schoolId)
+                .eq('type', 'income')
+                .eq('status', 'completed')
+                .order('created_at', { ascending: false })
+        ])
 
-        if (error) {
-            console.error('[StudentPayments] Error:', error)
-        } else {
-            setPayments(data || [])
-        }
+        if (paymentsRes.error) console.error('[StudentPayments] Error:', paymentsRes.error)
+
+        const paymentItems: FinanceItem[] = (paymentsRes.data || []).map((p: any) => ({
+            ...p,
+            source: 'payment' as const
+        }))
+
+        const txItems: FinanceItem[] = (transactionsRes.data || []).map((tx: any) => ({
+            id: tx.id,
+            amount: tx.amount,
+            payment_type: tx.category || 'autre',
+            payment_status: 'paid',
+            due_date: tx.transaction_date || null,
+            paid_at: tx.created_at || (tx.transaction_date ? tx.transaction_date : null),
+            description: tx.description || null,
+            receipt_number: null,
+            source: 'transaction' as const
+        }))
+
+        const merged = [...paymentItems, ...txItems].sort((a, b) => {
+            const da = new Date(a.paid_at || a.due_date || '').getTime()
+            const db = new Date(b.paid_at || b.due_date || '').getTime()
+            return db - da
+        })
+
+        setPayments(merged)
         setLoading(false)
     }
 
@@ -151,8 +183,9 @@ export function StudentPayments({ studentId, studentName, schoolId, isArchived }
         fetchStudentDetails()
     }, [studentId, schoolId])
 
-    const totalDue = payments.reduce((sum, p) => sum + Number(p.amount), 0)
-    const totalPaid = payments.filter(p => p.payment_status === 'paid').reduce((sum, p) => sum + Number(p.amount), 0)
+    const feePayments = payments.filter(p => p.source === 'payment')
+    const totalDue = feePayments.reduce((sum, p) => sum + Number(p.amount), 0)
+    const totalPaid = feePayments.filter(p => p.payment_status === 'paid').reduce((sum, p) => sum + Number(p.amount), 0)
     const paidPercentage = totalDue > 0 ? Math.round((totalPaid / totalDue) * 100) : 0
     const remaining = totalDue - totalPaid
 
@@ -162,12 +195,16 @@ export function StudentPayments({ studentId, studentName, schoolId, isArchived }
             bus: { fr: 'Transport', ar: 'رسوم النقل' },
             cantine: { fr: 'Cantine', ar: 'رسوم الإطعام' },
             inscription: { fr: 'Inscription', ar: 'رسوم التسجيل' },
-            activites: { fr: 'Activités', ar: 'رسوم الأنشطة' }
+            activites: { fr: 'Activités', ar: 'رسوم الأنشطة' },
+            transport: { fr: 'Transport', ar: 'رسوم النقل' },
+            restauration: { fr: 'Restauration', ar: 'رسوم الإطعام' },
+            cotisation: { fr: 'Cotisation', ar: 'الاشتراك' },
+            autre: { fr: 'Versement divers', ar: 'دفع متنوع' }
         }
         return labels[type] || { fr: type, ar: type }
     }
 
-    const handlePrintReceipt = (payment: Payment) => {
+    const handlePrintReceipt = (payment: FinanceItem) => {
         const printWindow = window.open('', '_blank', 'width=700,height=850')
         if (!printWindow) {
             toast.error(t('admin.students.register.confirmation.printOpenError'))
@@ -665,9 +702,12 @@ export function StudentPayments({ studentId, studentName, schoolId, isArchived }
         }
     }
 
-    const formatDate = (dateStr: string | null) => {
+    const formatDate = (dateStr: string | null, withTime = false) => {
         if (!dateStr) return '—'
-        return new Date(dateStr).toLocaleDateString(language === 'ar' ? 'ar-u-ca-gregory' : 'fr-FR', { day: '2-digit', month: 'short', year: 'numeric' })
+        const d = new Date(dateStr)
+        const loc = language === 'ar' ? 'ar-u-ca-gregory' : 'fr-FR'
+        const base = d.toLocaleDateString(loc, { day: '2-digit', month: 'short', year: 'numeric' })
+        return withTime ? base + ' ' + d.toLocaleTimeString(loc, { hour: '2-digit', minute: '2-digit' }) : base
     }
 
     const getTypeLabel = (type: string) => {
@@ -676,7 +716,11 @@ export function StudentPayments({ studentId, studentName, schoolId, isArchived }
             bus: 'Transport',
             cantine: 'Cantine',
             inscription: 'Inscription',
-            activites: 'Activités'
+            activites: 'Activités',
+            transport: 'Transport',
+            restauration: 'Restauration',
+            cotisation: 'Cotisation',
+            autre: 'Versement divers'
         }
         return labels[type] || type
     }
@@ -818,11 +862,18 @@ export function StudentPayments({ studentId, studentName, schoolId, isArchived }
                                     </div>
 
                                     <div>
-                                        <h4 className="font-bold text-white text-sm">{getTypeLabel(payment.payment_type)}</h4>
+                                        <h4 className="font-bold text-white text-sm flex items-center gap-2">
+                                            {getTypeLabel(payment.payment_type)}
+                                            {payment.source === 'transaction' && (
+                                                <span className="text-[9px] bg-blue-500/10 text-blue-400 border border-blue-500/20 px-1.5 py-0.5 rounded-full font-bold uppercase tracking-wider">
+                                                    Comptabilité
+                                                </span>
+                                            )}
+                                        </h4>
                                         <div className="flex items-center gap-2 text-xs">
                                             <span className="text-emerald-500 font-bold">{Number(payment.amount).toLocaleString('fr-FR')} MRU</span>
                                             <span className="text-gray-500">•</span>
-                                            <span className="text-gray-400">{formatDate(payment.paid_at || payment.due_date)}</span>
+                                            <span className="text-gray-400">{payment.paid_at ? formatDate(payment.paid_at, true) : formatDate(payment.due_date)}</span>
                                         </div>
                                     </div>
                                 </div>

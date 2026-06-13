@@ -288,7 +288,8 @@ export default function AdminGradesPage() {
                                 {filteredGrades.map((g) => {
                                     const pct = Math.round((g.value / g.max_value) * 100)
                                     const colorCls = pct >= 50 ? 'text-emerald-400' : 'text-red-400'
-                                    const dateStr = new Date(g.created_at).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: 'numeric' })
+                                    const _d = new Date(g.created_at)
+                                    const dateStr = _d.toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: 'numeric' }) + ' ' + _d.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })
                                     
                                     return (
                                         <tr key={g.id} className="hover:bg-white/5 transition-colors group">

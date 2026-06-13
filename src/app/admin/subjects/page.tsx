@@ -136,7 +136,7 @@ export default function SubjectsPage() {
                                 <div className="flex-1 min-w-0">
                                     <h4 className="font-semibold text-sm truncate text-foreground">{getDisplayName(sub)}</h4>
                                     <p className="text-xs text-muted-foreground mt-0.5">
-                                        {t('admin.subjects.addedOn', { date: new Date(sub.created_at).toLocaleDateString(locale, { day: 'numeric', month: 'short', year: 'numeric' }) })}
+                                        {t('admin.subjects.addedOn', { date: (() => { const _d = new Date(sub.created_at); return _d.toLocaleDateString(locale, { day: 'numeric', month: 'short', year: 'numeric' }) + ' ' + _d.toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit' }) })() })}
                                     </p>
                                 </div>
 

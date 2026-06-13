@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { Bell, CreditCard, Download, GraduationCap, Bus, Utensils, CheckCircle2, Loader2, Activity } from 'lucide-react'
+import { Bell, CreditCard, Download, GraduationCap, Bus, Utensils, CheckCircle2, Loader2, Activity, Printer } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { cn } from '@/lib/utils'
@@ -17,6 +17,7 @@ interface Payment {
     due_date: string
     paid_at: string | null
     description: string | null
+    source?: 'payment' | 'transaction'
 }
 
 export function ParentFinances() {
@@ -48,18 +49,45 @@ export function ParentFinances() {
                     setTotalPending(pending.reduce((sum, p) => sum + Number(p.amount), 0))
                 }
 
-                // Fetch paid history
-                const { data: paid, error: paidError } = await supabase
-                    .from('payments')
-                    .select('id, amount, payment_type, payment_status, due_date, paid_at, description')
-                    .eq('student_id', selectedChild.id)
-                    .eq('payment_status', 'paid')
-                    .order('paid_at', { ascending: false })
-                    .limit(5)
+                // Fetch paid history (payments + comptabilité transactions)
+                const [paidRes, txRes] = await Promise.all([
+                    supabase
+                        .from('payments')
+                        .select('id, amount, payment_type, payment_status, due_date, paid_at, description')
+                        .eq('student_id', selectedChild.id)
+                        .eq('payment_status', 'paid')
+                        .order('paid_at', { ascending: false })
+                        .limit(8),
+                    supabase
+                        .from('transactions')
+                        .select('id, amount, category, description, transaction_date')
+                        .eq('related_profile_id', selectedChild.id)
+                        .eq('type', 'income')
+                        .eq('status', 'completed')
+                        .order('transaction_date', { ascending: false })
+                        .limit(8)
+                ])
 
-                if (!paidError && paid) {
-                    setPaidHistory(paid)
-                }
+                const paidItems: Payment[] = (paidRes.data || []).map((p: any) => ({ ...p, source: 'payment' as const }))
+
+                const txItems: Payment[] = (txRes.data || []).map((tx: any) => ({
+                    id: tx.id,
+                    amount: tx.amount,
+                    payment_type: tx.category || 'autre',
+                    payment_status: 'paid',
+                    due_date: tx.transaction_date || new Date().toISOString(),
+                    paid_at: tx.transaction_date ? new Date(tx.transaction_date + 'T12:00:00').toISOString() : null,
+                    description: tx.description || null,
+                    source: 'transaction' as const
+                }))
+
+                const merged = [...paidItems, ...txItems].sort((a, b) => {
+                    const da = new Date(a.paid_at || a.due_date || '').getTime()
+                    const db = new Date(b.paid_at || b.due_date || '').getTime()
+                    return db - da
+                }).slice(0, 8)
+
+                setPaidHistory(merged)
             } catch (err) {
                 console.error('Error fetching payments:', err)
             }
@@ -86,6 +114,11 @@ export function ParentFinances() {
             'bus': t('parent.finances.bus'),
             'cantine': t('parent.finances.cantine'),
             'activites': t('parent.finances.activites'),
+            'inscription': 'Inscription',
+            'transport': 'Transport',
+            'restauration': 'Restauration',
+            'cotisation': 'Cotisation',
+            'autre': 'Versement divers'
         }
         return labels[type] || type
     }
@@ -231,18 +264,33 @@ export function ParentFinances() {
                         {paidHistory.map((item) => (
                             <div key={item.id} className="bg-card/30 p-4 rounded-2xl flex items-center justify-between hover:bg-card/50 transition-colors">
                                 <div className="flex items-center gap-3">
-                                    <div className="h-8 w-8 rounded-full bg-emerald-500/20 flex items-center justify-center border border-emerald-500/30">
-                                        <CheckCircle2 className="w-4 h-4 text-emerald-500" />
+                                    <div className={cn(
+                                        "h-8 w-8 rounded-full flex items-center justify-center border",
+                                        item.source === 'transaction'
+                                            ? "bg-blue-500/10 border-blue-500/20"
+                                            : "bg-emerald-500/20 border-emerald-500/30"
+                                    )}>
+                                        <CheckCircle2 className={cn("w-4 h-4", item.source === 'transaction' ? "text-blue-400" : "text-emerald-500")} />
                                     </div>
                                     <div>
-                                        <h3 className="font-medium text-sm text-gray-200">{getPaymentLabel(item.payment_type)}</h3>
+                                        <h3 className="font-medium text-sm text-gray-200 flex items-center gap-2">
+                                            {getPaymentLabel(item.payment_type)}
+                                            {item.source === 'transaction' && (
+                                                <span className="text-[9px] bg-blue-500/10 text-blue-400 border border-blue-500/20 px-1.5 py-0.5 rounded-full font-bold uppercase tracking-wider">
+                                                    Comptabilité
+                                                </span>
+                                            )}
+                                        </h3>
                                         <p className="text-[10px] text-muted-foreground">
                                             {item.paid_at ? formatDate(item.paid_at) : formatDate(item.due_date)} • {formatAmount(item.amount)}
                                         </p>
+                                        {item.description && (
+                                            <p className="text-[10px] text-muted-foreground/70 mt-0.5">{item.description}</p>
+                                        )}
                                     </div>
                                 </div>
-                                <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground">
-                                    <Download className="w-4 h-4" />
+                                <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-emerald-400">
+                                    <Printer className="w-4 h-4" />
                                 </Button>
                             </div>
                         ))}

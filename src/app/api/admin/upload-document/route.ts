@@ -28,6 +28,8 @@ export async function POST(req: NextRequest) {
         const subjectId = formData.get('subjectId') as string | null
         const teacherId = formData.get('teacherId') as string | null
         const academicYear = formData.get('academicYear') as string | null
+        const description = formData.get('description') as string | null
+        const nni = formData.get('nni') as string | null
 
         if (!file || !documentType || !category) {
             return NextResponse.json({ error: 'Missing required fields' }, { status: 400 })
@@ -82,6 +84,8 @@ export async function POST(req: NextRequest) {
             class_id: (classId && classId !== 'none') ? classId : null,
             teacher_id: (teacherId && teacherId !== 'none') ? teacherId : null,
             academic_year: academicYear || null,
+            description: description?.trim() || null,
+            nni: nni?.trim() || null,
             uploaded_by: user.id,
         })
 

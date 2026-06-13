@@ -1,5 +1,6 @@
 'use client'
 
+import Link from 'next/link'
 import { useState, useEffect } from 'react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -7,12 +8,13 @@ import { Badge } from '@/components/ui/badge'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
 import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { Plus, Users, Search, DollarSign, UserCog, Trash2, Loader2, CalendarDays, ChevronDown, ChevronUp, Check, X, StickyNote, Pencil } from 'lucide-react'
+import { Plus, Users, Search, DollarSign, UserCog, Trash2, Loader2, CalendarDays, ChevronDown, ChevronUp, Check, X, StickyNote, Pencil, Clock } from 'lucide-react'
 import { Skeleton } from '@/components/ui/skeleton'
 import { toast } from 'sonner'
 import { useLanguage } from '@/i18n'
 import { cn } from '@/lib/utils'
 import { getStaffAction, addStaffMemberAction, deleteStaffMember, updateStaffMemberAction, addStaffAbsenceAction, getStaffAbsencesAction, deleteStaffAbsenceAction } from '@/app/admin/settings/actions'
+import { StaffAdjustments } from '@/components/admin/teachers/profile/staff-adjustments'
 
 interface StaffMember {
     id: string
@@ -93,7 +95,14 @@ export function PersonnelManagement() {
 
     // Absence panel state
     const [expandedId, setExpandedId] = useState<string | null>(null)
+    const [expandedAdjId, setExpandedAdjId] = useState<string | null>(null)
+
+    const toggleAdj = (staffId: string) => {
+        setExpandedAdjId(prev => prev === staffId ? null : staffId)
+        setExpandedId(null) // close absences when opening journal
+    }
     const [absencesMap, setAbsencesMap] = useState<Record<string, StaffAbsence[]>>({})
+    const [unjustifiedCountMap, setUnjustifiedCountMap] = useState<Record<string, number>>({})
     const [loadingAbsences, setLoadingAbsences] = useState<string | null>(null)
     const [absenceDate, setAbsenceDate] = useState(() => new Date().toISOString().split('T')[0])
     const [absenceJustified, setAbsenceJustified] = useState(false)
@@ -120,6 +129,7 @@ export function PersonnelManagement() {
             setExpandedId(null)
             return
         }
+        setExpandedAdjId(null) // close journal when opening absences
         setExpandedId(staffId)
         setAbsenceDate(new Date().toISOString().split('T')[0])
         setAbsenceJustified(false)
@@ -162,6 +172,7 @@ export function PersonnelManagement() {
                 toast.error(result.error)
             } else {
                 setStaff((result.staff ?? []) as StaffMember[])
+                setUnjustifiedCountMap((result as any).unjustifiedCountMap ?? {})
             }
             setLoading(false)
         }
@@ -466,8 +477,10 @@ export function PersonnelManagement() {
                     ) : (
                         filteredStaff.map(member => {
                             const absences = absencesMap[member.id] || []
-                            const unjustifiedCount = absences.filter(a => !a.justified).length
-                            const dailySalary = member.salary / 26
+                            const unjustifiedCount = absencesMap[member.id]
+                                ? absences.filter(a => !a.justified).length
+                                : (unjustifiedCountMap[member.id] ?? 0)
+                            const dailySalary = member.salary > 0 ? member.salary / 30 : 0
                             const deduction = unjustifiedCount * dailySalary
                             const isExpanded = expandedId === member.id
 
@@ -480,7 +493,7 @@ export function PersonnelManagement() {
                                                 {member.name.charAt(0).toUpperCase()}
                                             </div>
                                             <div className="min-w-0">
-                                                <h4 className="font-bold text-white text-sm">{member.name}</h4>
+                                                <Link href={`/admin/employees/${member.id}`} className="font-bold text-white text-sm hover:text-pink-400 transition-colors">{member.name}</Link>
                                                 <div className="flex flex-wrap items-center gap-2 mt-0.5">
                                                     <Badge variant="secondary" className="bg-pink-500/10 text-pink-400 text-[10px] border-0 px-1.5 py-0">
                                                         {member.role}
@@ -514,6 +527,21 @@ export function PersonnelManagement() {
                                                 {unjustifiedCount > 0 ? `${unjustifiedCount} abs.` : 'Absences'}
                                                 {isExpanded ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
                                             </button>
+                                            {/* Heures & Primes toggle */}
+                                            <button
+                                                type="button"
+                                                onClick={() => toggleAdj(member.id)}
+                                                className={cn(
+                                                    "flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[10px] font-bold border transition-all",
+                                                    expandedAdjId === member.id
+                                                        ? "bg-emerald-500/10 border-emerald-500/20 text-emerald-400"
+                                                        : "bg-white/5 border-white/10 text-gray-500 hover:text-gray-300"
+                                                )}
+                                            >
+                                                <Clock className="w-3 h-3" />
+                                                Heures & Primes
+                                                {expandedAdjId === member.id ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
+                                            </button>
                                             <Button
                                                 size="icon"
                                                 variant="ghost"
@@ -534,6 +562,13 @@ export function PersonnelManagement() {
                                         </div>
                                     </div>
 
+                                    {/* Journal panel — Heures & Primes */}
+                                    {expandedAdjId === member.id && (
+                                        <div className="border-t border-white/5 bg-[#0F1720] px-5 py-4">
+                                            <StaffAdjustments profileId={member.id} />
+                                        </div>
+                                    )}
+
                                     {/* Absence panel */}
                                     {isExpanded && (
                                         <div className="border-t border-white/5 bg-[#0F1720] px-5 py-4 space-y-4">
@@ -542,7 +577,12 @@ export function PersonnelManagement() {
                                                 <p className="text-xs font-bold text-gray-400">
                                                     Absences — {new Date(currentYear, currentMonth - 1).toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' })}
                                                 </p>
-                                                {unjustifiedCount > 0 && (
+                                                {unjustifiedCount > 0 && member.salary === 0 && (
+                                                    <span className="text-xs font-bold text-amber-400 bg-amber-500/10 px-2.5 py-1 rounded-lg border border-amber-500/20">
+                                                        Salaire non configuré
+                                                    </span>
+                                                )}
+                                                {unjustifiedCount > 0 && member.salary > 0 && (
                                                     <span className="text-xs font-bold text-red-400 bg-red-500/10 px-2.5 py-1 rounded-lg border border-red-500/20">
                                                         Déduction : −{Math.round(deduction).toLocaleString()} MRU
                                                     </span>
@@ -655,7 +695,7 @@ export function PersonnelManagement() {
                                                                         ? "bg-amber-500/10 text-amber-400 border-amber-500/20"
                                                                         : "bg-red-500/10 text-red-400 border-red-500/20"
                                                                 )}>
-                                                                    {ab.justified ? 'Justifiée' : `−${Math.round(dailySalary).toLocaleString()} MRU`}
+                                                                    {ab.justified ? 'Justifiée' : member.salary === 0 ? 'Non configuré' : `−${Math.round(dailySalary).toLocaleString()} MRU`}
                                                                 </span>
                                                                 <button
                                                                     type="button"

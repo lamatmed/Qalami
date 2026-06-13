@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState, useCallback } from 'react'
+import Link from 'next/link'
 import { createClient } from '@/utils/supabase/client'
 import { Loader2, Search, Download, AlertCircle, CheckCircle, Clock, TrendingUp, Users, CreditCard, Bell, Calendar, Eye } from 'lucide-react'
 import { cn } from '@/lib/utils'
@@ -328,6 +329,7 @@ export default function TuitionPage() {
 
         // Consume the transaction balance oldest-due-date first (regardless of display order)
         const effectivelyPaidIds = new Set<string>()
+        const effectivePartialMap = new Map<string, number>() // payment id → tx-covered amount
         ;[...(paymentsData || [])]
             .filter((p: any) => p.payment_status !== 'paid')
             .sort((a: any, b: any) => (a.due_date ?? '').localeCompare(b.due_date ?? ''))
@@ -335,7 +337,11 @@ export default function TuitionPage() {
                 const bal = txBalance.get(p.student_id) ?? 0
                 if (bal >= Number(p.amount)) {
                     effectivelyPaidIds.add(p.id)
+                    effectivePartialMap.set(p.id, Number(p.amount))
                     txBalance.set(p.student_id, bal - Number(p.amount))
+                } else if (bal > 0) {
+                    effectivePartialMap.set(p.id, bal)
+                    txBalance.set(p.student_id, 0)
                 }
             })
 
@@ -348,6 +354,9 @@ export default function TuitionPage() {
         const rows: PaymentRow[] = (paymentsData || []).map((p: any) => {
             const isPaid = p.payment_status === 'paid' || effectivelyPaidIds.has(p.id)
             const numericAmt = Number(p.amount) || 0
+            const txAmountPaid = effectivePartialMap.get(p.id) ?? 0
+            const effectiveAmountPaid = isPaid ? numericAmt : txAmountPaid
+            const isPartial = !isPaid && effectiveAmountPaid > 0
             return {
                 id: p.id,
                 student_id: p.student_id,
@@ -355,8 +364,8 @@ export default function TuitionPage() {
                 class_name: enrollmentMap[p.student_id] ?? null,
                 payment_type: p.payment_type ?? 'scolarite',
                 amount: numericAmt,
-                amount_paid: isPaid ? numericAmt : 0,
-                status: isPaid ? 'paid' : (p.payment_status ?? 'pending'),
+                amount_paid: effectiveAmountPaid,
+                status: isPaid ? 'paid' : (isPartial ? 'partial' : (p.payment_status ?? 'pending')),
                 due_date: p.due_date,
                 paid_at: isPaid ? (p.paid_at ?? new Date().toISOString()) : null,
                 academic_year_id: p.academic_year_id,
@@ -391,6 +400,11 @@ export default function TuitionPage() {
         const matchType = filterType === 'all' || p.payment_type === filterType
         const matchClass = filterClass === 'all' || p.class_name === filterClass
         return matchSearch && matchStatus && matchType && matchClass
+    }).sort((a, b) => {
+        // Most recent first: use paid_at for paid items, due_date for pending
+        const dateA = a.paid_at ?? a.due_date ?? ''
+        const dateB = b.paid_at ?? b.due_date ?? ''
+        return dateB.localeCompare(dateA)
     })
 
     // ── Compute Late Students Grouped ──────────────────────────────────────────
@@ -658,12 +672,12 @@ export default function TuitionPage() {
                                             return (
                                                 <tr key={p.id} className="hover:bg-white/[0.02] transition-colors group">
                                                     <td className="px-6 py-3">
-                                                        <div className="flex items-center gap-3">
+                                                        <Link href={`/admin/students/${p.student_id}`} className="flex items-center gap-3 group/link">
                                                             <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-emerald-500/20 to-cyan-500/20 flex items-center justify-center text-emerald-500 font-bold text-xs shrink-0">
                                                                 {p.student_name.split(' ').map(w => w[0]).join('').substring(0, 2).toUpperCase()}
                                                             </div>
-                                                            <span className="font-medium text-white text-sm">{p.student_name}</span>
-                                                        </div>
+                                                            <span className="font-medium text-white text-sm group-hover/link:text-emerald-400 transition-colors">{p.student_name}</span>
+                                                        </Link>
                                                     </td>
                                                     <td className="px-4 py-3">
                                                         {p.class_name ? (

@@ -51,7 +51,10 @@ function relDate(d: string, t: any, language: string) {
     if (diff < 60) return t('adminAnnouncements.justNow')
     if (diff < 3600) return t('adminAnnouncements.minsAgo', { mins: Math.floor(diff / 60) })
     if (diff < 86400) return t('adminAnnouncements.hoursAgo', { hours: Math.floor(diff / 3600) })
-    return new Date(d).toLocaleDateString(language === 'ar' ? 'ar-MA' : 'fr-FR', { day: 'numeric', month: 'short' })
+    const _dt = new Date(d)
+    const _loc = language === 'ar' ? 'ar-MA' : 'fr-FR'
+    return _dt.toLocaleDateString(_loc, { day: 'numeric', month: 'short', year: 'numeric' })
+        + ' ' + _dt.toLocaleTimeString(_loc, { hour: '2-digit', minute: '2-digit' })
 }
 
 // ── helpers to read/write audience encoding ──────────────────────────────────
@@ -141,6 +144,10 @@ function Modal({ open, onClose, onSaved, editing, classes, schoolId, userId }: {
         if (!title.trim()) { toast.error(t('adminAnnouncements.titleRequiredToast')); return }
         if (!content.trim()) { toast.error(t('adminAnnouncements.contentRequiredToast')); return }
         if (!scopeAll && selClasses.length === 0) { toast.error(t('adminAnnouncements.selectClassToast')); return }
+        if (expiresAt && new Date(expiresAt) <= new Date()) {
+            toast.error("La date d'expiration doit être dans le futur")
+            return
+        }
         setSaving(true)
 
         // Upload attachment if a new file was selected
@@ -298,8 +305,28 @@ function Modal({ open, onClose, onSaved, editing, classes, schoolId, userId }: {
                     {/* Expires */}
                     <div>
                         <label className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-1.5 block">{t('adminAnnouncements.expiresAtOptional')}</label>
-                        <input type="datetime-local" title="Date d'expiration" value={expiresAt} onChange={e => setExpiresAt(e.target.value)}
-                            className="w-full bg-[#0D1117] border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-emerald-500/50 [color-scheme:dark]" />
+                        <input
+                            type="datetime-local"
+                            title="Date d'expiration"
+                            value={expiresAt}
+                            min={new Date(Date.now() + 60000).toISOString().slice(0, 16)}
+                            onChange={e => setExpiresAt(e.target.value)}
+                            className={cn(
+                                "w-full bg-[#0D1117] border rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none [color-scheme:dark]",
+                                expiresAt && new Date(expiresAt) <= new Date()
+                                    ? "border-red-500/50 focus:border-red-500/70"
+                                    : "border-white/10 focus:border-emerald-500/50"
+                            )}
+                        />
+                        {expiresAt && new Date(expiresAt) <= new Date() && (
+                            <p className="text-xs text-red-400 mt-1.5 flex items-center gap-1">
+                                <AlertTriangle className="w-3 h-3" />
+                                Cette date est dans le passé — veuillez choisir une date future
+                            </p>
+                        )}
+                        {!expiresAt && (
+                            <p className="text-[10px] text-gray-600 mt-1">Laisser vide pour que l'annonce n'expire pas</p>
+                        )}
                     </div>
 
                     {/* Attachment */}

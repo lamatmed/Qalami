@@ -76,7 +76,7 @@ export function TeacherDocuments({ teacherId }: TeacherDocumentsProps) {
                     name: found.name || d.name,
                     status: 'verified',
                     file_url: found.file_url || '',
-                    date: new Date(found.created_at).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: 'numeric' }),
+                    date: (() => { const _d = new Date(found.created_at); return _d.toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: 'numeric' }) + ' ' + _d.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }) })(),
                     size: found.file_size_bytes ? `${(found.file_size_bytes / (1024 * 1024)).toFixed(1)} MB` : '',
                 }
             }))

@@ -7,17 +7,31 @@ import { useLanguage } from '@/i18n'
 import { cn } from '@/lib/utils'
 import { createClient } from '@/utils/supabase/client'
 
+const METHOD_LABELS: Record<string, string> = {
+    especes: 'Espèces',
+    virement: 'Virement bancaire',
+    cheque: 'Chèque',
+    wave: 'Wave',
+    bankily: 'Bankily',
+    masrvi: 'Masrvi',
+    autre: 'Autre',
+}
+
 export function PaymentConfirmation({
     teacher,
     netSalary,
     breakdown,
     transactionId,
+    notes,
+    paymentMethod,
     onReset,
 }: {
     teacher: any
     netSalary: number
     breakdown: { baseSalary: number, bonuses: number, deductions: number }
     transactionId: string
+    notes?: string
+    paymentMethod?: string
     onReset: () => void
 }) {
     const { t } = useLanguage()
@@ -292,23 +306,34 @@ export function PaymentConfirmation({
                 <div className="absolute bottom-4 left-0 h-2 w-2 bg-purple-400 rounded-full animate-bounce delay-300" />
             </div>
 
-            <div className="space-y-2 max-w-md">
-                <h2 className="text-3xl font-bold text-white">{t('admin.payroll.paymentValidated')}</h2>
-                <p className="text-gray-400">
+            <div className="space-y-2 max-w-md w-full">
+                <h2 className="text-3xl font-bold text-white text-center">{t('admin.payroll.paymentValidated')}</h2>
+                <p className="text-gray-400 text-center">
                     {t('admin.payroll.paymentSuccessDesc', { name: teacher.name })}
                     {' '}<span className="text-white font-semibold">{monthName} {year}</span>.
                 </p>
-                <div className="flex flex-col items-center gap-2 mt-4">
-                    <div className="bg-[#1A2530] px-5 py-3 rounded-xl border border-white/5 inline-block">
-                        <p className="text-xs text-gray-500 font-mono mb-0.5">{t('admin.payroll.transactionId')}</p>
-                        <p className="text-sm text-emerald-400 font-mono font-bold tracking-wider">{transactionId}</p>
-                    </div>
-                    <div className="bg-[#1A2530] px-5 py-2 rounded-xl border border-white/5 inline-block">
-                        <p className="text-xs text-gray-500 mb-0.5">{t('admin.payroll.netToPayUpper')}</p>
-                        <p className="text-xl font-black text-white">
-                            {netSalary.toLocaleString('fr-FR')} <span className="text-sm font-normal text-emerald-500">MRU</span>
+
+                {/* Validation code — show to employee as receipt */}
+                <div className="mt-4 bg-emerald-500/10 border border-emerald-500/30 rounded-2xl p-4 text-center">
+                    <p className="text-[10px] text-emerald-400 font-bold uppercase tracking-widest mb-1">Code de validation / réception</p>
+                    <p className="text-2xl text-emerald-400 font-mono font-black tracking-[0.3em]">{transactionId.slice(-6).toUpperCase()}</p>
+                    <p className="text-[10px] text-gray-500 mt-1">Montrer ce code à l'employé pour confirmer la réception</p>
+                    <p className="text-[10px] text-gray-600 font-mono mt-0.5">Réf complète : {transactionId}</p>
+                </div>
+
+                <div className="bg-[#1A2530] px-5 py-3 rounded-xl border border-white/5">
+                    <p className="text-xs text-gray-500 mb-0.5">{t('admin.payroll.netToPayUpper')}</p>
+                    <p className="text-xl font-black text-white">
+                        {netSalary.toLocaleString('fr-FR')} <span className="text-sm font-normal text-emerald-500">MRU</span>
+                    </p>
+                    {paymentMethod && (
+                        <p className="text-xs text-gray-500 mt-1">
+                            Moyen : <span className="text-white font-semibold">{METHOD_LABELS[paymentMethod] ?? paymentMethod}</span>
                         </p>
-                    </div>
+                    )}
+                    {notes && (
+                        <p className="text-xs text-gray-400 mt-1 italic">« {notes} »</p>
+                    )}
                 </div>
             </div>
 

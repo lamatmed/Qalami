@@ -1,12 +1,13 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import Link from 'next/link'
 import { Card } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Checkbox } from '@/components/ui/checkbox'
-import { Search, ChevronRight, CheckCircle2, Download, Printer, Wallet, ArrowUpRight, Clock, Loader2 } from 'lucide-react'
+import { Search, ChevronRight, CheckCircle2, Download, Printer, Wallet, ArrowUpRight, Clock, Loader2, AlertCircle } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { createClient } from '@/utils/supabase/client'
@@ -21,6 +22,7 @@ interface PayrollEmployee {
     employeeName: string
     position: string
     contractType: string
+    role: string
     status: 'pending' | 'paid' | 'cancelled'
     baseSalary: number
     bonuses: number
@@ -30,6 +32,7 @@ interface PayrollEmployee {
     phone?: string
     nni?: string
     avatarUrl?: string
+    salaryConfigured: boolean
 }
 
 export function PayrollOverview({ onSelectTeacher, refreshKey }: { onSelectTeacher: (teacher: any) => void, refreshKey?: number }) {
@@ -96,20 +99,13 @@ export function PayrollOverview({ onSelectTeacher, refreshKey }: { onSelectTeach
                     return
                 }
 
-                // 2. Fetch standard payroll ledger records for CURRENT month and year WITH profiles
+                // 2. Fetch standard payroll ledger records for CURRENT month and year
                 const queryMonth = new Date().getMonth() + 1
                 const queryYear = new Date().getFullYear()
 
                 const { data: payrollEntries, error: payrollErr } = await supabase
                     .from('payroll')
-                    .select(`
-                        *,
-                        profiles (
-                            id,
-                            full_name,
-                            role
-                        )
-                    `)
+                    .select('*, profiles(id, full_name, role)')
                     .eq('school_id', profile.school_id)
                     .eq('month', queryMonth)
                     .eq('year', queryYear)
@@ -118,23 +114,32 @@ export function PayrollOverview({ onSelectTeacher, refreshKey }: { onSelectTeach
                     console.error('Payroll ledger load error:', payrollErr)
                 }
 
-                // 3. Merge the datasets based on employee_id
+                // 3. Fetch ALL active staff profiles (teachers + employees + school_staff) to catch people without contracts
+                const { data: staffProfiles } = await supabase
+                    .from('profiles')
+                    .select('id, full_name, role, phone, national_id, avatar_url')
+                    .eq('school_id', profile.school_id)
+                    .in('role', ['teacher', 'employee', 'staff', 'school_staff'])
+
+                // 4. Merge: union of contract holders + payroll entries + all staff profiles
                 const employeeIds = new Set([
                     ...(contractData || []).map(c => c.employee_id),
-                    ...(payrollEntries || []).map(p => p.employee_id)
+                    ...(payrollEntries || []).map(p => p.employee_id),
+                    ...(staffProfiles || []).map(p => p.id),
                 ])
 
                 const processedData: PayrollEmployee[] = Array.from(employeeIds).map(empId => {
                     const contract = (contractData || []).find(c => c.employee_id === empId)
-                    const payroll = (payrollEntries || []).find(p => p.employee_id === empId)
+                    const payroll  = (payrollEntries || []).find(p => p.employee_id === empId)
+                    const staffP   = (staffProfiles || []).find(p => p.id === empId)
 
-                    // Pull profile info from whichever row loaded it relationally
-                    const profileObj = (contract?.profiles || payroll?.profiles) as any
-                    const fullName = profileObj?.full_name || 'Employé'
-                    const initials = fullName.split(' ').map((n: string) => n[0]).join('').toUpperCase().slice(0, 2)
-                    
+                    const profileObj = (contract?.profiles || payroll?.profiles || staffP) as any
+                    const fullName   = profileObj?.full_name || 'Employé'
+                    const initials   = fullName.split(' ').map((n: string) => n[0]).join('').toUpperCase().slice(0, 2)
+
                     const defaultSalary = contract ? (parseFloat(contract.monthly_salary) || 0) : 0
                     const defaultPosition = contract?.position || (profileObj?.role === 'teacher' ? 'Enseignant' : 'Employé')
+                    const salaryConfigured = defaultSalary > 0
 
                     return {
                         id: payroll?.id || empId,
@@ -142,6 +147,7 @@ export function PayrollOverview({ onSelectTeacher, refreshKey }: { onSelectTeach
                         employeeName: fullName,
                         position: defaultPosition,
                         contractType: (contract as any)?.contract_type || 'CDI',
+                        role: profileObj?.role || 'employee',
                         status: (payroll?.status as 'pending'|'paid'|'cancelled') || 'pending',
                         baseSalary: payroll ? (parseFloat(payroll.base_salary) || 0) : defaultSalary,
                         bonuses: payroll ? (parseFloat(payroll.bonuses) || 0) : 0,
@@ -151,6 +157,7 @@ export function PayrollOverview({ onSelectTeacher, refreshKey }: { onSelectTeach
                         phone: profileObj?.phone || undefined,
                         nni: profileObj?.national_id || undefined,
                         avatarUrl: profileObj?.avatar_url || undefined,
+                        salaryConfigured,
                     }
                 })
 
@@ -676,10 +683,21 @@ export function PayrollOverview({ onSelectTeacher, refreshKey }: { onSelectTeach
                                     </Avatar>
 
                                     <div className="flex-1 min-w-0">
-                                        <div className="flex items-center gap-2">
-                                            <h4 className="font-bold text-white text-sm truncate group-hover:text-emerald-400 transition-colors">{employee.employeeName}</h4>
+                                        <div className="flex items-center gap-2 flex-wrap">
+                                            <Link
+                                                href={employee.role === 'teacher' ? `/admin/teachers/${employee.employeeId}` : `/admin/employees/${employee.employeeId}`}
+                                                className="font-bold text-white text-sm truncate hover:text-emerald-400 transition-colors"
+                                                onClick={e => e.stopPropagation()}
+                                            >
+                                                {employee.employeeName}
+                                            </Link>
                                             {employee.status === 'paid' && (
-                                                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500" />
+                                                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
+                                            )}
+                                            {!employee.salaryConfigured && (
+                                                <span className="flex items-center gap-1 text-[10px] text-amber-400 bg-amber-500/10 border border-amber-500/20 px-1.5 py-0.5 rounded-full font-bold shrink-0">
+                                                    <AlertCircle className="w-2.5 h-2.5" /> Salaire non configuré
+                                                </span>
                                             )}
                                         </div>
                                         <p className="text-gray-500 text-xs truncate">{employee.position}</p>
@@ -706,9 +724,13 @@ export function PayrollOverview({ onSelectTeacher, refreshKey }: { onSelectTeach
 
                                     <div className="text-right min-w-[80px]">
                                         <p className="text-[10px] text-gray-500 uppercase font-bold mb-0.5">{t('admin.payroll.netToPay')}</p>
-                                        <p className="text-sm font-bold text-white">
-                                            {employee.netSalary.toLocaleString()} <span className="text-[10px] text-gray-600 font-normal">MRU</span>
-                                        </p>
+                                        {employee.salaryConfigured ? (
+                                            <p className="text-sm font-bold text-white">
+                                                {employee.netSalary.toLocaleString()} <span className="text-[10px] text-gray-600 font-normal">MRU</span>
+                                            </p>
+                                        ) : (
+                                            <p className="text-sm font-bold text-amber-400">—</p>
+                                        )}
                                     </div>
 
                                     <Button
