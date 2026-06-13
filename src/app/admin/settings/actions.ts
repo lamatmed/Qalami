@@ -242,6 +242,8 @@ export async function addStaffMemberAction(payload: {
     nni: string
     salary: number
     contractType: 'CDI' | 'CDD' | 'hourly'
+    createUser?: boolean
+    password?: string
 }) {
     const supabase = await createClient()
     const { data: { user } } = await supabase.auth.getUser()
@@ -258,14 +260,27 @@ export async function addStaffMemberAction(payload: {
     const admin = createAdminClient()
 
     // profiles.id is a FK to auth.users.id — must create an auth user first
-    const tempEmail = `staff-${Date.now()}@noreply.${me.school_id.slice(0, 8)}.internal`
-    const tempPassword = crypto.randomUUID()
-
-    const { data: authData, error: authError } = await admin.auth.admin.createUser({
-        email: tempEmail,
-        password: tempPassword,
-        email_confirm: true,
-    })
+    let authData: any, authError: any
+    if (payload.createUser && payload.phone?.trim() && payload.password?.trim()) {
+        // Real login via phone + password
+        const phone = payload.phone.trim().startsWith('+')
+            ? payload.phone.trim()
+            : `+${payload.phone.trim().replace(/[^0-9]/g, '')}`
+        ;({ data: authData, error: authError } = await admin.auth.admin.createUser({
+            phone,
+            password: payload.password.trim(),
+            phone_confirm: true,
+            user_metadata: { full_name: payload.name },
+        }))
+    } else {
+        // Staff-only record — temp credentials, cannot log in
+        const tempEmail = `staff-${Date.now()}@noreply.${me.school_id.slice(0, 8)}.internal`
+        ;({ data: authData, error: authError } = await admin.auth.admin.createUser({
+            email: tempEmail,
+            password: crypto.randomUUID(),
+            email_confirm: true,
+        }))
+    }
 
     if (authError || !authData?.user) {
         return { error: `Erreur création compte: ${authError?.message}` }
@@ -281,6 +296,7 @@ export async function addStaffMemberAction(payload: {
             role: 'school_staff',
             school_id: me.school_id,
             status: 'active',
+            first_login: payload.createUser ? true : false,
         })
         .eq('id', authData.user.id)
         .select('id')
@@ -305,13 +321,22 @@ export async function addStaffMemberAction(payload: {
 
     if (contractError) return { error: contractError.message }
 
+    // Only create a staff_permissions row when the admin opted in to create a user account
+    if (payload.createUser) {
+        await admin.from('staff_permissions').insert({
+            user_id: newProfile.id,
+            school_id: me.school_id,
+            permissions: [],
+        })
+    }
+
     logActivity({
         actorId: user.id,
         schoolId: me.school_id,
         action: 'add_personnel',
         entityType: 'profile',
         entityId: newProfile.id,
-        details: `Ajout du personnel: ${payload.name} — ${payload.role} (${payload.contractType})`,
+        details: `Ajout du personnel: ${payload.name} — ${payload.role} (${payload.contractType})${payload.createUser ? ' + compte utilisateur' : ''}`,
     })
 
     return {

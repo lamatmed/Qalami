@@ -34,16 +34,22 @@ export function AccountingStats() {
 
                 if (!profile?.school_id) return
 
-                // Fetch all transactions for aggregation
-                const { data: transactions } = await supabase
-                    .from('transactions')
-                    .select('type, amount, status, transaction_date')
-                    .eq('school_id', profile.school_id)
+                // Fetch transactions + unpaid payments in parallel
+                const [{ data: transactions }, { data: unpaidPayments }] = await Promise.all([
+                    supabase
+                        .from('transactions')
+                        .select('type, amount, status, transaction_date')
+                        .eq('school_id', profile.school_id),
+                    supabase
+                        .from('payments')
+                        .select('amount')
+                        .eq('school_id', profile.school_id)
+                        .neq('payment_status', 'paid'),
+                ])
 
                 if (transactions) {
                     let totalIncome = 0
                     let totalExpenses = 0
-                    let pendingAmount = 0
 
                     transactions.forEach(tx => {
                         const amount = Number(tx.amount)
@@ -52,10 +58,10 @@ export function AccountingStats() {
                         } else if (tx.type === 'expense' || tx.type === 'salary') {
                             totalExpenses += amount
                         }
-                        if (tx.status === 'pending') {
-                            pendingAmount += amount
-                        }
                     })
+
+                    // pendingAmount = all unpaid tuition from payments table (all months, including current)
+                    const pendingAmount = (unpaidPayments || []).reduce((s, p) => s + Number(p.amount), 0)
 
                     setStats({
                         totalIncome,

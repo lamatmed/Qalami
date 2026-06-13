@@ -8,7 +8,7 @@ import { Badge } from '@/components/ui/badge'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
 import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { Plus, Users, Search, DollarSign, UserCog, Trash2, Loader2, CalendarDays, ChevronDown, ChevronUp, Check, X, StickyNote, Pencil, Clock } from 'lucide-react'
+import { Plus, Users, Search, DollarSign, UserCog, Trash2, Loader2, CalendarDays, ChevronDown, ChevronUp, Check, X, StickyNote, Pencil, Clock, UserCheck, Eye, EyeOff } from 'lucide-react'
 import { Skeleton } from '@/components/ui/skeleton'
 import { toast } from 'sonner'
 import { useLanguage } from '@/i18n'
@@ -59,7 +59,10 @@ export function PersonnelManagement() {
         nni: '',
         salary: '',
         contractType: 'CDI' as 'CDI' | 'CDD' | 'hourly',
+        createUser: false,
+        password: '',
     })
+    const [showNewMemberPwd, setShowNewMemberPwd] = useState(false)
     const [searchQuery, setSearchQuery] = useState('')
 
     // Edit state
@@ -188,6 +191,14 @@ export function PersonnelManagement() {
             toast.error('Le NNI doit contenir exactement 10 chiffres')
             return
         }
+        if (newMember.createUser && !newMember.phone.trim()) {
+            toast.error('Le numéro de téléphone est requis pour créer un compte utilisateur')
+            return
+        }
+        if (newMember.createUser && newMember.password.trim().length < 6) {
+            toast.error('Le mot de passe doit contenir au moins 6 caractères')
+            return
+        }
         setSaving(true)
         const result = await addStaffMemberAction({
             name: newMember.name,
@@ -196,14 +207,17 @@ export function PersonnelManagement() {
             nni: newMember.nni,
             salary: Number(newMember.salary) || 0,
             contractType: newMember.contractType,
+            createUser: newMember.createUser,
+            password: newMember.password,
         })
         if (result.error) {
             toast.error(result.error)
         } else {
             setStaff(prev => [result.member as StaffMember, ...prev])
-            toast.success(t('admin.personnel.memberAdded'))
+            toast.success(newMember.createUser ? 'Membre ajouté avec compte utilisateur' : t('admin.personnel.memberAdded'))
             setIsAddOpen(false)
-            setNewMember({ name: '', role: '', phone: '', nni: '', salary: '', contractType: 'CDI' })
+            setNewMember({ name: '', role: '', phone: '', nni: '', salary: '', contractType: 'CDI', createUser: false, password: '' })
+            setShowNewMemberPwd(false)
         }
         setSaving(false)
     }
@@ -409,6 +423,56 @@ export function PersonnelManagement() {
                                     onChange={e => setNewMember({ ...newMember, phone: e.target.value })}
                                 />
                             </div>
+
+                            {/* User account checkbox */}
+                            <div
+                                className={cn(
+                                    "rounded-xl border p-3 space-y-3 transition-colors",
+                                    newMember.createUser
+                                        ? "border-blue-500/30 bg-blue-500/5"
+                                        : "border-white/10 bg-white/[0.02]"
+                                )}
+                            >
+                                <label className="flex items-center gap-3 cursor-pointer">
+                                    <div
+                                        onClick={() => setNewMember(m => ({ ...m, createUser: !m.createUser, password: '' }))}
+                                        className={cn(
+                                            "w-4 h-4 rounded border-2 flex items-center justify-center shrink-0 transition-colors",
+                                            newMember.createUser ? "bg-blue-500 border-blue-500" : "border-white/30"
+                                        )}
+                                    >
+                                        {newMember.createUser && <Check className="w-2.5 h-2.5 text-white" strokeWidth={3} />}
+                                    </div>
+                                    <div className="flex items-center gap-2">
+                                        <UserCheck className="w-4 h-4 text-blue-400" />
+                                        <span className="text-sm font-medium text-white">Créer un compte utilisateur</span>
+                                    </div>
+                                </label>
+                                {newMember.createUser && (
+                                    <div className="space-y-1">
+                                        <label className="text-[10px] text-gray-500 uppercase font-bold">Mot de passe</label>
+                                        <div className="relative">
+                                            <Input
+                                                type={showNewMemberPwd ? 'text' : 'password'}
+                                                placeholder="Min. 6 caractères"
+                                                className="bg-[#0D1117] border-white/10 pr-10"
+                                                value={newMember.password}
+                                                onChange={e => setNewMember({ ...newMember, password: e.target.value })}
+                                            />
+                                            <button
+                                                type="button"
+                                                onClick={() => setShowNewMemberPwd(v => !v)}
+                                                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-white transition-colors"
+                                                tabIndex={-1}
+                                            >
+                                                {showNewMemberPwd ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                                            </button>
+                                        </div>
+                                        <p className="text-[10px] text-blue-400/70">Ce membre pourra se connecter via son téléphone et ce mot de passe.</p>
+                                    </div>
+                                )}
+                            </div>
+
                             <Button
                                 onClick={handleAdd}
                                 className="w-full bg-pink-600 hover:bg-pink-500 font-bold mt-2"

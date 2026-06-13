@@ -380,6 +380,8 @@ export default function TuitionPage() {
 
     // ── Filters ──────────────────────────────────────────────────────────────
     const todayStr = new Date().toISOString().split('T')[0]
+    // "En retard" = due date is in a PAST month (strictly before current month's first day)
+    const startOfCurrentMonthStr = todayStr.slice(0, 7) + '-01'
 
     // Unique payment types present in the data — ensures filter options always cover every record
     const uniquePaymentTypes = Array.from(new Set(payments.map(p => p.payment_type))).sort()
@@ -418,8 +420,8 @@ export default function TuitionPage() {
     }> = {}
 
     payments.forEach(p => {
-        // A payment is late if status is not 'paid' AND (it's explicitly 'overdue' OR the due_date has passed)
-        const isLate = p.status !== 'paid' && (p.status === 'overdue' || (p.due_date && p.due_date < todayStr))
+        // A payment is "En retard" only if its due_date falls in a PAST month (not the current month)
+        const isLate = p.status !== 'paid' && p.due_date != null && p.due_date < startOfCurrentMonthStr
         if (isLate) {
             if (!lateStudentsMap[p.student_id]) {
                 lateStudentsMap[p.student_id] = {
@@ -451,7 +453,7 @@ export default function TuitionPage() {
 
     // ── Stats ─────────────────────────────────────────────────────────────────
     const knownPayments = payments.filter(p => !!p.class_name)
-    const overduePayments = knownPayments.filter(p => p.status !== 'paid' && (p.status === 'overdue' || (p.due_date && p.due_date < todayStr)))
+    const overduePayments = knownPayments.filter(p => p.status !== 'paid' && p.due_date != null && p.due_date < startOfCurrentMonthStr)
 
     const totalExpected = knownPayments.reduce((s, p) => s + p.amount, 0)
     const totalReceived = knownPayments.reduce((s, p) => s + p.amount_paid, 0)

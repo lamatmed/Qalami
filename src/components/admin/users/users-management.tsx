@@ -60,6 +60,8 @@ interface StaffUser {
     id: string
     full_name: string
     phone: string
+    role: string
+    position: string | null
     status: string
     first_login: boolean
     created_at: string
@@ -388,6 +390,9 @@ export function UsersManagement() {
                                     <div className="flex-1 min-w-0">
                                         <div className="flex items-center gap-2">
                                             <p className="font-semibold text-gray-900 dark:text-white truncate">{u.full_name}</p>
+                                            <span className="text-[10px] bg-blue-500/10 text-blue-400 border border-blue-500/20 px-2 py-0.5 rounded-full font-bold shrink-0">
+                                                {u.position ?? (u.role === 'school_staff' ? 'Staff' : u.role === 'admin' ? 'Admin' : u.role)}
+                                            </span>
                                             {u.first_login && (
                                                 <span className="text-[10px] bg-amber-100 text-amber-700 px-2 py-0.5 rounded-full font-medium shrink-0">
                                                     {t('admin.users.firstLogin')}

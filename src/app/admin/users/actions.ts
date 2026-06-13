@@ -17,31 +17,40 @@ export async function getStaffUsers() {
     if (!ctx) return { error: 'Non autorisé' }
     const { supabase, schoolId } = ctx
 
+    // Only users who have a staff_permissions row are "real" user accounts
+    const { data: permsData, error: permsError } = await supabase
+        .from('staff_permissions')
+        .select('user_id, permissions')
+        .eq('school_id', schoolId)
+
+    if (permsError) return { error: permsError.message }
+    if (!permsData || permsData.length === 0) return { data: [] }
+
+    const permissionsMap: Record<string, Permission[]> = {}
+    for (const row of permsData) {
+        permissionsMap[(row as any).user_id] = (row as any).permissions ?? []
+    }
+
     const { data, error } = await supabase
         .from('profiles')
-        .select('id, full_name, phone, role, status, first_login, created_at')
+        .select('id, full_name, phone, role, status, first_login, created_at, contracts(position)')
+        .in('id', permsData.map((p: any) => p.user_id))
         .eq('school_id', schoolId)
         .eq('role', 'school_staff')
         .order('created_at', { ascending: false })
 
     if (error) return { error: error.message }
 
-    const ids = (data ?? []).map((u: any) => u.id)
-    const permissionsMap: Record<string, Permission[]> = {}
-    if (ids.length > 0) {
-        const { data: permsData } = await supabase
-            .from('staff_permissions')
-            .select('user_id, permissions')
-            .in('user_id', ids)
-
-        for (const row of permsData ?? []) {
-            permissionsMap[row.user_id] = row.permissions ?? []
-        }
-    }
-
     return {
         data: (data ?? []).map((u: any) => ({
-            ...u,
+            id: u.id,
+            full_name: u.full_name,
+            phone: u.phone,
+            role: u.role,
+            position: (u.contracts as any[])?.[0]?.position ?? null,
+            status: u.status,
+            first_login: u.first_login,
+            created_at: u.created_at,
             permissions: permissionsMap[u.id] ?? [],
         })),
     }
