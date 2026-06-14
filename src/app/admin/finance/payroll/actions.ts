@@ -97,8 +97,9 @@ export async function confirmPaymentAction(payload: {
             type: 'salary',
             category: 'Salaire du personnel',
             amount: payload.netSalary,
-            description: `Salaire ${month}/${year} — ${payload.employeeName}`,
-            notes: payload.notes?.trim() || null,
+            description: payload.notes?.trim()
+                ? `Salaire ${month}/${year} — ${payload.employeeName} | ${payload.notes.trim()}`
+                : `Salaire ${month}/${year} — ${payload.employeeName}`,
             payment_method: payload.paymentMethod || null,
             related_profile_id: payload.employeeId,
             reference_number: payload.transactionRef,

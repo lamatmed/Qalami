@@ -816,13 +816,19 @@ export async function createStudent(formData: {
         })
     }
 
-    // 6. Autogenerate standard 9-10 monthly tuition installments ('scolarite')
+    // 6. Autogenerate monthly tuition installments starting from the enrollment month
     if (formData.academic.monthlyTuition > 0) {
-        const start = yearData?.start_date ? new Date(yearData.start_date) : new Date(`${new Date().getFullYear()}-10-01`)
+        const academicStart = yearData?.start_date ? new Date(yearData.start_date) : new Date(`${new Date().getFullYear()}-10-01`)
         const end = yearData?.end_date ? new Date(yearData.end_date) : new Date(`${new Date().getFullYear() + 1}-06-30`)
-        
+
+        // Start from the enrollment month (today), never before the academic year start
+        const now = new Date()
+        const enrollmentMonthFirst = new Date(now.getFullYear(), now.getMonth(), 1)
+        const academicMonthFirst = new Date(academicStart.getFullYear(), academicStart.getMonth(), 1)
+        const effectiveStart = enrollmentMonthFirst > academicMonthFirst ? enrollmentMonthFirst : academicMonthFirst
+
         const schedule = []
-        const current = new Date(start)
+        const current = new Date(effectiveStart)
         current.setDate(5) // Due on the 5th of each month by default
 
         const totalAdvance = formData.academic.advanceMonths || 0

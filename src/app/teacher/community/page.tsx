@@ -263,7 +263,7 @@ export default function TeacherCommunityPage() {
                                             </div>
                                             <div className="flex flex-wrap items-center gap-3 text-xs font-bold mt-1 text-slate-500 dark:text-slate-400">
                                                 <span className="flex items-center gap-1.5"><Clock className="w-3.5 h-3.5" /> 
-                                                    {ev.all_day ? t('teacher.community.allDay') : new Date(ev.start_date).toLocaleTimeString(language === 'ar' ? 'ar-MR' : 'fr-FR', { hour: '2-digit', minute: '2-digit' })}
+                                                    {ev.all_day ? t('teacher.community.allDay') : new Date(ev.start_date).toLocaleTimeString(language === 'ar' ? 'ar-MR' : 'fr-FR', { hour: '2-digit', minute: '2-digit', timeZone: 'Africa/Nouakchott' })}
                                                 </span>
                                                 {ev.location && <span className="flex items-center gap-1.5"><MapPin className="w-3.5 h-3.5" /> {ev.location}</span>}
                                             </div>

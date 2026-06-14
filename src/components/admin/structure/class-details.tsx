@@ -345,8 +345,6 @@ export function ClassDetails({ levelId, classId }: { levelId: string, classId: s
     }
 
     const handleExportPDF = () => {
-        const win = window.open('', '_blank')
-        if (!win) return
         const rows = students.map((s, i) => `
             <tr>
                 <td style="padding:10px 14px;border-bottom:1px solid #f0f0f0;color:#666;font-size:13px;">${i + 1}</td>
@@ -354,7 +352,7 @@ export function ClassDetails({ levelId, classId }: { levelId: string, classId: s
                 <td style="padding:10px 14px;border-bottom:1px solid #f0f0f0;color:#999;font-family:monospace;font-size:12px;">${s.id.substring(0, 16)}</td>
             </tr>
         `).join('')
-        win.document.write(`<!DOCTYPE html><html><head>
+        const html = `<!DOCTYPE html><html><head>
             <meta charset="utf-8">
             <title>Classe ${className} — Liste des élèves</title>
             <style>
@@ -370,13 +368,17 @@ export function ClassDetails({ levelId, classId }: { levelId: string, classId: s
             <p class="meta">${students.length} élève${students.length !== 1 ? 's' : ''} · Exporté le ${new Date().toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })}</p>
             <table><thead><tr><th>#</th><th>Nom complet</th><th>Identifiant</th></tr></thead>
             <tbody>${rows}</tbody></table>
-        </body></html>`)
-        win.document.close()
-        win.focus()
-        setTimeout(() => {
-            win.print()
-            win.close()
-        }, 250)
+        </body></html>`
+        const blob = new Blob([html], { type: 'text/html;charset=utf-8' })
+        const url = URL.createObjectURL(blob)
+        const a = document.createElement('a')
+        a.href = url
+        a.target = '_blank'
+        a.rel = 'noopener noreferrer'
+        document.body.appendChild(a)
+        a.click()
+        document.body.removeChild(a)
+        setTimeout(() => URL.revokeObjectURL(url), 100)
     }
 
     const filteredUnassigned = searchQuery.trim()

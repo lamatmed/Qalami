@@ -77,14 +77,8 @@ export function Confirmation({ data, savedCredentials }: StepProps) {
                 <Button
                     className="w-full bg-emerald-500 hover:bg-emerald-600 text-black font-bold h-12 rounded-xl"
                     onClick={() => {
-                        // Create a printable receipt
-                        const printWindow = window.open('', '_blank', 'width=600,height=800')
-                        if (!printWindow) {
-                            toast.error(t('admin.students.register.confirmation.printOpenError'))
-                            return
-                        }
                         const locale = language === 'ar' ? 'ar-u-ca-gregory' : 'fr-FR'
-                        printWindow.document.write(`
+                        const html = `
                             <html>
                             <head><title>${t('admin.students.register.confirmation.receiptTitle')} - Qalami</title>
                             <style>
@@ -122,13 +116,17 @@ export function Confirmation({ data, savedCredentials }: StepProps) {
                                     <p>${t('admin.students.register.confirmation.generatedBy')} - ${new Date().toLocaleString(locale)}</p>
                                 </div>
                             </body></html>
-                        `)
-                        printWindow.document.close()
-                        printWindow.focus()
-                        setTimeout(() => {
-                            printWindow.print()
-                            printWindow.close()
-                        }, 250)
+                        `
+                        const blob = new Blob([html], { type: 'text/html;charset=utf-8' })
+                        const url = URL.createObjectURL(blob)
+                        const a = document.createElement('a')
+                        a.href = url
+                        a.target = '_blank'
+                        a.rel = 'noopener noreferrer'
+                        document.body.appendChild(a)
+                        a.click()
+                        document.body.removeChild(a)
+                        setTimeout(() => URL.revokeObjectURL(url), 100)
                     }}
                 >
                     <FileText className="mr-2 w-4 h-4" /> {t('admin.students.register.confirmation.printReceipt')}

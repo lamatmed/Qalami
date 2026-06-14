@@ -68,7 +68,7 @@ export async function updateTransactionNotesAction(id: string, notes: string) {
     const admin = createAdminClient()
     const { error } = await admin
         .from('transactions')
-        .update({ notes: notes.trim() || null })
+        .update({ description: notes.trim() || null })
         .eq('id', id)
         .eq('school_id', profile.school_id)
 

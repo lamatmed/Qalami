@@ -200,8 +200,8 @@ export function ParentGrades({ studentId }: ParentGradesProps = {}) {
 
     const formatDate = (dateStr: string) => {
         const date = new Date(dateStr)
-        return date.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', year: 'numeric' })
-            + ' ' + date.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })
+        return date.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'Africa/Nouakchott' })
+            + ' ' + date.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit', timeZone: 'Africa/Nouakchott' })
     }
 
     if (loading) {

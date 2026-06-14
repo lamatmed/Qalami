@@ -1,12 +1,13 @@
 'use client'
 
 import { useState, useEffect, useRef } from 'react'
+import { createPortal } from 'react-dom'
 import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { Upload, FileText, Loader2, X } from 'lucide-react'
+import { Upload, FileText, Loader2, X, ChevronDown, Search } from 'lucide-react'
 import { createClient } from '@/utils/supabase/client'
 import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
@@ -14,6 +15,105 @@ import { useLanguage } from '@/i18n'
 
 const DOC_TYPE_VALUES = ['course', 'exercise', 'exam', 'devoirs', 'correction', 'resource', 'general'] as const
 const CATEGORY_VALUES = ['pedago', 'admin', 'finance', 'hr', 'legal', 'student'] as const
+
+function SearchableSelect({
+    value, onChange, options, placeholder = '—', searchPlaceholder = '…', noResultsText = '—',
+}: {
+    value: string
+    onChange: (val: string) => void
+    options: { value: string; label: string }[]
+    placeholder?: string
+    searchPlaceholder?: string
+    noResultsText?: string
+}) {
+    const [query, setQuery] = useState('')
+    const [open, setOpen] = useState(false)
+    const [rect, setRect] = useState<DOMRect | null>(null)
+    const triggerRef = useRef<HTMLButtonElement>(null)
+    const inputRef = useRef<HTMLInputElement>(null)
+    const dropdownRef = useRef<HTMLDivElement>(null)
+
+    const selectedLabel = options.find(o => o.value === value)?.label
+    const filtered = query
+        ? options.filter(o => o.label.toLowerCase().includes(query.toLowerCase()))
+        : options
+
+    const handleOpen = () => {
+        if (triggerRef.current) setRect(triggerRef.current.getBoundingClientRect())
+        setOpen(true)
+        setQuery('')
+        setTimeout(() => inputRef.current?.focus(), 0)
+    }
+
+    useEffect(() => {
+        if (!open) return
+        const handler = (e: MouseEvent) => {
+            const t = e.target as Node
+            if (triggerRef.current?.contains(t) || dropdownRef.current?.contains(t)) return
+            setOpen(false); setQuery('')
+        }
+        document.addEventListener('mousedown', handler)
+        return () => document.removeEventListener('mousedown', handler)
+    }, [open])
+
+    const dropdown = open && rect ? (
+        <div
+            ref={dropdownRef}
+            style={{ '--dd-top': `${rect.bottom + 4}px`, '--dd-left': `${rect.left}px`, '--dd-w': `${rect.width}px` } as React.CSSProperties}
+            className="fixed top-[var(--dd-top)] left-[var(--dd-left)] w-[var(--dd-w)] z-[9999] bg-[#1A2530] border border-white/10 rounded-xl shadow-2xl overflow-hidden"
+        >
+            <div className="flex items-center gap-2 px-3 py-2 border-b border-white/5">
+                <Search className="w-3.5 h-3.5 text-gray-500 shrink-0" />
+                <input
+                    ref={inputRef}
+                    value={query}
+                    onChange={e => setQuery(e.target.value)}
+                    placeholder={searchPlaceholder}
+                    className="flex-1 bg-transparent text-sm text-white outline-none placeholder:text-gray-600"
+                />
+                {query && (
+                    <button type="button" title="clear" onClick={() => setQuery('')}>
+                        <X className="w-3.5 h-3.5 text-gray-500 hover:text-white" />
+                    </button>
+                )}
+            </div>
+            <div className="max-h-44 overflow-y-auto">
+                <button type="button"
+                    onClick={() => { onChange('none'); setOpen(false); setQuery('') }}
+                    className={cn('w-full text-left px-3 py-2 text-sm hover:bg-white/5', !value || value === 'none' ? 'text-cyan-400 font-semibold' : 'text-gray-500')}
+                >—</button>
+                {filtered.length === 0 ? (
+                    <p className="text-xs text-gray-600 text-center py-3">{noResultsText}</p>
+                ) : filtered.map(o => (
+                    <button key={o.value} type="button"
+                        onClick={() => { onChange(o.value); setOpen(false); setQuery('') }}
+                        className={cn('w-full text-left px-3 py-2 text-sm hover:bg-white/5 truncate', value === o.value ? 'text-cyan-400 font-semibold' : 'text-white')}
+                    >{o.label}</button>
+                ))}
+            </div>
+        </div>
+    ) : null
+
+    return (
+        <>
+            <button
+                ref={triggerRef}
+                type="button"
+                onClick={handleOpen}
+                className={cn(
+                    'w-full flex items-center justify-between bg-[#0D1117] border rounded-lg px-3 h-9 text-sm transition-colors text-left',
+                    open ? 'border-cyan-500/50' : 'border-white/10'
+                )}
+            >
+                <span className={cn('truncate flex-1', value && value !== 'none' ? 'text-white' : 'text-gray-500')}>
+                    {value && value !== 'none' ? (selectedLabel ?? placeholder) : placeholder}
+                </span>
+                <ChevronDown className={cn('w-4 h-4 text-gray-500 shrink-0 ml-1 transition-transform', open && 'rotate-180')} />
+            </button>
+            {typeof window !== 'undefined' && createPortal(dropdown, document.body)}
+        </>
+    )
+}
 
 interface UploadDocumentDialogProps {
     isOpen: boolean
@@ -46,7 +146,6 @@ export function UploadDocumentDialog({
     const [teacherId, setTeacherId] = useState(defaultTeacherId || 'none')
     const [academicYear, setAcademicYear] = useState('')
     const [description, setDescription] = useState('')
-    const [nni, setNni] = useState('')
     const [uploading, setUploading] = useState(false)
 
     const [subjects, setSubjects] = useState<{ id: string; name: string; icon: string | null }[]>([])
@@ -132,7 +231,6 @@ export function UploadDocumentDialog({
             formData.append('teacherId', teacherId || defaultTeacherId || 'none')
             formData.append('academicYear', academicYear || '')
             formData.append('description', description.trim())
-            formData.append('nni', nni.trim())
 
             const res = await fetch('/api/admin/upload-document', {
                 method: 'POST',
@@ -147,7 +245,7 @@ export function UploadDocumentDialog({
             handleClose()
         } catch (err: any) {
             console.error(err)
-            toast.error('Erreur upload', { description: err.message })
+            toast.error(t('admin.documents.dialog.uploadError'), { description: err.message })
         } finally {
             setUploading(false)
         }
@@ -161,7 +259,6 @@ export function UploadDocumentDialog({
         setClassId(defaultClassId || 'none')
         setTeacherId(defaultTeacherId || 'none')
         setDescription('')
-        setNni('')
         if (fileInputRef.current) fileInputRef.current.value = ''
         onClose()
     }
@@ -171,7 +268,7 @@ export function UploadDocumentDialog({
 
     return (
         <Dialog open={isOpen} onOpenChange={handleClose}>
-            <DialogContent className="max-w-lg bg-[#161B22] border-white/10 text-white">
+            <DialogContent className="max-w-lg bg-[#161B22] border-white/10 text-white max-h-[90vh] overflow-y-auto">
                 <DialogTitle className="text-lg font-bold flex items-center gap-2">
                     <Upload className="w-5 h-5 text-cyan-400" /> {t('admin.documents.dialog.title')}
                 </DialogTitle>
@@ -256,19 +353,14 @@ export function UploadDocumentDialog({
                             <Label className="text-xs text-gray-400 uppercase font-bold">
                                 {t('admin.documents.dialog.subjectLabel')} <span className="normal-case text-gray-600">{t('admin.documents.dialog.optional')}</span>
                             </Label>
-                            <Select value={subjectId} onValueChange={setSubjectId}>
-                                <SelectTrigger className="bg-[#0D1117] border-white/10 text-white">
-                                    <SelectValue placeholder="—" />
-                                </SelectTrigger>
-                                <SelectContent className="bg-[#1A2530] border-white/10 text-white max-h-48">
-                                    <SelectItem value="none">—</SelectItem>
-                                    {subjects.map(s => (
-                                        <SelectItem key={s.id} value={s.id}>
-                                            {s.icon ? `${s.icon} ` : ''}{s.name}
-                                        </SelectItem>
-                                    ))}
-                                </SelectContent>
-                            </Select>
+                            <SearchableSelect
+                                value={subjectId}
+                                onChange={setSubjectId}
+                                options={subjects.map(s => ({ value: s.id, label: (s.icon ? s.icon + ' ' : '') + s.name }))}
+                                placeholder="—"
+                                searchPlaceholder={t('admin.documents.dialog.searchPlaceholder')}
+                                noResultsText={t('admin.documents.dialog.noResults')}
+                            />
                         </div>
 
                         {/* Class */}
@@ -276,17 +368,14 @@ export function UploadDocumentDialog({
                             <Label className="text-xs text-gray-400 uppercase font-bold">
                                 {t('admin.documents.dialog.classLabel')} <span className="normal-case text-gray-600">{t('admin.documents.dialog.optional')}</span>
                             </Label>
-                            <Select value={classId} onValueChange={setClassId}>
-                                <SelectTrigger className="bg-[#0D1117] border-white/10 text-white">
-                                    <SelectValue placeholder="—" />
-                                </SelectTrigger>
-                                <SelectContent className="bg-[#1A2530] border-white/10 text-white max-h-48">
-                                    <SelectItem value="none">—</SelectItem>
-                                    {classes.map(c => (
-                                        <SelectItem key={c.id} value={c.id}>{classLabel(c)}</SelectItem>
-                                    ))}
-                                </SelectContent>
-                            </Select>
+                            <SearchableSelect
+                                value={classId}
+                                onChange={setClassId}
+                                options={classes.map(c => ({ value: c.id, label: classLabel(c) }))}
+                                placeholder="—"
+                                searchPlaceholder={t('admin.documents.dialog.searchPlaceholder')}
+                                noResultsText={t('admin.documents.dialog.noResults')}
+                            />
                         </div>
 
                         {/* Teacher — only shown when not pre-set from parent context */}
@@ -295,17 +384,14 @@ export function UploadDocumentDialog({
                                 <Label className="text-xs text-gray-400 uppercase font-bold">
                                     {t('admin.documents.dialog.teacherLabel')} <span className="normal-case text-gray-600">{t('admin.documents.dialog.optional')}</span>
                                 </Label>
-                                <Select value={teacherId} onValueChange={setTeacherId}>
-                                    <SelectTrigger className="bg-[#0D1117] border-white/10 text-white">
-                                        <SelectValue placeholder="—" />
-                                    </SelectTrigger>
-                                    <SelectContent className="bg-[#1A2530] border-white/10 text-white max-h-48">
-                                        <SelectItem value="none">—</SelectItem>
-                                        {teachers.map(teacher => (
-                                            <SelectItem key={teacher.id} value={teacher.id}>{teacher.full_name}</SelectItem>
-                                        ))}
-                                    </SelectContent>
-                                </Select>
+                                <SearchableSelect
+                                    value={teacherId}
+                                    onChange={setTeacherId}
+                                    options={teachers.map(tc => ({ value: tc.id, label: tc.full_name }))}
+                                    placeholder="—"
+                                    searchPlaceholder={t('admin.documents.dialog.searchPlaceholder')}
+                                    noResultsText={t('admin.documents.dialog.noResults')}
+                                />
                             </div>
                         )}
 
@@ -320,18 +406,6 @@ export function UploadDocumentDialog({
                             />
                         </div>
 
-                        {/* NNI */}
-                        <div className="space-y-1.5">
-                            <Label className="text-xs text-gray-400 uppercase font-bold">
-                                {t('admin.documents.dialog.nniLabel')} <span className="normal-case text-gray-600">{t('admin.documents.dialog.optional')}</span>
-                            </Label>
-                            <Input
-                                value={nni}
-                                onChange={e => setNni(e.target.value)}
-                                placeholder={t('admin.documents.dialog.nniPlaceholder')}
-                                className="bg-[#0D1117] border-white/10 text-white h-9 font-mono"
-                            />
-                        </div>
                     </div>
 
                     <Button

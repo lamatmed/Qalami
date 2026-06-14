@@ -4,13 +4,14 @@ import { useState, useEffect, useCallback } from 'react'
 import { createClient } from '@/utils/supabase/client'
 import {
     Loader2, Banknote, TrendingUp, Calendar, CheckCircle2, Clock, XCircle,
-    Plus, X, ArrowDownRight, Eye, Check, MessageSquare,
+    Plus, X, ArrowDownRight, Eye, Check,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useLanguage } from '@/i18n'
 import { getMySchoolContext } from '@/app/admin/actions'
 import { toast } from 'sonner'
 import { StaffAdjustments } from './staff-adjustments'
+import { TeacherPayrollSection } from './teacher-payroll-section'
 import {
     recordTeacherPaymentAction,
     getTeacherTransactionsAction,
@@ -45,7 +46,6 @@ interface TeacherTransaction {
     created_at: string
     payment_method: string | null
     reference_number: string | null
-    notes: string | null
 }
 
 const MONTH_KEYS = ['january','february','march','april','may','june','july','august','september','october','november','december']
@@ -81,6 +81,7 @@ export function TeacherFinances({ teacherId }: { teacherId: string }) {
     const [payments, setPayments] = useState<PayrollRecord[]>([])
     const [transactions, setTransactions] = useState<TeacherTransaction[]>([])
     const [txLoading, setTxLoading] = useState(true)
+    const [payrollRefreshTick, setPayrollRefreshTick] = useState(0)
 
     // Payment form state
     const [showForm, setShowForm] = useState(false)
@@ -132,7 +133,7 @@ export function TeacherFinances({ teacherId }: { teacherId: string }) {
         }
         load()
         fetchTransactions()
-    }, [teacherId, fetchTransactions])
+    }, [teacherId, fetchTransactions, payrollRefreshTick])
 
     const handleAddPayment = async () => {
         const amount = parseFloat(payAmount)
@@ -168,7 +169,7 @@ export function TeacherFinances({ teacherId }: { teacherId: string }) {
             const BK: [number,number,number] = [10, 10, 10]
             const GR: [number,number,number] = [150, 150, 150]
 
-            const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: [W, 200 + (trx.notes ? 20 : 0)] })
+            const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: [W, 200] })
 
             const hline = (yPos: number, thick = 0.3) => {
                 doc.setDrawColor(...BK); doc.setLineWidth(thick); doc.line(ml, yPos, mr, yPos)
@@ -210,13 +211,6 @@ export function TeacherFinances({ teacherId }: { teacherId: string }) {
                 y += 2; hline(y, 0.3); y += 6
                 doc.setFont('Helvetica', 'normal'); doc.setFontSize(8); doc.setTextColor(...GR); doc.text('BÉNÉFICIAIRE  ·  ENSEIGNANT', ml, y); y += 6
                 doc.setFont('Helvetica', 'bold'); doc.setFontSize(11); doc.setTextColor(...BK); doc.text(teacherName, ml, y); y += 8
-            }
-
-            if (trx.notes) {
-                y += 2; hline(y, 0.3); y += 6
-                doc.setFont('Helvetica', 'normal'); doc.setFontSize(8); doc.setTextColor(...GR); doc.text('REMARQUE', ml, y); y += 5
-                const splitNotes = doc.splitTextToSize(trx.notes, mr - ml)
-                doc.setFont('Helvetica', 'normal'); doc.setFontSize(8.5); doc.setTextColor(...BK); doc.text(splitNotes, ml, y); y += splitNotes.length * 5 + 3
             }
 
             y += 3; hline(y, 0.3); y += 6
@@ -393,6 +387,15 @@ export function TeacherFinances({ teacherId }: { teacherId: string }) {
                 </div>
             )}
 
+            {/* ── Payroll section ── */}
+            <TeacherPayrollSection
+                teacherId={teacherId}
+                onPayrollConfirmed={() => {
+                    setPayrollRefreshTick(n => n + 1)
+                    fetchTransactions()
+                }}
+            />
+
             {/* ── Staff adjustments log ── */}
             <div className="bg-[#1A2530] rounded-3xl border border-white/5 p-5">
                 <StaffAdjustments profileId={teacherId} />
@@ -428,10 +431,10 @@ export function TeacherFinances({ teacherId }: { teacherId: string }) {
                             {transactions.map(trx => {
                                 const catLabel = getCategoryLabel(trx.category)
                                 const dateStr = new Date(trx.transaction_date).toLocaleDateString('fr-FR', {
-                                    day: 'numeric', month: 'short', year: 'numeric'
+                                    day: 'numeric', month: 'short', year: 'numeric', timeZone: 'Africa/Nouakchott'
                                 })
                                 const timeStr = new Date(trx.created_at).toLocaleTimeString('fr-FR', {
-                                    hour: '2-digit', minute: '2-digit'
+                                    hour: '2-digit', minute: '2-digit', timeZone: 'Africa/Nouakchott'
                                 })
                                 const isSalary = trx.type === 'salary' || trx.category === 'salary' || trx.category === 'Salaire du personnel'
 
@@ -456,12 +459,6 @@ export function TeacherFinances({ teacherId }: { teacherId: string }) {
                                                     </span>
                                                 )}
                                             </div>
-                                            {trx.notes && (
-                                                <div className="flex items-start gap-1 mt-1">
-                                                    <MessageSquare className="w-3 h-3 text-amber-500/70 shrink-0 mt-0.5" />
-                                                    <p className="text-xs text-amber-500/70 italic">{trx.notes}</p>
-                                                </div>
-                                            )}
                                         </div>
                                         <div className="flex items-center gap-2 shrink-0">
                                             <p className="text-base font-black text-white">

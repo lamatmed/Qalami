@@ -68,10 +68,10 @@ export function StudentHomeworkView({ homework }: Props) {
 
         if (date < today) return t('student.homework.overdue')
         if (date.toDateString() === today.toDateString()) {
-            return t('student.homework.todayAt', { time: date.toLocaleTimeString(activeLocale, { hour: '2-digit', minute: '2-digit' }) })
+            return t('student.homework.todayAt', { time: date.toLocaleTimeString(activeLocale, { hour: '2-digit', minute: '2-digit', timeZone: 'Africa/Nouakchott' }) })
         }
         if (date.toDateString() === tomorrow.toDateString()) {
-            return t('student.homework.tomorrowAt', { time: date.toLocaleTimeString(activeLocale, { hour: '2-digit', minute: '2-digit' }) })
+            return t('student.homework.tomorrowAt', { time: date.toLocaleTimeString(activeLocale, { hour: '2-digit', minute: '2-digit', timeZone: 'Africa/Nouakchott' }) })
         }
         return date.toLocaleDateString(activeLocale, { weekday: 'short', day: 'numeric', month: 'short' })
     }

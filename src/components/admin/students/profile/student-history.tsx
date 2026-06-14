@@ -132,7 +132,7 @@ export function StudentHistory({ studentId, schoolId }: { studentId: string; sch
         report += `------------------------------------\n`
         grades.forEach(e => {
             const dg = e.date ? new Date(e.date) : null
-            const dgStr = dg ? dg.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', year: 'numeric' }) + ' ' + dg.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }) : ''
+            const dgStr = dg ? dg.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'Africa/Nouakchott' }) + ' ' + dg.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit', timeZone: 'Africa/Nouakchott' }) : ''
             report += `\u2022 ${dgStr} - ${e.title}\n`
             if (e.content) report += `  ${e.content}\n`
             if (e.score) report += `  Score: ${e.score}\n`
@@ -143,7 +143,7 @@ export function StudentHistory({ studentId, schoolId }: { studentId: string; sch
         report += `------------------------------------\n`
         remarks.forEach(e => {
             const dr = e.date ? new Date(e.date) : null
-            const drStr = dr ? dr.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', year: 'numeric' }) + ' ' + dr.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }) : ''
+            const drStr = dr ? dr.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'Africa/Nouakchott' }) + ' ' + dr.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit', timeZone: 'Africa/Nouakchott' }) : ''
             report += `\u2022 ${drStr} - ${e.title}\n`
             if (e.author) report += `  ${e.author}\n`
             if (e.content) report += `  ${e.content}\n`
@@ -229,7 +229,7 @@ export function StudentHistory({ studentId, schoolId }: { studentId: string; sch
                                         )}
                                     </div>
                                     <p className="text-[10px] text-gray-500 mt-0.5">
-                                        {event.date ? (() => { const d = new Date(event.date); return d.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', year: 'numeric' }) + ' ' + d.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }) })() : ''}
+                                        {event.date ? (() => { const d = new Date(event.date); return d.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'Africa/Nouakchott' }) + ' ' + d.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit', timeZone: 'Africa/Nouakchott' }) })() : ''}
                                         {event.author && ` \u2022 ${event.author}`}
                                     </p>
                                     {event.content && (

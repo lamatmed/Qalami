@@ -463,7 +463,7 @@ export function StudentDocuments({ studentId, classId, schoolId, isArchived }: S
                                                             !isArchived && 'hover:opacity-80 cursor-pointer'
                                                         )}
                                                     >
-                                                        {doc.status === 'valid' ? t('admin.students.profile.documentsValidatedOn', { date: doc.uploaded_at ? (() => { const _d = new Date(doc.uploaded_at); return _d.toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: 'numeric' }) + ' ' + _d.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }) })() : '—' })
+                                                        {doc.status === 'valid' ? t('admin.students.profile.documentsValidatedOn', { date: doc.uploaded_at ? (() => { const _d = new Date(doc.uploaded_at); return _d.toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: 'numeric', timeZone: 'Africa/Nouakchott' }) + ' ' + _d.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit', timeZone: 'Africa/Nouakchott' }) })() : '—' })
                                                          : doc.status === 'pending' ? t('admin.students.profile.documentsPending')
                                                          : t('admin.students.profile.documentsMissing')}
                                                         {!isArchived && <ChevronDown className="w-2.5 h-2.5" />}

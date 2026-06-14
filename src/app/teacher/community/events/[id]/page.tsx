@@ -73,7 +73,7 @@ export default function EventDetailsPage() {
                                     <Clock className="w-4 h-4 text-indigo-500" />
                                     {eventData.all_day 
                                         ? t('teacher.community.allDay') 
-                                        : `${new Date(eventData.start_date).toLocaleTimeString(language === 'ar' ? 'ar-MR' : 'fr-FR', { hour: '2-digit', minute: '2-digit' })}${eventData.end_date ? ' - ' + new Date(eventData.end_date).toLocaleTimeString(language === 'ar' ? 'ar-MR' : 'fr-FR', { hour: '2-digit', minute: '2-digit' }) : ''}`
+                                        : `${new Date(eventData.start_date).toLocaleTimeString(language === 'ar' ? 'ar-MR' : 'fr-FR', { hour: '2-digit', minute: '2-digit', timeZone: 'Africa/Nouakchott' })}${eventData.end_date ? ' - ' + new Date(eventData.end_date).toLocaleTimeString(language === 'ar' ? 'ar-MR' : 'fr-FR', { hour: '2-digit', minute: '2-digit', timeZone: 'Africa/Nouakchott' }) : ''}`
                                     }
                                 </div>
                                 {eventData.location && (

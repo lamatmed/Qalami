@@ -76,7 +76,7 @@ export function PersonnelManagement() {
 
     const handleUpdate = async () => {
         if (!editMember) return
-        if (!editForm.name.trim() || !editForm.role.trim()) { toast.error('Nom et poste sont obligatoires'); return }
+        if (!editForm.name.trim() || !editForm.role.trim()) { toast.error(t('admin.personnel.nameAndRoleRequired')); return }
         setSaving(true)
         const result = await updateStaffMemberAction(editMember.id, {
             name: editForm.name,
@@ -92,7 +92,7 @@ export function PersonnelManagement() {
             ...s, name: editForm.name, role: editForm.role, phone: editForm.phone || null,
             nni: editForm.nni || null, salary: Number(editForm.salary) || 0, contractType: editForm.contractType
         } : s))
-        toast.success('Informations mises à jour')
+        toast.success(t('admin.personnel.infoUpdated'))
         setEditMember(null)
     }
 
@@ -145,7 +145,7 @@ export function PersonnelManagement() {
         const result = await addStaffAbsenceAction({ staffId, date: absenceDate, justified: absenceJustified, note: absenceNote.trim() || null })
         if (result.error) { toast.error(result.error) }
         else {
-            toast.success('Absence enregistrée')
+            toast.success(t('admin.personnel.absenceAdded'))
             setAbsenceDate(new Date().toISOString().split('T')[0])
             setAbsenceJustified(false)
             setAbsenceNote('')
@@ -156,12 +156,12 @@ export function PersonnelManagement() {
     }
 
     const handleDeleteAbsence = async (staffId: string, absenceId: string) => {
-        if (!confirm('Supprimer cette absence ?')) return
+        if (!confirm(t('admin.personnel.deleteAbsenceConfirm'))) return
         setDeletingAbsenceId(absenceId)
         const result = await deleteStaffAbsenceAction(absenceId)
         if (result.error) toast.error(result.error)
         else {
-            toast.success('Absence supprimée')
+            toast.success(t('admin.personnel.absenceDeleted'))
             await loadAbsences(staffId)
         }
         setDeletingAbsenceId(null)
@@ -184,19 +184,19 @@ export function PersonnelManagement() {
 
     const handleAdd = async () => {
         if (!newMember.name || !newMember.role) {
-            toast.error('Nom et poste sont obligatoires')
+            toast.error(t('admin.personnel.nameAndRoleRequired'))
             return
         }
         if (newMember.nni && !/^\d{10}$/.test(newMember.nni)) {
-            toast.error('Le NNI doit contenir exactement 10 chiffres')
+            toast.error(t('admin.students.register.errors.nniLengthError'))
             return
         }
         if (newMember.createUser && !newMember.phone.trim()) {
-            toast.error('Le numéro de téléphone est requis pour créer un compte utilisateur')
+            toast.error(t('admin.personnel.phoneRequiredForAccount'))
             return
         }
         if (newMember.createUser && newMember.password.trim().length < 6) {
-            toast.error('Le mot de passe doit contenir au moins 6 caractères')
+            toast.error(t('admin.personnel.passwordMinLength'))
             return
         }
         setSaving(true)
@@ -273,7 +273,7 @@ export function PersonnelManagement() {
                 <Dialog open={!!editMember} onOpenChange={open => { if (!open) setEditMember(null) }}>
                     <DialogContent className="bg-[#161B22] border-white/10 text-white">
                         <DialogHeader>
-                            <DialogTitle>Modifier les informations</DialogTitle>
+                            <DialogTitle>{t('admin.personnel.editInfo')}</DialogTitle>
                         </DialogHeader>
                         <div className="space-y-4 pt-4">
                             <div className="space-y-2">
@@ -294,15 +294,15 @@ export function PersonnelManagement() {
                                     </Select>
                                 </div>
                                 <div className="space-y-2">
-                                    <Label>Type de contrat</Label>
+                                    <Label>{t('admin.personnel.contractType')}</Label>
                                     <Select value={editForm.contractType} onValueChange={v => setEditForm({ ...editForm, contractType: v as 'CDI' | 'CDD' | 'hourly' })}>
                                         <SelectTrigger className="bg-[#0D1117] border-white/10">
                                             <SelectValue />
                                         </SelectTrigger>
                                         <SelectContent className="bg-[#161B22] border-white/10 text-white">
-                                            <SelectItem value="CDI">CDI</SelectItem>
-                                            <SelectItem value="CDD">CDD</SelectItem>
-                                            <SelectItem value="hourly">Horaire</SelectItem>
+                                            <SelectItem value="CDI">{t('admin.personnel.cdi')}</SelectItem>
+                                            <SelectItem value="CDD">{t('admin.personnel.cdd')}</SelectItem>
+                                            <SelectItem value="hourly">{t('admin.personnel.hourlyContract')}</SelectItem>
                                         </SelectContent>
                                     </Select>
                                 </div>
@@ -314,8 +314,8 @@ export function PersonnelManagement() {
                                         value={editForm.salary} onChange={e => setEditForm({ ...editForm, salary: e.target.value })} />
                                 </div>
                                 <div className="space-y-2">
-                                    <Label>NNI</Label>
-                                    <Input placeholder="10 chiffres" maxLength={10} className="bg-[#0D1117] border-white/10 font-mono"
+                                    <Label>{t('admin.personnel.nni')}</Label>
+                                    <Input placeholder={t('admin.personnel.nniPlaceholder')} maxLength={10} className="bg-[#0D1117] border-white/10 font-mono"
                                         value={editForm.nni} onChange={e => setEditForm({ ...editForm, nni: e.target.value.replace(/\D/g, '') })} />
                                 </div>
                             </div>
@@ -371,7 +371,7 @@ export function PersonnelManagement() {
                                     </Select>
                                 </div>
                                 <div className="space-y-2">
-                                    <Label>Type de contrat</Label>
+                                    <Label>{t('admin.personnel.contractType')}</Label>
                                     <Select
                                         value={newMember.contractType}
                                         onValueChange={v => setNewMember({ ...newMember, contractType: v as 'CDI' | 'CDD' | 'hourly' })}
@@ -380,9 +380,9 @@ export function PersonnelManagement() {
                                             <SelectValue />
                                         </SelectTrigger>
                                         <SelectContent className="bg-[#161B22] border-white/10 text-white">
-                                            <SelectItem value="CDI">CDI</SelectItem>
-                                            <SelectItem value="CDD">CDD</SelectItem>
-                                            <SelectItem value="hourly">Horaire</SelectItem>
+                                            <SelectItem value="CDI">{t('admin.personnel.cdi')}</SelectItem>
+                                            <SelectItem value="CDD">{t('admin.personnel.cdd')}</SelectItem>
+                                            <SelectItem value="hourly">{t('admin.personnel.hourlyContract')}</SelectItem>
                                         </SelectContent>
                                     </Select>
                                 </div>
@@ -399,9 +399,9 @@ export function PersonnelManagement() {
                                     />
                                 </div>
                                 <div className="space-y-2">
-                                    <Label>NNI</Label>
+                                    <Label>{t('admin.personnel.nni')}</Label>
                                     <Input
-                                        placeholder="10 chiffres"
+                                        placeholder={t('admin.personnel.nniPlaceholder')}
                                         maxLength={10}
                                         className={`bg-[#0D1117] border-white/10 font-mono ${newMember.nni && newMember.nni.length !== 10 ? 'border-red-500/50' : ''}`}
                                         value={newMember.nni}
@@ -445,16 +445,16 @@ export function PersonnelManagement() {
                                     </div>
                                     <div className="flex items-center gap-2">
                                         <UserCheck className="w-4 h-4 text-blue-400" />
-                                        <span className="text-sm font-medium text-white">Créer un compte utilisateur</span>
+                                        <span className="text-sm font-medium text-white">{t('admin.personnel.createUserAccount')}</span>
                                     </div>
                                 </label>
                                 {newMember.createUser && (
                                     <div className="space-y-1">
-                                        <label className="text-[10px] text-gray-500 uppercase font-bold">Mot de passe</label>
+                                        <label className="text-[10px] text-gray-500 uppercase font-bold">{t('admin.personnel.passwordLabel')}</label>
                                         <div className="relative">
                                             <Input
                                                 type={showNewMemberPwd ? 'text' : 'password'}
-                                                placeholder="Min. 6 caractères"
+                                                placeholder={t('admin.personnel.passwordMinPlaceholder')}
                                                 className="bg-[#0D1117] border-white/10 pr-10"
                                                 value={newMember.password}
                                                 onChange={e => setNewMember({ ...newMember, password: e.target.value })}
@@ -468,7 +468,7 @@ export function PersonnelManagement() {
                                                 {showNewMemberPwd ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                                             </button>
                                         </div>
-                                        <p className="text-[10px] text-blue-400/70">Ce membre pourra se connecter via son téléphone et ce mot de passe.</p>
+                                        <p className="text-[10px] text-blue-400/70">{t('admin.personnel.loginHint')}</p>
                                     </div>
                                 )}
                             </div>
@@ -566,7 +566,7 @@ export function PersonnelManagement() {
                                                         {member.contractType}
                                                     </Badge>
                                                     {member.phone && <span className="text-xs text-gray-500">{member.phone}</span>}
-                                                    {member.nni && <span className="text-xs text-gray-600 font-mono">NNI: {member.nni}</span>}
+                                                    {member.nni && <span className="text-xs text-gray-600 font-mono">{t('admin.personnel.nni')}: {member.nni}</span>}
                                                 </div>
                                             </div>
                                         </div>
@@ -588,7 +588,7 @@ export function PersonnelManagement() {
                                                 )}
                                             >
                                                 <CalendarDays className="w-3 h-3" />
-                                                {unjustifiedCount > 0 ? `${unjustifiedCount} abs.` : 'Absences'}
+                                                {unjustifiedCount > 0 ? `${unjustifiedCount} ${t('admin.personnel.absShort')}` : t('admin.personnel.absencesBtn')}
                                                 {isExpanded ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
                                             </button>
                                             {/* Heures & Primes toggle */}
@@ -603,7 +603,7 @@ export function PersonnelManagement() {
                                                 )}
                                             >
                                                 <Clock className="w-3 h-3" />
-                                                Heures & Primes
+                                                {t('admin.personnel.hoursAndBonuses')}
                                                 {expandedAdjId === member.id ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
                                             </button>
                                             <Button
@@ -639,16 +639,16 @@ export function PersonnelManagement() {
                                             {/* Month summary */}
                                             <div className="flex items-center justify-between">
                                                 <p className="text-xs font-bold text-gray-400">
-                                                    Absences — {new Date(currentYear, currentMonth - 1).toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' })}
+                                                    {t('admin.personnel.monthAbsencesTitle').replace('{month}', new Date(currentYear, currentMonth - 1).toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' }))}
                                                 </p>
                                                 {unjustifiedCount > 0 && member.salary === 0 && (
                                                     <span className="text-xs font-bold text-amber-400 bg-amber-500/10 px-2.5 py-1 rounded-lg border border-amber-500/20">
-                                                        Salaire non configuré
+                                                        {t('admin.personnel.salaryNotConfigured')}
                                                     </span>
                                                 )}
                                                 {unjustifiedCount > 0 && member.salary > 0 && (
                                                     <span className="text-xs font-bold text-red-400 bg-red-500/10 px-2.5 py-1 rounded-lg border border-red-500/20">
-                                                        Déduction : −{Math.round(deduction).toLocaleString()} MRU
+                                                        {t('admin.personnel.deductionDisplay').replace('{amount}', Math.round(deduction).toLocaleString())}
                                                     </span>
                                                 )}
                                             </div>
@@ -660,32 +660,32 @@ export function PersonnelManagement() {
                                                     onClick={() => { setAddFormOpenFor(member.id); setAbsenceDate(new Date().toISOString().split('T')[0]); setAbsenceJustified(false); setAbsenceNote('') }}
                                                     className="flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-bold bg-pink-500/10 border border-pink-500/20 text-pink-400 hover:bg-pink-500/20 transition-all w-full justify-center"
                                                 >
-                                                    <Plus className="w-3.5 h-3.5" /> Ajouter une absence
+                                                    <Plus className="w-3.5 h-3.5" /> {t('admin.personnel.addAbsence')}
                                                 </button>
                                             ) : (
                                                 <div className="bg-[#1A2530] rounded-xl border border-pink-500/20 p-4 space-y-3 animate-in fade-in slide-in-from-top-2 duration-200">
                                                     <div className="flex items-center justify-between">
-                                                        <p className="text-[10px] font-bold text-pink-400 uppercase">Nouvelle absence</p>
-                                                        <button type="button" title="Fermer" onClick={() => setAddFormOpenFor(null)} className="text-gray-500 hover:text-white transition-colors">
+                                                        <p className="text-[10px] font-bold text-pink-400 uppercase">{t('admin.personnel.newAbsence')}</p>
+                                                        <button type="button" title={t('common.close')} onClick={() => setAddFormOpenFor(null)} className="text-gray-500 hover:text-white transition-colors">
                                                             <X className="w-4 h-4" />
                                                         </button>
                                                     </div>
                                                     <div className="grid grid-cols-2 gap-3">
                                                         <div className="space-y-1">
-                                                            <label className="text-[10px] text-gray-500 uppercase font-bold">Date</label>
+                                                            <label className="text-[10px] text-gray-500 uppercase font-bold">{t('common.date')}</label>
                                                             <input
                                                                 type="date"
-                                                                title="Date de l'absence"
+                                                                title={t('common.date')}
                                                                 value={absenceDate}
                                                                 onChange={e => setAbsenceDate(e.target.value)}
                                                                 className="w-full bg-[#0D1117] border border-white/10 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-pink-500/50"
                                                             />
                                                         </div>
                                                         <div className="space-y-1">
-                                                            <label className="text-[10px] text-gray-500 uppercase font-bold">Note</label>
+                                                            <label className="text-[10px] text-gray-500 uppercase font-bold">{t('common.description')}</label>
                                                             <input
                                                                 type="text"
-                                                                placeholder="Optionnel"
+                                                                placeholder={t('admin.documents.dialog.optional')}
                                                                 value={absenceNote}
                                                                 onChange={e => setAbsenceNote(e.target.value)}
                                                                 className="w-full bg-[#0D1117] border border-white/10 rounded-lg px-3 py-2 text-sm text-white placeholder-gray-600 focus:outline-none focus:border-pink-500/50"
@@ -702,7 +702,7 @@ export function PersonnelManagement() {
                                                         >
                                                             {absenceJustified && <Check className="w-2.5 h-2.5 text-black" strokeWidth={3} />}
                                                         </div>
-                                                        <span className="text-xs text-gray-400">Absence justifiée (ne compte pas dans la déduction)</span>
+                                                        <span className="text-xs text-gray-400">{t('admin.personnel.justifiedAbsenceHint')}</span>
                                                     </label>
                                                     <div className="flex gap-2">
                                                         <button
@@ -710,7 +710,7 @@ export function PersonnelManagement() {
                                                             onClick={() => setAddFormOpenFor(null)}
                                                             className="px-3 py-2 rounded-lg text-xs font-bold text-gray-400 hover:text-white border border-white/10 hover:bg-white/5 transition-all"
                                                         >
-                                                            Annuler
+                                                            {t('common.cancel')}
                                                         </button>
                                                         <button
                                                             type="button"
@@ -719,7 +719,7 @@ export function PersonnelManagement() {
                                                             className="flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-bold bg-pink-600 hover:bg-pink-500 text-white transition-all disabled:opacity-50"
                                                         >
                                                             {addingAbsence ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Check className="w-3.5 h-3.5" />}
-                                                            Enregistrer
+                                                            {t('common.save')}
                                                         </button>
                                                     </div>
                                                 </div>
@@ -731,7 +731,7 @@ export function PersonnelManagement() {
                                                     <Loader2 className="w-5 h-5 animate-spin text-pink-500" />
                                                 </div>
                                             ) : absences.length === 0 ? (
-                                                <p className="text-center text-xs text-gray-600 py-3">Aucune absence ce mois-ci</p>
+                                                <p className="text-center text-xs text-gray-600 py-3">{t('admin.personnel.noAbsenceThisMonth')}</p>
                                             ) : (
                                                 <div className="space-y-2">
                                                     {absences.map(ab => (
@@ -759,7 +759,7 @@ export function PersonnelManagement() {
                                                                         ? "bg-amber-500/10 text-amber-400 border-amber-500/20"
                                                                         : "bg-red-500/10 text-red-400 border-red-500/20"
                                                                 )}>
-                                                                    {ab.justified ? 'Justifiée' : member.salary === 0 ? 'Non configuré' : `−${Math.round(dailySalary).toLocaleString()} MRU`}
+                                                                    {ab.justified ? t('admin.personnel.justifiedLabel') : member.salary === 0 ? t('admin.personnel.salaryNotSet') : `−${Math.round(dailySalary).toLocaleString()} MRU`}
                                                                 </span>
                                                                 <button
                                                                     type="button"

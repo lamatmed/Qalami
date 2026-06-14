@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
 import { Progress } from '@/components/ui/progress'
-import { CreditCard, Clock, CheckCircle2, X, Loader2, Send, Printer } from 'lucide-react'
+import { CreditCard, Clock, CheckCircle2, X, Loader2, Send, Printer, Search, Filter, ChevronDown } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { toast } from 'sonner'
 import { createClient } from '@/utils/supabase/client'
@@ -42,6 +42,14 @@ export function StudentPayments({ studentId, studentName, schoolId, isArchived }
     const [paymentAmount, setPaymentAmount] = useState('')
     const [paymentType, setPaymentType] = useState('scolarite')
     const [paymentNote, setPaymentNote] = useState('')
+
+    // History filters
+    const [filterSearch, setFilterSearch] = useState('')
+    const [filterType, setFilterType] = useState('')
+    const [filterStatus, setFilterStatus] = useState('')
+    const [filterDateFrom, setFilterDateFrom] = useState('')
+    const [filterDateTo, setFilterDateTo] = useState('')
+    const [showFilters, setShowFilters] = useState(false)
 
     const [resolvedStudentName, setResolvedStudentName] = useState(studentName || '')
     const [studentClass, setStudentClass] = useState('')
@@ -189,6 +197,15 @@ export function StudentPayments({ studentId, studentName, schoolId, isArchived }
     const paidPercentage = totalDue > 0 ? Math.round((totalPaid / totalDue) * 100) : 0
     const remaining = totalDue - totalPaid
 
+    // Scolarité: fully paid when all rows are paid
+    const scolariteRows = feePayments.filter(p => p.payment_type === 'scolarite')
+    const scolariteDue = scolariteRows.reduce((sum, p) => sum + Number(p.amount), 0)
+    const scolaritePaidAmt = scolariteRows.filter(p => p.payment_status === 'paid').reduce((sum, p) => sum + Number(p.amount), 0)
+    const scolariteFullyPaid = scolariteDue > 0 && scolaritePaidAmt >= scolariteDue
+
+    // Inscription: hidden once any paid inscription row exists
+    const inscriptionPaid = feePayments.some(p => p.payment_type === 'inscription' && p.payment_status === 'paid')
+
     const getBilingualTypeLabel = (type: string) => {
         const labels: Record<string, { fr: string; ar: string }> = {
             scolarite: { fr: 'Scolarité', ar: 'الرسوم الدراسية' },
@@ -199,303 +216,125 @@ export function StudentPayments({ studentId, studentName, schoolId, isArchived }
             transport: { fr: 'Transport', ar: 'رسوم النقل' },
             restauration: { fr: 'Restauration', ar: 'رسوم الإطعام' },
             cotisation: { fr: 'Cotisation', ar: 'الاشتراك' },
-            autre: { fr: 'Versement divers', ar: 'دفع متنوع' }
+            autre: { fr: 'Autres', ar: 'أخرى' },
+            autres: { fr: 'Autres', ar: 'أخرى' },
         }
         return labels[type] || { fr: type, ar: type }
     }
 
-    const handlePrintReceipt = (payment: FinanceItem) => {
-        const printWindow = window.open('', '_blank', 'width=700,height=850')
-        if (!printWindow) {
-            toast.error(t('admin.students.register.confirmation.printOpenError'))
-            return
-        }
+    const handlePrintReceipt = async (payment: FinanceItem) => {
+        try {
+            toast.info(language === 'ar' ? 'جارٍ إنشاء الوصل…' : 'Génération du reçu…')
 
-        const locale = language === 'ar' ? 'ar-u-ca-gregory' : 'fr-FR'
-        const paymentDate = payment.paid_at ? new Date(payment.paid_at).toLocaleDateString(locale, { day: '2-digit', month: 'long', year: 'numeric' }) : '—'
-        const receiptNo = payment.receipt_number || payment.id.substring(0, 8).toUpperCase()
-        const types = getBilingualTypeLabel(payment.payment_type)
+            const locale = language === 'ar' ? 'ar-u-ca-gregory' : 'fr-FR'
+            const paymentDate = payment.paid_at
+                ? new Date(payment.paid_at).toLocaleDateString(locale, { day: '2-digit', month: 'long', year: 'numeric' })
+                : '—'
+            const receiptNo = payment.receipt_number || payment.id.substring(0, 8).toUpperCase()
+            const types = getBilingualTypeLabel(payment.payment_type)
+            const _now = new Date()
+            const printDate = _now.toLocaleDateString('fr-FR', { day: '2-digit', month: 'long', year: 'numeric', timeZone: 'Africa/Nouakchott' })
+                + ' à ' + _now.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit', timeZone: 'Africa/Nouakchott' })
+            const fmt = (n: number) => Math.round(n).toString().replace(/\B(?=(\d{3})+(?!\d))/g, ' ')
 
-        printWindow.document.write(`
-            <!DOCTYPE html>
-            <html dir="ltr">
-            <head>
-                <meta charset="utf-8">
-                <title>Reçu / وصل - ${receiptNo}</title>
-                <style>
-                    body {
-                        font-family: Arial, sans-serif;
-                        padding: 30px;
-                        max-width: 650px;
-                        margin: 0 auto;
-                        color: #333;
-                        direction: ltr;
-                    }
-                    .receipt-container {
-                        border: 2px dashed #10b981;
-                        border-radius: 16px;
-                        padding: 24px;
-                        background: #fff;
-                    }
-                    .header {
-                        display: flex;
-                        flex-direction: column;
-                        align-items: center;
-                        text-align: center;
-                        border-bottom: 2px solid #10b981;
-                        padding-bottom: 16px;
-                        margin-bottom: 20px;
-                        gap: 8px;
-                    }
-                    .logo-container {
-                        width: 70px;
-                        height: 70px;
-                        border-radius: 50%;
-                        overflow: hidden;
-                        display: flex;
-                        align-items: center;
-                        justify-content: center;
-                        background: #ecfdf5;
-                        border: 2px solid #10b981;
-                    }
-                    .school-logo {
-                        width: 100%;
-                        height: 100%;
-                        object-fit: cover;
-                    }
-                    .school-title {
-                        font-size: 20px;
-                        font-weight: 800;
-                        color: #10b981;
-                        margin: 0;
-                    }
-                    .school-subtitle {
-                        font-size: 11px;
-                        color: #6b7280;
-                        margin: 2px 0 0 0;
-                    }
-                    .receipt-title {
-                        text-align: center;
-                        margin: 15px 0;
-                    }
-                    .receipt-title h2 {
-                        margin: 0;
-                        font-size: 20px;
-                        color: #1f2937;
-                        letter-spacing: 0.5px;
-                    }
-                    .receipt-title p {
-                        margin: 4px 0 0 0;
-                        font-size: 13px;
-                        color: #6b7280;
-                    }
-                    .meta-info {
-                        display: grid;
-                        grid-template-cols: 1fr 1fr;
-                        gap: 15px;
-                        margin-bottom: 25px;
-                        background: #f9fafb;
-                        padding: 12px 16px;
-                        border-radius: 8px;
-                        font-size: 13px;
-                    }
-                    .meta-row {
-                        display: flex;
-                        justify-content: space-between;
-                        align-items: center;
-                        padding: 4px 0;
-                    }
-                    .meta-label {
-                        color: #6b7280;
-                    }
-                    .meta-value {
-                        font-weight: bold;
-                        color: #1f2937;
-                    }
-                    .table-header {
-                        display: grid;
-                        grid-template-cols: 2.5fr 1fr;
-                        font-weight: bold;
-                        border-bottom: 2px solid #e5e7eb;
-                        padding-bottom: 8px;
-                        font-size: 13px;
-                        color: #4b5563;
-                    }
-                    .table-row {
-                        display: grid;
-                        grid-template-cols: 2.5fr 1fr;
-                        padding: 12px 0;
-                        border-bottom: 1px solid #f3f4f6;
-                        align-items: center;
-                        font-size: 14px;
-                    }
-                    .item-desc {
-                        font-weight: 500;
-                        color: #1f2937;
-                    }
-                    .item-desc p {
-                        margin: 2px 0 0 0;
-                        font-size: 11px;
-                        color: #6b7280;
-                    }
-                    .item-amount {
-                        text-align: right;
-                        font-weight: bold;
-                        color: #10b981;
-                        font-size: 16px;
-                    }
-                    .total-section {
-                        margin-top: 20px;
-                        padding-top: 12px;
-                        border-top: 2px solid #e5e7eb;
-                        display: flex;
-                        justify-content: space-between;
-                        align-items: center;
-                    }
-                    .total-label {
-                        font-size: 15px;
-                        font-weight: bold;
-                        color: #1f2937;
-                    }
-                    .total-amount {
-                        font-size: 20px;
-                        font-weight: 800;
-                        color: #10b981;
-                    }
-                    .status-badge {
-                        background-color: #d1fae5;
-                        color: #065f46;
-                        font-size: 11px;
-                        font-weight: bold;
-                        padding: 4px 8px;
-                        border-radius: 9999px;
-                        display: inline-block;
-                    }
-                    .signatures-section {
-                        display: grid;
-                        grid-template-cols: 1fr 1fr;
-                        gap: 40px;
-                        margin-top: 50px;
-                        font-size: 13px;
-                        text-align: center;
-                    }
-                    .signature-box {
-                        border-top: 1px solid #d1d5db;
-                        padding-top: 8px;
-                        color: #6b7280;
-                    }
-                    .footer {
-                        text-align: center;
-                        margin-top: 35px;
-                        font-size: 11px;
-                        color: #9ca3af;
-                        border-top: 1px solid #f3f4f6;
-                        padding-top: 12px;
-                    }
-                    @media print {
-                        body {
-                            padding: 0;
-                        }
-                        .receipt-container {
-                            border: 2px solid #10b981;
-                        }
-                    }
-                </style>
-            </head>
-            <body>
-                <div class="receipt-container">
-                    <div class="header">
-                        <div class="logo-container">
-                            ${schoolLogo ? `<img src="${schoolLogo}" alt="Logo" class="school-logo" />` : `<span style="font-size: 32px;">🎓</span>`}
-                        </div>
-                        <div>
-                            <h1 class="school-title">${schoolName || 'ECOLE QALAMI / مدرسة قلمي'}</h1>
-                            <p class="school-subtitle">Système de Gestion Scolaire / نظام إدارة المدارس</p>
-                        </div>
+            // Row helper — renders Arabic correctly because browser handles the font
+            const row = (label: string, value: string, shade: boolean) =>
+                `<div style="display:flex;justify-content:space-between;align-items:flex-start;padding:5px 6px;${shade ? 'background:#f9fafb;' : ''}border-radius:3px;gap:6px;">
+                    <span style="color:#6b7280;font-size:10px;flex-shrink:0;white-space:nowrap;padding-top:1px;">${label}</span>
+                    <span style="font-weight:600;font-size:10px;color:#111;text-align:right;direction:auto;min-width:0;flex:1;word-break:break-word;overflow-wrap:anywhere;line-height:1.4;">${value}</span>
+                </div>`
+
+            // Preload logo as data URL (html-to-image can't fetch cross-origin URLs)
+            let logoDataUrl = ''
+            if (schoolLogo) {
+                try {
+                    const resp = await fetch(schoolLogo)
+                    const blob = await resp.blob()
+                    logoDataUrl = await new Promise<string>((res, rej) => {
+                        const reader = new FileReader()
+                        reader.onload = () => res(reader.result as string)
+                        reader.onerror = rej
+                        reader.readAsDataURL(blob)
+                    })
+                } catch { /* logo not critical */ }
+            }
+
+            // Build 80mm receipt as an off-screen DOM element so browser renders Arabic
+            const el = document.createElement('div')
+            el.style.cssText = 'position:fixed;top:0;left:-9999px;width:302px;background:white;visibility:hidden;'
+            el.innerHTML = `
+                <div style="width:302px;background:white;font-family:var(--font-arabic),system-ui,sans-serif;color:#111;">
+                    <div style="background:#10b981;padding:${logoDataUrl ? '12px' : '14px'} 16px;text-align:center;">
+                        ${logoDataUrl ? `<img src="${logoDataUrl}" style="width:52px;height:52px;border-radius:50%;object-fit:cover;margin:0 auto 8px;display:block;border:2px solid rgba(255,255,255,0.35);" />` : ''}
+                        <div style="font-size:16px;font-weight:800;color:white;">${schoolName || 'QALAMI'}</div>
+                        <div style="font-size:9px;color:#a7f3d0;margin-top:2px;letter-spacing:1px;">RECU DE PAIEMENT / وصل الدفع</div>
                     </div>
-
-                    <div class="receipt-title">
-                        <h2>REÇU DE PAIEMENT / وصل الدفع</h2>
-                        <p>N° / الرقم: <span style="font-family: monospace; font-weight: bold; color: #1f2937;">${receiptNo}</span></p>
+                    <div style="background:#f0fdf4;padding:5px 14px;display:flex;justify-content:space-between;align-items:center;border-bottom:1px dashed #a7f3d0;">
+                        <span style="font-size:9px;color:#6b7280;">Ref / المرجع</span>
+                        <span style="font-size:10px;font-family:monospace;font-weight:700;color:#064e3b;">${receiptNo}</span>
                     </div>
-
-                    <div class="meta-info">
-                        <div>
-                            <div class="meta-row">
-                                <span class="meta-label">Élève / الطالب:</span>
-                                <span class="meta-value">${resolvedStudentName}</span>
-                            </div>
-                            <div class="meta-row">
-                                <span class="meta-label">NNI / الرقم الوطني:</span>
-                                <span class="meta-value" style="font-family: monospace;">${studentNni || '—'}</span>
-                            </div>
-                            <div class="meta-row">
-                                <span class="meta-label">Classe / القسم:</span>
-                                <span class="meta-value">${studentClass || '—'}</span>
-                            </div>
+                    <div style="padding:14px 16px;text-align:center;border-bottom:1px solid #f3f4f6;">
+                        <div style="font-size:9px;color:#6b7280;text-transform:uppercase;letter-spacing:1px;margin-bottom:4px;">MONTANT PAYE / المبلغ المدفوع</div>
+                        <div style="font-size:30px;font-weight:800;color:#10b981;line-height:1.1;">
+                            ${fmt(payment.amount)}<span style="font-size:13px;font-weight:600;color:#6b7280;margin-left:4px;">MRU</span>
                         </div>
-                        <div>
-                            <div class="meta-row">
-                                <span class="meta-label">Parent / ولي الأمر:</span>
-                                <span class="meta-value">${parentName || '—'}</span>
-                            </div>
-                            <div class="meta-row">
-                                <span class="meta-label">Téléphone / الهاتف:</span>
-                                <span class="meta-value">${parentPhone || '—'}</span>
-                            </div>
-                            <div class="meta-row">
-                                <span class="meta-label">Date / التاريخ:</span>
-                                <span class="meta-value">${paymentDate}</span>
-                            </div>
-                            <div class="meta-row">
-                                <span class="meta-label">Statut / الحالة:</span>
-                                <span class="meta-value"><span class="status-badge">PAYÉ / مدفوع</span></span>
-                            </div>
-                        </div>
+                        <div style="display:inline-block;margin-top:6px;background:#d1fae5;color:#065f46;font-size:9px;font-weight:700;padding:2px 10px;border-radius:99px;">PAYE</div>
                     </div>
-
-                    <div class="table-header">
-                        <div>Désignation / البيان</div>
-                        <div style="text-align: right;">Montant / المبلغ</div>
+                    <div style="padding:10px 14px;border-bottom:1px solid #f3f4f6;">
+                        ${row('Eleve / الطالب', resolvedStudentName, true)}
+                        ${studentClass ? row('Classe / القسم', studentClass, false) : ''}
+                        ${studentNni   ? row('NNI', studentNni, true) : ''}
+                        ${parentName   ? row('Parent / ولي الأمر', parentName, false) : ''}
+                        ${parentPhone  ? row('Tel / الهاتف', parentPhone, true) : ''}
                     </div>
-
-                    <div class="table-row">
-                        <div class="item-desc">
-                            ${types.fr} / ${types.ar}
-                            <p>${payment.description || ''}</p>
-                        </div>
-                        <div class="item-amount">
-                            ${Number(payment.amount).toLocaleString('fr-FR')} MRU
-                        </div>
+                    <div style="padding:10px 14px;border-bottom:1px solid #f3f4f6;">
+                        ${row('Type', types.fr + ' / ' + types.ar, true)}
+                        ${row('Date / التاريخ', paymentDate, false)}
+                        ${payment.description ? row('Note', payment.description, true) : ''}
                     </div>
-
-                    <div class="total-section">
-                        <div class="total-label">TOTAL PAYÉ / المجموع المدفوع</div>
-                        <div class="total-amount">${Number(payment.amount).toLocaleString('fr-FR')} MRU</div>
+                    <div style="display:flex;gap:10px;padding:10px 14px 14px;font-size:9px;color:#9ca3af;text-align:center;">
+                        <div style="flex:1;border-top:1px solid #d1d5db;padding-top:4px;">Parent / ولي الأمر</div>
+                        <div style="flex:1;border-top:1px solid #d1d5db;padding-top:4px;">Administration / الإدارة</div>
                     </div>
-
-                    <div class="signatures-section">
-                        <div class="signature-box">
-                            Parent / ولي الأمر
-                        </div>
-                        <div class="signature-box">
-                            Administration / الإدارة
-                        </div>
-                    </div>
-
-                    <div class="footer">
-                        <p>Merci pour votre confiance / شكراً لثقتكم</p>
+                    <div style="background:#f9fafb;border-top:1px solid #e5e7eb;padding:5px 14px;display:flex;justify-content:space-between;align-items:center;">
+                        <span style="font-size:8px;color:#9ca3af;">${printDate}</span>
+                        <span style="font-size:8px;font-weight:700;color:#10b981;">Qalami School Manager</span>
                     </div>
                 </div>
-            </body>
-            </html>
-        `)
-        printWindow.document.close()
-        printWindow.focus()
-        setTimeout(() => {
-            printWindow.print()
-            printWindow.close()
-        }, 300)
+            `
+            document.body.appendChild(el)
+            await document.fonts.ready
+            await new Promise(r => setTimeout(r, 250))
+
+            const { toJpeg } = await import('html-to-image')
+            const { jsPDF }  = await import('jspdf')
+
+            const target = el.firstElementChild as HTMLElement
+            // Call twice — first call triggers font/layout caching, second gives correct dimensions
+            await toJpeg(target, { quality: 0.5, pixelRatio: 1 })
+            const imgData = await toJpeg(target, {
+                quality: 0.96,
+                backgroundColor: '#ffffff',
+                pixelRatio: 3,
+                width: target.offsetWidth,
+                height: target.offsetHeight,
+            })
+            document.body.removeChild(el)
+
+            const img      = new Image()
+            img.src        = imgData
+            await new Promise(r => { img.onload = r })
+            const mmWidth  = 80
+            const mmHeight = (img.height / img.width) * mmWidth
+
+            const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: [mmWidth, mmHeight] })
+            doc.addImage(imgData, 'JPEG', 0, 0, mmWidth, mmHeight)
+            doc.save(`recu-${resolvedStudentName.replace(/\s+/g, '-')}-${receiptNo}.pdf`)
+            toast.success(language === 'ar' ? 'تم تنزيل الوصل' : 'Recu PDF telecharge')
+        } catch (err) {
+            console.error(err)
+            toast.error(language === 'ar' ? 'خطأ في إنشاء PDF' : 'Erreur lors de la generation du PDF')
+        }
     }
 
     const handleRegisterPayment = async () => {
@@ -513,7 +352,6 @@ export function StudentPayments({ studentId, studentName, schoolId, isArchived }
         try {
             const supabase = createClient()
 
-            // Get school_id from admin
             const { data: { user } } = await supabase.auth.getUser()
             if (!user) throw new Error(t('admin.students.profile.notAuthenticated'))
 
@@ -525,7 +363,6 @@ export function StudentPayments({ studentId, studentName, schoolId, isArchived }
 
             if (!profile?.school_id) throw new Error(t('admin.students.profile.schoolNotFound'))
 
-            // Resolve current academic year
             const { data: currentYear } = await supabase
                 .from('academic_years')
                 .select('id, name')
@@ -533,36 +370,45 @@ export function StudentPayments({ studentId, studentName, schoolId, isArchived }
                 .eq('is_current', true)
                 .single()
 
-            // Find the oldest pending payment of the selected type
-            const { data: pendingPayments, error: fetchPendingError } = await supabase
-                .from('payments')
-                .select('*')
-                .eq('student_id', studentId)
-                .eq('payment_type', paymentType)
-                .in('payment_status', ['pending', 'overdue'])
-                .order('due_date', { ascending: true })
+            const isConstrained = paymentType === 'scolarite' || paymentType === 'inscription'
 
-            if (fetchPendingError) throw fetchPendingError
+            if (isConstrained) {
+                // Fetch pending/overdue rows for this type
+                const { data: pendingPayments, error: fetchPendingError } = await supabase
+                    .from('payments')
+                    .select('*')
+                    .eq('student_id', studentId)
+                    .eq('payment_type', paymentType)
+                    .in('payment_status', ['pending', 'overdue', 'partial'])
+                    .order('due_date', { ascending: true })
 
-            const totalPendingForType = pendingPayments ? pendingPayments.reduce((sum, p) => sum + Number(p.amount), 0) : 0
+                if (fetchPendingError) throw fetchPendingError
 
-            if (amount > totalPendingForType) {
-                toast.error(t('admin.students.profile.amountExceedsPending', {
-                    amount: amount.toLocaleString(language === 'ar' ? 'ar-u-ca-gregory' : 'fr-FR'),
-                    pending: totalPendingForType.toLocaleString(language === 'ar' ? 'ar-u-ca-gregory' : 'fr-FR')
-                }))
-                setSubmitting(false)
-                return
-            }
+                const totalPendingForType = (pendingPayments ?? []).reduce((sum, p) => sum + Number(p.amount), 0)
 
-            let remainingAmount = amount
+                // Inscription already fully settled
+                if (paymentType === 'inscription' && totalPendingForType === 0) {
+                    toast.error(language === 'ar' ? 'رسوم التسجيل مدفوعة بالفعل' : "Les frais d'inscription sont déjà réglés")
+                    setSubmitting(false)
+                    return
+                }
 
-            if (pendingPayments && pendingPayments.length > 0) {
-                for (const pending of pendingPayments) {
+                // Cannot exceed what's pending
+                if (amount > totalPendingForType) {
+                    toast.error(t('admin.students.profile.amountExceedsPending', {
+                        amount: amount.toLocaleString(language === 'ar' ? 'ar-u-ca-gregory' : 'fr-FR'),
+                        pending: totalPendingForType.toLocaleString(language === 'ar' ? 'ar-u-ca-gregory' : 'fr-FR')
+                    }))
+                    setSubmitting(false)
+                    return
+                }
+
+                // Apply amount against pending rows oldest-first
+                let remainingAmount = amount
+                for (const pending of pendingPayments ?? []) {
                     if (remainingAmount <= 0) break
 
                     if (remainingAmount >= Number(pending.amount)) {
-                        // Mark this pending payment as fully paid
                         const { error } = await supabase
                             .from('payments')
                             .update({
@@ -572,13 +418,11 @@ export function StudentPayments({ studentId, studentName, schoolId, isArchived }
                                 description: paymentNote || pending.description || `Paiement ${paymentType}`
                             })
                             .eq('id', pending.id)
-
                         if (error) throw error
                         remainingAmount -= Number(pending.amount)
                     } else {
-                        // Partial payment for this month: update current row and create a new pending row for the remainder
+                        // Partial: shrink current row, create remainder row
                         const diff = Number(pending.amount) - remainingAmount
-
                         const { error: updateError } = await supabase
                             .from('payments')
                             .update({
@@ -588,7 +432,6 @@ export function StudentPayments({ studentId, studentName, schoolId, isArchived }
                                 description: paymentNote || pending.description || `Paiement ${paymentType}`
                             })
                             .eq('id', pending.id)
-
                         if (updateError) throw updateError
 
                         const { error: insertError } = await supabase
@@ -598,37 +441,31 @@ export function StudentPayments({ studentId, studentName, schoolId, isArchived }
                                 school_id: profile.school_id,
                                 amount: diff,
                                 payment_type: paymentType,
-                                payment_status: pending.payment_status || 'pending',
+                                payment_status: pending.payment_status === 'overdue' ? 'overdue' : 'pending',
                                 due_date: pending.due_date,
                                 academic_year_id: pending.academic_year_id,
-                                academic_year: pending.academic_year,
-                                description: pending.description || `Reste paiement ${paymentType}`
+                                description: pending.description || `Reste - ${paymentType}`
                             })
-
                         if (insertError) throw insertError
-
                         remainingAmount = 0
                     }
                 }
-            }
 
-            if (remainingAmount > 0) {
-                // Insert a new payment for surplus/advance payment
+            } else {
+                // Free types (transport, cantine, activités, etc.): insert directly as paid
                 const { error } = await supabase
                     .from('payments')
                     .insert({
                         student_id: studentId,
                         school_id: profile.school_id,
-                        amount: remainingAmount,
+                        amount: amount,
                         payment_type: paymentType,
                         payment_status: 'paid',
                         paid_at: new Date().toISOString(),
-                        due_date: new Date().toISOString(),
+                        due_date: new Date().toISOString().split('T')[0],
                         academic_year_id: currentYear?.id ?? null,
-                        academic_year: currentYear?.name ?? '2024-2025',
-                        description: paymentNote || (pendingPayments && pendingPayments.length > 0 ? `Surplus paiement ${paymentType}` : `Paiement ${paymentType}`)
+                        description: paymentNote || `Paiement - ${getTypeLabel(paymentType)}`,
                     })
-
                 if (error) throw error
             }
 
@@ -706,8 +543,8 @@ export function StudentPayments({ studentId, studentName, schoolId, isArchived }
         if (!dateStr) return '—'
         const d = new Date(dateStr)
         const loc = language === 'ar' ? 'ar-u-ca-gregory' : 'fr-FR'
-        const base = d.toLocaleDateString(loc, { day: '2-digit', month: 'short', year: 'numeric' })
-        return withTime ? base + ' ' + d.toLocaleTimeString(loc, { hour: '2-digit', minute: '2-digit' }) : base
+        const base = d.toLocaleDateString(loc, { day: '2-digit', month: 'short', year: 'numeric', timeZone: 'Africa/Nouakchott' })
+        return withTime ? base + ' ' + d.toLocaleTimeString(loc, { hour: '2-digit', minute: '2-digit', timeZone: 'Africa/Nouakchott' }) : base
     }
 
     const getTypeLabel = (type: string) => {
@@ -720,9 +557,46 @@ export function StudentPayments({ studentId, studentName, schoolId, isArchived }
             transport: 'Transport',
             restauration: 'Restauration',
             cotisation: 'Cotisation',
-            autre: 'Versement divers'
+            autre: 'Autres',
+            autres: 'Autres',
         }
         return labels[type] || type
+    }
+
+    const filteredPayments = payments.filter(p => {
+        if (filterSearch) {
+            const label = getTypeLabel(p.payment_type).toLowerCase()
+            const desc = (p.description || '').toLowerCase()
+            if (!label.includes(filterSearch.toLowerCase()) && !desc.includes(filterSearch.toLowerCase())) return false
+        }
+        if (filterType) {
+            if (filterType === 'transaction') {
+                if (p.source !== 'transaction') return false
+            } else {
+                const normalizeType = (t: string) => t === 'bus' ? 'transport' : t === 'autre' ? 'autres' : t
+                if (normalizeType(p.payment_type) !== filterType || p.source === 'transaction') return false
+            }
+        }
+        if (filterStatus && p.payment_status !== filterStatus) return false
+        if (filterDateFrom) {
+            const d = new Date(p.paid_at || p.due_date || '')
+            if (isNaN(d.getTime()) || d < new Date(filterDateFrom)) return false
+        }
+        if (filterDateTo) {
+            const d = new Date(p.paid_at || p.due_date || '')
+            if (isNaN(d.getTime()) || d > new Date(filterDateTo + 'T23:59:59')) return false
+        }
+        return true
+    })
+
+    const hasActiveFilters = !!(filterSearch || filterType || filterStatus || filterDateFrom || filterDateTo)
+
+    const clearFilters = () => {
+        setFilterSearch('')
+        setFilterType('')
+        setFilterStatus('')
+        setFilterDateFrom('')
+        setFilterDateTo('')
     }
 
     return (
@@ -760,7 +634,14 @@ export function StudentPayments({ studentId, studentName, schoolId, isArchived }
 
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                         <div>
-                            <label className="text-xs text-gray-400 font-bold mb-1.5 block">{t('common.amount')} (MRU)</label>
+                            <div className="flex items-center justify-between mb-1.5">
+                                <label className="text-xs text-gray-400 font-bold">{t('common.amount')} (MRU)</label>
+                                {paymentType === 'scolarite' && (
+                                    <span className="text-[10px] text-emerald-400/70 font-medium">
+                                        max {(scolariteDue - scolaritePaidAmt).toLocaleString('fr-FR')} MRU
+                                    </span>
+                                )}
+                            </div>
                             <Input
                                 type="number"
                                 placeholder={t('admin.students.profile.amountPlaceholder')}
@@ -777,11 +658,13 @@ export function StudentPayments({ studentId, studentName, schoolId, isArchived }
                                 value={paymentType}
                                 onChange={(e) => setPaymentType(e.target.value)}
                             >
-                                <option value="scolarite">Scolarité</option>
-                                <option value="inscription">Inscription</option>
-                                <option value="bus">Transport</option>
+                                {!scolariteFullyPaid && <option value="scolarite">Scolarité</option>}
+                                {!inscriptionPaid && <option value="inscription">Inscription</option>}
                                 <option value="cantine">Cantine</option>
+                                <option value="transport">Transport</option>
+                                <option value="cotisation">Cotisation</option>
                                 <option value="activites">Activités</option>
+                                <option value="autres">Autres</option>
                             </select>
                         </div>
                     </div>
@@ -815,7 +698,11 @@ export function StudentPayments({ studentId, studentName, schoolId, isArchived }
                 <div className="grid grid-cols-2 gap-4">
                     <Button
                         className="bg-[#1A2530] hover:bg-[#253545] text-white border border-white/5 h-12 rounded-xl"
-                        onClick={() => setShowPaymentForm(true)}
+                        onClick={() => {
+                            const defaultType = !scolariteFullyPaid ? 'scolarite' : !inscriptionPaid ? 'inscription' : 'cantine'
+                            setPaymentType(defaultType)
+                            setShowPaymentForm(true)
+                        }}
                     >
                         <CreditCard className="w-4 h-4 mr-2 text-emerald-500" /> {t('admin.students.profile.registerPayment')}
                     </Button>
@@ -835,22 +722,139 @@ export function StudentPayments({ studentId, studentName, schoolId, isArchived }
 
             {/* History List */}
             <div className="bg-[#1A2530] rounded-3xl border border-white/5 overflow-hidden">
-                <div className="p-4 sm:p-6 border-b border-white/5">
-                    <h3 className="font-bold text-white">{t('admin.students.profile.paymentHistory')}</h3>
+                {/* Header + Filter Toggle */}
+                <div className="p-4 sm:p-6 border-b border-white/5 space-y-3">
+                    <div className="flex items-center justify-between">
+                        <h3 className="font-bold text-white">{t('admin.students.profile.paymentHistory')}</h3>
+                        <div className="flex items-center gap-2">
+                            {hasActiveFilters && (
+                                <button
+                                    type="button"
+                                    onClick={clearFilters}
+                                    className="text-[10px] text-red-400 hover:text-red-300 border border-red-500/20 hover:border-red-500/40 px-2 py-1 rounded-lg transition-colors flex items-center gap-1"
+                                >
+                                    <X className="w-3 h-3" /> Effacer filtres
+                                </button>
+                            )}
+                            <button
+                                type="button"
+                                onClick={() => setShowFilters(f => !f)}
+                                className={`flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg border transition-colors ${
+                                    showFilters || hasActiveFilters
+                                        ? 'text-emerald-400 border-emerald-500/30 bg-emerald-500/10'
+                                        : 'text-gray-400 border-white/10 hover:text-white hover:border-white/20'
+                                }`}
+                            >
+                                <Filter className="w-3.5 h-3.5" />
+                                Filtrer
+                                {hasActiveFilters && (
+                                    <span className="w-4 h-4 rounded-full bg-emerald-500 text-black text-[9px] font-black flex items-center justify-center">
+                                        {[filterSearch, filterType, filterStatus, filterDateFrom, filterDateTo].filter(Boolean).length}
+                                    </span>
+                                )}
+                                <ChevronDown className={`w-3 h-3 transition-transform ${showFilters ? 'rotate-180' : ''}`} />
+                            </button>
+                        </div>
+                    </div>
+
+                    {/* Search bar — always visible */}
+                    <div className="relative">
+                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-500" />
+                        <input
+                            type="text"
+                            value={filterSearch}
+                            onChange={e => setFilterSearch(e.target.value)}
+                            placeholder="Rechercher dans l'historique…"
+                            className="w-full pl-8 pr-3 py-2 bg-[#0D1117] border border-white/10 rounded-xl text-xs text-white placeholder-gray-600 focus:outline-none focus:border-emerald-500/40"
+                        />
+                        {filterSearch && (
+                            <button type="button" title="Effacer la recherche" onClick={() => setFilterSearch('')} className="absolute right-2.5 top-1/2 -translate-y-1/2">
+                                <X className="w-3.5 h-3.5 text-gray-500 hover:text-white" />
+                            </button>
+                        )}
+                    </div>
+
+                    {/* Extended filters */}
+                    {showFilters && (
+                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 pt-1">
+                            <div>
+                                <label className="text-[10px] text-gray-500 font-bold uppercase mb-1 block">Type</label>
+                                <select
+                                    title="Type"
+                                    value={filterType}
+                                    onChange={e => setFilterType(e.target.value)}
+                                    className="w-full h-8 bg-[#0D1117] border border-white/10 rounded-lg px-2 text-xs text-white focus:outline-none focus:border-emerald-500/40"
+                                >
+                                    <option value="">Tous</option>
+                                    <option value="scolarite">Scolarité</option>
+                                    <option value="inscription">Inscription</option>
+                                    <option value="cantine">Cantine</option>
+                                    <option value="transport">Transport</option>
+                                    <option value="cotisation">Cotisation</option>
+                                    <option value="activites">Activités</option>
+                                    <option value="autres">Autres</option>
+                                    <option value="transaction">Comptabilité</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label className="text-[10px] text-gray-500 font-bold uppercase mb-1 block">Statut</label>
+                                <select
+                                    title="Statut"
+                                    value={filterStatus}
+                                    onChange={e => setFilterStatus(e.target.value)}
+                                    className="w-full h-8 bg-[#0D1117] border border-white/10 rounded-lg px-2 text-xs text-white focus:outline-none focus:border-emerald-500/40"
+                                >
+                                    <option value="">Tous</option>
+                                    <option value="paid">Payé</option>
+                                    <option value="pending">En attente</option>
+                                    <option value="overdue">En retard</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label className="text-[10px] text-gray-500 font-bold uppercase mb-1 block">Du</label>
+                                <input
+                                    type="date"
+                                    title="Date de début"
+                                    placeholder="Date de début"
+                                    value={filterDateFrom}
+                                    onChange={e => setFilterDateFrom(e.target.value)}
+                                    className="w-full h-8 bg-[#0D1117] border border-white/10 rounded-lg px-2 text-xs text-white focus:outline-none focus:border-emerald-500/40"
+                                />
+                            </div>
+                            <div>
+                                <label className="text-[10px] text-gray-500 font-bold uppercase mb-1 block">Au</label>
+                                <input
+                                    type="date"
+                                    title="Date de fin"
+                                    placeholder="Date de fin"
+                                    value={filterDateTo}
+                                    onChange={e => setFilterDateTo(e.target.value)}
+                                    className="w-full h-8 bg-[#0D1117] border border-white/10 rounded-lg px-2 text-xs text-white focus:outline-none focus:border-emerald-500/40"
+                                />
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Results count when filters active */}
+                    {hasActiveFilters && !loading && (
+                        <p className="text-[10px] text-gray-500">
+                            {filteredPayments.length} résultat{filteredPayments.length !== 1 ? 's' : ''} sur {payments.length}
+                        </p>
+                    )}
                 </div>
 
                 {loading ? (
                     <div className="flex items-center justify-center py-12">
                         <Loader2 className="w-6 h-6 animate-spin text-emerald-500" />
                     </div>
-                ) : payments.length === 0 ? (
+                ) : filteredPayments.length === 0 ? (
                     <div className="text-center py-12 text-gray-500">
                         <CreditCard className="w-10 h-10 mx-auto mb-3 opacity-30" />
-                        <p>{t('admin.students.profile.noPayment')}</p>
+                        <p>{hasActiveFilters ? 'Aucun résultat pour ces filtres' : t('admin.students.profile.noPayment')}</p>
                     </div>
                 ) : (
                     <div className="divide-y divide-white/5">
-                        {payments.map((payment) => (
+                        {filteredPayments.map((payment) => (
                             <div key={payment.id} className="p-4 sm:p-6 flex items-center justify-between hover:bg-[#0F1720] transition-colors group">
                                 <div className="flex items-center gap-4">
                                     <div className={cn("h-10 w-10 rounded-full flex items-center justify-center border-2",

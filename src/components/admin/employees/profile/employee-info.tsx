@@ -5,6 +5,7 @@ import { Phone, MapPin, Fingerprint, Pencil, Save, X, Loader2 } from 'lucide-rea
 import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
 import { updateEmployeeInfoAction } from '@/app/admin/employees/actions'
+import { useLanguage } from '@/i18n'
 
 interface Props {
     profileId: string
@@ -13,6 +14,7 @@ interface Props {
 }
 
 export function EmployeeInfo({ profileId, profile, onUpdated }: Props) {
+    const { t } = useLanguage()
     const [editing, setEditing] = useState(false)
     const [saving, setSaving] = useState(false)
     const [form, setForm] = useState({
@@ -27,36 +29,36 @@ export function EmployeeInfo({ profileId, profile, onUpdated }: Props) {
         const res = await updateEmployeeInfoAction(profileId, form)
         setSaving(false)
         if (res.error) { toast.error(res.error); return }
-        toast.success('Informations mises à jour')
+        toast.success(t('admin.employees.info.updated'))
         onUpdated({ ...profile, ...form })
         setEditing(false)
     }
 
     const fields = [
-        { icon: Phone,       key: 'phone',       label: 'Téléphone', mono: false },
-        { icon: Fingerprint, key: 'national_id',  label: 'NNI',       mono: true  },
-        { icon: MapPin,      key: 'address',      label: 'Adresse',   mono: false },
+        { icon: Phone,       key: 'phone',       label: t('admin.employees.info.phone'), mono: false },
+        { icon: Fingerprint, key: 'national_id',  label: t('admin.employees.info.nni'),   mono: true  },
+        { icon: MapPin,      key: 'address',      label: t('admin.employees.info.address'), mono: false },
     ] as const
 
     return (
         <div className="bg-[#1A2530] rounded-3xl border border-white/5 p-6 space-y-5 animate-in fade-in slide-in-from-bottom-4 duration-500">
             <div className="flex items-center justify-between">
-                <h3 className="font-bold text-white">Informations personnelles</h3>
+                <h3 className="font-bold text-white">{t('admin.employees.info.title')}</h3>
                 {!editing ? (
                     <button type="button" onClick={() => setEditing(true)}
                         className="flex items-center gap-1.5 text-xs font-bold text-gray-400 hover:text-white px-3 py-1.5 rounded-xl hover:bg-white/5 transition-all">
-                        <Pencil className="w-3.5 h-3.5" /> Modifier
+                        <Pencil className="w-3.5 h-3.5" /> {t('admin.employees.info.edit')}
                     </button>
                 ) : (
                     <div className="flex gap-2">
                         <button type="button" onClick={() => { setEditing(false); setForm({ full_name: profile.full_name || '', phone: profile.phone || '', national_id: profile.national_id || '', address: profile.address || '' }) }}
                             className="flex items-center gap-1.5 text-xs font-bold text-gray-500 hover:text-white px-3 py-1.5 rounded-xl hover:bg-white/5 border border-white/10 transition-all">
-                            <X className="w-3.5 h-3.5" /> Annuler
+                            <X className="w-3.5 h-3.5" /> {t('common.cancel')}
                         </button>
                         <button type="button" onClick={handleSave} disabled={saving}
                             className="flex items-center gap-1.5 text-xs font-bold bg-pink-600 hover:bg-pink-500 text-white px-3 py-1.5 rounded-xl disabled:opacity-50 transition-all">
                             {saving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />}
-                            Enregistrer
+                            {t('common.save')}
                         </button>
                     </div>
                 )}
@@ -64,7 +66,7 @@ export function EmployeeInfo({ profileId, profile, onUpdated }: Props) {
 
             {/* Name */}
             <div>
-                <p className="text-[10px] text-gray-500 uppercase font-bold mb-1">Nom complet</p>
+                <p className="text-[10px] text-gray-500 uppercase font-bold mb-1">{t('admin.employees.info.fullName')}</p>
                 {editing ? (
                     <input value={form.full_name} onChange={e => setForm(f => ({ ...f, full_name: e.target.value }))}
                         className="w-full bg-[#0F1720] border border-white/10 rounded-xl px-3 py-2 text-sm font-bold text-white focus:outline-none focus:border-pink-500/50" />

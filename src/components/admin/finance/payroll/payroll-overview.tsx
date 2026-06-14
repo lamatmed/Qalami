@@ -501,18 +501,16 @@ export function PayrollOverview({ onSelectTeacher, refreshKey }: { onSelectTeach
             </tr></tfoot>
         </table>
         </body></html>`
-        const win = window.open('', '_blank', 'width=900,height=650')
-        if (!win) {
-            toast.error('Le navigateur a bloqué la fenêtre popup. Autorisez les popups pour ce site.')
-            return
-        }
-        win.document.write(html)
-        win.document.close()
-        setTimeout(() => { 
-            win.focus()
-            win.print()
-            win.close()
-        }, 400)
+        const blob = new Blob([html], { type: 'text/html;charset=utf-8' })
+        const url = URL.createObjectURL(blob)
+        const a = document.createElement('a')
+        a.href = url
+        a.target = '_blank'
+        a.rel = 'noopener noreferrer'
+        document.body.appendChild(a)
+        a.click()
+        document.body.removeChild(a)
+        setTimeout(() => URL.revokeObjectURL(url), 100)
     }
 
     if (loading) {

@@ -3,9 +3,9 @@
 import { useState, useEffect, useCallback } from 'react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { Plus, Trash2, Clock, Trophy, Minus, Loader2, ChevronDown, ChevronUp, Layers } from 'lucide-react'
+import { Plus, Trash2, Clock, Trophy, Minus, Loader2, ChevronDown, ChevronUp, Layers, Pencil } from 'lucide-react'
 import { toast } from 'sonner'
-import { getStaffAdjustmentsAction, addStaffAdjustmentAction, deleteStaffAdjustmentAction } from '@/app/admin/teachers/actions'
+import { getStaffAdjustmentsAction, addStaffAdjustmentAction, deleteStaffAdjustmentAction, updateStaffAdjustmentAction } from '@/app/admin/teachers/actions'
 import { cn } from '@/lib/utils'
 
 interface Adjustment {
@@ -34,6 +34,7 @@ export function StaffAdjustments({ profileId }: { profileId: string }) {
     const [showHistory, setShowHistory] = useState(false)
     const [submitting, setSubmitting]   = useState(false)
     const [deletingId, setDeletingId]   = useState<string | null>(null)
+    const [editingId, setEditingId]     = useState<string | null>(null)
 
     const [type, setType]               = useState<keyof typeof TYPE_CONFIG>('heures_sup')
     const [description, setDescription] = useState('')
@@ -61,7 +62,28 @@ export function StaffAdjustments({ profileId }: { profileId: string }) {
     }, [type, hours, rate])
 
     const resetForm = () => {
-        setDescription(''); setHours(''); setAmount(''); setDate(new Date().toISOString().split('T')[0])
+        setEditingId(null)
+        setType('heures_sup')
+        setDescription('')
+        setHours('')
+        setRate('400')
+        setAmount('')
+        setDate(new Date().toISOString().split('T')[0])
+    }
+
+    const handleStartEdit = (adj: Adjustment) => {
+        setEditingId(adj.id)
+        setType(adj.type)
+        setDescription(adj.description || '')
+        setDate(adj.date)
+        if (adj.type === 'heures_sup') {
+            setHours(String(adj.hours || ''))
+            setRate(String(adj.hourly_rate || 400))
+            setAmount(String(adj.amount))
+        } else {
+            setAmount(String(adj.amount))
+        }
+        setShowForm(true)
     }
 
     const handleAdd = async () => {
@@ -69,18 +91,32 @@ export function StaffAdjustments({ profileId }: { profileId: string }) {
         if (!amt || amt <= 0) { toast.error('Montant invalide'); return }
         if (!date)            { toast.error('Date requise'); return }
         setSubmitting(true)
-        const { error } = await addStaffAdjustmentAction({
-            profileId,
-            type,
-            description,
-            hours:      type === 'heures_sup' ? (parseFloat(hours) || undefined) : undefined,
-            hourlyRate: type === 'heures_sup' ? (parseFloat(rate)  || undefined) : undefined,
-            amount: amt,
-            date,
-        })
+        let error: string | null = null
+        if (editingId) {
+            const res = await updateStaffAdjustmentAction(editingId, {
+                type,
+                description,
+                hours:      type === 'heures_sup' ? (parseFloat(hours) || null) : null,
+                hourlyRate: type === 'heures_sup' ? (parseFloat(rate)  || null) : null,
+                amount: amt,
+                date,
+            })
+            error = res.error ?? null
+        } else {
+            const res = await addStaffAdjustmentAction({
+                profileId,
+                type,
+                description,
+                hours:      type === 'heures_sup' ? (parseFloat(hours) || undefined) : undefined,
+                hourlyRate: type === 'heures_sup' ? (parseFloat(rate)  || undefined) : undefined,
+                amount: amt,
+                date,
+            })
+            error = res.error ?? null
+        }
         setSubmitting(false)
         if (error) { toast.error('Erreur: ' + error); return }
-        toast.success('Saisie enregistrée')
+        toast.success(editingId ? 'Saisie modifiée' : 'Saisie enregistrée')
         setShowForm(false)
         resetForm()
         load()
@@ -125,9 +161,12 @@ export function StaffAdjustments({ profileId }: { profileId: string }) {
                 )}
             </div>
 
-            {/* Add Form */}
+            {/* Add / Edit Form */}
             {showForm && (
                 <div className="bg-[#0F1720] rounded-2xl border border-white/10 p-4 space-y-4">
+                    <p className="text-xs font-bold text-gray-400 uppercase">
+                        {editingId ? 'Modifier la saisie' : 'Nouvelle saisie'}
+                    </p>
                     {/* Type selector */}
                     <div className="grid grid-cols-4 gap-2">
                         {(Object.keys(TYPE_CONFIG) as (keyof typeof TYPE_CONFIG)[]).map(k => {
@@ -266,9 +305,18 @@ export function StaffAdjustments({ profileId }: { profileId: string }) {
                                         {adj.type === 'deduction' ? '−' : '+'}{Number(adj.amount).toLocaleString('fr-FR')} MRU
                                     </p>
                                     <button
+                                        onClick={() => handleStartEdit(adj)}
+                                        disabled={!!deletingId || showForm}
+                                        className="p-1.5 rounded-lg text-gray-600 hover:text-blue-400 hover:bg-blue-500/10 transition-colors shrink-0 disabled:opacity-30"
+                                        title="Modifier"
+                                    >
+                                        <Pencil className="w-3.5 h-3.5" />
+                                    </button>
+                                    <button
                                         onClick={() => handleDelete(adj.id)}
-                                        disabled={!!deletingId}
-                                        className="p-1.5 rounded-lg text-gray-600 hover:text-red-400 hover:bg-red-500/10 transition-colors ml-1 shrink-0"
+                                        disabled={!!deletingId || showForm}
+                                        className="p-1.5 rounded-lg text-gray-600 hover:text-red-400 hover:bg-red-500/10 transition-colors shrink-0 disabled:opacity-30"
+                                        title="Supprimer"
                                     >
                                         {deletingId === adj.id
                                             ? <Loader2 className="w-3.5 h-3.5 animate-spin" />

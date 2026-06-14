@@ -227,11 +227,12 @@ export function StudentDirectory() {
             if (!enrollMap.has(e.student_id)) enrollMap.set(e.student_id, e)
         })
 
-        // Set of students with overdue payments
-        const todayStr = new Date().toISOString().split('T')[0]
+        // Set of students with overdue payments — current month not yet paid is NOT overdue
+        const now = new Date()
+        const startOfMonthStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-01`
         const overdueSet = new Set(
             (overduePayments || [])
-                .filter((p: any) => p.payment_status === 'overdue' || (p.due_date && p.due_date < todayStr))
+                .filter((p: any) => p.payment_status === 'overdue' || (p.due_date && p.due_date < startOfMonthStr))
                 .map((p: any) => p.student_id)
         )
 

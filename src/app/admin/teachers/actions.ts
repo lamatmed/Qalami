@@ -422,11 +422,39 @@ export async function getTeacherTransactionsAction(teacherId: string) {
     const admin = createAdminClient()
     const { data, error } = await admin
         .from('transactions')
-        .select('id, type, category, description, amount, status, transaction_date, created_at, payment_method, reference_number, notes')
+        .select('id, type, category, description, amount, status, transaction_date, created_at, payment_method, reference_number')
         .eq('school_id', schoolId)
         .eq('related_profile_id', teacherId)
         .order('created_at', { ascending: false })
         .limit(60)
     if (error) return { error: error.message, data: [] }
     return { data: data ?? [], error: null }
+}
+
+export async function updateStaffAdjustmentAction(id: string, payload: {
+    type: 'heures_sup' | 'prime' | 'deduction' | 'autre'
+    description?: string
+    hours?: number | null
+    hourlyRate?: number | null
+    amount: number
+    date: string
+}) {
+    const ctx = await getActionContext()
+    if (!ctx) return { error: 'Non authentifié' }
+    const { schoolId } = ctx
+    const admin = createAdminClient()
+    const { error } = await admin
+        .from('staff_adjustments')
+        .update({
+            type: payload.type,
+            description: payload.description || null,
+            hours: payload.hours ?? null,
+            hourly_rate: payload.hourlyRate ?? null,
+            amount: payload.amount,
+            date: payload.date,
+        })
+        .eq('id', id)
+        .eq('school_id', schoolId)
+        .eq('is_included', false)
+    return { error: error?.message || null }
 }

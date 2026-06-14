@@ -10,17 +10,11 @@ import {
     updateTeacherDocumentAction,
     deleteTeacherDocumentAction,
 } from '@/app/admin/teachers/actions'
-
-const DOC_SLOTS = [
-    { type: 'cv',       label: 'CV',                color: 'emerald' },
-    { type: 'contract', label: 'Contrat de travail', color: 'blue'    },
-    { type: 'diploma',  label: 'Diplôme',            color: 'purple'  },
-    { type: 'medical',  label: 'Certificat médical', color: 'amber'   },
-]
+import { useLanguage } from '@/i18n'
 
 type Slot = {
     type: string
-    label: string
+    labelKey: string
     color: string
     docId: string | null
     fileName: string | null
@@ -47,10 +41,18 @@ const COLOR_MAP: Record<string, string> = {
     amber:   'bg-amber-500/10 border-amber-500/20 text-amber-400',
 }
 
+const DOC_SLOTS_BASE = [
+    { type: 'cv',       labelKey: 'cv',       color: 'emerald' },
+    { type: 'contract', labelKey: 'contract',  color: 'blue'    },
+    { type: 'diploma',  labelKey: 'diploma',   color: 'purple'  },
+    { type: 'medical',  labelKey: 'medical',   color: 'amber'   },
+]
+
 export function EmployeeDocuments({ employeeId }: { employeeId: string }) {
+    const { t } = useLanguage()
     const fileInputRef = useRef<HTMLInputElement>(null)
     const [slots, setSlots] = useState<Slot[]>(
-        DOC_SLOTS.map(d => ({ ...d, docId: null, fileName: null, fileUrl: null, sizeBytes: null, uploadedAt: null }))
+        DOC_SLOTS_BASE.map(d => ({ ...d, docId: null, fileName: null, fileUrl: null, sizeBytes: null, uploadedAt: null }))
     )
     const [loading, setLoading] = useState(true)
     const [uploading, setUploading] = useState(false)
@@ -65,7 +67,7 @@ export function EmployeeDocuments({ employeeId }: { employeeId: string }) {
     const load = useCallback(async () => {
         setLoading(true)
         const { data } = await fetchAdminDocumentsAction(employeeId)
-        setSlots(DOC_SLOTS.map(slot => {
+        setSlots(DOC_SLOTS_BASE.map(slot => {
             const found = (data as any[]).find((d: any) => d.category === slot.type)
             return {
                 ...slot,
@@ -98,14 +100,15 @@ export function EmployeeDocuments({ employeeId }: { employeeId: string }) {
 
             const res = await fetch('/api/admin/upload-employee-document', { method: 'POST', body: formData })
             const json = await res.json()
-            if (!res.ok) throw new Error(json.error || 'Échec de l\'upload')
+            if (!res.ok) throw new Error(json.error || t('common.error'))
 
-            const slot = DOC_SLOTS.find(d => d.type === uploadTarget)
-            await saveAdminDocumentAction(employeeId, uploadTarget, json.publicUrl, slot?.label || uploadTarget, file.size)
-            toast.success('Document téléversé')
+            const slot = DOC_SLOTS_BASE.find(d => d.type === uploadTarget)
+            const slotLabel = slot ? t(`admin.employees.documents.${slot.labelKey}`) : uploadTarget
+            await saveAdminDocumentAction(employeeId, uploadTarget, json.publicUrl, slotLabel, file.size)
+            toast.success(t('admin.employees.documents.uploaded'))
             await load()
         } catch (err: any) {
-            toast.error(err.message || 'Erreur lors de l\'upload')
+            toast.error(err.message || t('common.error'))
         } finally {
             setUploading(false)
             if (fileInputRef.current) fileInputRef.current.value = ''
@@ -118,7 +121,7 @@ export function EmployeeDocuments({ employeeId }: { employeeId: string }) {
         const res = await deleteTeacherDocumentAction(slot.docId)
         if (res.error) toast.error(res.error)
         else {
-            toast.success('Document supprimé')
+            toast.success(t('admin.employees.documents.deleted'))
             await load()
         }
         setDeletingType(null)
@@ -136,7 +139,7 @@ export function EmployeeDocuments({ employeeId }: { employeeId: string }) {
         const res = await updateTeacherDocumentAction(slot.docId, editName.trim(), 'general', undefined)
         if (res.error) toast.error(res.error)
         else {
-            toast.success('Nom modifié')
+            toast.success(t('admin.employees.documents.renamed'))
             await load()
             setEditingType(null)
         }
@@ -155,23 +158,22 @@ export function EmployeeDocuments({ employeeId }: { employeeId: string }) {
 
     return (
         <div className="space-y-5 animate-in fade-in slide-in-from-bottom-4 duration-500">
-            {/* hidden file input */}
-            <input ref={fileInputRef} type="file" accept=".pdf,.jpg,.jpeg,.png,.doc,.docx" className="hidden" onChange={handleFileSelected} />
+            <input ref={fileInputRef} type="file" accept=".pdf,.jpg,.jpeg,.png,.doc,.docx" className="hidden" title="upload" onChange={handleFileSelected} />
 
             {/* Preview modal */}
             {viewingUrl && (
                 <div className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4" onClick={() => setViewingUrl(null)}>
                     <div className="relative max-w-4xl w-full max-h-[90vh] bg-[#1A2530] rounded-2xl overflow-hidden" onClick={e => e.stopPropagation()}>
                         <div className="flex items-center justify-between p-4 border-b border-white/5">
-                            <h3 className="font-bold text-white">Aperçu</h3>
-                            <button type="button" onClick={() => setViewingUrl(null)} className="p-2 rounded-xl text-gray-400 hover:text-white hover:bg-white/10 transition-all">
+                            <h3 className="font-bold text-white">{t('admin.employees.documents.preview')}</h3>
+                            <button type="button" title={t('common.close')} onClick={() => setViewingUrl(null)} className="p-2 rounded-xl text-gray-400 hover:text-white hover:bg-white/10 transition-all">
                                 <X className="w-4 h-4" />
                             </button>
                         </div>
                         <div className="p-4 flex items-center justify-center min-h-[400px]">
                             {viewingUrl.match(/\.(jpg|jpeg|png|webp|gif)$/i)
-                                ? <img src={viewingUrl} alt="Document" className="max-w-full max-h-[70vh] object-contain rounded-lg" />
-                                : <iframe src={viewingUrl} className="w-full h-[70vh] rounded-lg" />
+                                ? <img src={viewingUrl} alt={t('admin.employees.documents.preview')} className="max-w-full max-h-[70vh] object-contain rounded-lg" />
+                                : <iframe src={viewingUrl} title={t('admin.employees.documents.preview')} className="w-full h-[70vh] rounded-lg" />
                             }
                         </div>
                     </div>
@@ -181,13 +183,13 @@ export function EmployeeDocuments({ employeeId }: { employeeId: string }) {
             {/* Progress bar */}
             <div className="bg-[#1A2530] rounded-2xl border border-white/5 p-4">
                 <div className="flex items-center justify-between mb-2">
-                    <p className="text-xs font-bold text-gray-400">Dossier documentaire</p>
+                    <p className="text-xs font-bold text-gray-400">{t('admin.employees.documents.title')}</p>
                     <p className="text-xs font-bold text-white">{filled}/{slots.length}</p>
                 </div>
                 <div className="h-1.5 bg-white/10 rounded-full overflow-hidden">
                     <div
-                        className="h-full bg-emerald-500 rounded-full transition-all duration-500"
-                        style={{ width: `${(filled / slots.length) * 100}%` }}
+                        style={{ '--bar-w': `${(filled / slots.length) * 100}%` } as React.CSSProperties}
+                        className="h-full bg-emerald-500 rounded-full transition-all duration-500 w-[var(--bar-w)]"
                     />
                 </div>
             </div>
@@ -201,6 +203,7 @@ export function EmployeeDocuments({ employeeId }: { employeeId: string }) {
                     const isEditing = editingType === slot.type
                     const isThisUploading = isUploading(slot.type)
                     const confirmDelete = confirmDeleteType === slot.type
+                    const slotLabel = t(`admin.employees.documents.${slot.labelKey}`)
 
                     return (
                         <div key={slot.type} className={cn(
@@ -208,16 +211,14 @@ export function EmployeeDocuments({ employeeId }: { employeeId: string }) {
                             isPresent ? "border-white/10" : "border-dashed border-white/10"
                         )}>
                             <div className="p-4 flex items-start gap-4">
-                                {/* Icon */}
                                 <div className={cn("w-10 h-10 rounded-xl flex items-center justify-center shrink-0 border", colorClass)}>
                                     <FileText className="w-4 h-4" />
                                 </div>
 
-                                {/* Content */}
                                 <div className="flex-1 min-w-0">
                                     <div className="flex items-start justify-between gap-2">
                                         <div className="min-w-0">
-                                            <p className="text-xs font-bold text-gray-500 uppercase mb-0.5">{slot.label}</p>
+                                            <p className="text-xs font-bold text-gray-500 uppercase mb-0.5">{slotLabel}</p>
                                             {isEditing ? (
                                                 <div className="flex items-center gap-2 mt-1">
                                                     <input
@@ -225,13 +226,15 @@ export function EmployeeDocuments({ employeeId }: { employeeId: string }) {
                                                         onChange={e => setEditName(e.target.value)}
                                                         onKeyDown={e => { if (e.key === 'Enter') handleSaveEdit(slot); if (e.key === 'Escape') setEditingType(null) }}
                                                         autoFocus
+                                                        title={t('admin.documents.docNamePlaceholder')}
+                                                        placeholder={t('admin.documents.docNamePlaceholder')}
                                                         className="bg-[#0F1720] border border-white/10 rounded-lg px-2 py-1 text-sm text-white focus:outline-none focus:border-pink-500/50 min-w-0 flex-1"
                                                     />
-                                                    <button type="button" onClick={() => handleSaveEdit(slot)} disabled={savingEdit}
+                                                    <button type="button" title={t('common.save')} onClick={() => handleSaveEdit(slot)} disabled={savingEdit}
                                                         className="p-1.5 text-emerald-400 hover:bg-emerald-500/10 rounded-lg transition-colors">
                                                         {savingEdit ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Check className="w-3.5 h-3.5" />}
                                                     </button>
-                                                    <button type="button" onClick={() => setEditingType(null)}
+                                                    <button type="button" title={t('common.cancel')} onClick={() => setEditingType(null)}
                                                         className="p-1.5 text-gray-500 hover:bg-white/5 rounded-lg transition-colors">
                                                         <X className="w-3.5 h-3.5" />
                                                     </button>
@@ -239,7 +242,7 @@ export function EmployeeDocuments({ employeeId }: { employeeId: string }) {
                                             ) : isPresent ? (
                                                 <p className="text-sm font-bold text-white truncate">{slot.fileName}</p>
                                             ) : (
-                                                <p className="text-sm text-gray-600 italic">Aucun fichier</p>
+                                                <p className="text-sm text-gray-600 italic">{t('admin.employees.documents.noFile')}</p>
                                             )}
                                             {isPresent && !isEditing && (
                                                 <p className="text-[10px] text-gray-600 mt-0.5">
@@ -248,12 +251,11 @@ export function EmployeeDocuments({ employeeId }: { employeeId: string }) {
                                             )}
                                         </div>
 
-                                        {/* Status badge */}
                                         <span className={cn(
                                             "text-[10px] font-bold px-2 py-0.5 rounded-full border shrink-0",
                                             isPresent ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/20" : "bg-white/5 text-gray-600 border-white/10"
                                         )}>
-                                            {isPresent ? 'Présent' : 'Manquant'}
+                                            {isPresent ? t('admin.employees.documents.present') : t('admin.employees.documents.missing')}
                                         </span>
                                     </div>
                                 </div>
@@ -261,7 +263,6 @@ export function EmployeeDocuments({ employeeId }: { employeeId: string }) {
 
                             {/* Action bar */}
                             <div className="px-4 pb-3 flex items-center gap-2">
-                                {/* Upload / Replace */}
                                 <button type="button" onClick={() => triggerUpload(slot.type)} disabled={isThisUploading || uploading}
                                     className={cn(
                                         "flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all disabled:opacity-50",
@@ -273,40 +274,39 @@ export function EmployeeDocuments({ employeeId }: { employeeId: string }) {
                                         ? <Loader2 className="w-3.5 h-3.5 animate-spin" />
                                         : <Upload className="w-3.5 h-3.5" />
                                     }
-                                    {isPresent ? 'Remplacer' : 'Ajouter'}
+                                    {isPresent ? t('admin.employees.documents.replace') : t('admin.employees.documents.add')}
                                 </button>
 
                                 {isPresent && !isEditing && (
                                     <>
                                         <button type="button" onClick={() => setViewingUrl(slot.fileUrl)}
                                             className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold text-gray-400 hover:text-white hover:bg-white/5 border border-white/10 transition-all">
-                                            <Eye className="w-3.5 h-3.5" /> Aperçu
+                                            <Eye className="w-3.5 h-3.5" /> {t('admin.employees.documents.preview')}
                                         </button>
                                         <a href={slot.fileUrl || '#'} download target="_blank" rel="noopener noreferrer"
                                             className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold text-gray-400 hover:text-white hover:bg-white/5 border border-white/10 transition-all">
-                                            <Download className="w-3.5 h-3.5" /> Télécharger
+                                            <Download className="w-3.5 h-3.5" /> {t('admin.employees.documents.download')}
                                         </a>
-                                        <button type="button" onClick={() => startEdit(slot)}
+                                        <button type="button" title={t('admin.employees.info.edit')} onClick={() => startEdit(slot)}
                                             className="p-1.5 rounded-xl text-gray-500 hover:text-white hover:bg-white/5 border border-white/10 transition-all">
                                             <Pencil className="w-3.5 h-3.5" />
                                         </button>
 
-                                        {/* Delete with confirm */}
                                         {confirmDelete ? (
                                             <div className="flex items-center gap-2 ml-auto">
-                                                <span className="text-[10px] text-red-400 font-bold">Supprimer ?</span>
+                                                <span className="text-[10px] text-red-400 font-bold">{t('admin.employees.documents.deleteConfirm')}</span>
                                                 <button type="button" onClick={() => handleDelete(slot)} disabled={isDeleting}
                                                     className="flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-bold bg-red-600 hover:bg-red-500 text-white">
                                                     {isDeleting ? <Loader2 className="w-3 h-3 animate-spin" /> : <Check className="w-3 h-3" />}
-                                                    Oui
+                                                    {t('admin.employees.documents.yes')}
                                                 </button>
                                                 <button type="button" onClick={() => setConfirmDeleteType(null)}
                                                     className="px-2.5 py-1 rounded-lg text-xs font-bold text-gray-400 hover:text-white border border-white/10">
-                                                    Non
+                                                    {t('admin.employees.documents.no')}
                                                 </button>
                                             </div>
                                         ) : (
-                                            <button type="button" onClick={() => setConfirmDeleteType(slot.type)}
+                                            <button type="button" title={t('common.delete')} onClick={() => setConfirmDeleteType(slot.type)}
                                                 className="ml-auto p-1.5 rounded-xl text-gray-600 hover:text-red-400 hover:bg-red-500/10 border border-white/10 hover:border-red-500/20 transition-all">
                                                 <Trash2 className="w-3.5 h-3.5" />
                                             </button>

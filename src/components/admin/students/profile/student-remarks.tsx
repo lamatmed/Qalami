@@ -247,8 +247,8 @@ export function StudentRemarks({ studentId, schoolId, isArchived }: { studentId:
 
     const formatDate = (d: string) => {
         const dt = new Date(d)
-        return dt.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', year: 'numeric' })
-            + ' ' + dt.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })
+        return dt.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'Africa/Nouakchott' })
+            + ' ' + dt.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit', timeZone: 'Africa/Nouakchott' })
     }
 
     /* ─── Render ─── */

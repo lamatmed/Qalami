@@ -324,8 +324,8 @@ export function TeacherRemarks() {
         if (diffHours < 24) return t('teacher.remarks.timeAgoHours').replace('{hours}', diffHours.toString())
         if (diffDays === 1) return t('teacher.remarks.yesterday')
         const loc = t('common.locale') || 'fr-FR'
-        return date.toLocaleDateString(loc, { day: 'numeric', month: 'short', year: 'numeric' })
-            + ' ' + date.toLocaleTimeString(loc, { hour: '2-digit', minute: '2-digit' })
+        return date.toLocaleDateString(loc, { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'Africa/Nouakchott' })
+            + ' ' + date.toLocaleTimeString(loc, { hour: '2-digit', minute: '2-digit', timeZone: 'Africa/Nouakchott' })
     }
 
     const getTypeInfo = (type: string) => {

@@ -43,6 +43,34 @@ export async function getEmployeeProfileAction(employeeId: string) {
     }
 }
 
+export async function getEmployeesListAction() {
+    const ctx = await getActionContext()
+    if (!ctx) return { error: 'Non authentifié', employees: [] }
+    const { schoolId } = ctx
+    const admin = createAdminClient()
+
+    const { data, error } = await admin
+        .from('profiles')
+        .select('id, full_name, phone, national_id, status, contracts(position, contract_type, monthly_salary, status)')
+        .eq('school_id', schoolId)
+        .eq('role', 'school_staff')
+        .order('full_name', { ascending: true })
+
+    if (error) return { error: error.message, employees: [] }
+
+    return {
+        employees: (data ?? []).map((p: any) => ({
+            id: p.id,
+            full_name: p.full_name,
+            phone: p.phone,
+            national_id: p.national_id,
+            status: p.status,
+            contract: (p.contracts as any[])?.[0] ?? null,
+        })),
+        error: null,
+    }
+}
+
 export async function updateEmployeeInfoAction(employeeId: string, data: {
     full_name: string
     phone?: string | null

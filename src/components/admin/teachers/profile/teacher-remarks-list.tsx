@@ -174,7 +174,7 @@ export function TeacherRemarksList({ teacherId }: { teacherId: string }) {
                                                 )}
                                             </div>
                                             <p className="text-xs text-gray-600 shrink-0">
-                                                {(() => { const d = new Date(r.created_at); const loc = t('common.locale') || 'fr-FR'; return d.toLocaleDateString(loc, { day: '2-digit', month: 'short', year: 'numeric' }) + ' ' + d.toLocaleTimeString(loc, { hour: '2-digit', minute: '2-digit' }) })()}
+                                                {(() => { const d = new Date(r.created_at); const loc = t('common.locale') || 'fr-FR'; return d.toLocaleDateString(loc, { day: '2-digit', month: 'short', year: 'numeric', timeZone: 'Africa/Nouakchott' }) + ' ' + d.toLocaleTimeString(loc, { hour: '2-digit', minute: '2-digit', timeZone: 'Africa/Nouakchott' }) })()}
                                             </p>
                                         </div>
                                         <p className="text-sm text-gray-300 mt-2 leading-relaxed">{r.content}</p>

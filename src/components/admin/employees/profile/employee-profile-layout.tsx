@@ -9,16 +9,11 @@ import { EmployeeInfo } from './employee-info'
 import { EmployeeFinances } from './employee-finances'
 import { EmployeeAbsences } from './employee-absences'
 import { EmployeeDocuments } from './employee-documents'
-
-const TABS = [
-    { id: 'infos',     label: 'Informations' },
-    { id: 'finances',  label: 'Finances' },
-    { id: 'absences',  label: 'Absences' },
-    { id: 'documents', label: 'Documents' },
-]
+import { useLanguage } from '@/i18n'
 
 export function EmployeeProfileLayout({ id }: { id: string }) {
     const router = useRouter()
+    const { t } = useLanguage()
     const [activeTab, setActiveTab] = useState('infos')
     const [profile, setProfile] = useState<any>(null)
     const [contract, setContract] = useState<any>(null)
@@ -36,6 +31,13 @@ export function EmployeeProfileLayout({ id }: { id: string }) {
         })
     }, [id])
 
+    const TABS = [
+        { id: 'infos',     label: t('admin.employees.tabs.infos') },
+        { id: 'finances',  label: t('admin.employees.tabs.finances') },
+        { id: 'absences',  label: t('admin.employees.tabs.absences') },
+        { id: 'documents', label: t('admin.employees.tabs.documents') },
+    ]
+
     if (loading) return (
         <div className="flex items-center justify-center h-64">
             <Loader2 className="w-6 h-6 animate-spin text-pink-500" />
@@ -45,9 +47,9 @@ export function EmployeeProfileLayout({ id }: { id: string }) {
     if (error || !profile) return (
         <div className="flex flex-col items-center justify-center h-64 gap-3">
             <Briefcase className="w-10 h-10 text-gray-700" />
-            <p className="text-gray-500">{error || 'Employé introuvable'}</p>
+            <p className="text-gray-500">{error || t('admin.employees.notFound')}</p>
             <button type="button" onClick={() => router.back()} className="text-sm text-pink-400 hover:text-pink-300">
-                ← Retour
+                ← {t('admin.employees.back')}
             </button>
         </div>
     )
@@ -59,7 +61,7 @@ export function EmployeeProfileLayout({ id }: { id: string }) {
         .toUpperCase()
         .slice(0, 2)
 
-    const position = contract?.position || 'Employé'
+    const position = contract?.position || t('admin.sidebar.employees')
 
     return (
         <div className="space-y-6">
@@ -70,7 +72,7 @@ export function EmployeeProfileLayout({ id }: { id: string }) {
                 className="flex items-center gap-2 text-sm text-gray-500 hover:text-white transition-colors -ml-1"
             >
                 <ArrowLeft className="w-4 h-4" />
-                Retour
+                {t('admin.employees.back')}
             </button>
 
             {/* Header card */}
@@ -100,7 +102,7 @@ export function EmployeeProfileLayout({ id }: { id: string }) {
 
                     {contract?.monthly_salary && (
                         <div className="bg-emerald-500/10 border border-emerald-500/20 rounded-2xl px-4 py-3 text-center shrink-0">
-                            <p className="text-[10px] text-gray-500 uppercase font-bold mb-1">Salaire</p>
+                            <p className="text-[10px] text-gray-500 uppercase font-bold mb-1">{t('admin.employees.salary')}</p>
                             <p className="text-lg font-black text-emerald-400">
                                 {Number(contract.monthly_salary).toLocaleString('fr-FR')} MRU
                             </p>
@@ -131,7 +133,7 @@ export function EmployeeProfileLayout({ id }: { id: string }) {
             {/* Content */}
             <div>
                 {activeTab === 'infos'     && <EmployeeInfo profileId={id} profile={profile} onUpdated={p => setProfile(p)} />}
-                {activeTab === 'finances'  && <EmployeeFinances employeeId={id} contract={contract} payrollHistory={payroll} />}
+                {activeTab === 'finances'  && <EmployeeFinances employeeId={id} />}
                 {activeTab === 'absences'  && <EmployeeAbsences employeeId={id} salary={Number(contract?.monthly_salary || 0)} />}
                 {activeTab === 'documents' && <EmployeeDocuments employeeId={id} />}
             </div>

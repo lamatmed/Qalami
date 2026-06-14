@@ -1224,7 +1224,12 @@
       "transport": "Transport",
       "bus": "Bus",
       "canteen": "Cantine",
+      "cantine": "Cantine",
       "activities": "Activités",
+      "activites": "Activités",
+      "cotisation": "Cotisation",
+      "inscription": "Inscription",
+      "scolarite": "Scolarité",
       "collectionRate": "Taux de recouvrement",
       "unpaidStudents": "Élèves impayés",
       "sendReminder": "Envoyer rappel",
@@ -1380,7 +1385,15 @@
             "label": "Scolarité",
             "desc": "Frais de scolarité de base"
           },
+          "inscription": {
+            "label": "Inscription",
+            "desc": "Frais d'inscription à l'établissement"
+          },
           "bus": {
+            "label": "Transport",
+            "desc": "Transport scolaire"
+          },
+          "transport": {
             "label": "Transport",
             "desc": "Transport scolaire"
           },
@@ -1391,6 +1404,14 @@
           "activites": {
             "label": "Activités",
             "desc": "Activités parascolaires"
+          },
+          "cotisation": {
+            "label": "Cotisation",
+            "desc": "Cotisations et frais divers"
+          },
+          "autres": {
+            "label": "Autres",
+            "desc": "Autres frais divers"
           }
         }
       },
@@ -1979,7 +2000,162 @@
       "accountant": "Comptable",
       "concierge": "Concierge",
       "security": "Sécurité",
-      "other": "Autre"
+      "other": "Autre",
+      "nameAndRoleRequired": "Nom et poste sont obligatoires",
+      "passwordMinLength": "Le mot de passe doit contenir au moins 6 caractères",
+      "passwordMinPlaceholder": "Min. 6 caractères",
+      "infoUpdated": "Informations mises à jour",
+      "absenceAdded": "Absence enregistrée",
+      "absenceDeleted": "Absence supprimée",
+      "deleteAbsenceConfirm": "Supprimer cette absence ?",
+      "absencesBtn": "Absences",
+      "addAbsence": "Ajouter une absence",
+      "newAbsence": "Nouvelle absence",
+      "closeForm": "Fermer",
+      "justifiedAbsenceHint": "Absence justifiée (ne compte pas dans la déduction)",
+      "noAbsenceThisMonth": "Aucune absence ce mois-ci",
+      "salaryNotConfigured": "Salaire non configuré",
+      "deductionDisplay": "Déduction : −{amount} MRU",
+      "absShort": "abs.",
+      "editInfo": "Modifier les informations",
+      "contractType": "Type de contrat",
+      "hoursAndBonuses": "Heures & Primes",
+      "createUserAccount": "Créer un compte utilisateur",
+      "cdi": "CDI",
+      "cdd": "CDD",
+      "hourlyContract": "Horaire",
+      "monthAbsencesTitle": "Absences — {month}",
+      "justifiedLabel": "Justifiée",
+      "salaryNotSet": "Non configuré",
+      "nni": "NNI",
+      "nniPlaceholder": "10 chiffres",
+      "contractTypeLabel": "Type de contrat",
+      "userAccountSection": "Compte utilisateur",
+      "passwordLabel": "Mot de passe",
+      "chooseRolePlaceholder": "Choisir le poste...",
+      "phoneRequiredForAccount": "Le numéro de téléphone est requis pour créer un compte utilisateur",
+      "loginHint": "Ce membre pourra se connecter via son téléphone et ce mot de passe."
+    },
+    "employees": {
+      "title": "Employés",
+      "membersCount": "{count} membre du personnel",
+      "membersCountPlural": "{count} membres du personnel",
+      "searchPlaceholder": "Rechercher par nom, poste ou téléphone…",
+      "noResults": "Aucun résultat pour cette recherche",
+      "noEmployee": "Aucun employé enregistré",
+      "perMonth": "/ mois",
+      "notFound": "Employé introuvable",
+      "back": "Retour",
+      "salary": "Salaire",
+      "contractTypes": {
+        "CDI": "CDI",
+        "CDD": "CDD",
+        "hourly": "Horaire"
+      },
+      "tabs": {
+        "infos": "Informations",
+        "finances": "Finances",
+        "absences": "Absences",
+        "documents": "Documents"
+      },
+      "info": {
+        "title": "Informations personnelles",
+        "edit": "Modifier",
+        "fullName": "Nom complet",
+        "phone": "Téléphone",
+        "nni": "NNI",
+        "address": "Adresse",
+        "updated": "Informations mises à jour"
+      },
+      "absences": {
+        "title": "Absences — {month}",
+        "count": "{count} absence ce mois",
+        "countPlural": "{count} absences ce mois",
+        "deduction": "Déduction",
+        "addAbsence": "Ajouter une absence",
+        "date": "Date",
+        "note": "Note",
+        "optional": "Optionnel",
+        "justifiedHint": "Justifiée (pas déduite du salaire)",
+        "noAbsence": "Aucune absence ce mois-ci",
+        "justifiedLabel": "Justifiée",
+        "unjustifiedLabel": "Non justifiée",
+        "added": "Absence enregistrée"
+      },
+      "documents": {
+        "title": "Dossier documentaire",
+        "present": "Présent",
+        "missing": "Manquant",
+        "noFile": "Aucun fichier",
+        "replace": "Remplacer",
+        "add": "Ajouter",
+        "preview": "Aperçu",
+        "download": "Télécharger",
+        "deleteConfirm": "Supprimer ?",
+        "yes": "Oui",
+        "no": "Non",
+        "uploaded": "Document téléversé",
+        "deleted": "Document supprimé",
+        "renamed": "Nom modifié",
+        "cv": "CV",
+        "contract": "Contrat de travail",
+        "diploma": "Diplôme",
+        "medical": "Certificat médical"
+      },
+      "finances": {
+        "title": "Finances",
+        "subtitle": "Suivi des paiements et de la paie",
+        "addPayment": "Enregistrer un paiement",
+        "newPayment": "Nouveau versement",
+        "amount": "Montant (MRU)",
+        "category": "Catégorie",
+        "method": "Méthode",
+        "descriptionLabel": "Description (optionnel)",
+        "descriptionPlaceholder": "Ex: Prime de performance – juin 2026",
+        "confirmPayment": "Confirmer le versement",
+        "invalidAmount": "Montant invalide",
+        "paymentSaved": "Paiement enregistré",
+        "receiptDownloaded": "Reçu téléchargé",
+        "receiptError": "Erreur lors de la génération du reçu",
+        "noContract": "Aucun contrat actif",
+        "noContractHint": "Ajoutez un contrat depuis la gestion du personnel",
+        "monthlySalary": "Salaire mensuel",
+        "contractType": "Type de contrat",
+        "totalPaidHistory": "Total versé (historique)",
+        "operations": "Opérations & Reçus",
+        "operationsCount": "{count} opération",
+        "operationsCountPlural": "{count} opérations",
+        "noOperations": "Aucune opération enregistrée",
+        "noOperationsHint": "Les paiements enregistrés apparaîtront ici",
+        "totalPaidExcl": "Total versé (hors paie)",
+        "payrollHistory": "Historique de paie",
+        "noPayroll": "Aucun paiement enregistré",
+        "noPayrollHint": "Le salaire apparaîtra ici après le premier versement",
+        "base": "Base",
+        "paid": "Payé",
+        "cancelled": "Annulé",
+        "pending": "En attente",
+        "downloadReceipt": "Télécharger le reçu",
+        "categories": {
+          "prime": "Prime / Bonus",
+          "avance": "Avance sur salaire",
+          "remboursement": "Remboursement",
+          "cotisation": "Cotisation",
+          "autre": "Autre versement",
+          "salary": "Salaire"
+        },
+        "methods": {
+          "cash": "Espèces",
+          "bank_transfer": "Virement bancaire",
+          "mobile_money": "Mobile Money",
+          "check": "Chèque"
+        }
+      },
+      "months": {
+        "1": "Janvier", "2": "Février", "3": "Mars", "4": "Avril",
+        "5": "Mai", "6": "Juin", "7": "Juillet", "8": "Août",
+        "9": "Septembre", "10": "Octobre", "11": "Novembre", "12": "Décembre"
+      }
     },
     "announcementsHistory": {
       "historyStats": "Historique & Stats",
@@ -2133,6 +2309,7 @@
       "tuition": "Scolarité",
       "transport": "Transport",
       "canteen": "Cantine",
+      "cantine": "Cantine",
       "childDetails": "État des enfants",
       "children": "Enfants",
       "unpaid": "Impayés",
@@ -2260,8 +2437,11 @@
         "inscription": "Inscription",
         "scolarite": "Scolarité",
         "bus": "Transport",
+        "transport": "Transport",
         "cantine": "Cantine",
-        "activites": "Activités"
+        "activites": "Activités",
+        "cotisation": "Cotisation",
+        "autres": "Autres"
       },
       "status": {
         "paid": "Payé",
@@ -2461,8 +2641,20 @@
         "optional": "(optionnel)",
         "save": "Enregistrer",
         "saving": "Upload en cours…",
-        "selectFileError": "Sélectionnez un fichier"
+        "selectFileError": "Sélectionnez un fichier",
+        "uploadSuccess": "Document ajouté",
+        "uploadError": "Erreur lors de l'upload",
+        "searchPlaceholder": "Rechercher…",
+        "noResults": "Aucun résultat",
+        "clearSearch": "Effacer"
       },
+      "deleteConfirmMsg": "Supprimer définitivement « {name} » ?",
+      "deleteError": "Erreur lors de la suppression",
+      "renameDocument": "Renommer le document",
+      "docNamePlaceholder": "Nom du document",
+      "renameSave": "Enregistrer",
+      "renameCancel": "Annuler",
+      "renameError": "Erreur lors du renommage",
       "sortOptions": {
         "date_desc": "Plus récent",
         "date_asc": "Plus ancien",

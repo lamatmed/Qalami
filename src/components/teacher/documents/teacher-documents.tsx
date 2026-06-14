@@ -46,8 +46,8 @@ const TYPE_COLORS: Record<string, { text: string; bg: string }> = {
 
 function formatDate(iso: string) {
     const d = new Date(iso)
-    return d.toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: 'numeric' })
-        + ' ' + d.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })
+    return d.toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: 'numeric', timeZone: 'Africa/Nouakchott' })
+        + ' ' + d.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit', timeZone: 'Africa/Nouakchott' })
 }
 
 export function TeacherDocumentsPage() {

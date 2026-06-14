@@ -117,10 +117,10 @@ export function ActivityLog() {
     const locale = language === 'ar' ? 'ar-MA' : 'fr-FR'
 
     const formatDate = (iso: string) => {
-        return new Date(iso).toLocaleDateString(locale, { day: '2-digit', month: 'short', year: 'numeric' })
+        return new Date(iso).toLocaleDateString(locale, { day: '2-digit', month: 'short', year: 'numeric', timeZone: 'Africa/Nouakchott' })
     }
     const formatTime = (iso: string) => {
-        return new Date(iso).toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit' })
+        return new Date(iso).toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit', timeZone: 'Africa/Nouakchott' })
     }
 
     const getActionLabel = (key: string) =>

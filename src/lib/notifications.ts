@@ -169,5 +169,5 @@ export function formatNotificationTime(dateStr: string, t?: any, language?: stri
             ? `منذ ${Math.floor(diffDays)} أيام` 
             : `Il y a ${Math.floor(diffDays)} jours`
     }
-    return date.toLocaleDateString(isAr ? 'ar-MR' : 'fr-FR', { day: 'numeric', month: 'short' })
+    return date.toLocaleDateString(isAr ? 'ar-MR' : 'fr-FR', { day: 'numeric', month: 'short', timeZone: 'Africa/Nouakchott' })
 }

@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import { useSearchParams } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { ArrowLeft, Calendar, User, Phone, CreditCard, Home, ShieldAlert, Loader2, KeyRound, ArrowLeftRight, RotateCcw, Pencil, Trash2 } from 'lucide-react'
 import { useRouter } from 'next/navigation'
@@ -50,6 +51,7 @@ interface StudentProfile {
     enrollmentId: string | null
     enrollmentStatus: string | null
     academicYear: string | null
+    enrollmentDate: string | null
     parents: ParentInfo[]
 }
 
@@ -57,7 +59,8 @@ interface StudentProfile {
 export function StudentProfileLayout({ id }: { id: string }) {
     const { t, language } = useLanguage()
     const router = useRouter()
-    const [activeTab, setActiveTab] = useState('attendance')
+    const searchParams = useSearchParams()
+    const [activeTab, setActiveTab] = useState(() => searchParams.get('tab') || 'attendance')
     const [student, setStudent] = useState<StudentProfile | null>(null)
     const [currentSchoolId, setCurrentSchoolId] = useState<string | null>(null)
     const [loading, setLoading] = useState(true)
@@ -123,6 +126,7 @@ export function StudentProfileLayout({ id }: { id: string }) {
                         status,
                         academic_year_id,
                         school_id,
+                        created_at,
                         academic_years ( name ),
                         classes ( name )
                     ),
@@ -166,6 +170,7 @@ export function StudentProfileLayout({ id }: { id: string }) {
                     enrollmentId: firstEnrollment?.id || null,
                     enrollmentStatus: firstEnrollment?.status || null,
                     academicYear: (firstEnrollment?.academic_years as any)?.name || null,
+                    enrollmentDate: firstEnrollment?.created_at || null,
                     parents,
                 })
             }
@@ -447,6 +452,20 @@ export function StudentProfileLayout({ id }: { id: string }) {
                                         {t('common.status')}
                                     </button>
                                 )}
+                            </div>
+                        )}
+                        {student?.enrollmentDate && (
+                            <div className="mt-1.5 flex items-center gap-1 text-[10px] text-gray-500">
+                                <Calendar className="w-3 h-3 text-emerald-500/70 shrink-0" />
+                                <span>
+                                    {language === 'ar' ? 'تاريخ التسجيل:' : 'Inscrit le'}{' '}
+                                    <span className="font-semibold text-gray-400">
+                                        {new Date(student.enrollmentDate).toLocaleDateString(
+                                            language === 'ar' ? 'ar-u-ca-gregory' : 'fr-FR',
+                                            { day: '2-digit', month: 'short', year: 'numeric', timeZone: 'Africa/Nouakchott' }
+                                        )}
+                                    </span>
+                                </span>
                             </div>
                         )}
                     </div>

@@ -251,7 +251,7 @@ export function StudentAttendance({ studentId, schoolId }: { studentId: string; 
                                                             <span className="text-[11px] text-amber-300/80 truncate">{fileName}</span>
                                                             {uploadedAt && (
                                                                 <span className="text-[10px] text-gray-600 shrink-0">
-                                                                    · {uploadedAt.toLocaleDateString(locale, { day: '2-digit', month: 'short' })} {uploadedAt.toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit' })}
+                                                                    · {uploadedAt.toLocaleDateString(locale, { day: '2-digit', month: 'short', timeZone: 'Africa/Nouakchott' })} {uploadedAt.toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit', timeZone: 'Africa/Nouakchott' })}
                                                                 </span>
                                                             )}
                                                         </div>
@@ -404,7 +404,7 @@ export function StudentAttendance({ studentId, schoolId }: { studentId: string; 
                                                 <div className="flex items-center gap-1 mt-0.5">
                                                     <CalendarClock className="w-3 h-3 text-gray-500 shrink-0" />
                                                     <p className="text-[11px] text-gray-500">
-                                                        {uploadedAt.toLocaleDateString(locale, { weekday: 'short', day: '2-digit', month: 'short', year: 'numeric' })} · {uploadedAt.toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit' })}
+                                                        {uploadedAt.toLocaleDateString(locale, { weekday: 'short', day: '2-digit', month: 'short', year: 'numeric', timeZone: 'Africa/Nouakchott' })} · {uploadedAt.toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit', timeZone: 'Africa/Nouakchott' })}
                                                     </p>
                                                 </div>
                                             )}

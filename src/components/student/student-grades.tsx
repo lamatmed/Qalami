@@ -289,7 +289,7 @@ export function StudentGrades() {
                                     const latestDate = latest.updated_at || latest.created_at
                                     return (
                                         <span className="block text-[10px] text-blue-300/60">
-                                            {t('student.grades.updatedAt')} {(() => { const _d = new Date(latestDate); return _d.toLocaleDateString(activeLocale, { day: '2-digit', month: 'short', year: 'numeric' }) + ' ' + _d.toLocaleTimeString(activeLocale, { hour: '2-digit', minute: '2-digit' }) })()}
+                                            {t('student.grades.updatedAt')} {(() => { const _d = new Date(latestDate); return _d.toLocaleDateString(activeLocale, { day: '2-digit', month: 'short', year: 'numeric', timeZone: 'Africa/Nouakchott' }) + ' ' + _d.toLocaleTimeString(activeLocale, { hour: '2-digit', minute: '2-digit', timeZone: 'Africa/Nouakchott' }) })()}
                                         </span>
                                     )
                                 })()}

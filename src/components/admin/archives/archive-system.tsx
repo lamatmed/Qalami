@@ -42,6 +42,7 @@ import { cn } from '@/lib/utils'
 import { createClient } from '@/utils/supabase/client'
 import { useSchoolContext } from '@/lib/use-school-context'
 import { useLanguage } from '@/i18n'
+import { toast } from 'sonner'
 
 /* ─────────────── Types ─────────────── */
 
@@ -63,7 +64,6 @@ interface ArchiveDoc {
     student_name: string | null
     doc_status: string | null
     description: string | null
-    nni: string | null
 }
 
 type SortKey = 'date_desc' | 'date_asc' | 'name_asc' | 'name_desc' | 'size_desc'
@@ -165,7 +165,7 @@ export function ArchiveSystem() {
             .select(`
                 id, name, file_url, file_type, file_size_bytes,
                 document_type, category, school_year, created_at,
-                description, nni,
+                description,
                 teacher:profiles!documents_teacher_id_fkey ( full_name ),
                 uploader:profiles!documents_uploaded_by_fkey ( full_name ),
                 subject:subjects ( name ),
@@ -201,7 +201,6 @@ export function ArchiveSystem() {
                 class_name: (d.class as any)?.name ?? null,
                 source: 'document',
                 description: (d as any).description ?? null,
-                nni: (d as any).nni ?? null,
                 student_name: null,
                 doc_status: null,
             })
@@ -228,7 +227,6 @@ export function ArchiveSystem() {
                 student_name: student?.full_name ?? null,
                 doc_status: d.status,
                 description: null,
-                nni: null,
             })
         }
 
@@ -250,13 +248,13 @@ export function ArchiveSystem() {
     }
 
     const handleDelete = async (doc: ArchiveDoc) => {
-        if (!confirm(`Supprimer définitivement « ${doc.name} » ?`)) return
+        if (!confirm(t('admin.documents.deleteConfirmMsg').replace('{name}', doc.name))) return
         setDeletingId(doc.id)
         const supabase = createClient()
         const table = doc.source === 'student_doc' ? 'student_documents' : 'documents'
         const { error } = await supabase.from(table as any).delete().eq('id', doc.id)
         setDeletingId(null)
-        if (error) { alert('Erreur : ' + error.message); return }
+        if (error) { toast.error(t('admin.documents.deleteError') + ': ' + error.message); return }
         setDocs(prev => prev.filter(d => d.id !== doc.id))
     }
 
@@ -311,7 +309,7 @@ export function ArchiveSystem() {
             list = list.filter(d =>
                 d.name?.toLowerCase().includes(q) ||
                 d.description?.toLowerCase().includes(q) ||
-                d.nni?.toLowerCase().includes(q) ||
+
                 d.teacher_name?.toLowerCase().includes(q) ||
                 d.student_name?.toLowerCase().includes(q) ||
                 d.subject_name?.toLowerCase().includes(q) ||
@@ -657,11 +655,6 @@ function DocCard({
                             <GraduationCap className="w-2.5 h-2.5" />{doc.student_name}
                         </span>
                     )}
-                    {doc.nni && (
-                        <span className="text-[10px] bg-amber-500/10 text-amber-400 px-2 py-0.5 rounded-full border border-amber-500/20 font-mono font-medium">
-                            NNI: {doc.nni}
-                        </span>
-                    )}
                     {doc.doc_status && (
                         <DropdownMenu
                             open={statusMenuId === doc.id}
@@ -771,7 +764,6 @@ function DocRow({
                 <p className="text-sm font-bold text-white truncate group-hover:text-emerald-400 transition-colors">{doc.name}</p>
                 <div className="flex items-center gap-3 text-[10px] text-gray-600 mt-0.5 flex-wrap">
                     {doc.description   && <span className="text-gray-400 truncate max-w-[200px]">{doc.description}</span>}
-                    {doc.nni           && <span className="text-amber-500 font-mono">NNI: {doc.nni}</span>}
                     {doc.teacher_name  && <span>{doc.teacher_name}</span>}
                     {doc.student_name  && <span className="text-cyan-500">{doc.student_name}</span>}
                     {doc.subject_name  && <span>· {doc.subject_name}</span>}

@@ -22,10 +22,9 @@ interface Transaction {
     created_at: string
     related_profile_id?: string | null
     reference_number?: string | null
-    notes?: string | null
 }
 
-type TypeFilter = '' | 'scolarite' | 'inscription' | 'transport' | 'restauration' | 'cotisation' | 'autres'
+type TypeFilter = '' | 'scolarite' | 'inscription' | 'transport' | 'cantine' | 'cotisation' | 'activites' | 'autres'
 type FlowFilter = '' | 'income' | 'expense'
 
 const TYPE_OPTIONS: { value: TypeFilter; label: string }[] = [
@@ -33,25 +32,28 @@ const TYPE_OPTIONS: { value: TypeFilter; label: string }[] = [
     { value: 'scolarite',   label: 'Scolarité' },
     { value: 'inscription', label: 'Inscription' },
     { value: 'transport',   label: 'Transport' },
-    { value: 'restauration',label: 'Restauration' },
+    { value: 'cantine',     label: 'Cantine' },
     { value: 'cotisation',  label: 'Cotisation' },
+    { value: 'activites',   label: 'Activités' },
     { value: 'autres',      label: 'Autres' },
 ]
 
 const SCOLARITE_CATS  = ['scolarite', 'tuition']
 const TRANSPORT_CATS  = ['transport', 'bus']
-const RESTAURATION_CATS = ['restauration', 'cantine']
+const CANTINE_CATS    = ['cantine', 'restauration']
+const ACTIVITES_CATS  = ['activites', 'activités']
 const INCOME_TYPES    = ['income', 'tuition']
 
 function matchesTypeFilter(trx: Transaction, filter: TypeFilter): boolean {
     if (!filter) return true
     const cat = trx.category || ''
-    if (filter === 'scolarite')    return SCOLARITE_CATS.includes(cat)
-    if (filter === 'inscription')  return cat === 'inscription'
-    if (filter === 'transport')    return TRANSPORT_CATS.includes(cat)
-    if (filter === 'restauration') return RESTAURATION_CATS.includes(cat)
-    if (filter === 'cotisation')   return cat === 'cotisation'
-    if (filter === 'autres')       return ![...SCOLARITE_CATS, 'inscription', ...TRANSPORT_CATS, ...RESTAURATION_CATS, 'cotisation'].includes(cat)
+    if (filter === 'scolarite')   return SCOLARITE_CATS.includes(cat)
+    if (filter === 'inscription') return cat === 'inscription'
+    if (filter === 'transport')   return TRANSPORT_CATS.includes(cat)
+    if (filter === 'cantine')     return CANTINE_CATS.includes(cat)
+    if (filter === 'cotisation')  return cat === 'cotisation'
+    if (filter === 'activites')   return ACTIVITES_CATS.includes(cat)
+    if (filter === 'autres')      return ![...SCOLARITE_CATS, 'inscription', ...TRANSPORT_CATS, ...CANTINE_CATS, ...ACTIVITES_CATS, 'cotisation'].includes(cat)
     return true
 }
 
@@ -65,12 +67,37 @@ export function TransactionLedger({ refreshTrigger }: { refreshTrigger?: number 
     const [typeFilter, setTypeFilter] = useState<TypeFilter>('')
     const [flowFilter, setFlowFilter] = useState<FlowFilter>('')
     const [generatingPdfId, setGeneratingPdfId] = useState<string | null>(null)
+    const [downloadingPdfId, setDownloadingPdfId] = useState<string | null>(null)
     const [editingNoteId, setEditingNoteId] = useState<string | null>(null)
     const [noteText, setNoteText] = useState('')
     const [savingNote, setSavingNote] = useState(false)
+    const [schoolName, setSchoolName] = useState('')
+    const [schoolLogoUrl, setSchoolLogoUrl] = useState('')
     const nniDebounceRef = useRef<ReturnType<typeof setTimeout>>(undefined)
 
     const { t, language } = useLanguage()
+
+    useEffect(() => {
+        const fetchSchoolInfo = async () => {
+            const { createClient } = await import('@/utils/supabase/client')
+            const supabase = createClient()
+            const { data: { user } } = await supabase.auth.getUser()
+            if (!user) return
+            const { data: profile } = await supabase.from('profiles').select('school_id').eq('id', user.id).single()
+            if (!profile?.school_id) return
+            let name = '', logo = ''
+            const { data: settings } = await supabase.from('school_settings').select('name, logo_url').eq('school_id', profile.school_id).maybeSingle()
+            name = settings?.name || ''; logo = settings?.logo_url || ''
+            if (!name || !logo) {
+                const { data: school } = await supabase.from('schools').select('name, logo_url').eq('id', profile.school_id).maybeSingle()
+                if (!name) name = school?.name || ''
+                if (!logo) logo = school?.logo_url || ''
+            }
+            if (name) setSchoolName(name)
+            if (logo) setSchoolLogoUrl(logo)
+        }
+        fetchSchoolInfo()
+    }, [])
 
     const fetchTransactions = useCallback(async (from: string, to: string, nni: string) => {
         setLoading(true)
@@ -145,20 +172,20 @@ export function TransactionLedger({ refreshTrigger }: { refreshTrigger?: number 
 
     const formatDate = (dateStr: string) => {
         const locale = language === 'ar' ? 'ar-u-ca-gregory' : 'fr-FR'
-        return new Date(dateStr).toLocaleDateString(locale, { day: 'numeric', month: 'short', year: 'numeric' })
+        return new Date(dateStr).toLocaleDateString(locale, { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'Africa/Nouakchott' })
     }
 
     const formatDateTime = (dateStr: string, timeStr?: string) => {
         const locale = language === 'ar' ? 'ar-u-ca-gregory' : 'fr-FR'
-        const datePart = new Date(dateStr).toLocaleDateString(locale, { day: 'numeric', month: 'short', year: 'numeric' })
+        const datePart = new Date(dateStr).toLocaleDateString(locale, { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'Africa/Nouakchott' })
         if (!timeStr) return datePart
-        const timePart = new Date(timeStr).toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit' })
+        const timePart = new Date(timeStr).toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit', timeZone: 'Africa/Nouakchott' })
         return `${datePart} · ${timePart}`
     }
 
     const startEditNote = (trx: Transaction) => {
         setEditingNoteId(trx.id)
-        setNoteText(trx.notes || '')
+        setNoteText(trx.description || '')
     }
 
     const cancelEditNote = () => {
@@ -173,14 +200,13 @@ export function TransactionLedger({ refreshTrigger }: { refreshTrigger?: number 
             toast.error(res.error)
         } else {
             toast.success('Remarque enregistrée')
-            setTransactions(prev => prev.map(t => t.id === id ? { ...t, notes: noteText.trim() || null } : t))
+            setTransactions(prev => prev.map(t => t.id === id ? { ...t, description: noteText.trim() || null } : t))
             setEditingNoteId(null)
         }
         setSavingNote(false)
     }
 
-    const handleViewPdf = async (trx: Transaction) => {
-        setGeneratingPdfId(trx.id)
+    const buildPdf = async (trx: Transaction) => {
         try {
             let person: { full_name: string | null, national_id: string | null, phone: string | null, role: string | null } | null = null
             if (trx.related_profile_id) {
@@ -194,20 +220,38 @@ export function TransactionLedger({ refreshTrigger }: { refreshTrigger?: number 
                 if (data) person = data
             }
 
+            // Load school logo as data URL for jsPDF
+            let logoDataUrl: string | null = null
+            if (schoolLogoUrl) {
+                try {
+                    const img = new Image()
+                    img.crossOrigin = 'anonymous'
+                    img.src = schoolLogoUrl
+                    await new Promise<void>((res, rej) => { img.onload = () => res(); img.onerror = () => rej() })
+                    const canvas = document.createElement('canvas')
+                    canvas.width = img.naturalWidth; canvas.height = img.naturalHeight
+                    canvas.getContext('2d')!.drawImage(img, 0, 0)
+                    logoDataUrl = canvas.toDataURL('image/jpeg', 0.9)
+                } catch { /* logo not critical */ }
+            }
+
             const { jsPDF } = await import('jspdf')
             const W = 80, ml = 6, mr = W - 6, cx = W / 2
             const fmt = (n: number) => Math.round(n).toString().replace(/\B(?=(\d{3})+(?!\d))/g, ' ')
             const isIncome = trx.type === 'income' || trx.type === 'tuition'
             const shortId = trx.id.slice(0, 8).toUpperCase()
-            const printDate = new Date().toLocaleDateString('fr-FR', { day: '2-digit', month: 'long', year: 'numeric' })
+            const _now = new Date()
+            const printDate = _now.toLocaleDateString('fr-FR', { day: '2-digit', month: 'long', year: 'numeric', timeZone: 'Africa/Nouakchott' })
+                + ' ' + _now.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit', timeZone: 'Africa/Nouakchott' })
             const txDate = formatDate(trx.transaction_date)
             const isPaid = trx.status === 'completed'
             const BK: [number,number,number] = [10, 10, 10]
             const GR: [number,number,number] = [150, 150, 150]
+            const logoSize = 12
 
-            let estimatedH = 210
+            let estimatedH = 218
+            if (logoDataUrl) estimatedH += logoSize + 4
             if (person) estimatedH += (person.national_id || person.phone) ? 40 : 28
-            if (trx.notes) estimatedH += 20
 
             const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: [W, estimatedH] })
 
@@ -218,8 +262,19 @@ export function TransactionLedger({ refreshTrigger }: { refreshTrigger?: number 
             }
 
             let y = 11
-            doc.setFont('Helvetica', 'bold'); doc.setFontSize(14); doc.setTextColor(...BK); doc.text('QALAMI', ml, y); y += 6
-            doc.setFont('Helvetica', 'normal'); doc.setFontSize(8.5); doc.setTextColor(...GR); doc.text('School Manager  ·  Gestion Scolaire', ml, y); y += 7
+            if (logoDataUrl) {
+                doc.addImage(logoDataUrl, 'JPEG', ml, y, logoSize, logoSize)
+                doc.setFont('Helvetica', 'bold'); doc.setFontSize(13); doc.setTextColor(...BK)
+                doc.text(schoolName || 'QALAMI', ml + logoSize + 3, y + 5)
+                doc.setFont('Helvetica', 'normal'); doc.setFontSize(8); doc.setTextColor(...GR)
+                doc.text('School Manager', ml + logoSize + 3, y + 10)
+                y += logoSize + 4
+            } else {
+                doc.setFont('Helvetica', 'bold'); doc.setFontSize(14); doc.setTextColor(...BK)
+                doc.text(schoolName || 'QALAMI', ml, y); y += 6
+                doc.setFont('Helvetica', 'normal'); doc.setFontSize(8.5); doc.setTextColor(...GR)
+                doc.text('School Manager  ·  Gestion Scolaire', ml, y); y += 7
+            }
             hline(y, 0.8); y += 5
             doc.setFont('Helvetica', 'bold'); doc.setFontSize(8); doc.setTextColor(...GR); doc.text('RECU DE TRANSACTION', ml, y)
             doc.setFont('Helvetica', 'normal'); doc.setFontSize(8); doc.text(printDate, mr, y, { align: 'right' }); y += 5
@@ -252,23 +307,37 @@ export function TransactionLedger({ refreshTrigger }: { refreshTrigger?: number 
                 if (person.phone)       row('Tel', person.phone)
             }
 
-            if (trx.notes) {
-                y += 2; hline(y, 0.3); y += 6
-                doc.setFont('Helvetica', 'normal'); doc.setFontSize(8); doc.setTextColor(...GR); doc.text('REMARQUE', ml, y); y += 5
-                const splitNotes = doc.splitTextToSize(trx.notes, mr - ml)
-                doc.setFont('Helvetica', 'normal'); doc.setFontSize(8.5); doc.setTextColor(...BK); doc.text(splitNotes, ml, y); y += splitNotes.length * 5 + 3
-            }
-
-            y += 3; hline(y, 0.3); y += 6
-            doc.setFont('Helvetica', 'normal'); doc.setFontSize(8); doc.setTextColor(...GR); doc.text(`Genere le ${printDate}`, ml, y)
+            y += 3; hline(y, 0.3); y += 5
+            doc.setFont('Helvetica', 'normal'); doc.setFontSize(8); doc.setTextColor(...GR); doc.text(`Genere le ${printDate}`, ml, y); y += 4
             doc.setFont('Helvetica', 'bold'); doc.setFontSize(8.5); doc.setTextColor(...BK); doc.text('Qalami School Manager', mr, y, { align: 'right' })
 
-            doc.save(`recu-${shortId}.pdf`)
-            toast.success('PDF téléchargé')
+            return { doc, shortId }
         } catch {
-            toast.error('Erreur lors de la génération du PDF')
+            return null
+        }
+    }
+
+    const handleViewPdf = async (trx: Transaction) => {
+        setGeneratingPdfId(trx.id)
+        try {
+            const result = await buildPdf(trx)
+            if (!result) { toast.error('Erreur lors de la génération du PDF'); return }
+            const blobUrl = result.doc.output('bloburl')
+            window.open(blobUrl, '_blank')
         } finally {
             setGeneratingPdfId(null)
+        }
+    }
+
+    const handleDownloadPdf = async (trx: Transaction) => {
+        setDownloadingPdfId(trx.id)
+        try {
+            const result = await buildPdf(trx)
+            if (!result) { toast.error('Erreur lors de la génération du PDF'); return }
+            result.doc.save(`recu-${result.shortId}.pdf`)
+            toast.success('PDF téléchargé')
+        } finally {
+            setDownloadingPdfId(null)
         }
     }
 
@@ -438,7 +507,7 @@ export function TransactionLedger({ refreshTrigger }: { refreshTrigger?: number 
                         <tbody className="divide-y divide-white/5">
                             {filteredTransactions.map(trx => {
                                 const isIncome = trx.type === 'income' || trx.type === 'tuition'
-                                const hasNote = !!trx.notes
+                                const hasNote = !!trx.description
                                 const isEditingNote = editingNoteId === trx.id
 
                                 return (
@@ -461,7 +530,7 @@ export function TransactionLedger({ refreshTrigger }: { refreshTrigger?: number 
                                                         {hasNote && !isEditingNote && (
                                                             <div className="flex items-start gap-1 mt-1">
                                                                 <MessageSquare className="w-3 h-3 text-amber-500/70 shrink-0 mt-0.5" />
-                                                                <p className="text-xs text-amber-500/70 italic leading-tight">{trx.notes}</p>
+                                                                <p className="text-xs text-amber-500/70 italic leading-tight">{trx.description}</p>
                                                             </div>
                                                         )}
                                                     </div>
@@ -517,10 +586,11 @@ export function TransactionLedger({ refreshTrigger }: { refreshTrigger?: number 
                                                     >
                                                         <MessageSquare className="w-4 h-4" />
                                                     </Button>
-                                                    {/* PDF button */}
+                                                    {/* Preview PDF */}
                                                     <Button
                                                         variant="ghost"
                                                         size="icon"
+                                                        title="Aperçu du reçu"
                                                         className="h-8 w-8 text-gray-500 hover:text-emerald-400 disabled:opacity-50"
                                                         disabled={generatingPdfId === trx.id}
                                                         onClick={() => handleViewPdf(trx)}
@@ -528,6 +598,19 @@ export function TransactionLedger({ refreshTrigger }: { refreshTrigger?: number 
                                                         {generatingPdfId === trx.id
                                                             ? <Loader2 className="w-4 h-4 animate-spin" />
                                                             : <Eye className="w-4 h-4" />}
+                                                    </Button>
+                                                    {/* Download PDF */}
+                                                    <Button
+                                                        variant="ghost"
+                                                        size="icon"
+                                                        title="Télécharger le reçu"
+                                                        className="h-8 w-8 text-gray-500 hover:text-blue-400 disabled:opacity-50"
+                                                        disabled={downloadingPdfId === trx.id}
+                                                        onClick={() => handleDownloadPdf(trx)}
+                                                    >
+                                                        {downloadingPdfId === trx.id
+                                                            ? <Loader2 className="w-4 h-4 animate-spin" />
+                                                            : <Download className="w-4 h-4" />}
                                                     </Button>
                                                 </div>
                                             </td>

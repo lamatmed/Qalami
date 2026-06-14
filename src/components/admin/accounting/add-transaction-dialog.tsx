@@ -23,7 +23,7 @@ export function AddTransactionDialog({ open, onOpenChange, onSuccess }: AddTrans
     const [isPending, startTransition] = useTransition()
     const [type, setType] = useState<'income' | 'expense'>('income')
     const [amount, setAmount] = useState('')
-    const [category, setCategory] = useState('transport')
+    const [category, setCategory] = useState('cantine')
     const [date, setDate] = useState(new Date().toISOString().split('T')[0])
     const [description, setDescription] = useState('')
     const [studentNni, setStudentNni] = useState('')
@@ -35,7 +35,7 @@ export function AddTransactionDialog({ open, onOpenChange, onSuccess }: AddTrans
     const handleTypeChange = (newType: 'income' | 'expense') => {
         setType(newType)
         if (newType === 'income') {
-            setCategory('transport')
+            setCategory('cantine')
         } else {
             setCategory('')
         }
@@ -114,7 +114,7 @@ export function AddTransactionDialog({ open, onOpenChange, onSuccess }: AddTrans
 
                 // Reset form
                 setAmount('')
-                setCategory('transport')
+                setCategory('cantine')
                 setType('income')
                 setDescription('')
                 setDate(new Date().toISOString().split('T')[0])
@@ -186,10 +186,11 @@ export function AddTransactionDialog({ open, onOpenChange, onSuccess }: AddTrans
                                 <SelectContent className="bg-[#161B22] border-white/10 text-white">
                                     {type === 'income' ? (
                                         <>
+                                            <SelectItem value="cantine">Cantine</SelectItem>
                                             <SelectItem value="transport">Transport</SelectItem>
-                                            <SelectItem value="restauration">Restauration</SelectItem>
                                             <SelectItem value="cotisation">Cotisation</SelectItem>
-                                            <SelectItem value="autre">Autres</SelectItem>
+                                            <SelectItem value="activites">Activités</SelectItem>
+                                            <SelectItem value="autres">Autres</SelectItem>
                                         </>
                                     ) : (
                                         <>

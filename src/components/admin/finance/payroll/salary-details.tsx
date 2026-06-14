@@ -6,7 +6,7 @@ import { Badge } from '@/components/ui/badge'
 import { ArrowLeft, Wallet, Clock, Trophy, AlertTriangle, FileText, CheckCircle2, Loader2, ChevronDown, ChevronUp, MessageSquare, CreditCard } from 'lucide-react'
 import { useLanguage } from '@/i18n'
 import { createClient } from '@/utils/supabase/client'
-import { getStaffAdjustmentsAction } from '@/app/admin/teachers/actions'
+import { getStaffAdjustmentsAction, getTeacherTransactionsAction } from '@/app/admin/teachers/actions'
 import { cn } from '@/lib/utils'
 
 interface Adjustment {
@@ -50,6 +50,10 @@ export function SalaryDetails({ teacher, onBack, onValidate }: {
     const [includeSocial, setIncludeSocial]       = useState(true)
     const [socialAmount, setSocialAmount]         = useState(0)
     const [excludedAdjIds, setExcludedAdjIds]     = useState<Set<string>>(new Set())
+
+    // Salary advances
+    const [advances, setAdvances]                 = useState<{id: string, amount: number, description: string | null, transaction_date: string}[]>([])
+    const [excludedAdvanceIds, setExcludedAdvanceIds] = useState<Set<string>>(new Set())
 
     // Payment details
     const [paymentNotes, setPaymentNotes]         = useState('')
@@ -95,6 +99,26 @@ export function SalaryDetails({ teacher, onBack, onValidate }: {
         })
     }, [profileId])
 
+    // Fetch salary advances for current month
+    useEffect(() => {
+        if (!profileId) return
+        async function fetchAdvances() {
+            const startOfMonth = `${year}-${String(now.getMonth() + 1).padStart(2, '0')}-01`
+            const endOfMonth   = new Date(year, now.getMonth() + 1, 0).toISOString().split('T')[0]
+            const res = await getTeacherTransactionsAction(String(profileId))
+            if (!res.error) {
+                const monthAdvances = (res.data as any[]).filter(tx =>
+                    tx.category === 'avance' &&
+                    tx.transaction_date >= startOfMonth &&
+                    tx.transaction_date <= endOfMonth &&
+                    tx.status !== 'cancelled'
+                )
+                setAdvances(monthAdvances)
+            }
+        }
+        fetchAdvances()
+    }, [profileId])
+
     // Fetch actual unjustified absences for current month
     useEffect(() => {
         async function fetchAbsences() {
@@ -131,8 +155,12 @@ export function SalaryDetails({ teacher, onBack, onValidate }: {
     const absenceDeduction = includeAbsences ? Math.round(absenceDays * absencePerDay) : 0
     const socialDeduction  = includeSocial ? socialAmount : 0
 
+    const advanceTotal    = advances
+        .filter(a => !excludedAdvanceIds.has(a.id))
+        .reduce((s, a) => s + Number(a.amount), 0)
+
     const grossSalary     = baseSalary + overtimeTotal + bonus + adjOvertimeAmount + adjBonusAmount
-    const totalDeductions = absenceDeduction + socialDeduction + adjDeductionTotal
+    const totalDeductions = absenceDeduction + socialDeduction + adjDeductionTotal + advanceTotal
     const netSalary       = grossSalary - totalDeductions
 
     const handleDownloadSlip = async () => {
@@ -192,7 +220,8 @@ export function SalaryDetails({ teacher, onBack, onValidate }: {
             if (absenceDeduction > 0) tableRow(`Absences (${absenceDays} j × ${fmt(absencePerDay)} MRU/j)`, `-${fmt(absenceDeduction)} MRU`, R)
             if (socialDeduction > 0) tableRow('Cotisation CNSS', `-${fmt(socialDeduction)} MRU`, R)
             if (adjDeductionTotal > 0) tableRow('Déductions journal', `-${fmt(adjDeductionTotal)} MRU`, R)
-            if (absenceDeduction === 0 && socialDeduction === 0 && adjDeductionTotal === 0) {
+            if (advanceTotal > 0) tableRow('Avances sur salaire', `-${fmt(advanceTotal)} MRU`, R)
+            if (absenceDeduction === 0 && socialDeduction === 0 && adjDeductionTotal === 0 && advanceTotal === 0) {
                 doc.setFont('Helvetica', 'italic'); doc.setFontSize(9); doc.setTextColor(...G)
                 doc.text('Aucune retenue', 15, y); y += 10
             }
@@ -219,6 +248,14 @@ export function SalaryDetails({ teacher, onBack, onValidate }: {
 
     const toggleAdjDeduction = (id: string) => {
         setExcludedAdjIds(prev => {
+            const next = new Set(prev)
+            if (next.has(id)) next.delete(id); else next.add(id)
+            return next
+        })
+    }
+
+    const toggleAdvance = (id: string) => {
+        setExcludedAdvanceIds(prev => {
             const next = new Set(prev)
             if (next.has(id)) next.delete(id); else next.add(id)
             return next
@@ -470,6 +507,39 @@ export function SalaryDetails({ teacher, onBack, onValidate }: {
                                     </p>
                                 </div>
                                 <span className="text-red-400 font-bold text-sm shrink-0">-{Number(a.amount).toLocaleString('fr-FR')} MRU</span>
+                            </div>
+                        )
+                    })}
+
+                    {/* Salary advances (individually toggleable) */}
+                    {advances.map(a => {
+                        const excluded = excludedAdvanceIds.has(a.id)
+                        return (
+                            <div key={a.id} className={cn(
+                                "flex items-center gap-4 p-3 rounded-xl border transition-colors",
+                                !excluded ? "border-orange-500/20 bg-orange-500/5" : "border-white/5 bg-white/[0.02] opacity-60"
+                            )}>
+                                <button
+                                    type="button"
+                                    onClick={() => toggleAdvance(a.id)}
+                                    className={cn(
+                                        "w-5 h-5 rounded border-2 flex items-center justify-center shrink-0 transition-colors",
+                                        !excluded ? "bg-orange-500 border-orange-500" : "border-gray-600"
+                                    )}
+                                    title={excluded ? 'Inclure' : 'Exclure'}
+                                >
+                                    {!excluded && <CheckCircle2 className="w-3 h-3 text-white" />}
+                                </button>
+                                <div className="bg-orange-500/10 p-2.5 rounded-xl text-orange-500 shrink-0">
+                                    <Wallet className="w-5 h-5" />
+                                </div>
+                                <div className="flex-1 min-w-0">
+                                    <p className="text-white font-bold text-sm">{a.description || 'Avance sur salaire'}</p>
+                                    <p className="text-xs text-gray-500">
+                                        {new Date(a.transaction_date).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })} · Avance
+                                    </p>
+                                </div>
+                                <span className="text-orange-400 font-bold text-sm shrink-0">-{Number(a.amount).toLocaleString('fr-FR')} MRU</span>
                             </div>
                         )
                     })}

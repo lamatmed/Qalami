@@ -55,12 +55,12 @@ export function HomeworkDetailView({ homework, existingSubmission }: Props) {
         tomorrow.setDate(tomorrow.getDate() + 1)
 
         if (date.toDateString() === today.toDateString()) {
-            return `Aujourd'hui, ${date.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}`
+            return `Aujourd'hui, ${date.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit', timeZone: 'Africa/Nouakchott' })}`
         }
         if (date.toDateString() === tomorrow.toDateString()) {
-            return `Demain, ${date.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}`
+            return `Demain, ${date.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit', timeZone: 'Africa/Nouakchott' })}`
         }
-        return date.toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit' })
+        return date.toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit', timeZone: 'Africa/Nouakchott' })
     }
 
     const handleUploadComplete = (results: UploadResult[]) => {

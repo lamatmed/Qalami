@@ -9,6 +9,7 @@ import {
     getStaffAbsencesAction,
     deleteStaffAbsenceAction,
 } from '@/app/admin/settings/actions'
+import { useLanguage } from '@/i18n'
 
 interface Absence {
     id: string
@@ -23,6 +24,7 @@ interface Props {
 }
 
 export function EmployeeAbsences({ employeeId, salary }: Props) {
+    const { t } = useLanguage()
     const now = new Date()
     const currentMonth = now.getMonth() + 1
     const currentYear = now.getFullYear()
@@ -51,7 +53,7 @@ export function EmployeeAbsences({ employeeId, salary }: Props) {
         const res = await addStaffAbsenceAction({ staffId: employeeId, date, justified, note: note.trim() || null })
         if (res.error) { toast.error(res.error) }
         else {
-            toast.success('Absence enregistrée')
+            toast.success(t('admin.employees.absences.added'))
             setShowForm(false)
             setDate(now.toISOString().split('T')[0])
             setJustified(false)
@@ -73,21 +75,25 @@ export function EmployeeAbsences({ employeeId, salary }: Props) {
     const dailySalary = salary > 0 ? salary / 30 : 0
     const deduction = unjustified.length * dailySalary
 
+    const monthLabel = now.toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' })
+
     return (
         <div className="space-y-5 animate-in fade-in slide-in-from-bottom-4 duration-500">
             <div className="bg-[#1A2530] rounded-3xl border border-white/5 p-5">
                 <div className="flex items-center justify-between mb-4">
                     <div>
                         <h3 className="font-bold text-white">
-                            Absences — {now.toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' })}
+                            {t('admin.employees.absences.title').replace('{month}', monthLabel)}
                         </h3>
                         <p className="text-xs text-gray-500 mt-0.5">
-                            {absences.length} absence{absences.length !== 1 ? 's' : ''} ce mois
+                            {absences.length !== 1
+                                ? t('admin.employees.absences.countPlural').replace('{count}', String(absences.length))
+                                : t('admin.employees.absences.count').replace('{count}', String(absences.length))}
                         </p>
                     </div>
                     {deduction > 0 && (
                         <div className="bg-red-500/10 border border-red-500/20 rounded-2xl px-4 py-2 text-center">
-                            <p className="text-[10px] text-gray-500 uppercase font-bold mb-0.5">Déduction</p>
+                            <p className="text-[10px] text-gray-500 uppercase font-bold mb-0.5">{t('admin.employees.absences.deduction')}</p>
                             <p className="text-base font-black text-red-400">
                                 −{Math.round(deduction).toLocaleString('fr-FR')} MRU
                             </p>
@@ -98,19 +104,19 @@ export function EmployeeAbsences({ employeeId, salary }: Props) {
                 {!showForm ? (
                     <button type="button" onClick={() => setShowForm(true)}
                         className="flex items-center gap-2 w-full justify-center px-4 py-2.5 rounded-xl text-xs font-bold bg-pink-500/10 border border-pink-500/20 text-pink-400 hover:bg-pink-500/20 transition-all">
-                        <Plus className="w-3.5 h-3.5" /> Ajouter une absence
+                        <Plus className="w-3.5 h-3.5" /> {t('admin.employees.absences.addAbsence')}
                     </button>
                 ) : (
                     <div className="bg-[#0F1720] rounded-2xl border border-pink-500/20 p-4 space-y-3">
                         <div className="grid grid-cols-2 gap-3">
                             <div>
-                                <label className="text-[10px] text-gray-500 uppercase font-bold mb-1 block">Date</label>
+                                <label className="text-[10px] text-gray-500 uppercase font-bold mb-1 block">{t('admin.employees.absences.date')}</label>
                                 <input type="date" value={date} onChange={e => setDate(e.target.value)}
                                     className="w-full bg-[#1A2530] border border-white/10 rounded-xl px-3 py-2 text-sm text-white focus:outline-none" />
                             </div>
                             <div>
-                                <label className="text-[10px] text-gray-500 uppercase font-bold mb-1 block">Note</label>
-                                <input type="text" placeholder="Optionnel" value={note} onChange={e => setNote(e.target.value)}
+                                <label className="text-[10px] text-gray-500 uppercase font-bold mb-1 block">{t('admin.employees.absences.note')}</label>
+                                <input type="text" placeholder={t('admin.employees.absences.optional')} value={note} onChange={e => setNote(e.target.value)}
                                     className="w-full bg-[#1A2530] border border-white/10 rounded-xl px-3 py-2 text-sm text-white placeholder-gray-600 focus:outline-none" />
                             </div>
                         </div>
@@ -121,17 +127,17 @@ export function EmployeeAbsences({ employeeId, salary }: Props) {
                                 )}>
                                 {justified && <Check className="w-2.5 h-2.5 text-black" strokeWidth={3} />}
                             </div>
-                            <span className="text-xs text-gray-400">Justifiée (pas déduite du salaire)</span>
+                            <span className="text-xs text-gray-400">{t('admin.employees.absences.justifiedHint')}</span>
                         </label>
                         <div className="flex gap-2">
                             <button type="button" onClick={() => setShowForm(false)}
                                 className="px-3 py-2 rounded-lg text-xs font-bold text-gray-400 hover:text-white border border-white/10 hover:bg-white/5 transition-all">
-                                Annuler
+                                {t('common.cancel')}
                             </button>
                             <button type="button" onClick={handleAdd} disabled={adding || !date}
                                 className="flex items-center gap-2 flex-1 justify-center px-4 py-2 rounded-lg text-xs font-bold bg-pink-600 hover:bg-pink-500 text-white disabled:opacity-50 transition-all">
                                 {adding ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Check className="w-3.5 h-3.5" />}
-                                Enregistrer
+                                {t('common.save')}
                             </button>
                         </div>
                     </div>
@@ -144,7 +150,7 @@ export function EmployeeAbsences({ employeeId, salary }: Props) {
                 </div>
             ) : absences.length === 0 ? (
                 <div className="bg-[#1A2530] rounded-3xl border border-white/5 p-10 text-center">
-                    <p className="text-gray-600">Aucune absence ce mois-ci</p>
+                    <p className="text-gray-600">{t('admin.employees.absences.noAbsence')}</p>
                 </div>
             ) : (
                 <div className="bg-[#1A2530] rounded-3xl border border-white/5 overflow-hidden">
@@ -170,7 +176,11 @@ export function EmployeeAbsences({ employeeId, salary }: Props) {
                                         ? "bg-amber-500/10 text-amber-400 border-amber-500/20"
                                         : "bg-red-500/10 text-red-400 border-red-500/20"
                                 )}>
-                                    {ab.justified ? 'Justifiée' : dailySalary > 0 ? `−${Math.round(dailySalary).toLocaleString('fr-FR')} MRU` : 'Non justifiée'}
+                                    {ab.justified
+                                        ? t('admin.employees.absences.justifiedLabel')
+                                        : dailySalary > 0
+                                            ? `−${Math.round(dailySalary).toLocaleString('fr-FR')} MRU`
+                                            : t('admin.employees.absences.unjustifiedLabel')}
                                 </span>
                                 <button type="button" onClick={() => handleDelete(ab.id)} disabled={!!deletingId}
                                     className="p-1.5 text-gray-600 hover:text-red-400 hover:bg-red-500/10 rounded-lg transition-colors disabled:opacity-50">

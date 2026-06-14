@@ -1223,8 +1223,13 @@
       "tuition": "الرسوم الدراسية",
       "transport": "النقل",
       "bus": "النقل",
-      "canteen": "المطعم",
+      "canteen": "المقصف",
+      "cantine": "المقصف",
       "activities": "الأنشطة",
+      "activites": "الأنشطة",
+      "cotisation": "الاشتراك",
+      "inscription": "التسجيل",
+      "scolarite": "الرسوم الدراسية",
       "collectionRate": "نسبة التحصيل",
       "unpaidStudents": "تلاميذ غير مسددين",
       "sendReminder": "إرسال تذكير",
@@ -1380,17 +1385,33 @@
             "label": "الرسوم الدراسية",
             "desc": "رسوم الدراسة والتكوين الأساسية"
           },
+          "inscription": {
+            "label": "التسجيل",
+            "desc": "رسوم التسجيل عند الالتحاق بالمؤسسة"
+          },
           "bus": {
             "label": "النقل",
             "desc": "النقل المدرسي"
           },
+          "transport": {
+            "label": "النقل",
+            "desc": "النقل المدرسي"
+          },
           "cantine": {
-            "label": "المطعم المدرسي",
+            "label": "المقصف",
             "desc": "خدمات التغذية والمطعم المدرسي"
           },
           "activites": {
             "label": "الأنشطة",
             "desc": "الأنشطة الثقافية والرياضية والترفيهية"
+          },
+          "cotisation": {
+            "label": "الاشتراك",
+            "desc": "الاشتراكات والرسوم الإضافية"
+          },
+          "autres": {
+            "label": "أخرى",
+            "desc": "رسوم أخرى متنوعة"
           }
         }
       },
@@ -1979,7 +2000,162 @@
       "accountant": "محاسب",
       "concierge": "بواب",
       "security": "أمن",
-      "other": "أخرى"
+      "other": "أخرى",
+      "nameAndRoleRequired": "الاسم والمنصب إلزاميان",
+      "passwordMinLength": "يجب أن تحتوي كلمة المرور على 6 أحرف على الأقل",
+      "passwordMinPlaceholder": "6 أحرف على الأقل",
+      "infoUpdated": "تم تحديث المعلومات",
+      "absenceAdded": "تم تسجيل الغياب",
+      "absenceDeleted": "تم حذف الغياب",
+      "deleteAbsenceConfirm": "حذف هذا الغياب؟",
+      "absencesBtn": "الغيابات",
+      "addAbsence": "إضافة غياب",
+      "newAbsence": "غياب جديد",
+      "closeForm": "إغلاق",
+      "justifiedAbsenceHint": "غياب مبرر (لا يُحتسب في الخصم)",
+      "noAbsenceThisMonth": "لا غيابات هذا الشهر",
+      "salaryNotConfigured": "الراتب غير محدد",
+      "deductionDisplay": "خصم: −{amount} أوقية",
+      "absShort": "غيابات",
+      "editInfo": "تعديل المعلومات",
+      "contractType": "نوع العقد",
+      "hoursAndBonuses": "الساعات والمكافآت",
+      "createUserAccount": "إنشاء حساب مستخدم",
+      "cdi": "عقد دائم",
+      "cdd": "عقد محدد المدة",
+      "hourlyContract": "بالساعة",
+      "monthAbsencesTitle": "الغيابات — {month}",
+      "justifiedLabel": "مبرر",
+      "salaryNotSet": "غير محدد",
+      "nni": "رقم التعريف الوطني",
+      "nniPlaceholder": "10 أرقام",
+      "contractTypeLabel": "نوع العقد",
+      "userAccountSection": "حساب المستخدم",
+      "passwordLabel": "كلمة المرور",
+      "chooseRolePlaceholder": "اختر المنصب...",
+      "phoneRequiredForAccount": "رقم الهاتف مطلوب لإنشاء حساب مستخدم",
+      "loginHint": "سيتمكن هذا الموظف من تسجيل الدخول بواسطة هاتفه وكلمة المرور."
+    },
+    "employees": {
+      "title": "الموظفون",
+      "membersCount": "{count} موظف",
+      "membersCountPlural": "{count} موظفين",
+      "searchPlaceholder": "البحث بالاسم أو المنصب أو الهاتف…",
+      "noResults": "لا توجد نتائج لهذا البحث",
+      "noEmployee": "لا يوجد موظف مسجل",
+      "perMonth": "/ شهر",
+      "notFound": "الموظف غير موجود",
+      "back": "رجوع",
+      "salary": "الراتب",
+      "contractTypes": {
+        "CDI": "عقد دائم",
+        "CDD": "عقد محدد المدة",
+        "hourly": "بالساعة"
+      },
+      "tabs": {
+        "infos": "المعلومات",
+        "finances": "المالية",
+        "absences": "الغيابات",
+        "documents": "الوثائق"
+      },
+      "info": {
+        "title": "المعلومات الشخصية",
+        "edit": "تعديل",
+        "fullName": "الاسم الكامل",
+        "phone": "الهاتف",
+        "nni": "رقم التعريف الوطني",
+        "address": "العنوان",
+        "updated": "تم تحديث المعلومات"
+      },
+      "absences": {
+        "title": "الغيابات — {month}",
+        "count": "{count} غياب هذا الشهر",
+        "countPlural": "{count} غيابات هذا الشهر",
+        "deduction": "الخصم",
+        "addAbsence": "إضافة غياب",
+        "date": "التاريخ",
+        "note": "ملاحظة",
+        "optional": "اختياري",
+        "justifiedHint": "مبرر (لا يُخصم من الراتب)",
+        "noAbsence": "لا غيابات هذا الشهر",
+        "justifiedLabel": "مبرر",
+        "unjustifiedLabel": "غير مبرر",
+        "added": "تم تسجيل الغياب"
+      },
+      "documents": {
+        "title": "الملف الوثائقي",
+        "present": "موجود",
+        "missing": "مفقود",
+        "noFile": "لا يوجد ملف",
+        "replace": "استبدال",
+        "add": "إضافة",
+        "preview": "معاينة",
+        "download": "تحميل",
+        "deleteConfirm": "حذف؟",
+        "yes": "نعم",
+        "no": "لا",
+        "uploaded": "تم رفع الوثيقة",
+        "deleted": "تم حذف الوثيقة",
+        "renamed": "تم تغيير الاسم",
+        "cv": "السيرة الذاتية",
+        "contract": "عقد العمل",
+        "diploma": "الشهادة",
+        "medical": "الشهادة الطبية"
+      },
+      "finances": {
+        "title": "المالية",
+        "subtitle": "متابعة المدفوعات والرواتب",
+        "addPayment": "تسجيل دفعة",
+        "newPayment": "دفعة جديدة",
+        "amount": "المبلغ (أوقية)",
+        "category": "الفئة",
+        "method": "الطريقة",
+        "descriptionLabel": "الوصف (اختياري)",
+        "descriptionPlaceholder": "مثال: منحة أداء — يونيو 2026",
+        "confirmPayment": "تأكيد الدفعة",
+        "invalidAmount": "المبلغ غير صالح",
+        "paymentSaved": "تم تسجيل الدفعة",
+        "receiptDownloaded": "تم تحميل الإيصال",
+        "receiptError": "خطأ أثناء إنشاء الإيصال",
+        "noContract": "لا يوجد عقد نشط",
+        "noContractHint": "أضف عقداً من إدارة الموظفين",
+        "monthlySalary": "الراتب الشهري",
+        "contractType": "نوع العقد",
+        "totalPaidHistory": "إجمالي المدفوع (السجل)",
+        "operations": "العمليات والإيصالات",
+        "operationsCount": "{count} عملية",
+        "operationsCountPlural": "{count} عمليات",
+        "noOperations": "لا توجد عمليات مسجلة",
+        "noOperationsHint": "ستظهر المدفوعات المسجلة هنا",
+        "totalPaidExcl": "إجمالي المدفوع (خارج الراتب)",
+        "payrollHistory": "سجل الرواتب",
+        "noPayroll": "لا توجد مدفوعات مسجلة",
+        "noPayrollHint": "سيظهر الراتب هنا بعد أول صرف",
+        "base": "الأساس",
+        "paid": "مدفوع",
+        "cancelled": "ملغى",
+        "pending": "قيد الانتظار",
+        "downloadReceipt": "تحميل الإيصال",
+        "categories": {
+          "prime": "منحة / مكافأة",
+          "avance": "سلفة على الراتب",
+          "remboursement": "تسديد",
+          "cotisation": "اشتراك",
+          "autre": "دفعة أخرى",
+          "salary": "راتب"
+        },
+        "methods": {
+          "cash": "نقداً",
+          "bank_transfer": "تحويل بنكي",
+          "mobile_money": "موبايل موني",
+          "check": "شيك"
+        }
+      },
+      "months": {
+        "1": "يناير", "2": "فبراير", "3": "مارس", "4": "أبريل",
+        "5": "مايو", "6": "يونيو", "7": "يوليو", "8": "أغسطس",
+        "9": "سبتمبر", "10": "أكتوبر", "11": "نوفمبر", "12": "ديسمبر"
+      }
     },
     "announcementsHistory": {
       "historyStats": "السجل والإحصائيات",
@@ -2133,6 +2309,7 @@
       "tuition": "الرسوم الدراسية",
       "transport": "النقل",
       "canteen": "المقصف",
+      "cantine": "المقصف",
       "childDetails": "حالة الأبناء",
       "children": "أطفال",
       "unpaid": "غير مسدد",
@@ -2260,8 +2437,11 @@
         "inscription": "التسجيل",
         "scolarite": "الدراسة",
         "bus": "النقل",
-        "cantine": "المطعم",
-        "activites": "الأنشطة"
+        "transport": "النقل",
+        "cantine": "المقصف",
+        "activites": "الأنشطة",
+        "cotisation": "الاشتراك",
+        "autres": "أخرى"
       },
       "status": {
         "paid": "مدفوع",
@@ -2461,8 +2641,20 @@
         "optional": "(اختياري)",
         "save": "حفظ",
         "saving": "جارٍ الرفع…",
-        "selectFileError": "يرجى اختيار ملف"
+        "selectFileError": "يرجى اختيار ملف",
+        "uploadSuccess": "تمت إضافة الوثيقة",
+        "uploadError": "خطأ أثناء الرفع",
+        "searchPlaceholder": "بحث…",
+        "noResults": "لا توجد نتائج",
+        "clearSearch": "مسح"
       },
+      "deleteConfirmMsg": "حذف نهائي لـ « {name} »؟",
+      "deleteError": "خطأ أثناء الحذف",
+      "renameDocument": "إعادة تسمية الوثيقة",
+      "docNamePlaceholder": "اسم الوثيقة",
+      "renameSave": "حفظ",
+      "renameCancel": "إلغاء",
+      "renameError": "خطأ أثناء إعادة التسمية",
       "sortOptions": {
         "date_desc": "الأحدث",
         "date_asc": "الأقدم",

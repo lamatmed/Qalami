@@ -289,7 +289,7 @@ export default function AdminGradesPage() {
                                     const pct = Math.round((g.value / g.max_value) * 100)
                                     const colorCls = pct >= 50 ? 'text-emerald-400' : 'text-red-400'
                                     const _d = new Date(g.created_at)
-                                    const dateStr = _d.toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: 'numeric' }) + ' ' + _d.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })
+                                    const dateStr = _d.toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: 'numeric', timeZone: 'Africa/Nouakchott' }) + ' ' + _d.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit', timeZone: 'Africa/Nouakchott' })
                                     
                                     return (
                                         <tr key={g.id} className="hover:bg-white/5 transition-colors group">

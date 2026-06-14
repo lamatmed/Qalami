@@ -1375,7 +1375,7 @@ export function ClassDetails({ classId, className, students }: ClassDetailsProps
                                         <div className="flex items-center justify-between pt-1">
                                             <span className="text-[10px] text-muted-foreground">{post.teacher_name || 'Enseignant'}</span>
                                             <span className="text-[10px] text-muted-foreground">
-                                                {(() => { const _d = new Date(post.created_at); return _d.toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: 'numeric' }) + ' ' + _d.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }) })()}
+                                                {(() => { const _d = new Date(post.created_at); return _d.toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: 'numeric', timeZone: 'Africa/Nouakchott' }) + ' ' + _d.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit', timeZone: 'Africa/Nouakchott' }) })()}
                                             </span>
                                         </div>
                                     </Card>

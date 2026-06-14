@@ -101,7 +101,7 @@ export default function AnnouncementDetailsPage() {
                                 </span>
                                 {isExpired && <span className="px-2.5 py-1 rounded-full text-xs font-black uppercase tracking-wider bg-gray-500/20 text-gray-400 border border-gray-500/30">{t('teacher.community.expired')}</span>}
                                 <span className="text-sm font-bold text-slate-400">
-                                    {new Date(announcement.created_at).toLocaleDateString(language === 'ar' ? 'ar-MR' : 'fr-FR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })} {language === 'ar' ? 'على الساعة' : 'à'} {new Date(announcement.created_at).toLocaleTimeString(language === 'ar' ? 'ar-MR' : 'fr-FR', { hour: '2-digit', minute: '2-digit' })}
+                                    {new Date(announcement.created_at).toLocaleDateString(language === 'ar' ? 'ar-MR' : 'fr-FR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric', timeZone: 'Africa/Nouakchott' })} {language === 'ar' ? 'على الساعة' : 'à'} {new Date(announcement.created_at).toLocaleTimeString(language === 'ar' ? 'ar-MR' : 'fr-FR', { hour: '2-digit', minute: '2-digit', timeZone: 'Africa/Nouakchott' })}
                                 </span>
                             </div>
                             <h1 className="text-2xl sm:text-3xl font-black text-slate-900 dark:text-white leading-tight">

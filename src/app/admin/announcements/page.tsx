@@ -53,8 +53,8 @@ function relDate(d: string, t: any, language: string) {
     if (diff < 86400) return t('adminAnnouncements.hoursAgo', { hours: Math.floor(diff / 3600) })
     const _dt = new Date(d)
     const _loc = language === 'ar' ? 'ar-MA' : 'fr-FR'
-    return _dt.toLocaleDateString(_loc, { day: 'numeric', month: 'short', year: 'numeric' })
-        + ' ' + _dt.toLocaleTimeString(_loc, { hour: '2-digit', minute: '2-digit' })
+    return _dt.toLocaleDateString(_loc, { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'Africa/Nouakchott' })
+        + ' ' + _dt.toLocaleTimeString(_loc, { hour: '2-digit', minute: '2-digit', timeZone: 'Africa/Nouakchott' })
 }
 
 // ── helpers to read/write audience encoding ──────────────────────────────────
@@ -112,7 +112,7 @@ function Modal({ open, onClose, onSaved, editing, classes, schoolId, userId }: {
         if (editing) {
             setTitle(editing.title); setContent(editing.content)
             setPriority(editing.priority || 'normal')
-            setExpiresAt(editing.expires_at ? editing.expires_at.slice(0, 16) : '')
+            setExpiresAt(editing.expires_at ? editing.expires_at.slice(0, 10) : '')
             const { roles: r, classIds } = decodeAudience(editing.target_audience || [])
             setRoles(r.length ? r : ['all'])
             setSelClasses(classIds)
@@ -144,8 +144,9 @@ function Modal({ open, onClose, onSaved, editing, classes, schoolId, userId }: {
         if (!title.trim()) { toast.error(t('adminAnnouncements.titleRequiredToast')); return }
         if (!content.trim()) { toast.error(t('adminAnnouncements.contentRequiredToast')); return }
         if (!scopeAll && selClasses.length === 0) { toast.error(t('adminAnnouncements.selectClassToast')); return }
-        if (expiresAt && new Date(expiresAt) <= new Date()) {
-            toast.error("La date d'expiration doit être dans le futur")
+        const todayStr = new Date().toISOString().split('T')[0]
+        if (expiresAt && expiresAt <= todayStr) {
+            toast.error("La date d'expiration doit être dans le futur (à partir de demain)")
             return
         }
         setSaving(true)
@@ -170,7 +171,7 @@ function Modal({ open, onClose, onSaved, editing, classes, schoolId, userId }: {
             target_scope: scopeAll ? 'school' : 'class',
             target_audience: audience,
             target_class_id: scopeAll ? null : (selClasses[0] ?? null),
-            expires_at: expiresAt ? new Date(expiresAt).toISOString() : null,
+            expires_at: expiresAt ? new Date(expiresAt + 'T23:59:59').toISOString() : null,
             published_at: new Date().toISOString(),
             created_by: userId, updated_at: new Date().toISOString(),
         }
@@ -306,22 +307,22 @@ function Modal({ open, onClose, onSaved, editing, classes, schoolId, userId }: {
                     <div>
                         <label className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-1.5 block">{t('adminAnnouncements.expiresAtOptional')}</label>
                         <input
-                            type="datetime-local"
+                            type="date"
                             title="Date d'expiration"
                             value={expiresAt}
-                            min={new Date(Date.now() + 60000).toISOString().slice(0, 16)}
+                            min={(() => { const d = new Date(); d.setDate(d.getDate() + 1); return d.toISOString().split('T')[0] })()}
                             onChange={e => setExpiresAt(e.target.value)}
                             className={cn(
                                 "w-full bg-[#0D1117] border rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none [color-scheme:dark]",
-                                expiresAt && new Date(expiresAt) <= new Date()
+                                expiresAt && expiresAt <= new Date().toISOString().split('T')[0]
                                     ? "border-red-500/50 focus:border-red-500/70"
                                     : "border-white/10 focus:border-emerald-500/50"
                             )}
                         />
-                        {expiresAt && new Date(expiresAt) <= new Date() && (
+                        {expiresAt && expiresAt <= new Date().toISOString().split('T')[0] && (
                             <p className="text-xs text-red-400 mt-1.5 flex items-center gap-1">
                                 <AlertTriangle className="w-3 h-3" />
-                                Cette date est dans le passé — veuillez choisir une date future
+                                La date doit être au minimum demain
                             </p>
                         )}
                         {!expiresAt && (

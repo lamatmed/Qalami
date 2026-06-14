@@ -50,14 +50,15 @@ function typeInfo(t: string) { return EVENT_TYPES.find(e => e.value === t) ?? EV
 function formatEventDate(start: string, end: string | null, allDay: boolean, language: string) {
     const s = new Date(start)
     const locale = language === 'ar' ? 'ar-MA' : 'fr-FR'
+    const tz = 'Africa/Nouakchott'
     const opts: Intl.DateTimeFormatOptions = allDay
-        ? { day: 'numeric', month: 'short', year: 'numeric' }
-        : { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }
+        ? { day: 'numeric', month: 'short', year: 'numeric', timeZone: tz }
+        : { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit', timeZone: tz }
     const startStr = s.toLocaleDateString(locale, opts)
     if (!end) return startStr
     const e = new Date(end)
     if (s.toDateString() === e.toDateString()) {
-        return allDay ? startStr : `${startStr} → ${e.toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit' })}`
+        return allDay ? startStr : `${startStr} → ${e.toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit', timeZone: tz })}`
     }
     return `${startStr} → ${e.toLocaleDateString(locale, opts)}`
 }
