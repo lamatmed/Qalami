@@ -1209,15 +1209,15 @@ export default function TuitionPage() {
 
                                                         if (isPaid) {
                                                             return (
-                                                                <div key={p.id} className="flex items-center gap-3 p-3 rounded-xl border border-emerald-500/15 bg-emerald-500/5 opacity-70">
-                                                                    <CheckCircle className="w-4 h-4 text-emerald-400 shrink-0" />
+                                                                <div key={p.id} className="flex items-center gap-3 p-3.5 rounded-xl border border-violet-400/40 bg-violet-500/10">
+                                                                    <CheckCircle className="w-4 h-4 text-violet-300 shrink-0" />
                                                                     <div className="flex-1 min-w-0">
                                                                         <p className="text-sm font-bold text-white">{monthLabel}</p>
-                                                                        <p className="text-xs text-gray-500">{typeLabel}</p>
+                                                                        <p className="text-xs text-violet-300/70">{typeLabel}</p>
                                                                     </div>
                                                                     <div className="text-right shrink-0">
-                                                                        <p className="text-sm font-black text-emerald-400">{Number(p.amount).toLocaleString('fr-FR')} <span className="text-[10px] font-normal">MRU</span></p>
-                                                                        <p className="text-[10px] text-emerald-600">Payé</p>
+                                                                        <p className="text-sm font-black text-violet-300">{Number(p.amount).toLocaleString('fr-FR')} <span className="text-xs font-normal text-violet-400/60">MRU</span></p>
+                                                                        <span className="inline-flex items-center gap-1 text-xs font-bold text-white bg-violet-500 px-2 py-0.5 rounded-full">✓ Payé</span>
                                                                     </div>
                                                                 </div>
                                                             )
@@ -1256,9 +1256,9 @@ export default function TuitionPage() {
 
                                                 {/* Already paid summary */}
                                                 {paidTotal > 0 && (
-                                                    <div className="flex items-center justify-between px-3 py-2 bg-emerald-500/5 rounded-xl border border-emerald-500/10">
-                                                        <span className="text-xs text-emerald-600">Total déjà payé</span>
-                                                        <span className="text-sm font-black text-emerald-400">{paidTotal.toLocaleString('fr-FR')} MRU</span>
+                                                    <div className="flex items-center justify-between px-3.5 py-2.5 bg-violet-500/10 rounded-xl border border-violet-400/30">
+                                                        <span className="text-xs font-semibold text-violet-300">Total déjà payé</span>
+                                                        <span className="text-sm font-black text-violet-300">{paidTotal.toLocaleString('fr-FR')} <span className="text-xs font-normal text-violet-400/60">MRU</span></span>
                                                     </div>
                                                 )}
 

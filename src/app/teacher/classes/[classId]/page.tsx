@@ -31,10 +31,9 @@ export default async function ClassDetailsPage({ params }: PageProps) {
             .select(`
                 id,
                 student_id,
-                profiles!enrollments_student_id_fkey (
+                profiles!student_id (
                     id,
                     full_name,
-                    avatar_url,
                     national_id
                 )
             `)
@@ -43,17 +42,16 @@ export default async function ClassDetailsPage({ params }: PageProps) {
     ])
 
     if (classError) {
-        console.error('Error fetching class:', classError)
+        console.error('Error fetching class:', classError.message ?? classError)
     }
     if (enrollmentError) {
-        console.error('Error fetching enrollments:', enrollmentError)
+        console.error('Error fetching enrollments:', enrollmentError.message ?? enrollmentError)
     }
 
     // Flatten data for component
     const students = (enrollments || []).map((e: any) => ({
         id: e.profiles?.id || e.student_id,
         full_name: e.profiles?.full_name || 'Élève',
-        avatar_url: e.profiles?.avatar_url || null,
         national_id: e.profiles?.national_id || null,
     }))
 

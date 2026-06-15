@@ -528,9 +528,9 @@ export function TransactionLedger({ refreshTrigger }: { refreshTrigger?: number 
                                                         <p className="font-bold text-white text-sm">{buildRef(trx)}</p>
                                                         <p className="text-[10px] text-gray-500 font-mono">{trx.id.slice(0, 8).toUpperCase()}</p>
                                                         {hasNote && !isEditingNote && (
-                                                            <div className="flex items-start gap-1 mt-1">
-                                                                <MessageSquare className="w-3 h-3 text-amber-500/70 shrink-0 mt-0.5" />
-                                                                <p className="text-xs text-amber-500/70 italic leading-tight">{trx.description}</p>
+                                                            <div className="flex items-center gap-1.5 mt-1.5 bg-blue-500/15 border border-blue-500/30 rounded-lg px-2 py-1">
+                                                                <MessageSquare className="w-3 h-3 text-blue-400 shrink-0" />
+                                                                <p className="text-xs text-white font-medium leading-tight">{trx.description}</p>
                                                             </div>
                                                         )}
                                                     </div>
@@ -578,8 +578,8 @@ export function TransactionLedger({ refreshTrigger }: { refreshTrigger?: number 
                                                         size="icon"
                                                         className={cn(
                                                             "h-8 w-8",
-                                                            hasNote ? "text-amber-500 hover:text-amber-400" : "text-gray-600 hover:text-amber-400",
-                                                            isEditingNote && "bg-amber-500/10"
+                                                            hasNote ? "text-blue-400 hover:text-blue-300" : "text-gray-600 hover:text-blue-400",
+                                                            isEditingNote && "bg-blue-500/10"
                                                         )}
                                                         title={hasNote ? "Modifier la remarque" : "Ajouter une remarque"}
                                                         onClick={() => isEditingNote ? cancelEditNote() : startEditNote(trx)}
@@ -618,20 +618,20 @@ export function TransactionLedger({ refreshTrigger }: { refreshTrigger?: number 
 
                                         {/* Note editing row */}
                                         {isEditingNote && (
-                                            <tr className="bg-amber-500/5">
+                                            <tr className="bg-blue-500/5">
                                                 <td colSpan={6} className="px-6 pb-4 pt-2">
                                                     <div className="flex gap-2 items-start">
-                                                        <MessageSquare className="w-4 h-4 text-amber-500/70 mt-2.5 shrink-0" />
+                                                        <MessageSquare className="w-4 h-4 text-blue-400 mt-2.5 shrink-0" />
                                                         <textarea
                                                             value={noteText}
                                                             onChange={e => setNoteText(e.target.value)}
                                                             placeholder="Ajouter une remarque sur cette transaction (erreur, clarification, correction…)"
                                                             autoFocus
                                                             rows={2}
-                                                            className="flex-1 bg-[#0D1117] border border-amber-500/30 rounded-xl px-3 py-2 text-sm text-white placeholder-gray-600 focus:outline-none focus:border-amber-500/60 resize-none"
+                                                            className="flex-1 bg-[#0D1117] border border-blue-500/30 rounded-xl px-3 py-2 text-sm text-white placeholder-gray-600 focus:outline-none focus:border-blue-500/60 resize-none"
                                                         />
                                                         <button type="button" onClick={() => saveNote(trx.id)} disabled={savingNote}
-                                                            className="mt-1 flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold bg-amber-600 hover:bg-amber-500 text-white disabled:opacity-50 transition-all">
+                                                            className="mt-1 flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold bg-blue-600 hover:bg-blue-500 text-white disabled:opacity-50 transition-all">
                                                             {savingNote ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Check className="w-3.5 h-3.5" />}
                                                             Sauvegarder
                                                         </button>

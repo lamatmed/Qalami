@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
-import { Plus, Check, Loader2, StickyNote, Trash2 } from 'lucide-react'
+import { Plus, Check, Loader2, StickyNote, Trash2, CalendarX } from 'lucide-react'
 import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
 import {
@@ -74,68 +74,116 @@ export function EmployeeAbsences({ employeeId, salary }: Props) {
     const unjustified = absences.filter(a => !a.justified)
     const dailySalary = salary > 0 ? salary / 30 : 0
     const deduction = unjustified.length * dailySalary
-
     const monthLabel = now.toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' })
 
     return (
-        <div className="space-y-5 animate-in fade-in slide-in-from-bottom-4 duration-500">
-            <div className="bg-[#1A2530] rounded-3xl border border-white/5 p-5">
-                <div className="flex items-center justify-between mb-4">
-                    <div>
-                        <h3 className="font-bold text-white">
-                            {t('admin.employees.absences.title').replace('{month}', monthLabel)}
-                        </h3>
-                        <p className="text-xs text-gray-500 mt-0.5">
-                            {absences.length !== 1
-                                ? t('admin.employees.absences.countPlural').replace('{count}', String(absences.length))
-                                : t('admin.employees.absences.count').replace('{count}', String(absences.length))}
-                        </p>
-                    </div>
-                    {deduction > 0 && (
-                        <div className="bg-red-500/10 border border-red-500/20 rounded-2xl px-4 py-2 text-center">
-                            <p className="text-[10px] text-gray-500 uppercase font-bold mb-0.5">{t('admin.employees.absences.deduction')}</p>
-                            <p className="text-base font-black text-red-400">
-                                −{Math.round(deduction).toLocaleString('fr-FR')} MRU
-                            </p>
-                        </div>
-                    )}
+        <div className="space-y-3">
+
+            {/* Stats */}
+            <div className="grid grid-cols-2 gap-3">
+                <div className="bg-[#161B22] rounded-2xl border border-white/5 p-4">
+                    <p className="text-[10px] text-gray-600 uppercase tracking-widest mb-2">
+                        {t('admin.employees.absences.title').replace('{month}', monthLabel)}
+                    </p>
+                    <p className="text-3xl font-bold text-white">{absences.length}</p>
+                    <p className="text-xs mt-1.5">
+                        {unjustified.length > 0
+                            ? <span className="text-amber-400">{unjustified.length} non justifiée{unjustified.length > 1 ? 's' : ''}</span>
+                            : absences.length > 0
+                                ? <span className="text-emerald-400">Toutes justifiées</span>
+                                : <span className="text-gray-700">Ce mois-ci</span>
+                        }
+                    </p>
                 </div>
 
+                <div className={cn(
+                    "rounded-2xl border p-4",
+                    deduction > 0
+                        ? "bg-[#1C1410] border-amber-500/15"
+                        : "bg-[#161B22] border-white/5"
+                )}>
+                    <p className="text-[10px] text-gray-600 uppercase tracking-widest mb-2">
+                        {t('admin.employees.absences.deduction')}
+                    </p>
+                    {deduction > 0 ? (
+                        <>
+                            <p className="text-3xl font-bold text-amber-400">
+                                -{Math.round(deduction).toLocaleString('fr-FR')}
+                            </p>
+                            <p className="text-xs text-amber-500/50 mt-1.5">MRU ce mois</p>
+                        </>
+                    ) : (
+                        <>
+                            <p className="text-3xl font-bold text-white/10">0</p>
+                            <p className="text-xs text-gray-700 mt-1.5">Aucune déduction</p>
+                        </>
+                    )}
+                </div>
+            </div>
+
+            {/* Add */}
+            <div className="bg-[#161B22] rounded-2xl border border-white/5 overflow-hidden">
                 {!showForm ? (
                     <button type="button" onClick={() => setShowForm(true)}
-                        className="flex items-center gap-2 w-full justify-center px-4 py-2.5 rounded-xl text-xs font-bold bg-pink-500/10 border border-pink-500/20 text-pink-400 hover:bg-pink-500/20 transition-all">
-                        <Plus className="w-3.5 h-3.5" /> {t('admin.employees.absences.addAbsence')}
+                        className="flex items-center gap-3 w-full px-4 py-3.5 text-sm text-gray-500 hover:text-white hover:bg-white/5 transition-all group">
+                        <div className="w-6 h-6 rounded-lg bg-white/5 border border-white/5 flex items-center justify-center group-hover:bg-white/10 transition-colors">
+                            <Plus className="w-3.5 h-3.5" />
+                        </div>
+                        {t('admin.employees.absences.addAbsence')}
                     </button>
                 ) : (
-                    <div className="bg-[#0F1720] rounded-2xl border border-pink-500/20 p-4 space-y-3">
-                        <div className="grid grid-cols-2 gap-3">
+                    <div className="p-4 space-y-3.5">
+                        <p className="text-xs text-gray-500">{t('admin.employees.absences.addAbsence')}</p>
+                        <div className="grid grid-cols-2 gap-2.5">
                             <div>
-                                <label className="text-[10px] text-gray-500 uppercase font-bold mb-1 block">{t('admin.employees.absences.date')}</label>
-                                <input type="date" value={date} onChange={e => setDate(e.target.value)}
-                                    className="w-full bg-[#1A2530] border border-white/10 rounded-xl px-3 py-2 text-sm text-white focus:outline-none" />
+                                <label className="text-[10px] text-gray-600 uppercase tracking-widest mb-1.5 block">
+                                    {t('admin.employees.absences.date')}
+                                </label>
+                                <input
+                                    type="date"
+                                    title={t('admin.employees.absences.date')}
+                                    value={date}
+                                    onChange={e => setDate(e.target.value)}
+                                    className="w-full bg-[#0F1720] border border-white/5 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-white/15 transition-colors scheme-dark"
+                                />
                             </div>
                             <div>
-                                <label className="text-[10px] text-gray-500 uppercase font-bold mb-1 block">{t('admin.employees.absences.note')}</label>
-                                <input type="text" placeholder={t('admin.employees.absences.optional')} value={note} onChange={e => setNote(e.target.value)}
-                                    className="w-full bg-[#1A2530] border border-white/10 rounded-xl px-3 py-2 text-sm text-white placeholder-gray-600 focus:outline-none" />
+                                <label className="text-[10px] text-gray-600 uppercase tracking-widest mb-1.5 block">
+                                    {t('admin.employees.absences.note')}
+                                </label>
+                                <input
+                                    type="text"
+                                    title={t('admin.employees.absences.note')}
+                                    placeholder={t('admin.employees.absences.optional')}
+                                    value={note}
+                                    onChange={e => setNote(e.target.value)}
+                                    className="w-full bg-[#0F1720] border border-white/5 rounded-lg px-3 py-2 text-sm text-white placeholder-white/20 focus:outline-none focus:border-white/15 transition-colors"
+                                />
                             </div>
                         </div>
-                        <label className="flex items-center gap-2 cursor-pointer">
-                            <div onClick={() => setJustified(v => !v)}
-                                className={cn("w-4 h-4 rounded border-2 flex items-center justify-center transition-all shrink-0 cursor-pointer",
-                                    justified ? "bg-emerald-500 border-emerald-500" : "border-white/20"
-                                )}>
-                                {justified && <Check className="w-2.5 h-2.5 text-black" strokeWidth={3} />}
+
+                        <label className="flex items-center gap-2.5 cursor-pointer">
+                            <div
+                                onClick={() => setJustified(v => !v)}
+                                className={cn(
+                                    "w-4 h-4 rounded border-2 flex items-center justify-center transition-all shrink-0 cursor-pointer",
+                                    justified
+                                        ? "bg-emerald-500 border-emerald-500"
+                                        : "border-white/20"
+                                )}
+                            >
+                                {justified && <Check className="w-2.5 h-2.5 text-white" strokeWidth={3} />}
                             </div>
-                            <span className="text-xs text-gray-400">{t('admin.employees.absences.justifiedHint')}</span>
+                            <span className="text-sm text-gray-400">{t('admin.employees.absences.justifiedHint')}</span>
                         </label>
+
                         <div className="flex gap-2">
                             <button type="button" onClick={() => setShowForm(false)}
-                                className="px-3 py-2 rounded-lg text-xs font-bold text-gray-400 hover:text-white border border-white/10 hover:bg-white/5 transition-all">
+                                className="px-3 py-2 rounded-lg text-xs text-gray-500 hover:text-white border border-white/5 hover:bg-white/5 transition-all">
                                 {t('common.cancel')}
                             </button>
                             <button type="button" onClick={handleAdd} disabled={adding || !date}
-                                className="flex items-center gap-2 flex-1 justify-center px-4 py-2 rounded-lg text-xs font-bold bg-pink-600 hover:bg-pink-500 text-white disabled:opacity-50 transition-all">
+                                className="flex items-center gap-1.5 flex-1 justify-center px-3 py-2 rounded-lg text-xs font-semibold bg-emerald-600 hover:bg-emerald-500 text-white disabled:opacity-50 transition-all">
                                 {adding ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Check className="w-3.5 h-3.5" />}
                                 {t('common.save')}
                             </button>
@@ -144,46 +192,60 @@ export function EmployeeAbsences({ employeeId, salary }: Props) {
                 )}
             </div>
 
+            {/* List */}
             {loading ? (
-                <div className="flex justify-center py-6">
-                    <Loader2 className="w-5 h-5 animate-spin text-pink-500" />
+                <div className="flex justify-center py-10">
+                    <Loader2 className="w-4 h-4 animate-spin text-gray-600" />
                 </div>
             ) : absences.length === 0 ? (
-                <div className="bg-[#1A2530] rounded-3xl border border-white/5 p-10 text-center">
-                    <p className="text-gray-600">{t('admin.employees.absences.noAbsence')}</p>
+                <div className="flex flex-col items-center py-14 gap-3">
+                    <div className="w-12 h-12 rounded-2xl bg-[#161B22] border border-white/5 flex items-center justify-center">
+                        <CalendarX className="w-5 h-5 text-white/15" />
+                    </div>
+                    <p className="text-gray-600 text-sm">{t('admin.employees.absences.noAbsence')}</p>
                 </div>
             ) : (
-                <div className="bg-[#1A2530] rounded-3xl border border-white/5 overflow-hidden">
+                <div className="bg-[#161B22] rounded-2xl border border-white/5 overflow-hidden">
                     <div className="divide-y divide-white/5">
                         {absences.map(ab => (
-                            <div key={ab.id} className="flex items-center gap-3 p-4 hover:bg-[#0F1720] transition-colors">
-                                <span className={cn("w-2 h-2 rounded-full shrink-0", ab.justified ? "bg-amber-400" : "bg-red-500")} />
+                            <div key={ab.id}
+                                className="flex items-center gap-3.5 px-4 py-3.5 hover:bg-white/5 transition-colors group">
+                                <div className={cn(
+                                    "w-1 h-8 rounded-full shrink-0",
+                                    ab.justified ? "bg-white/10" : "bg-amber-500"
+                                )} />
                                 <div className="flex-1 min-w-0">
-                                    <p className="text-sm font-bold text-white">
+                                    <p className="text-sm text-white capitalize">
                                         {new Date(ab.date + 'T12:00:00').toLocaleDateString('fr-FR', {
                                             weekday: 'long', day: '2-digit', month: 'long',
                                         })}
                                     </p>
                                     {ab.justification_note && (
-                                        <p className="text-xs text-gray-500 flex items-center gap-1 mt-0.5">
+                                        <p className="text-xs text-gray-600 flex items-center gap-1 mt-0.5">
                                             <StickyNote className="w-3 h-3" />
                                             {ab.justification_note}
                                         </p>
                                     )}
                                 </div>
-                                <span className={cn("text-xs font-bold px-2.5 py-1 rounded-full border",
+                                <span className={cn(
+                                    "text-[10px] font-medium px-2 py-0.5 rounded-full shrink-0",
                                     ab.justified
-                                        ? "bg-amber-500/10 text-amber-400 border-amber-500/20"
-                                        : "bg-red-500/10 text-red-400 border-red-500/20"
+                                        ? "text-gray-500 bg-white/5"
+                                        : "text-amber-400 bg-amber-500/10"
                                 )}>
                                     {ab.justified
                                         ? t('admin.employees.absences.justifiedLabel')
                                         : dailySalary > 0
-                                            ? `−${Math.round(dailySalary).toLocaleString('fr-FR')} MRU`
+                                            ? `-${Math.round(dailySalary).toLocaleString('fr-FR')} MRU`
                                             : t('admin.employees.absences.unjustifiedLabel')}
                                 </span>
-                                <button type="button" onClick={() => handleDelete(ab.id)} disabled={!!deletingId}
-                                    className="p-1.5 text-gray-600 hover:text-red-400 hover:bg-red-500/10 rounded-lg transition-colors disabled:opacity-50">
+                                <button
+                                    type="button"
+                                    title={t('common.delete')}
+                                    onClick={() => handleDelete(ab.id)}
+                                    disabled={!!deletingId}
+                                    className="p-1.5 text-white/10 hover:text-red-400 rounded-lg transition-all disabled:opacity-50 shrink-0 opacity-0 group-hover:opacity-100"
+                                >
                                     {deletingId === ab.id
                                         ? <Loader2 className="w-3.5 h-3.5 animate-spin" />
                                         : <Trash2 className="w-3.5 h-3.5" />}

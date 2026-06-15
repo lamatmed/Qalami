@@ -10,6 +10,7 @@ import { createClient } from '@/utils/supabase/client'
 import { useLanguage } from '@/i18n'
 import { getTeacherScheduleAction } from '@/app/teacher/actions'
 import { useReadNotifications } from '@/hooks/use-read-notifications'
+import { getSessionConfig } from '@/lib/schedule-constants'
 import { cn } from '@/lib/utils'
 
 interface NextClass {
@@ -21,6 +22,7 @@ interface NextClass {
     endTime: string
     classId: string
     schoolName: string
+    sessionType: string
 }
 
 interface TeacherStats {
@@ -62,11 +64,12 @@ export function TeacherHome() {
                 dayOfWeek = dayOfWeek === 0 ? 7 : dayOfWeek
 
                 const currentTimeStr = now.toTimeString().slice(0, 5)
+                const todayStr = now.toISOString().split('T')[0]
 
                 // Timeout guard: on localhost Turbopack may delay server action compilation.
                 // If no response in 12 s, fall back to empty schedule so the spinner clears.
                 const todaySchedule: any[] = await Promise.race([
-                    getTeacherScheduleAction(teacherId, dayOfWeek),
+                    getTeacherScheduleAction(teacherId, dayOfWeek, todayStr),
                     new Promise<never>((_, reject) =>
                         setTimeout(() => reject(new Error('schedule-timeout')), 12_000)
                     ),
@@ -91,7 +94,8 @@ export function TeacherHome() {
                             startTime: next.start_time?.slice(0, 5) || '',
                             endTime: next.end_time?.slice(0, 5) || '',
                             classId: next.class_id,
-                            schoolName: (next.schools as { name?: string })?.name || ''
+                            schoolName: (next.schools as { name?: string })?.name || '',
+                            sessionType: (next as any).session_type || 'course',
                         })
                     } else {
                         setNextClass(null)
@@ -313,8 +317,11 @@ export function TeacherHome() {
             <motion.div variants={item} className="space-y-3 relative">
                 <div className="flex justify-between items-center px-1">
                     <h3 className="font-black text-lg tracking-tight text-slate-900 dark:text-white flex items-center gap-2">
-                        <Sparkles className="w-4 h-4 text-emerald-500" />
-                        {t('teacher.home.nextClass') || 'Prochain Cours'}
+                        <Sparkles className={cn("w-4 h-4", nextClass && nextClass.sessionType !== 'course' ? getSessionConfig(nextClass.sessionType).text : "text-emerald-500")} />
+                        {nextClass && nextClass.sessionType !== 'course'
+                            ? `Prochain ${getSessionConfig(nextClass.sessionType).label}`
+                            : (t('teacher.home.nextClass') || 'Prochain Cours')
+                        }
                     </h3>
                     <Link href="/teacher/schedule" className="text-xs font-black uppercase tracking-widest text-emerald-600 dark:text-emerald-400 hover:underline">
                         {t('teacher.home.viewAll') || 'Tout Voir'}
@@ -339,6 +346,14 @@ export function TeacherHome() {
                                     <span className="px-3 py-1 rounded-full bg-emerald-500/10 text-[9px] font-black tracking-widest border border-emerald-500/20 text-emerald-400 backdrop-blur-sm uppercase shadow-inner">
                                         {nextClass.subject}
                                     </span>
+                                    {nextClass.sessionType !== 'course' && (
+                                        <span className={cn(
+                                            "px-3 py-1 rounded-full text-[9px] font-black tracking-widest border backdrop-blur-sm uppercase bg-white/5 border-white/10",
+                                            getSessionConfig(nextClass.sessionType).text
+                                        )}>
+                                            {getSessionConfig(nextClass.sessionType).label}
+                                        </span>
+                                    )}
                                     {nextClass.schoolName && (
                                         <span className="px-3 py-1 rounded-full bg-white/5 text-[9px] font-black tracking-widest border border-white/10 text-slate-300 backdrop-blur-sm uppercase">
                                             {nextClass.schoolName}

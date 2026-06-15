@@ -7,7 +7,7 @@ import { createClient } from '@/utils/supabase/server'
  * Fetches the schedule for a teacher on a given day, bypassing RLS,
  * aggregating data across ALL assigned schools.
  */
-export async function getTeacherScheduleAction(teacherId: string, dayOfWeek: number) {
+export async function getTeacherScheduleAction(teacherId: string, dayOfWeek: number, selectedDate: string) {
     if (!teacherId) throw new Error("teacherId is required")
 
     const supabase = await createClient()
@@ -30,7 +30,8 @@ export async function getTeacherScheduleAction(teacherId: string, dayOfWeek: num
         throw new Error("Non autorisé")
     }
 
-    // Aggregates the schedule including icons, session type, and school name across all schools
+    // Same filter as fetchScheduleForAdmin: recurring entries always show,
+    // one-time entries only show if their event_date matches the selected date.
     const { data, error } = await admin
         .from('schedule')
         .select(`
@@ -40,12 +41,15 @@ export async function getTeacherScheduleAction(teacherId: string, dayOfWeek: num
             end_time,
             room,
             session_type,
+            is_recurring,
+            event_date,
             subjects (name, icon),
             classes (name),
             schools (name)
         `)
         .eq('teacher_id', teacherId)
         .eq('day_of_week', dayOfWeek)
+        .or(`is_recurring.eq.true,event_date.eq.${selectedDate}`)
         .order('start_time', { ascending: true })
 
     if (error) {
@@ -53,8 +57,6 @@ export async function getTeacherScheduleAction(teacherId: string, dayOfWeek: num
         throw new Error(error.message)
     }
 
-    // Deduplicate — same (class, subject, start, end) can appear multiple times
-    // when PostgREST resolves ambiguous FK paths (school_id direct vs via classes)
     const seen = new Set<string>()
     return (data || []).filter((s: any) => {
         const key = `${s.class_id}-${s.subject_id ?? ''}-${s.start_time}-${s.end_time}`
@@ -409,11 +411,15 @@ export async function getTeacherNotifications(teacherId: string, schoolId: strin
 // ─── Teacher statistics ────────────────────────────────────────────────────────
 
 export interface TeacherStatsData {
-    todayStats: { total: number; remaining: number; done: number; overdue: number }
+    todayStats: {
+        total: number; remaining: number; done: number; overdue: number
+        byType: Record<string, number>
+        remainingByType: Record<string, number>
+    }
     pendingSessions: {
         id: string; classId: string; subjectId: string
         className: string; subjectName: string; subjectIcon: string | null
-        startTime: string; endTime: string
+        startTime: string; endTime: string; sessionType: string
     }[]
     classStats: {
         classId: string; className: string
@@ -425,7 +431,7 @@ export interface TeacherStatsData {
         dayOfWeek: number; dateStr: string; isPast: boolean; isToday: boolean
         sessions: {
             id: string; className: string; subjectName: string; subjectIcon: string | null
-            startTime: string; endTime: string; done: boolean
+            startTime: string; endTime: string; done: boolean; sessionType: string
         }[]
     }[]
 }
@@ -449,18 +455,21 @@ export async function getTeacherStatsAction(teacherId: string): Promise<TeacherS
     const weekStart = monday.toISOString().split('T')[0]
     const weekEnd   = sunday.toISOString().split('T')[0]
 
-    // All schedule entries across ALL schools — school_id from schedule table avoids FK ambiguity
+    // Fetch only this week's relevant entries: recurring always + one-time within this week.
     const { data: raw } = await admin
         .from('schedule')
-        .select('id, day_of_week, start_time, end_time, class_id, subject_id, school_id, subjects(name, icon), classes(name)')
+        .select('id, day_of_week, start_time, end_time, class_id, subject_id, school_id, is_recurring, event_date, session_type, subjects(name, icon), classes(name)')
         .eq('teacher_id', teacherId)
+        .or(`is_recurring.eq.true,and(event_date.gte.${weekStart},event_date.lte.${weekEnd})`)
         .order('start_time')
 
-    // Deduplicate same-slot entries — keep ALL ids per slot to survive DB duplicates
-    const slotIds = new Map<string, Set<string>>()   // slotKey → all UUIDs in DB for that slot
+    // Deduplicate: recurring keyed by day_of_week, one-time by event_date.
+    const slotIds = new Map<string, Set<string>>()
     const seenKeys = new Set<string>()
     const schedule = (raw || []).filter((s: any) => {
-        const key = `${s.day_of_week}-${s.class_id}-${s.subject_id ?? ''}-${s.start_time}-${s.end_time}`
+        const key = s.is_recurring
+            ? `rec:${s.day_of_week}-${s.class_id}-${s.subject_id ?? ''}-${s.start_time}-${s.end_time}`
+            : `once:${s.event_date}-${s.class_id}-${s.subject_id ?? ''}-${s.start_time}-${s.end_time}`
         if (!slotIds.has(key)) slotIds.set(key, new Set())
         slotIds.get(key)!.add(s.id)
         if (seenKeys.has(key)) return false
@@ -510,7 +519,9 @@ export async function getTeacherStatsAction(teacherId: string): Promise<TeacherS
         return doneKeys.has(clsSubKey) || doneKeys.has(clsSubKeyFull)
     }
 
-    const todaySchedule = schedule.filter((s: any) => s.day_of_week === todayDow)
+    const todaySchedule = schedule.filter((s: any) =>
+        s.day_of_week === todayDow && (s.is_recurring || s.event_date === todayStr)
+    )
 
     const pendingSessions = todaySchedule
         .filter((s: any) => !isDoneOn(s, todayStr) && s.start_time.substring(0, 5) <= nowHHMM)
@@ -521,6 +532,7 @@ export async function getTeacherStatsAction(teacherId: string): Promise<TeacherS
             subjectIcon: (s.subjects as any)?.icon ?? null,
             startTime: s.start_time.substring(0, 5),
             endTime:   s.end_time.substring(0, 5),
+            sessionType: s.session_type || 'course',
         }))
 
     // Fetch school names and logos for all schools found in the schedule
@@ -586,7 +598,9 @@ export async function getTeacherStatsAction(teacherId: string): Promise<TeacherS
             isPast:  dStr < todayStr,
             isToday: dStr === todayStr,
             sessions: schedule
-                .filter((s: any) => s.day_of_week === dow)
+                .filter((s: any) =>
+                    s.day_of_week === dow && (s.is_recurring || s.event_date === dStr)
+                )
                 .map((s: any) => ({
                     id: s.id,
                     className:   (s.classes  as any)?.name ?? '—',
@@ -595,16 +609,28 @@ export async function getTeacherStatsAction(teacherId: string): Promise<TeacherS
                     startTime: s.start_time.substring(0, 5),
                     endTime:   s.end_time.substring(0, 5),
                     done: isDoneOn(s, dStr),
+                    sessionType: s.session_type || 'course',
                 })),
         }
     }).filter(day => day.sessions.length > 0)
 
+    const countByType = (list: any[]) =>
+        list.reduce((acc: Record<string, number>, s: any) => {
+            const t = s.session_type || 'course'
+            acc[t] = (acc[t] || 0) + 1
+            return acc
+        }, {})
+
+    const todayRemaining = todaySchedule.filter((s: any) => s.end_time.substring(0, 5) > nowHHMM)
+
     return {
         todayStats: {
             total:     todaySchedule.length,
-            remaining: todaySchedule.filter((s: any) => s.end_time.substring(0, 5) > nowHHMM).length,
+            remaining: todayRemaining.length,
             done:      todaySchedule.filter((s: any) => isDoneOn(s, todayStr)).length,
             overdue:   pendingSessions.length,
+            byType:          countByType(todaySchedule),
+            remainingByType: countByType(todayRemaining),
         },
         pendingSessions,
         classStats,

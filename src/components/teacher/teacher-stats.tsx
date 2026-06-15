@@ -14,6 +14,7 @@ import { cn } from '@/lib/utils'
 import { useTeacher } from '@/context/teacher-context'
 import { useLanguage } from '@/i18n'
 import { getTeacherStatsAction, type TeacherStatsData } from '@/app/teacher/actions'
+import { getSessionConfig } from '@/lib/schedule-constants'
 import { motion, AnimatePresence } from 'framer-motion'
 
 type SessionStatus = 'done' | 'missed' | 'overdue' | 'upcoming' | 'scheduled'
@@ -106,6 +107,14 @@ export function TeacherStats() {
         scheduled: t('teacher.statistique.status.scheduled'),
     }
 
+    const hasMultipleTypes = (byType: Record<string, number>) =>
+        Object.keys(byType).length > 1 || (Object.keys(byType).length === 1 && !byType['course'])
+
+    const typeBreakdown = (byType: Record<string, number>) =>
+        Object.entries(byType)
+            .map(([type, count]) => `${count} ${getSessionConfig(type).label}`)
+            .join(' · ')
+
     const statCards = [
         {
             label: t('teacher.statistique.cards.todayCourses'),
@@ -113,6 +122,7 @@ export function TeacherStats() {
             icon: Calendar,
             color: 'text-indigo-400',
             bg: 'bg-indigo-500/10',
+            breakdown: hasMultipleTypes(todayStats.byType) ? typeBreakdown(todayStats.byType) : null,
         },
         {
             label: t('teacher.statistique.cards.remaining'),
@@ -120,6 +130,7 @@ export function TeacherStats() {
             icon: Clock,
             color: 'text-blue-400',
             bg: 'bg-blue-500/10',
+            breakdown: hasMultipleTypes(todayStats.remainingByType) ? typeBreakdown(todayStats.remainingByType) : null,
         },
         {
             label: t('teacher.statistique.cards.callsDone'),
@@ -127,6 +138,7 @@ export function TeacherStats() {
             icon: CheckCircle2,
             color: 'text-emerald-400',
             bg: 'bg-emerald-500/10',
+            breakdown: null,
         },
         {
             label: t('teacher.statistique.cards.callsLate'),
@@ -134,6 +146,7 @@ export function TeacherStats() {
             icon: AlertCircle,
             color: todayStats.overdue > 0 ? 'text-orange-400' : 'text-slate-500',
             bg:    todayStats.overdue > 0 ? 'bg-orange-500/10' : 'bg-slate-500/10',
+            breakdown: null,
         },
     ]
 
@@ -152,7 +165,7 @@ export function TeacherStats() {
 
             {/* Today's 4 stat cards */}
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                {statCards.map(({ label, value, icon: Icon, color, bg }) => (
+                {statCards.map(({ label, value, icon: Icon, color, bg, breakdown }) => (
                     <Card key={label} className="bg-card border-border/50">
                         <CardContent className="p-4">
                             <div className={cn('w-9 h-9 rounded-xl flex items-center justify-center mb-3', bg)}>
@@ -160,6 +173,11 @@ export function TeacherStats() {
                             </div>
                             <p className="text-2xl font-bold">{value}</p>
                             <p className="text-xs text-muted-foreground mt-0.5 leading-tight">{label}</p>
+                            {breakdown && (
+                                <p className="text-[10px] text-muted-foreground/70 mt-1 leading-tight font-medium">
+                                    {breakdown}
+                                </p>
+                            )}
                         </CardContent>
                     </Card>
                 ))}
@@ -181,7 +199,14 @@ export function TeacherStats() {
                                 <div className="flex items-center gap-3 min-w-0">
                                     <div className="w-2 h-2 rounded-full bg-orange-500 animate-pulse shrink-0" />
                                     <div className="min-w-0">
-                                        <p className="text-sm font-semibold truncate">{s.subjectName}</p>
+                                        <div className="flex items-center gap-1.5">
+                                            <p className="text-sm font-semibold truncate">{s.subjectName}</p>
+                                            {s.sessionType !== 'course' && (
+                                                <span className={cn('text-[10px] font-bold shrink-0', getSessionConfig(s.sessionType).text)}>
+                                                    {getSessionConfig(s.sessionType).label}
+                                                </span>
+                                            )}
+                                        </div>
                                         <p className="text-xs text-muted-foreground">
                                             {s.className} · {s.startTime}–{s.endTime}
                                         </p>
@@ -374,13 +399,18 @@ export function TeacherStats() {
                                     <div className="space-y-2">
                                         {day.sessions.map(s => {
                                             const st = sessionStatus(s.done, day.isPast, day.isToday, s.startTime, nowHHMM)
+                                            const sessConf = getSessionConfig(s.sessionType)
+                                            const isExam = s.sessionType !== 'course'
                                             return (
                                                 <div key={s.id} className="flex items-start gap-2">
                                                     <div className={cn('w-1.5 h-1.5 rounded-full mt-1 shrink-0', STATUS_DOTS[st])} />
                                                     <div className="min-w-0">
                                                         <p className="text-[11px] font-medium leading-tight truncate">{s.subjectName}</p>
-                                                        <p className="text-[10px] text-muted-foreground leading-tight truncate">
+                                                        <p className="text-[10px] text-muted-foreground leading-tight truncate flex items-center gap-1">
                                                             {s.startTime} · {s.className}
+                                                            {isExam && (
+                                                                <span className={cn('font-bold', sessConf.text)}>· {sessConf.label}</span>
+                                                            )}
                                                         </p>
                                                     </div>
                                                 </div>

@@ -22,12 +22,12 @@ type FilterTab = 'all' | DocRequestStatus
 export default function RequestsPage() {
     const { t, language } = useLanguage()
 
-    const STATUS_CONFIG: Record<DocRequestStatus, { label: string; color: string; bg: string }> = {
-        pending:     { label: t('adminRequests.pending'),     color: 'text-amber-400',   bg: 'bg-amber-500/10 border-amber-500/20'    },
-        in_progress: { label: t('adminRequests.in_progress'), color: 'text-blue-400',    bg: 'bg-blue-500/10 border-blue-500/20'      },
-        ready:       { label: t('adminRequests.ready'),       color: 'text-emerald-400', bg: 'bg-emerald-500/10 border-emerald-500/20' },
-        rejected:    { label: t('adminRequests.rejected'),    color: 'text-red-400',     bg: 'bg-red-500/10 border-red-500/20'        },
-        cancelled:   { label: t('adminRequests.cancelled'),   color: 'text-gray-400',    bg: 'bg-gray-500/10 border-gray-500/20'      },
+    const STATUS_CONFIG: Record<DocRequestStatus, { label: string; color: string; bg: string; dot: string }> = {
+        pending:     { label: t('adminRequests.pending'),     color: 'text-amber-400',   bg: 'bg-amber-500/10 border-amber-500/20',    dot: 'bg-amber-400'   },
+        in_progress: { label: t('adminRequests.in_progress'), color: 'text-blue-400',    bg: 'bg-blue-500/10 border-blue-500/20',      dot: 'bg-blue-400'    },
+        ready:       { label: t('adminRequests.ready'),       color: 'text-emerald-400', bg: 'bg-emerald-500/10 border-emerald-500/20', dot: 'bg-emerald-400' },
+        rejected:    { label: t('adminRequests.rejected'),    color: 'text-red-400',     bg: 'bg-red-500/10 border-red-500/20',        dot: 'bg-red-400'     },
+        cancelled:   { label: t('adminRequests.cancelled'),   color: 'text-gray-500',    bg: 'bg-white/5 border-white/5',              dot: 'bg-gray-600'    },
     }
 
     const [requests, setRequests]         = useState<DocumentRequest[]>([])
@@ -44,7 +44,6 @@ export default function RequestsPage() {
     const fileInputRef   = useRef<HTMLInputElement>(null)
     const uploadTargetId = useRef('')
 
-    /* ── Load ── */
     const load = useCallback(async () => {
         setLoading(true)
         const [{ data }, sid] = await Promise.all([
@@ -58,7 +57,6 @@ export default function RequestsPage() {
 
     useEffect(() => { load() }, [load])
 
-    /* ── Upload file ── */
     const triggerUpload = (requestId: string) => {
         uploadTargetId.current = requestId
         fileInputRef.current?.click()
@@ -69,7 +67,6 @@ export default function RequestsPage() {
         const requestId = uploadTargetId.current
         if (fileInputRef.current) fileInputRef.current.value = ''
         if (!file || !requestId || !schoolId) return
-
         setUploading(requestId)
         try {
             const fd = new FormData()
@@ -89,7 +86,6 @@ export default function RequestsPage() {
         }
     }
 
-    /* ── Status change ── */
     const handle = async (id: string, status: DocRequestStatus) => {
         setSubmitting(id)
         const res = await updateDocRequestStatus(id, status, responseText[id])
@@ -104,7 +100,6 @@ export default function RequestsPage() {
         load()
     }
 
-    /* ── Remove file ── */
     const handleRemoveFile = async (id: string) => {
         if (!confirm(t('adminRequests.confirmDeleteFile'))) return
         setRemovingFile(id)
@@ -115,17 +110,16 @@ export default function RequestsPage() {
         load()
     }
 
-    /* ── Derived ── */
     const filtered = requests.filter(r => {
         if (tab !== 'all' && r.status !== tab) return false
         if (search.trim()) {
             const q = search.toLowerCase()
             return (
-                (r.parent?.full_name       ?? '').toLowerCase().includes(q) ||
-                (r.student?.full_name      ?? '').toLowerCase().includes(q) ||
-                (r.student?.national_id    ?? '').toLowerCase().includes(q) ||
-                DOC_TYPE_LABELS[r.doc_type].toLowerCase().includes(q)       ||
-                (r.custom_title ?? '').toLowerCase().includes(q)            ||
+                (r.parent?.full_name    ?? '').toLowerCase().includes(q) ||
+                (r.student?.full_name   ?? '').toLowerCase().includes(q) ||
+                (r.student?.national_id ?? '').toLowerCase().includes(q) ||
+                DOC_TYPE_LABELS[r.doc_type].toLowerCase().includes(q)    ||
+                (r.custom_title ?? '').toLowerCase().includes(q)         ||
                 (r.notes ?? '').toLowerCase().includes(q)
             )
         }
@@ -142,17 +136,16 @@ export default function RequestsPage() {
     }
 
     const tabs: { key: FilterTab; label: string }[] = [
-        { key: 'all',         label: `${t('adminRequests.all')} (${counts.all})`                   },
-        { key: 'pending',     label: `${t('adminRequests.pending')} (${counts.pending})`           },
-        { key: 'in_progress', label: `${t('adminRequests.in_progress')} (${counts.in_progress})`   },
-        { key: 'ready',       label: `${t('adminRequests.ready')} (${counts.ready})`               },
-        { key: 'rejected',    label: `${t('adminRequests.rejected')} (${counts.rejected})`         },
+        { key: 'all',         label: t('adminRequests.all')         },
+        { key: 'pending',     label: t('adminRequests.pending')     },
+        { key: 'in_progress', label: t('adminRequests.in_progress') },
+        { key: 'ready',       label: t('adminRequests.ready')       },
+        { key: 'rejected',    label: t('adminRequests.rejected')    },
     ]
 
     return (
-        <div className="p-6 space-y-6 max-w-4xl mx-auto">
+        <div className="max-w-3xl mx-auto px-5 py-6 space-y-5">
 
-            {/* Hidden file input */}
             <input
                 ref={fileInputRef}
                 type="file"
@@ -164,66 +157,74 @@ export default function RequestsPage() {
 
             {/* Header */}
             <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-2xl bg-cyan-500/15 flex items-center justify-center">
-                        <Inbox className="w-5 h-5 text-cyan-400" />
-                    </div>
-                    <div>
-                        <h1 className="text-xl font-black text-white">{t('adminRequests.title')}</h1>
-                        <p className="text-xs text-gray-500">
-                            {counts.pending > 0
-                                ? (counts.pending === 1
-                                    ? t('adminRequests.pendingCount', { count: counts.pending })
-                                    : t('adminRequests.pendingCountPlural', { count: counts.pending }))
-                                : t('adminRequests.noPending')}
-                        </p>
-                    </div>
+                <div>
+                    <h1 className="text-2xl font-bold text-white">{t('adminRequests.title')}</h1>
+                    <p className="text-base text-gray-500 mt-0.5">
+                        {counts.pending > 0
+                            ? (counts.pending === 1
+                                ? t('adminRequests.pendingCount', { count: counts.pending })
+                                : t('adminRequests.pendingCountPlural', { count: counts.pending }))
+                            : t('adminRequests.noPending')}
+                    </p>
                 </div>
                 <button type="button" onClick={load} title={t('common.refresh')}
-                    className="p-2 rounded-xl text-gray-500 hover:text-white hover:bg-white/5 transition-colors">
+                    className="p-2 rounded-xl text-gray-600 hover:text-white hover:bg-white/5 transition-colors">
                     <RefreshCw className="w-4 h-4" />
                 </button>
             </div>
 
             {/* Search */}
             <div className="relative">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500" />
+                <Search className="absolute start-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-600" />
                 <input
                     type="text"
                     value={search}
                     onChange={e => setSearch(e.target.value)}
                     placeholder={t('adminRequests.searchPlaceholder')}
-                    className="w-full bg-[#0D1117] border border-white/10 text-white text-sm rounded-xl pl-10 pr-4 py-2.5 focus:outline-none focus:ring-1 focus:ring-cyan-500/50 placeholder:text-gray-600"
+                    className="w-full ps-10 pe-4 py-3 bg-[#161B22] border border-white/5 text-base text-white rounded-xl focus:outline-none focus:border-white/15 placeholder:text-gray-600 transition-colors"
                 />
             </div>
 
             {/* Tabs */}
-            <div className="flex gap-2 flex-wrap">
-                {tabs.map(t2 => (
-                    <button key={t2.key} type="button" onClick={() => setTab(t2.key)}
-                        className={cn(
-                            'px-3 py-1.5 rounded-lg text-xs font-bold border transition-all',
-                            tab === t2.key
-                                ? 'bg-cyan-500/20 border-cyan-500/40 text-cyan-400'
-                                : 'bg-white/5 border-white/10 text-gray-500 hover:text-gray-300'
-                        )}>
-                        {t2.label}
-                    </button>
-                ))}
+            <div className="flex border-b border-white/5">
+                {tabs.map(tb => {
+                    const count = counts[tb.key]
+                    return (
+                        <button key={tb.key} type="button" onClick={() => setTab(tb.key)}
+                            className={cn(
+                                'flex items-center gap-1.5 px-4 py-3 text-sm font-medium border-b-2 -mb-px transition-all whitespace-nowrap',
+                                tab === tb.key
+                                    ? 'text-white border-emerald-500'
+                                    : 'text-gray-600 border-transparent hover:text-gray-400'
+                            )}>
+                            {tb.label}
+                            {count > 0 && (
+                                <span className={cn(
+                                    "text-xs font-bold px-1.5 py-0.5 rounded-full min-w-[18px] text-center",
+                                    tab === tb.key ? "bg-white/10 text-white" : "bg-white/5 text-gray-600"
+                                )}>
+                                    {count}
+                                </span>
+                            )}
+                        </button>
+                    )
+                })}
             </div>
 
             {/* List */}
             {loading ? (
                 <div className="flex items-center justify-center py-20">
-                    <Loader2 className="w-6 h-6 animate-spin text-cyan-500" />
+                    <Loader2 className="w-5 h-5 animate-spin text-gray-600" />
                 </div>
             ) : filtered.length === 0 ? (
-                <div className="text-center py-20 bg-[#0D1117] rounded-3xl border border-white/5">
-                    <Inbox className="w-10 h-10 mx-auto mb-3 text-gray-600" />
-                    <p className="text-gray-500 font-medium">{t('adminRequests.noRequests')}</p>
+                <div className="flex flex-col items-center py-20 gap-3">
+                    <div className="w-12 h-12 rounded-2xl bg-[#161B22] border border-white/5 flex items-center justify-center">
+                        <Inbox className="w-5 h-5 text-white/15" />
+                    </div>
+                    <p className="text-gray-600 text-sm">{t('adminRequests.noRequests')}</p>
                 </div>
             ) : (
-                <div className="space-y-3">
+                <div className="space-y-2">
                     {filtered.map(req => {
                         const statusCfg  = STATUS_CONFIG[req.status]
                         const isExpanded = expanded === req.id
@@ -234,62 +235,65 @@ export default function RequestsPage() {
 
                         return (
                             <div key={req.id} className={cn(
-                                'bg-[#0D1117] rounded-2xl border transition-all',
-                                req.status === 'pending'     ? 'border-amber-500/20' :
-                                req.status === 'in_progress' ? 'border-blue-500/20'  : 'border-white/5',
-                                isExpanded && 'border-cyan-500/30'
+                                'bg-[#161B22] rounded-2xl border transition-all',
+                                isExpanded ? 'border-white/10' : 'border-white/5',
+                                req.status === 'pending' && !isExpanded && 'border-s-2 border-s-amber-500/50'
                             )}>
 
-                                {/* ── Row ── */}
-                                <div className="flex items-center gap-3 p-4">
+                                {/* Row */}
+                                <div className="flex items-center gap-3 p-5">
 
-                                    {/* Icon */}
-                                    <div className="h-10 w-10 rounded-xl bg-cyan-500/10 flex items-center justify-center shrink-0">
-                                        <FileText className="w-4 h-4 text-cyan-400" />
+                                    {/* Status dot + icon */}
+                                    <div className="relative shrink-0">
+                                        <div className="w-11 h-11 rounded-xl bg-white/5 border border-white/5 flex items-center justify-center">
+                                            <FileText className="w-5 h-5 text-gray-400" />
+                                        </div>
+                                        <span className={cn(
+                                            "absolute -top-0.5 -end-0.5 w-2.5 h-2.5 rounded-full border-2 border-[#161B22]",
+                                            statusCfg.dot
+                                        )} />
                                     </div>
 
-                                    {/* Info (clickable to expand) */}
+                                    {/* Info */}
                                     <button type="button"
                                         onClick={() => setExpanded(isExpanded ? null : req.id)}
-                                        className="flex-1 min-w-0 text-left">
+                                        className="flex-1 min-w-0 text-start">
                                         <div className="flex items-center gap-2 flex-wrap">
-                                            <p className="text-sm font-bold text-white truncate">{title}</p>
+                                            <p className="text-base font-semibold text-white truncate">{title}</p>
                                             <span className={cn(
-                                                'shrink-0 text-[10px] font-bold px-2 py-0.5 rounded-full border',
+                                                'shrink-0 text-xs font-semibold px-2.5 py-0.5 rounded-full border',
                                                 statusCfg.bg, statusCfg.color
                                             )}>
                                                 {statusCfg.label}
                                             </span>
                                         </div>
-                                        <div className="flex items-center gap-1.5 mt-0.5 text-xs text-gray-500 flex-wrap">
-                                            <User className="w-3 h-3" />
+                                        <div className="flex items-center gap-1.5 mt-1 text-sm text-gray-600 flex-wrap">
+                                            <User className="w-3.5 h-3.5" />
                                             <span className="text-gray-400">{req.parent?.full_name ?? '—'}</span>
                                             {req.student?.full_name && <>
-                                                <span>→</span>
-                                                <GraduationCap className="w-3 h-3" />
+                                                <span className="text-gray-700">→</span>
+                                                <GraduationCap className="w-3.5 h-3.5" />
                                                 <span className="text-gray-400">{req.student.full_name}</span>
                                             </>}
                                             {req.student?.national_id && <>
-                                                <IdCard className="w-3 h-3 text-gray-600" />
-                                                <span className="text-gray-600 font-mono text-[10px]">{req.student.national_id}</span>
+                                                <IdCard className="w-3.5 h-3.5" />
+                                                <span className="font-mono text-xs text-gray-500">{req.student.national_id}</span>
                                             </>}
-                                            <span className="text-gray-600 ml-auto font-mono text-[10px]">
+                                            <span className="ms-auto font-mono text-xs text-gray-600">
                                                 {formatDateTimeShort(req.created_at, language)}
                                             </span>
                                         </div>
                                     </button>
 
-                                    {/* Upload button — visible on row for active requests */}
+                                    {/* Upload button */}
                                     {canAct && (
                                         uploading === req.id ? (
-                                            <div className="shrink-0 flex items-center gap-1.5 text-xs text-gray-400 px-3">
-                                                <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                                            </div>
+                                            <Loader2 className="w-4 h-4 animate-spin text-gray-500 shrink-0" />
                                         ) : (
                                             <button type="button"
                                                 onClick={() => triggerUpload(req.id)}
                                                 title={t('adminRequests.sendFile')}
-                                                className="shrink-0 flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold text-cyan-400 bg-cyan-500/10 hover:bg-cyan-500/20 border border-cyan-500/20 transition-colors">
+                                                className="shrink-0 flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium text-gray-400 hover:text-white bg-white/5 hover:bg-white/10 border border-white/5 transition-colors">
                                                 <Paperclip className="w-3.5 h-3.5" />
                                                 <span className="hidden sm:inline">
                                                     {req.file_name ? t('adminRequests.replaceFile') : t('adminRequests.sendFile')}
@@ -298,127 +302,120 @@ export default function RequestsPage() {
                                         )
                                     )}
 
-
                                     <button type="button"
                                         onClick={() => setExpanded(isExpanded ? null : req.id)}
-                                        className="shrink-0 text-gray-600 p-1">
+                                        className="shrink-0 text-gray-600 hover:text-gray-400 transition-colors p-1">
                                         {isExpanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
                                     </button>
                                 </div>
 
-                                {/* ── Expanded ── */}
+                                {/* Expanded */}
                                 {isExpanded && (
-                                    <div className="px-4 pb-4 space-y-4 border-t border-white/5 pt-4">
+                                    <div className="px-5 pb-5 space-y-3 border-t border-white/5 pt-4">
 
-                                        {/* Details grid */}
-                                        <div className="grid grid-cols-2 gap-3 text-xs">
-                                            <div className="bg-white/5 rounded-xl p-3">
-                                                <p className="text-gray-500 mb-1">{t('adminRequests.docType')}</p>
-                                                <p className="text-white font-bold">{docLabel}</p>
+                                        {/* Details */}
+                                        <div className="grid grid-cols-2 gap-2">
+                                            <div className="bg-[#0F1720] rounded-xl p-3.5 border border-white/5">
+                                                <p className="text-xs text-gray-600 mb-1.5">{t('adminRequests.docType')}</p>
+                                                <p className="text-sm text-white font-semibold">{docLabel}</p>
                                             </div>
-                                            <div className="bg-white/5 rounded-xl p-3">
-                                                <p className="text-gray-500 mb-1">{t('adminRequests.requestDate')}</p>
-                                                <p className="text-white font-bold text-xs">
+                                            <div className="bg-[#0F1720] rounded-xl p-3.5 border border-white/5">
+                                                <p className="text-xs text-gray-600 mb-1.5">{t('adminRequests.requestDate')}</p>
+                                                <p className="text-sm text-white font-semibold">
                                                     {formatDateTime(req.created_at, language)}
                                                 </p>
                                             </div>
                                             {req.student?.national_id && (
-                                                <div className="bg-white/5 rounded-xl p-3 col-span-2">
-                                                    <p className="text-gray-500 mb-1">{t('adminRequests.nni')}</p>
-                                                    <p className="text-white font-bold font-mono">{req.student.national_id}</p>
+                                                <div className="bg-[#0F1720] rounded-xl p-3.5 border border-white/5 col-span-2">
+                                                    <p className="text-xs text-gray-600 mb-1.5">{t('adminRequests.nni')}</p>
+                                                    <p className="text-sm text-white font-semibold font-mono">{req.student.national_id}</p>
                                                 </div>
                                             )}
                                         </div>
 
                                         {/* Parent notes */}
                                         {req.notes && (
-                                            <div className="bg-white/5 rounded-xl p-4">
-                                                <p className="text-xs font-bold text-gray-400 uppercase mb-2">{t('adminRequests.parentNotes')}</p>
-                                                <p className="text-sm text-white leading-relaxed">{req.notes}</p>
+                                            <div className="bg-[#0F1720] rounded-xl p-3 border border-white/5">
+                                                <p className="text-xs text-gray-600 uppercase tracking-widest mb-2">{t('adminRequests.parentNotes')}</p>
+                                                <p className="text-base text-gray-300 leading-relaxed">{req.notes}</p>
                                             </div>
                                         )}
 
-                                        {/* File attached */}
+                                        {/* File */}
                                         {req.file_name && req.file_path ? (
-                                            <div className="space-y-2">
-                                                <p className="text-xs font-bold text-gray-400 uppercase">{t('adminRequests.fileAttached')}</p>
-                                                <div className="flex items-center gap-3 bg-cyan-500/5 border border-cyan-500/20 rounded-xl p-3">
-                                                    <FileText className="w-4 h-4 text-cyan-400 shrink-0" />
+                                            <div>
+                                                <p className="text-xs text-gray-600 uppercase tracking-widest mb-2">{t('adminRequests.fileAttached')}</p>
+                                                <div className="flex items-center gap-3 bg-[#0F1720] border border-white/5 rounded-xl p-3.5">
+                                                    <FileText className="w-5 h-5 text-gray-400 shrink-0" />
                                                     <div className="flex-1 min-w-0">
-                                                        <p className="text-xs font-bold text-white truncate">{req.file_name}</p>
+                                                        <p className="text-sm font-medium text-white truncate">{req.file_name}</p>
                                                         {req.file_size_bytes && (
-                                                            <p className="text-[10px] text-gray-500">{(req.file_size_bytes / 1024).toFixed(0)} KB</p>
+                                                            <p className="text-xs text-gray-600">{(req.file_size_bytes / 1024).toFixed(0)} KB</p>
                                                         )}
                                                     </div>
                                                     <a href={req.file_path} target="_blank" rel="noopener noreferrer"
                                                         title={t('common.download')}
-                                                        className="shrink-0 p-1.5 rounded-lg text-cyan-400 hover:bg-cyan-500/10 transition-colors">
+                                                        className="p-1.5 rounded-lg text-gray-500 hover:text-white hover:bg-white/5 transition-colors">
                                                         <Download className="w-3.5 h-3.5" />
                                                     </a>
-                                                    <button type="button"
-                                                        onClick={() => triggerUpload(req.id)}
-                                                        disabled={busy}
+                                                    <button type="button" onClick={() => triggerUpload(req.id)} disabled={busy}
                                                         title={t('adminRequests.replaceFile')}
-                                                        className="shrink-0 p-1.5 rounded-lg text-gray-400 hover:text-cyan-400 hover:bg-cyan-500/10 transition-colors disabled:opacity-30">
+                                                        className="p-1.5 rounded-lg text-gray-500 hover:text-white hover:bg-white/5 transition-colors disabled:opacity-30">
                                                         <Paperclip className="w-3.5 h-3.5" />
                                                     </button>
                                                     {removingFile === req.id ? (
-                                                        <Loader2 className="w-3.5 h-3.5 animate-spin text-red-400 shrink-0" />
+                                                        <Loader2 className="w-3.5 h-3.5 animate-spin text-gray-500 shrink-0" />
                                                     ) : (
-                                                        <button type="button"
-                                                            onClick={() => handleRemoveFile(req.id)}
-                                                            disabled={busy}
+                                                        <button type="button" onClick={() => handleRemoveFile(req.id)} disabled={busy}
                                                             title={t('adminRequests.deleteFile')}
-                                                            className="shrink-0 p-1.5 rounded-lg text-gray-400 hover:text-red-400 hover:bg-red-500/10 transition-colors disabled:opacity-30">
+                                                            className="p-1.5 rounded-lg text-gray-500 hover:text-red-400 hover:bg-red-500/10 transition-colors disabled:opacity-30">
                                                             <Trash2 className="w-3.5 h-3.5" />
                                                         </button>
                                                     )}
                                                 </div>
                                             </div>
                                         ) : canAct ? (
-                                            <button type="button"
-                                                onClick={() => triggerUpload(req.id)}
-                                                disabled={busy}
-                                                className="w-full flex items-center justify-center gap-2 p-3 rounded-xl border border-dashed border-cyan-500/30 text-cyan-400 text-xs font-bold hover:bg-cyan-500/5 transition-colors disabled:opacity-50">
+                                            <button type="button" onClick={() => triggerUpload(req.id)} disabled={busy}
+                                                className="w-full flex items-center justify-center gap-2 p-3.5 rounded-xl border border-dashed border-white/10 text-gray-600 text-sm hover:text-gray-400 hover:border-white/20 transition-colors disabled:opacity-50">
                                                 <Paperclip className="w-3.5 h-3.5" />
                                                 {t('adminRequests.sendFile')}
                                             </button>
                                         ) : null}
 
-                                        {/* Admin response */}
+                                        {/* Admin response (existing) */}
                                         {req.response_note && (
-                                            <div className="bg-emerald-500/5 border border-emerald-500/20 rounded-xl p-4">
-                                                <p className="text-xs font-bold text-emerald-400 uppercase mb-2">{t('adminRequests.adminResponse')}</p>
-                                                <p className="text-sm text-white leading-relaxed">{req.response_note}</p>
+                                            <div className="bg-emerald-500/5 border border-emerald-500/20 rounded-xl p-3">
+                                                <p className="text-xs text-emerald-500/60 uppercase tracking-widest mb-1.5">{t('adminRequests.adminResponse')}</p>
+                                                <p className="text-base text-gray-300 leading-relaxed">{req.response_note}</p>
                                             </div>
                                         )}
 
                                         {/* Action form */}
                                         {canAct && (
-                                            <div className="space-y-3">
+                                            <div className="space-y-2.5">
                                                 <textarea
                                                     value={responseText[req.id] ?? ''}
                                                     onChange={e => setResponseText(p => ({ ...p, [req.id]: e.target.value }))}
                                                     placeholder={t('adminRequests.responsePlaceholder')}
                                                     rows={3}
-                                                    className="w-full bg-[#1A2530] border border-white/10 text-sm text-white rounded-xl px-4 py-3 resize-none focus:outline-none focus:ring-1 focus:ring-cyan-500/50 placeholder:text-gray-600"
+                                                    className="w-full bg-[#0F1720] border border-white/5 text-base text-white rounded-xl px-4 py-3 resize-none focus:outline-none focus:border-white/15 placeholder:text-gray-600 transition-colors"
                                                 />
                                                 <div className="flex gap-2 flex-wrap">
                                                     {req.status === 'pending' && (
                                                         <button type="button" disabled={busy}
                                                             onClick={() => handle(req.id, 'in_progress')}
-                                                            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold text-blue-400 bg-blue-500/10 hover:bg-blue-500/20 border border-blue-500/20 disabled:opacity-50 transition-colors">
+                                                            className="flex items-center gap-1.5 px-3.5 py-2 rounded-lg text-sm font-medium text-blue-400 bg-blue-500/10 hover:bg-blue-500/20 border border-blue-500/20 disabled:opacity-50 transition-colors">
                                                             <Clock className="w-3 h-3" /> {t('adminRequests.takeCharge')}
                                                         </button>
                                                     )}
                                                     <button type="button" disabled={busy}
                                                         onClick={() => handle(req.id, 'rejected')}
-                                                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold text-red-400 bg-red-500/10 hover:bg-red-500/20 border border-red-500/20 disabled:opacity-50 transition-colors">
+                                                        className="flex items-center gap-1.5 px-3.5 py-2 rounded-lg text-sm font-medium text-red-400 bg-red-500/10 hover:bg-red-500/20 border border-red-500/20 disabled:opacity-50 transition-colors">
                                                         <XCircle className="w-3 h-3" /> {t('adminRequests.reject')}
                                                     </button>
                                                     <button type="button" disabled={busy}
                                                         onClick={() => handle(req.id, 'ready')}
-                                                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold text-black bg-emerald-500 hover:bg-emerald-400 disabled:opacity-50 transition-colors">
+                                                        className="flex items-center gap-1.5 px-3.5 py-2 rounded-lg text-sm font-medium text-white bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 transition-colors">
                                                         {submitting === req.id
                                                             ? <Loader2 className="w-3 h-3 animate-spin" />
                                                             : <CheckCircle2 className="w-3 h-3" />}
@@ -429,7 +426,7 @@ export default function RequestsPage() {
                                         )}
 
                                         {req.fulfilled_at && (
-                                            <p className="text-[10px] text-gray-600">
+                                            <p className="text-xs text-gray-700">
                                                 {t('adminRequests.treatedOn', {
                                                     date: formatDateTime(req.fulfilled_at, language)
                                                 })}

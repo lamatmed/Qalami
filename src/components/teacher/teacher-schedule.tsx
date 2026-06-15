@@ -113,8 +113,10 @@ export function TeacherSchedule() {
                 const targetDay = days[selectedDay]
                 if (!targetDay) return
 
-                // Fetch from server action
-                const schedules = await getTeacherScheduleAction(teacherId, targetDay.dayOfWeek)
+                // Fetch from server action — pass the exact date so one-time events
+                // (exams, activities) only appear on their actual scheduled date.
+                const selectedDateStr = targetDay.fullDate.toISOString().split('T')[0]
+                const schedules = await getTeacherScheduleAction(teacherId, targetDay.dayOfWeek, selectedDateStr)
 
                 if (schedules && schedules.length > 0) {
                     const now = new Date()
@@ -306,14 +308,12 @@ export function TeacherSchedule() {
                                                         {t('teacher.schedule.upcoming')}
                                                     </span>
                                                 )}
-                                                {item.sessionType !== 'course' && (
-                                                    <span className={cn(
-                                                        "text-[10px] font-extrabold px-2 py-1 rounded-full bg-slate-50 border border-slate-150 text-slate-600 uppercase tracking-wider",
-                                                        getSessionConfig(item.sessionType).text
-                                                    )}>
-                                                        {getSessionConfig(item.sessionType).label}
-                                                    </span>
-                                                )}
+                                                <span className={cn(
+                                                    "text-[10px] font-extrabold px-2 py-1 rounded-full bg-slate-50 border border-slate-150 uppercase tracking-wider",
+                                                    getSessionConfig(item.sessionType).text
+                                                )}>
+                                                    {getSessionConfig(item.sessionType).label}
+                                                </span>
                                             </div>
 
                                             <div className="flex items-center gap-2.5">
