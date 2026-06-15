@@ -96,7 +96,7 @@ export function TeacherStats() {
 
     const locale = language === 'ar' ? 'ar-MA' : 'fr-FR'
     const todayLabel = new Date().toLocaleDateString(locale, {
-        weekday: 'long', day: 'numeric', month: 'long',
+        weekday: 'long', day: 'numeric', month: 'long', timeZone: 'Africa/Nouakchott',
     })
 
     const statusLabels: Record<SessionStatus, string> = {

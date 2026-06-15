@@ -637,3 +637,218 @@ export async function getTeacherStatsAction(teacherId: string): Promise<TeacherS
         weekView,
     }
 }
+
+// ─── Teacher Announcements ─────────────────────────────────────────────────────
+
+export interface TeacherAnnouncement {
+    id: string
+    title: string
+    content: string
+    priority: string
+    published_at: string | null
+    expires_at: string | null
+    created_by: string | null
+    author_name: string | null
+    target_scope: string
+    target_audience: string[]
+    target_class_id: string | null
+    target_class_name: string | null
+    school_name: string | null
+    attachment_url: string | null
+    attachment_name: string | null
+}
+
+export async function getTeacherAnnouncementsCountAction(): Promise<number> {
+    const supabase = await createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return 0
+
+    const admin = createAdminClient()
+    const { data: profile } = await admin
+        .from('profiles')
+        .select('school_id')
+        .eq('id', user.id)
+        .maybeSingle()
+    if (!profile?.school_id) return 0
+
+    const now = new Date().toISOString()
+    const { count } = await admin
+        .from('announcements')
+        .select('id', { count: 'exact', head: true })
+        .eq('school_id', profile.school_id)
+        .or('target_audience.cs.{"enseignants"},target_audience.cs.{"all"}')
+        .lte('published_at', now)
+        .or(`expires_at.is.null,expires_at.gt.${now}`)
+
+    return count || 0
+}
+
+export async function getTeacherAnnouncementsAction(): Promise<TeacherAnnouncement[]> {
+    const supabase = await createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) throw new Error('Non authentifié')
+
+    const admin = createAdminClient()
+    const { data: profile } = await admin
+        .from('profiles')
+        .select('school_id')
+        .eq('id', user.id)
+        .maybeSingle()
+    if (!profile?.school_id) return []
+
+    const now = new Date().toISOString()
+    const { data, error } = await admin
+        .from('announcements')
+        .select(`
+            id, title, content, priority, published_at, expires_at, created_by,
+            target_scope, target_audience, target_class_id, attachment_url, attachment_name,
+            profiles!created_by(full_name),
+            classes!target_class_id(name)
+        `)
+        .eq('school_id', profile.school_id)
+        .or('target_audience.cs.{"enseignants"},target_audience.cs.{"all"}')
+        .lte('published_at', now)
+        .or(`expires_at.is.null,expires_at.gt.${now}`)
+        .order('priority', { ascending: false })
+        .order('published_at', { ascending: false })
+        .limit(50)
+
+    if (error) throw new Error(error.message)
+    return (data || []).map((a: any) => ({
+        id: a.id,
+        title: a.title,
+        content: a.content,
+        priority: a.priority,
+        published_at: a.published_at,
+        expires_at: a.expires_at,
+        created_by: a.created_by,
+        author_name: a.profiles?.full_name || null,
+        target_scope: a.target_scope,
+        target_audience: Array.isArray(a.target_audience) ? a.target_audience : [],
+        target_class_id: a.target_class_id || null,
+        target_class_name: a.classes?.name || null,
+        attachment_url: a.attachment_url,
+        attachment_name: a.attachment_name,
+    }))
+}
+
+export async function getMyTeacherAnnouncementsAction(): Promise<TeacherAnnouncement[]> {
+    const supabase = await createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) throw new Error('Non authentifié')
+
+    const admin = createAdminClient()
+    const { data, error } = await admin
+        .from('announcements')
+        .select(`
+            id, title, content, priority, published_at, expires_at, created_by,
+            target_scope, target_audience, target_class_id, school_id, attachment_url, attachment_name,
+            classes!target_class_id(id, name),
+            schools!school_id(name)
+        `)
+        .eq('created_by', user.id)
+        .order('created_at', { ascending: false })
+        .limit(50)
+
+    if (error) throw new Error(error.message)
+    return (data || []).map((a: any) => ({
+        id: a.id,
+        title: a.title,
+        content: a.content,
+        priority: a.priority,
+        published_at: a.published_at,
+        expires_at: a.expires_at,
+        created_by: a.created_by,
+        author_name: null,
+        target_scope: a.target_scope,
+        target_audience: Array.isArray(a.target_audience) ? a.target_audience : [],
+        target_class_id: a.target_class_id || null,
+        target_class_name: a.classes?.name || null,
+        school_name: a.schools?.name || null,
+        attachment_url: a.attachment_url,
+        attachment_name: a.attachment_name,
+    }))
+}
+
+export async function createTeacherAnnouncementAction(payload: {
+    title: string
+    content: string
+    target_audience: string[]
+    target_class_id?: string | null
+    priority: string
+}): Promise<{ id: string }> {
+    const supabase = await createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) throw new Error('Non authentifié')
+
+    const admin = createAdminClient()
+    const { data: profile } = await admin
+        .from('profiles')
+        .select('school_id')
+        .eq('id', user.id)
+        .maybeSingle()
+    if (!profile?.school_id) throw new Error('École introuvable')
+
+    const now = new Date().toISOString()
+    const { data, error } = await admin
+        .from('announcements')
+        .insert({
+            school_id: profile.school_id,
+            created_by: user.id,
+            title: payload.title.trim(),
+            content: payload.content.trim(),
+            target_audience: payload.target_audience,
+            target_scope: payload.target_class_id ? 'class' : 'school',
+            target_class_id: payload.target_class_id || null,
+            priority: payload.priority,
+            published_at: now,
+        })
+        .select('id')
+        .single()
+
+    if (error) throw new Error(error.message)
+    return { id: data.id }
+}
+
+export async function deleteTeacherAnnouncementAction(announcementId: string): Promise<{ success: boolean }> {
+    const supabase = await createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) throw new Error('Non authentifié')
+
+    const admin = createAdminClient()
+    const { error } = await admin
+        .from('announcements')
+        .delete()
+        .eq('id', announcementId)
+        .eq('created_by', user.id)
+
+    if (error) throw new Error(error.message)
+    return { success: true }
+}
+
+export async function getTeacherAssignedClassesAction(): Promise<{ id: string; name: string; school_name: string | null }[]> {
+    const supabase = await createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return []
+
+    const admin = createAdminClient()
+    const { data } = await admin
+        .from('teacher_assignments')
+        .select('class_id, classes:class_id(id, name, school_id, schools(id, name))')
+        .eq('teacher_id', user.id)
+
+    const seen = new Set<string>()
+    const classes: { id: string; name: string; school_name: string | null }[] = []
+    for (const row of data || []) {
+        const cls = (row as any).classes
+        if (cls?.id && !seen.has(cls.id)) {
+            seen.add(cls.id)
+            classes.push({
+                id: cls.id,
+                name: cls.name,
+                school_name: cls.schools?.name || null,
+            })
+        }
+    }
+    return classes
+}

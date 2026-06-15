@@ -40,7 +40,7 @@ function relDate(d: string, t: any, language: string) {
     if (diff < 60) return t('teacher.community.relDate.justNow') || 'À l\'instant'
     if (diff < 3600) return (t('teacher.community.relDate.minutesAgo') || 'Il y a {mins}min').replace('{mins}', Math.floor(diff / 60).toString())
     if (diff < 86400) return (t('teacher.community.relDate.hoursAgo') || 'Il y a {hours}h').replace('{hours}', Math.floor(diff / 3600).toString())
-    return new Date(d).toLocaleDateString(language === 'ar' ? 'ar-MR' : 'fr-FR', { day: 'numeric', month: 'short' })
+    return new Date(d).toLocaleDateString(language === 'ar' ? 'ar-MR' : 'fr-FR', { day: 'numeric', month: 'short', timeZone: 'Africa/Nouakchott' })
 }
 
 function decodeAudience(raw: string[]) {
@@ -252,8 +252,8 @@ export default function TeacherCommunityPage() {
                                     <motion.div variants={item} className={cn("relative bg-white dark:bg-slate-900/60 rounded-2xl border border-slate-150 dark:border-white/5 p-5 shadow-sm flex gap-4 hover:border-indigo-500/30 transition-all group", isPast && "opacity-60")}>
                                         {isUnread && <div className="absolute top-5 right-5 w-2 h-2 rounded-full bg-red-500" />}
                                         <div className="w-14 h-14 shrink-0 rounded-2xl flex flex-col items-center justify-center overflow-hidden border" style={{ backgroundColor: ti.color + '15', borderColor: ti.color + '30', color: ti.color }}>
-                                            <span className="text-[10px] font-black uppercase">{new Date(ev.start_date).toLocaleDateString(language === 'ar' ? 'ar-MR' : 'fr-FR', { month: 'short' })}</span>
-                                            <span className="text-xl font-black leading-none">{new Date(ev.start_date).getDate()}</span>
+                                            <span className="text-[10px] font-black uppercase">{new Date(ev.start_date).toLocaleDateString(language === 'ar' ? 'ar-MR' : 'fr-FR', { month: 'short', timeZone: 'Africa/Nouakchott' })}</span>
+                                            <span className="text-xl font-black leading-none">{new Date(ev.start_date).toLocaleDateString('en-CA', { day: 'numeric', timeZone: 'Africa/Nouakchott' }).split('-')[2]}</span>
                                         </div>
                                         <div className="flex-1 min-w-0 pr-4">
                                             <div className="flex items-center gap-2 flex-wrap mb-1">

@@ -209,7 +209,8 @@ export function TeacherHome() {
         return currentTime.toLocaleDateString(t('common.locale') || 'fr-FR', {
             weekday: 'long',
             day: 'numeric',
-            month: 'long'
+            month: 'long',
+            timeZone: 'Africa/Nouakchott',
         })
     }
 

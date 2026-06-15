@@ -91,12 +91,9 @@ export function QuizLeaderboard({ submissions, loading = false }: QuizLeaderboar
     }
 
     const formatDate = (dateStr: string) => {
-        return new Date(dateStr).toLocaleDateString('fr-FR', {
-            day: 'numeric',
-            month: 'short',
-            hour: '2-digit',
-            minute: '2-digit'
-        })
+        const d = new Date(dateStr)
+        return d.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', timeZone: 'Africa/Nouakchott' })
+            + ' ' + d.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit', timeZone: 'Africa/Nouakchott' })
     }
 
     return (

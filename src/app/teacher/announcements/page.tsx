@@ -1,5 +1,9 @@
-import { AnnouncementsView } from '@/components/shared/announcements-view'
+import { TeacherAnnouncementsPage } from '@/components/teacher/teacher-announcements'
 
-export default function TeacherAnnouncementsPage() {
-    return <AnnouncementsView userRole="teacher" backUrl="/teacher" />
+export default function AnnouncementsPage() {
+    return (
+        <div className="p-4">
+            <TeacherAnnouncementsPage />
+        </div>
+    )
 }

@@ -2,6 +2,7 @@
 
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
+import { useState, useEffect } from 'react'
 import { cn } from '@/lib/utils'
 import {
     LayoutDashboard,
@@ -16,11 +17,13 @@ import {
     Bell,
     FolderOpen,
     BarChart3,
+    Megaphone,
 } from 'lucide-react'
 import { createClient } from '@/utils/supabase/client'
 import { useLanguage } from '@/i18n'
 import { LanguageSwitcher } from '@/components/shared/language-switcher'
 import { ThemeToggle } from '@/components/shared/theme-toggle'
+import { getTeacherAnnouncementsCountAction } from '@/app/teacher/actions'
 
 export function useTeacherSidebarItems() {
     const { t } = useLanguage()
@@ -32,6 +35,7 @@ export function useTeacherSidebarItems() {
         { icon: BrainCircuit, label: t('teacher.sidebar.quizzes'), href: '/teacher/quizzes' },
         { icon: AlertTriangle, label: t('teacher.sidebar.attendance'), href: '/teacher/remarks' },
         { icon: FolderOpen, label: t('teacher.sidebar.documents') || 'Documents', href: '/teacher/documents' },
+        { icon: Megaphone, label: t('teacher.sidebar.announcements') || 'Annonces', href: '/teacher/announcements' },
         { icon: Bell, label: t('teacher.sidebar.community') || 'Communauté', href: '/teacher/community' },
         { icon: Settings, label: t('teacher.sidebar.settings') || 'Paramètres', href: '/teacher/settings' },
     ]
@@ -45,9 +49,26 @@ export const sidebarItems = [
     { icon: BrainCircuit, label: 'teacher.sidebar.quizzes', href: '/teacher/quizzes' },
     { icon: AlertTriangle, label: 'teacher.sidebar.attendance', href: '/teacher/remarks' },
     { icon: FolderOpen, label: 'teacher.sidebar.documents', href: '/teacher/documents' },
+    { icon: Megaphone, label: 'teacher.sidebar.announcements', href: '/teacher/announcements' },
     { icon: Bell, label: 'teacher.sidebar.community', href: '/teacher/community' },
     { icon: Settings, label: 'teacher.sidebar.settings', href: '/teacher/settings' },
 ]
+
+function AnnouncementsBadge({ isCollapsed }: { isCollapsed: boolean }) {
+    const [count, setCount] = useState(0)
+    useEffect(() => {
+        getTeacherAnnouncementsCountAction().then(c => setCount(c)).catch(() => {})
+    }, [])
+    if (!count) return null
+    return (
+        <span className={cn(
+            'flex h-5 min-w-5 items-center justify-center rounded-full bg-indigo-500 px-1.5 text-[10px] font-black text-white leading-none',
+            isCollapsed ? 'absolute -top-1 -end-1' : 'ms-auto'
+        )}>
+            {count > 99 ? '99+' : count}
+        </span>
+    )
+}
 
 export function TeacherSidebar({ isCollapsed = false, onToggle }: { isCollapsed?: boolean; onToggle?: () => void }) {
     const pathname = usePathname()
@@ -126,6 +147,9 @@ export function TeacherSidebar({ isCollapsed = false, onToggle }: { isCollapsed?
                                 <span className="truncate font-extrabold animate-in fade-in duration-300">
                                     {item.label}
                                 </span>
+                            )}
+                            {item.href === '/teacher/community' && (
+                                <AnnouncementsBadge isCollapsed={isCollapsed} />
                             )}
                         </Link>
                     )

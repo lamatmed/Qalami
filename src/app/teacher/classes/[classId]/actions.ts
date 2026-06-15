@@ -525,3 +525,185 @@ export async function deletePostAction(postId: string, classId: string): Promise
     await admin.from('subject_post_attachments').delete().eq('post_id', postId)
     await admin.from('subject_posts').delete().eq('id', postId)
 }
+
+// ─── Student Points (bonus / malus) ──────────────────────────────────────────
+// Stored in remarks table: category='student_points', message="+3|raison" or "-2|raison"
+
+export interface StudentPointEntry {
+    id: string
+    student_id: string
+    message: string
+    type: string
+    created_at: string
+}
+
+export async function loadStudentPointsAction(classId: string): Promise<StudentPointEntry[]> {
+    const supabase = await createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) throw new Error('Non authentifié')
+
+    const admin = createAdminClient()
+    const { data, error } = await admin
+        .from('remarks')
+        .select('id, student_id, message, type, created_at')
+        .eq('class_id', classId)
+        .eq('teacher_id', user.id)
+        .eq('category', 'student_points')
+        .order('created_at', { ascending: false })
+
+    if (error) throw new Error(error.message)
+    return data || []
+}
+
+export async function addStudentPointAction(
+    studentId: string,
+    classId: string,
+    points: number,
+    reason: string
+): Promise<{ success: boolean }> {
+    const supabase = await createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) throw new Error('Non authentifié')
+
+    const admin = createAdminClient()
+
+    const { data: classInfo } = await admin
+        .from('classes')
+        .select('school_id')
+        .eq('id', classId)
+        .maybeSingle()
+    if (!classInfo?.school_id) throw new Error('Classe introuvable')
+
+    const { error } = await admin
+        .from('remarks')
+        .insert({
+            school_id: classInfo.school_id,
+            teacher_id: user.id,
+            student_id: studentId,
+            class_id: classId,
+            type: points > 0 ? 'positive' : 'warning',
+            category: 'student_points',
+            message: `${points > 0 ? '+' : ''}${points}|${reason.trim()}`,
+            is_visible_to_student: true,
+            is_visible_to_parent: true,
+            sender_type: 'teacher',
+        })
+
+    if (error) throw new Error(error.message)
+    return { success: true }
+}
+
+export async function deleteStudentPointAction(remarkId: string): Promise<{ success: boolean }> {
+    const supabase = await createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) throw new Error('Non authentifié')
+
+    const admin = createAdminClient()
+    const { error } = await admin
+        .from('remarks')
+        .delete()
+        .eq('id', remarkId)
+        .eq('teacher_id', user.id)
+        .eq('category', 'student_points')
+
+    if (error) throw new Error(error.message)
+    return { success: true }
+}
+
+// ─── Post Comments ────────────────────────────────────────────────────────────
+
+export interface PostComment {
+    id: string
+    post_id: string
+    author_id: string
+    parent_comment_id: string | null
+    content: string
+    created_at: string
+    author_name: string
+    author_role: string
+}
+
+export async function loadPostCommentsAction(postId: string): Promise<PostComment[]> {
+    const admin = createAdminClient()
+    const { data, error } = await admin
+        .from('subject_post_comments')
+        .select(`
+            id, post_id, author_id, parent_comment_id, content, created_at,
+            profiles!author_id(full_name, role)
+        `)
+        .eq('post_id', postId)
+        .order('created_at', { ascending: true })
+
+    if (error) throw new Error(error.message)
+    return (data || []).map((c: any) => ({
+        id: c.id,
+        post_id: c.post_id,
+        author_id: c.author_id,
+        parent_comment_id: c.parent_comment_id,
+        content: c.content,
+        created_at: c.created_at,
+        author_name: c.profiles?.full_name || 'Élève',
+        author_role: c.profiles?.role || 'student',
+    }))
+}
+
+export async function addPostCommentAction(
+    postId: string,
+    content: string,
+    parentCommentId?: string
+): Promise<PostComment> {
+    const supabase = await createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) throw new Error('Non authentifié')
+
+    const admin = createAdminClient()
+
+    const { data: post } = await admin
+        .from('subject_posts')
+        .select('school_id')
+        .eq('id', postId)
+        .maybeSingle()
+    if (!post?.school_id) throw new Error('Publication introuvable')
+
+    const { data: comment, error } = await admin
+        .from('subject_post_comments')
+        .insert({
+            school_id: post.school_id,
+            post_id: postId,
+            author_id: user.id,
+            parent_comment_id: parentCommentId || null,
+            content: content.trim(),
+        })
+        .select('id, post_id, author_id, parent_comment_id, content, created_at')
+        .single()
+
+    if (error) throw new Error(error.message)
+
+    const { data: profile } = await admin
+        .from('profiles')
+        .select('full_name, role')
+        .eq('id', user.id)
+        .maybeSingle()
+
+    return {
+        ...comment,
+        author_name: profile?.full_name || 'Enseignant',
+        author_role: profile?.role || 'teacher',
+    }
+}
+
+export async function deletePostCommentAction(commentId: string): Promise<{ success: boolean }> {
+    const supabase = await createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) throw new Error('Non authentifié')
+
+    const admin = createAdminClient()
+    const { error } = await admin
+        .from('subject_post_comments')
+        .delete()
+        .eq('id', commentId)
+        .eq('author_id', user.id)
+
+    if (error) throw new Error(error.message)
+    return { success: true }
+}

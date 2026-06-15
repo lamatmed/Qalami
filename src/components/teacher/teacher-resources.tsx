@@ -180,7 +180,7 @@ export function TeacherResources() {
         if (diffDays === 0) return t('teacher.resources.dueDateToday')
         if (diffDays === 1) return t('teacher.resources.dueDateTomorrow')
         if (diffDays < 7) return t('teacher.resources.dueDateDays', { count: diffDays })
-        return date.toLocaleDateString(t('common.locale') || 'fr-FR', { day: 'numeric', month: 'short' })
+        return date.toLocaleDateString(t('common.locale') || 'fr-FR', { day: 'numeric', month: 'short', timeZone: 'Africa/Nouakchott' })
     }
 
     const docTypeLabels: Record<string, string> = {

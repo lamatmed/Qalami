@@ -26,6 +26,13 @@ import {
     Send,
     BookOpen,
     Download,
+    Star,
+    TrendingUp,
+    TrendingDown,
+    MessageCircle,
+    ChevronDown,
+    ChevronUp,
+    CornerDownRight,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -52,7 +59,15 @@ import {
     loadPostsAction,
     createPostAction,
     deletePostAction,
+    loadStudentPointsAction,
+    addStudentPointAction,
+    deleteStudentPointAction,
+    loadPostCommentsAction,
+    addPostCommentAction,
+    deletePostCommentAction,
     type SubjectPost,
+    type StudentPointEntry,
+    type PostComment,
 } from '@/app/teacher/classes/[classId]/actions'
 
 interface Student {
@@ -153,6 +168,20 @@ export function ClassDetails({ classId, className, students }: ClassDetailsProps
     const [deletingPostId, setDeletingPostId] = useState<string | null>(null)
     const [currentUserId, setCurrentUserId] = useState<string | null>(null)
 
+    // State for student points (bonus / malus)
+    const [studentPoints, setStudentPoints] = useState<StudentPointEntry[]>([])
+    const [addingPointStudentId, setAddingPointStudentId] = useState<string | null>(null)
+    const [pointForm, setPointForm] = useState({ positive: true, amount: 1, reason: '' })
+    const [savingPoint, setSavingPoint] = useState(false)
+
+    // State for post comments
+    const [postComments, setPostComments] = useState<Record<string, PostComment[]>>({})
+    const [loadingComments, setLoadingComments] = useState<Record<string, boolean>>({})
+    const [expandedComments, setExpandedComments] = useState<Set<string>>(new Set())
+    const [commentTexts, setCommentTexts] = useState<Record<string, string>>({})
+    const [replyingTo, setReplyingTo] = useState<Record<string, { id: string; name: string } | null>>({})
+    const [submittingComment, setSubmittingComment] = useState<Record<string, boolean>>({})
+
     const filteredStudents = students.filter(s =>
         s.full_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
         (s.national_id && s.national_id.toLowerCase().includes(searchQuery.toLowerCase()))
@@ -216,6 +245,106 @@ export function ClassDetails({ classId, className, students }: ClassDetailsProps
             console.error('Error loading posts:', error)
         } finally {
             setLoadingPosts(false)
+        }
+    }
+
+    // ── Student points helpers & handlers ────────────────────────────────────
+    const parsePoint = (message: string) => {
+        const idx = message.indexOf('|')
+        if (idx === -1) return { points: 0, reason: message }
+        return { points: parseInt(message.substring(0, idx)) || 0, reason: message.substring(idx + 1) }
+    }
+
+    const getNetPoints = (studentId: string) =>
+        studentPoints
+            .filter(p => p.student_id === studentId)
+            .reduce((sum, p) => sum + parsePoint(p.message).points, 0)
+
+    const loadStudentPoints = async () => {
+        try {
+            const data = await loadStudentPointsAction(classId)
+            setStudentPoints(data)
+        } catch (e) {
+            console.error('Error loading student points:', e)
+        }
+    }
+
+    const handleAddPoint = async (studentId: string) => {
+        if (!pointForm.reason.trim() || pointForm.amount < 1) return
+        setSavingPoint(true)
+        try {
+            const points = pointForm.positive ? pointForm.amount : -pointForm.amount
+            await addStudentPointAction(studentId, classId, points, pointForm.reason)
+            toast.success(pointForm.positive ? `+${pointForm.amount} points ajoutés` : `-${pointForm.amount} points retirés`)
+            setAddingPointStudentId(null)
+            setPointForm({ positive: true, amount: 1, reason: '' })
+            await loadStudentPoints()
+        } catch (e) {
+            toast.error('Erreur lors de l\'enregistrement')
+        } finally {
+            setSavingPoint(false)
+        }
+    }
+
+    const handleDeletePoint = async (remarkId: string) => {
+        try {
+            await deleteStudentPointAction(remarkId)
+            await loadStudentPoints()
+        } catch (e) {
+            toast.error('Erreur lors de la suppression')
+        }
+    }
+
+    // ── Post comments helpers & handlers ────────────────────────────────────
+    const toggleComments = async (postId: string) => {
+        const next = new Set(expandedComments)
+        if (next.has(postId)) {
+            next.delete(postId)
+            setExpandedComments(next)
+            return
+        }
+        next.add(postId)
+        setExpandedComments(next)
+        if (!postComments[postId]) {
+            setLoadingComments(prev => ({ ...prev, [postId]: true }))
+            try {
+                const data = await loadPostCommentsAction(postId)
+                setPostComments(prev => ({ ...prev, [postId]: data }))
+            } catch (e) {
+                console.error('Error loading comments:', e)
+            } finally {
+                setLoadingComments(prev => ({ ...prev, [postId]: false }))
+            }
+        }
+    }
+
+    const handleSubmitComment = async (postId: string) => {
+        const text = commentTexts[postId]?.trim()
+        if (!text) return
+        setSubmittingComment(prev => ({ ...prev, [postId]: true }))
+        try {
+            const parentId = replyingTo[postId]?.id
+            const newComment = await addPostCommentAction(postId, text, parentId)
+            setPostComments(prev => ({ ...prev, [postId]: [...(prev[postId] || []), newComment] }))
+            setCommentTexts(prev => ({ ...prev, [postId]: '' }))
+            setReplyingTo(prev => ({ ...prev, [postId]: null }))
+            toast.success('Commentaire ajouté')
+        } catch (e) {
+            toast.error('Erreur lors de l\'envoi')
+        } finally {
+            setSubmittingComment(prev => ({ ...prev, [postId]: false }))
+        }
+    }
+
+    const handleDeleteComment = async (postId: string, commentId: string) => {
+        try {
+            await deletePostCommentAction(commentId)
+            setPostComments(prev => ({
+                ...prev,
+                [postId]: (prev[postId] || []).filter(c => c.id !== commentId)
+            }))
+        } catch (e) {
+            toast.error('Erreur lors de la suppression')
         }
     }
 
@@ -306,6 +435,7 @@ export function ClassDetails({ classId, className, students }: ClassDetailsProps
         loadTeacherSubjects()
         loadActiveAttendance()
         loadPosts()
+        loadStudentPoints()
         supabase.auth.getUser().then(({ data: { user } }) => {
             if (user) setCurrentUserId(user.id)
         })
@@ -588,40 +718,153 @@ export function ClassDetails({ classId, className, students }: ClassDetailsProps
                         />
                     </div>
 
-                    <div className="space-y-3">
-                        {filteredStudents.map((student, idx) => (
-                            <div
-                                key={student.id}
-                                className="bg-card p-3 rounded-2xl flex items-center justify-between group border border-border/50 hover:border-primary/30 transition-colors"
-                            >
-                                <div className="flex items-center gap-3">
-                                    <div className="relative">
-                                        <Avatar className="h-10 w-10 border border-border/50">
-                                            <AvatarImage src={student.avatar_url} />
-                                            <AvatarFallback>{student.full_name.substring(0, 2).toUpperCase()}</AvatarFallback>
-                                        </Avatar>
-                                    </div>
-                                    <div>
-                                        <h3 className="font-semibold text-sm text-gray-200">
-                                            {student.full_name}
-                                            {student.national_id && <span className="text-[10px] ml-2 text-slate-950 dark:text-white font-black font-mono bg-black/5 dark:bg-white/10 px-1.5 py-0.5 rounded">({student.national_id})</span>}
-                                        </h3>
-                                        <p className="text-[10px] text-muted-foreground">
-                                            {t('teacher.classes.details.average') || 'Moyenne'}: {getStudentAverage(student.id) || 'N/A'}
-                                        </p>
-                                    </div>
-                                </div>
+                    <div className="space-y-2">
+                        {filteredStudents.map((student) => {
+                            const net = getNetPoints(student.id)
+                            const isExpanded = addingPointStudentId === student.id
+                            const studentEntries = studentPoints.filter(p => p.student_id === student.id)
+                            return (
+                                <div key={student.id} className="bg-card rounded-2xl border border-border/50 hover:border-primary/30 transition-colors overflow-hidden">
+                                    {/* Main row */}
+                                    <div className="p-3 flex items-center justify-between gap-2">
+                                        <div className="flex items-center gap-3 min-w-0">
+                                            <Avatar className="h-10 w-10 border border-border/50 shrink-0">
+                                                <AvatarImage src={student.avatar_url} />
+                                                <AvatarFallback>{student.full_name.substring(0, 2).toUpperCase()}</AvatarFallback>
+                                            </Avatar>
+                                            <div className="min-w-0">
+                                                <h3 className="font-semibold text-sm text-gray-200 truncate">
+                                                    {student.full_name}
+                                                    {student.national_id && <span className="text-[10px] ms-2 text-slate-950 dark:text-white font-black font-mono bg-black/5 dark:bg-white/10 px-1.5 py-0.5 rounded">({student.national_id})</span>}
+                                                </h3>
+                                                <div className="flex items-center gap-2 mt-0.5">
+                                                    <p className="text-[10px] text-muted-foreground">
+                                                        {t('teacher.classes.details.average') || 'Moy'}: {getStudentAverage(student.id) || 'N/A'}
+                                                    </p>
+                                                    {net !== 0 && (
+                                                        <span className={cn(
+                                                            'flex items-center gap-0.5 text-[10px] font-black px-1.5 py-0.5 rounded-full',
+                                                            net > 0
+                                                                ? 'bg-emerald-500/15 text-emerald-400'
+                                                                : 'bg-red-500/15 text-red-400'
+                                                        )}>
+                                                            {net > 0 ? <TrendingUp className="w-2.5 h-2.5" /> : <TrendingDown className="w-2.5 h-2.5" />}
+                                                            {net > 0 ? `+${net}` : net} pts
+                                                        </span>
+                                                    )}
+                                                </div>
+                                            </div>
+                                        </div>
 
-                                <div className="flex items-center gap-2">
-                                    <Button variant="ghost" size="icon" className="h-9 w-9 text-muted-foreground hover:text-white rounded-xl bg-white/5 hover:bg-white/10">
-                                        <MessageSquare className="w-4 h-4" />
-                                    </Button>
-                                    <Button variant="ghost" size="icon" className="h-9 w-9 text-muted-foreground hover:text-white rounded-xl bg-white/5 hover:bg-white/10">
-                                        <Info className="w-4 h-4" />
-                                    </Button>
+                                        <div className="flex items-center gap-1.5 shrink-0">
+                                            <button
+                                                type="button"
+                                                title={isExpanded ? 'Fermer' : 'Bonus / Malus'}
+                                                onClick={() => {
+                                                    setAddingPointStudentId(isExpanded ? null : student.id)
+                                                    setPointForm({ positive: true, amount: 1, reason: '' })
+                                                }}
+                                                className={cn(
+                                                    'h-8 w-8 rounded-xl flex items-center justify-center transition-colors',
+                                                    isExpanded
+                                                        ? 'bg-amber-500/20 text-amber-400'
+                                                        : 'bg-white/5 text-muted-foreground hover:bg-white/10 hover:text-amber-400'
+                                                )}
+                                            >
+                                                <Star className="w-3.5 h-3.5" />
+                                            </button>
+                                            <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-white rounded-xl bg-white/5 hover:bg-white/10">
+                                                <MessageSquare className="w-3.5 h-3.5" />
+                                            </Button>
+                                        </div>
+                                    </div>
+
+                                    {/* Inline bonus/malus form */}
+                                    {isExpanded && (
+                                        <div className="px-3 pb-3 space-y-2.5 border-t border-border/30 pt-2.5">
+                                            {/* Toggle + / - */}
+                                            <div className="flex items-center gap-2">
+                                                <button
+                                                    type="button"
+                                                    onClick={() => setPointForm(p => ({ ...p, positive: true }))}
+                                                    className={cn(
+                                                        'flex-1 h-8 rounded-lg text-xs font-bold transition-colors flex items-center justify-center gap-1.5',
+                                                        pointForm.positive
+                                                            ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
+                                                            : 'bg-white/5 text-muted-foreground hover:bg-white/10'
+                                                    )}
+                                                >
+                                                    <TrendingUp className="w-3.5 h-3.5" /> Bonus
+                                                </button>
+                                                <button
+                                                    type="button"
+                                                    onClick={() => setPointForm(p => ({ ...p, positive: false }))}
+                                                    className={cn(
+                                                        'flex-1 h-8 rounded-lg text-xs font-bold transition-colors flex items-center justify-center gap-1.5',
+                                                        !pointForm.positive
+                                                            ? 'bg-red-500/20 text-red-400 border border-red-500/30'
+                                                            : 'bg-white/5 text-muted-foreground hover:bg-white/10'
+                                                    )}
+                                                >
+                                                    <TrendingDown className="w-3.5 h-3.5" /> Malus
+                                                </button>
+                                            </div>
+
+                                            <div className="flex gap-2">
+                                                <input
+                                                    type="number"
+                                                    min={1}
+                                                    max={20}
+                                                    value={pointForm.amount}
+                                                    onChange={e => setPointForm(p => ({ ...p, amount: Math.max(1, parseInt(e.target.value) || 1) }))}
+                                                    className="w-16 h-8 rounded-lg bg-background/60 border border-border/50 text-center text-sm font-bold focus:outline-none focus:ring-2 focus:ring-primary/30"
+                                                />
+                                                <input
+                                                    type="text"
+                                                    placeholder="Raison (ex: participation, retard...)"
+                                                    value={pointForm.reason}
+                                                    onChange={e => setPointForm(p => ({ ...p, reason: e.target.value }))}
+                                                    className="flex-1 h-8 rounded-lg bg-background/60 border border-border/50 px-3 text-xs focus:outline-none focus:ring-2 focus:ring-primary/30"
+                                                />
+                                                <button
+                                                    type="button"
+                                                    disabled={!pointForm.reason.trim() || savingPoint}
+                                                    onClick={() => handleAddPoint(student.id)}
+                                                    className="h-8 px-3 rounded-lg bg-primary text-primary-foreground text-xs font-bold hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1"
+                                                >
+                                                    {savingPoint ? <Loader2 className="w-3 h-3 animate-spin" /> : <Check className="w-3 h-3" />}
+                                                </button>
+                                            </div>
+
+                                            {/* History */}
+                                            {studentEntries.length > 0 && (
+                                                <div className="space-y-1 max-h-28 overflow-y-auto">
+                                                    {studentEntries.map(entry => {
+                                                        const { points, reason } = parsePoint(entry.message)
+                                                        return (
+                                                            <div key={entry.id} className="flex items-center justify-between gap-2 text-[10px] py-0.5">
+                                                                <span className={cn('font-black shrink-0', points > 0 ? 'text-emerald-400' : 'text-red-400')}>
+                                                                    {points > 0 ? `+${points}` : points}
+                                                                </span>
+                                                                <span className="flex-1 text-muted-foreground truncate">{reason}</span>
+                                                                <button
+                                                                    type="button"
+                                                                    title="Supprimer"
+                                                                    onClick={() => handleDeletePoint(entry.id)}
+                                                                    className="text-muted-foreground/50 hover:text-red-400 transition-colors shrink-0"
+                                                                >
+                                                                    <X className="w-3 h-3" />
+                                                                </button>
+                                                            </div>
+                                                        )
+                                                    })}
+                                                </div>
+                                            )}
+                                        </div>
+                                    )}
                                 </div>
-                            </div>
-                        ))}
+                            )
+                        })}
                     </div>
                 </TabsContent>
 
@@ -1378,6 +1621,161 @@ export function ClassDetails({ classId, className, students }: ClassDetailsProps
                                                 {(() => { const _d = new Date(post.created_at); return _d.toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: 'numeric', timeZone: 'Africa/Nouakchott' }) + ' ' + _d.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit', timeZone: 'Africa/Nouakchott' }) })()}
                                             </span>
                                         </div>
+
+                                        {/* Comments toggle */}
+                                        <button
+                                            type="button"
+                                            onClick={() => toggleComments(post.id)}
+                                            className="flex items-center gap-1.5 text-[11px] font-bold text-muted-foreground hover:text-primary transition-colors pt-1 border-t border-border/20 w-full"
+                                        >
+                                            <MessageCircle className="w-3.5 h-3.5" />
+                                            {postComments[post.id]
+                                                ? `${postComments[post.id].length} commentaire${postComments[post.id].length !== 1 ? 's' : ''}`
+                                                : 'Commentaires'
+                                            }
+                                            {expandedComments.has(post.id)
+                                                ? <ChevronUp className="w-3 h-3 ms-auto" />
+                                                : <ChevronDown className="w-3 h-3 ms-auto" />
+                                            }
+                                        </button>
+
+                                        {/* Comments section */}
+                                        {expandedComments.has(post.id) && (
+                                            <div className="space-y-2 pt-1">
+                                                {loadingComments[post.id] ? (
+                                                    <div className="flex justify-center py-3">
+                                                        <Loader2 className="w-4 h-4 animate-spin text-muted-foreground" />
+                                                    </div>
+                                                ) : (postComments[post.id] || []).length === 0 ? (
+                                                    <p className="text-[11px] text-muted-foreground/60 text-center py-2">Aucun commentaire</p>
+                                                ) : (
+                                                    <div className="space-y-2">
+                                                        {/* Top-level comments */}
+                                                        {(postComments[post.id] || [])
+                                                            .filter(c => !c.parent_comment_id)
+                                                            .map(comment => (
+                                                                <div key={comment.id} className="space-y-1.5">
+                                                                    <div className="flex items-start gap-2 bg-white/[0.03] rounded-xl px-3 py-2">
+                                                                        <div className="w-6 h-6 rounded-full bg-white/10 flex items-center justify-center text-[10px] font-black shrink-0 mt-0.5">
+                                                                            {comment.author_name.substring(0, 1).toUpperCase()}
+                                                                        </div>
+                                                                        <div className="flex-1 min-w-0">
+                                                                            <div className="flex items-center justify-between gap-1">
+                                                                                <span className={cn(
+                                                                                    'text-[10px] font-extrabold',
+                                                                                    comment.author_role === 'teacher' ? 'text-indigo-400' : 'text-slate-300'
+                                                                                )}>
+                                                                                    {comment.author_name}
+                                                                                    {comment.author_role === 'teacher' && <span className="ms-1 text-[8px] font-black uppercase tracking-wider text-indigo-400/70">Prof</span>}
+                                                                                </span>
+                                                                                <div className="flex items-center gap-1 shrink-0">
+                                                                                    {currentUserId && comment.author_id !== currentUserId && (
+                                                                                        <button
+                                                                                            type="button"
+                                                                                            title="Répondre"
+                                                                                            onClick={() => setReplyingTo(prev => ({
+                                                                                                ...prev,
+                                                                                                [post.id]: replyingTo[post.id]?.id === comment.id ? null : { id: comment.id, name: comment.author_name }
+                                                                                            }))}
+                                                                                            className="text-muted-foreground/50 hover:text-indigo-400 transition-colors"
+                                                                                        >
+                                                                                            <CornerDownRight className="w-3 h-3" />
+                                                                                        </button>
+                                                                                    )}
+                                                                                    {currentUserId === comment.author_id && (
+                                                                                        <button
+                                                                                            type="button"
+                                                                                            title="Supprimer"
+                                                                                            onClick={() => handleDeleteComment(post.id, comment.id)}
+                                                                                            className="text-muted-foreground/50 hover:text-red-400 transition-colors"
+                                                                                        >
+                                                                                            <Trash2 className="w-3 h-3" />
+                                                                                        </button>
+                                                                                    )}
+                                                                                </div>
+                                                                            </div>
+                                                                            <p className="text-xs text-muted-foreground mt-0.5 leading-snug">{comment.content}</p>
+                                                                        </div>
+                                                                    </div>
+
+                                                                    {/* Replies */}
+                                                                    {(postComments[post.id] || [])
+                                                                        .filter(r => r.parent_comment_id === comment.id)
+                                                                        .map(reply => (
+                                                                            <div key={reply.id} className="flex items-start gap-2 ms-6 bg-white/[0.02] rounded-xl px-3 py-2 border-s-2 border-indigo-500/20">
+                                                                                <div className="w-5 h-5 rounded-full bg-white/10 flex items-center justify-center text-[9px] font-black shrink-0 mt-0.5">
+                                                                                    {reply.author_name.substring(0, 1).toUpperCase()}
+                                                                                </div>
+                                                                                <div className="flex-1 min-w-0">
+                                                                                    <div className="flex items-center justify-between">
+                                                                                        <span className={cn(
+                                                                                            'text-[10px] font-extrabold',
+                                                                                            reply.author_role === 'teacher' ? 'text-indigo-400' : 'text-slate-300'
+                                                                                        )}>
+                                                                                            {reply.author_name}
+                                                                                            {reply.author_role === 'teacher' && <span className="ms-1 text-[8px] font-black uppercase tracking-wider text-indigo-400/70">Prof</span>}
+                                                                                        </span>
+                                                                                        {currentUserId === reply.author_id && (
+                                                                                            <button
+                                                                                                type="button"
+                                                                                                title="Supprimer"
+                                                                                                onClick={() => handleDeleteComment(post.id, reply.id)}
+                                                                                                className="text-muted-foreground/50 hover:text-red-400 transition-colors"
+                                                                                            >
+                                                                                                <Trash2 className="w-3 h-3" />
+                                                                                            </button>
+                                                                                        )}
+                                                                                    </div>
+                                                                                    <p className="text-xs text-muted-foreground mt-0.5 leading-snug">{reply.content}</p>
+                                                                                </div>
+                                                                            </div>
+                                                                        ))
+                                                                    }
+                                                                </div>
+                                                            ))
+                                                        }
+                                                    </div>
+                                                )}
+
+                                                {/* Reply indicator */}
+                                                {replyingTo[post.id] && (
+                                                    <div className="flex items-center gap-2 text-[10px] text-indigo-400 bg-indigo-500/10 px-3 py-1.5 rounded-lg">
+                                                        <CornerDownRight className="w-3 h-3" />
+                                                        Répondre à <strong>{replyingTo[post.id]?.name}</strong>
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => setReplyingTo(prev => ({ ...prev, [post.id]: null }))}
+                                                            className="ms-auto"
+                                                        >
+                                                            <X className="w-3 h-3" />
+                                                        </button>
+                                                    </div>
+                                                )}
+
+                                                {/* Add comment input */}
+                                                <div className="flex gap-2">
+                                                    <input
+                                                        type="text"
+                                                        placeholder="Votre réponse..."
+                                                        value={commentTexts[post.id] || ''}
+                                                        onChange={e => setCommentTexts(prev => ({ ...prev, [post.id]: e.target.value }))}
+                                                        onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSubmitComment(post.id) } }}
+                                                        className="flex-1 h-8 rounded-lg bg-background/60 border border-border/50 px-3 text-xs focus:outline-none focus:ring-2 focus:ring-primary/30"
+                                                    />
+                                                    <button
+                                                        type="button"
+                                                        disabled={!commentTexts[post.id]?.trim() || submittingComment[post.id]}
+                                                        onClick={() => handleSubmitComment(post.id)}
+                                                        className="h-8 w-8 rounded-lg bg-primary text-primary-foreground flex items-center justify-center hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed shrink-0"
+                                                    >
+                                                        {submittingComment[post.id]
+                                                            ? <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                                                            : <Send className="w-3.5 h-3.5" />
+                                                        }
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        )}
                                     </Card>
                                 )
                             })}

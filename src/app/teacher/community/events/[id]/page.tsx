@@ -59,8 +59,8 @@ export default function EventDetailsPage() {
             <div className="bg-white dark:bg-slate-900 border border-slate-150 dark:border-white/5 rounded-3xl p-6 sm:p-8 shadow-sm">
                 <div className="flex flex-col sm:flex-row sm:items-start gap-4 sm:gap-6">
                     <div className="w-16 h-16 sm:w-20 sm:h-20 shrink-0 rounded-3xl flex flex-col items-center justify-center overflow-hidden border shadow-inner" style={{ backgroundColor: eventColor + '15', borderColor: eventColor + '30', color: eventColor }}>
-                        <span className="text-xs sm:text-sm font-black uppercase tracking-wider">{new Date(eventData.start_date).toLocaleDateString(language === 'ar' ? 'ar-MR' : 'fr-FR', { month: 'short' })}</span>
-                        <span className="text-2xl sm:text-3xl font-black leading-none mt-0.5">{new Date(eventData.start_date).getDate()}</span>
+                        <span className="text-xs sm:text-sm font-black uppercase tracking-wider">{new Date(eventData.start_date).toLocaleDateString(language === 'ar' ? 'ar-MR' : 'fr-FR', { month: 'short', timeZone: 'Africa/Nouakchott' })}</span>
+                        <span className="text-2xl sm:text-3xl font-black leading-none mt-0.5">{new Date(eventData.start_date).toLocaleDateString('en-CA', { day: 'numeric', timeZone: 'Africa/Nouakchott' }).split('-')[2]}</span>
                     </div>
                     
                     <div className="flex-1 space-y-5">
