@@ -767,7 +767,7 @@ export function ClassDetails({ classId, className, students }: ClassDetailsProps
                                                 className={cn(
                                                     'h-8 w-8 rounded-xl flex items-center justify-center transition-colors',
                                                     isExpanded
-                                                        ? 'bg-amber-600/20 text-amber-400'
+                                                        ? 'bg-amber-500/20 text-amber-400'
                                                         : 'bg-white/5 text-muted-foreground hover:bg-white/10 hover:text-amber-400'
                                                 )}
                                             >
