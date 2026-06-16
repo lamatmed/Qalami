@@ -43,7 +43,7 @@ export async function POST(req: NextRequest) {
 
         if (uploadError) {
             console.error('Admin upload failed:', uploadError)
-            return NextResponse.json({ error: uploadError.message }, { status: 500 })
+            return NextResponse.json({ error: "Upload échoué" }, { status: 500 })
         }
 
         const { data: { publicUrl } } = admin.storage.from('documents').getPublicUrl(filePath)

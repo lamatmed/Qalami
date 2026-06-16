@@ -14,8 +14,22 @@ export async function POST(req: NextRequest) {
         if (!file || !classId) return NextResponse.json({ error: 'Missing fields' }, { status: 400 })
 
         const admin = createAdminClient()
+
+        // Verify caller is a teacher assigned to this class
+        const { data: assignment } = await admin
+            .from('teacher_assignments')
+            .select('id')
+            .eq('teacher_id', user.id)
+            .eq('class_id', classId)
+            .maybeSingle()
+
+        if (!assignment) {
+            return NextResponse.json({ error: 'Permission refusée' }, { status: 403 })
+        }
+
         const buffer = await file.arrayBuffer()
-        const filePath = `class-posts/${classId}/${Date.now()}_${file.name}`
+        const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_')
+        const filePath = `class-posts/${classId}/${Date.now()}_${safeName}`
 
         const { data: bucketData } = await admin.storage.getBucket('documents')
         if (!bucketData) {
@@ -33,7 +47,7 @@ export async function POST(req: NextRequest) {
             .from('documents')
             .upload(filePath, buffer, { contentType: file.type, upsert: true })
 
-        if (uploadError) return NextResponse.json({ error: uploadError.message }, { status: 500 })
+        if (uploadError) return NextResponse.json({ error: 'Upload échoué' }, { status: 500 })
 
         const { data: { publicUrl } } = admin.storage.from('documents').getPublicUrl(filePath)
         return NextResponse.json({ publicUrl, fileName: file.name, fileType: file.type })

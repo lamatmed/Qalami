@@ -17,7 +17,7 @@ export async function DELETE(req: NextRequest) {
         .from('profiles')
         .select('school_id, role')
         .eq('id', user.id)
-        .single()
+        .maybeSingle()
 
     if (!callerProfile?.school_id) {
         return NextResponse.json({ error: 'École introuvable' }, { status: 403 })
@@ -34,7 +34,7 @@ export async function DELETE(req: NextRequest) {
         .from('profiles')
         .select('school_id')
         .eq('id', profileId)
-        .single()
+        .maybeSingle()
 
     if (!staffProfile || staffProfile.school_id !== callerProfile.school_id) {
         return NextResponse.json({ error: 'Permission refusée' }, { status: 403 })
@@ -45,10 +45,9 @@ export async function DELETE(req: NextRequest) {
         .delete({ count: 'exact' })
         .eq('id', profileId)
 
-    console.log('[API /staff/delete] profileId:', profileId, 'error:', error?.message, 'count:', count)
-
     if (error) {
-        return NextResponse.json({ error: error.message }, { status: 500 })
+        console.error('[staff/delete] DB error:', error.code)
+        return NextResponse.json({ error: 'Suppression échouée' }, { status: 500 })
     }
 
     return NextResponse.json({ success: true, count })

@@ -62,7 +62,7 @@ export async function POST(req: NextRequest) {
                 .upload(filePath, buffer, { contentType: file.type, upsert: true })
 
             if (storageErr) {
-                return NextResponse.json({ error: storageErr.message }, { status: 500 })
+                return NextResponse.json({ error: "Upload échoué" }, { status: 500 })
             }
 
             const { data: { publicUrl } } = admin.storage.from('documents').getPublicUrl(filePath)
@@ -81,7 +81,7 @@ export async function POST(req: NextRequest) {
             })
 
             if (dbErr) {
-                return NextResponse.json({ error: dbErr.message }, { status: 500 })
+                return NextResponse.json({ error: "Erreur base de données" }, { status: 500 })
             }
 
             // Send notification to the parent
@@ -129,7 +129,7 @@ export async function POST(req: NextRequest) {
                 .upload(filePath, buffer, { contentType: file.type, upsert: true })
 
             if (storageErr) {
-                return NextResponse.json({ error: storageErr.message }, { status: 500 })
+                return NextResponse.json({ error: "Upload échoué" }, { status: 500 })
             }
 
             const { data: { publicUrl } } = admin.storage.from('documents').getPublicUrl(filePath)
@@ -145,7 +145,7 @@ export async function POST(req: NextRequest) {
                 .eq('id', docId)
 
             if (dbErr) {
-                return NextResponse.json({ error: dbErr.message }, { status: 500 })
+                return NextResponse.json({ error: "Erreur base de données" }, { status: 500 })
             }
 
             // Send notification to the parent

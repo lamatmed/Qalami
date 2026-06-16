@@ -63,7 +63,7 @@ export async function POST(req: NextRequest) {
             .upload(filePath, buffer, { contentType: file.type, upsert: true })
 
         if (uploadError) {
-            return NextResponse.json({ error: uploadError.message }, { status: 500 })
+            return NextResponse.json({ error: "Upload échoué" }, { status: 500 })
         }
 
         const { data: { publicUrl } } = admin.storage.from('documents').getPublicUrl(filePath)
@@ -74,7 +74,7 @@ export async function POST(req: NextRequest) {
             .eq('id', attendanceId)
 
         if (dbError) {
-            return NextResponse.json({ error: dbError.message }, { status: 500 })
+            return NextResponse.json({ error: "Erreur base de données" }, { status: 500 })
         }
 
         // Notify admins — fire-and-forget, don't block the response

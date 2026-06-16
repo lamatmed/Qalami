@@ -32,7 +32,7 @@ export async function DELETE(req: NextRequest) {
         }
 
         const { error: dbError } = await admin.from('documents').delete().eq('id', docId)
-        if (dbError) return NextResponse.json({ error: dbError.message }, { status: 500 })
+        if (dbError) return NextResponse.json({ error: "Erreur base de données" }, { status: 500 })
 
         return NextResponse.json({ success: true })
     } catch (err: any) {
@@ -93,7 +93,7 @@ export async function PUT(req: NextRequest) {
                 .from('documents')
                 .upload(filePath, buffer, { contentType: file.type, upsert: false })
 
-            if (uploadError) return NextResponse.json({ error: uploadError.message }, { status: 500 })
+            if (uploadError) return NextResponse.json({ error: "Upload échoué" }, { status: 500 })
 
             const { data: { publicUrl } } = admin.storage.from('documents').getPublicUrl(filePath)
 
@@ -117,7 +117,7 @@ export async function PUT(req: NextRequest) {
             .update(updatePayload)
             .eq('id', docId)
 
-        if (dbError) return NextResponse.json({ error: dbError.message }, { status: 500 })
+        if (dbError) return NextResponse.json({ error: "Erreur base de données" }, { status: 500 })
 
         return NextResponse.json({ success: true, newName: updatePayload.name ?? null, newUrl: updatePayload.file_url ?? null })
     } catch (err: any) {

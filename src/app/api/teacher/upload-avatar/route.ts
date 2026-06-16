@@ -54,7 +54,7 @@ export async function POST(req: NextRequest) {
 
         if (uploadError) {
             console.error('Avatar upload error:', uploadError)
-            return NextResponse.json({ error: uploadError.message }, { status: 500 })
+            return NextResponse.json({ error: "Upload échoué" }, { status: 500 })
         }
 
         // 6. Get the public URL for the uploaded avatar

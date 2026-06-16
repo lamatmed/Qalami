@@ -13,7 +13,7 @@ export async function getMySchoolContext() {
         .from('profiles')
         .select('school_id, role, full_name, avatar_url')
         .eq('id', user.id)
-        .single()
+        .maybeSingle()
 
     if (!profile?.school_id) return null
     return {
@@ -222,7 +222,7 @@ export async function notifyLateParentAction(studentId: string, overdueCount: nu
         .from('profiles')
         .select('full_name, school_id')
         .eq('id', studentId)
-        .single()
+        .maybeSingle()
 
     if (!student) {
         return { error: "Élève introuvable." }
@@ -288,7 +288,7 @@ export async function notifyAdminSelf(params: {
     const ctx = await getMySchoolContext()
     if (!ctx) return
     const adminClient = createAdminClient()
-    await adminClient.from('notifications').insert({
+    const { error } = await adminClient.from('notifications').insert({
         user_id: ctx.user_id,
         school_id: ctx.school_id,
         title: params.title,
@@ -298,6 +298,7 @@ export async function notifyAdminSelf(params: {
         event_type: params.eventType ?? null,
         is_read: false,
     })
+    if (error) console.error('[notifyAdminSelf] insert failed:', error.message)
 }
 
 const DOC_TYPE_LABELS_NOTIF: Record<string, string> = {

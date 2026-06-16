@@ -15,12 +15,13 @@ export async function getTeacherScheduleAction(teacherId: string, dayOfWeek: num
     if (!user) throw new Error("Non authentifié")
 
     const admin = createAdminClient()
-    const { data: profile } = await admin
+    const { data: profile, error: profileErr } = await admin
         .from('profiles')
         .select('role')
         .eq('id', user.id)
-        .single()
+        .maybeSingle()
 
+    if (profileErr) throw new Error("Erreur base de données")
     if (!profile) throw new Error("Profil introuvable")
 
     if (profile.role === 'teacher' && user.id !== teacherId) {
@@ -78,12 +79,13 @@ export async function getTeacherAssignmentsAction(teacherId: string) {
     if (!user) throw new Error("Non authentifié")
 
     const admin = createAdminClient()
-    const { data: profile } = await admin
+    const { data: profile, error: profileErr } = await admin
         .from('profiles')
         .select('role')
         .eq('id', user.id)
-        .single()
+        .maybeSingle()
 
+    if (profileErr) throw new Error("Erreur base de données")
     if (!profile) throw new Error("Profil introuvable")
 
     if (profile.role === 'teacher' && user.id !== teacherId) {
@@ -132,12 +134,13 @@ export async function getClassStudentsAction(classId: string) {
     if (!user) throw new Error("Non authentifié")
 
     const admin = createAdminClient()
-    const { data: profile } = await admin
+    const { data: profile, error: profileErr } = await admin
         .from('profiles')
         .select('role')
         .eq('id', user.id)
-        .single()
+        .maybeSingle()
 
+    if (profileErr) throw new Error("Erreur base de données")
     if (!profile) throw new Error("Profil introuvable")
 
     if (profile.role === 'teacher') {
@@ -196,12 +199,13 @@ export async function createRemarkAction(payload: any) {
     if (!user) throw new Error("Non authentifié")
 
     const admin = createAdminClient()
-    const { data: profile } = await admin
+    const { data: profile, error: profileErr } = await admin
         .from('profiles')
         .select('role')
         .eq('id', user.id)
-        .single()
+        .maybeSingle()
 
+    if (profileErr) throw new Error("Erreur base de données")
     if (!profile) throw new Error("Profil introuvable")
 
     if (profile.role === 'teacher') {
@@ -237,7 +241,7 @@ export async function getTeacherProfileAction() {
         .from('profiles')
         .select('id, full_name, avatar_url, phone')
         .eq('id', user.id)
-        .single()
+        .maybeSingle()
 
     return profile
 }

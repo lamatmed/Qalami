@@ -73,7 +73,10 @@ export function TeacherHome() {
                     new Promise<never>((_, reject) =>
                         setTimeout(() => reject(new Error('schedule-timeout')), 12_000)
                     ),
-                ]).catch(() => [])
+                ]).catch((err: Error) => {
+                    if (err.message !== 'schedule-timeout') console.error('Schedule fetch error:', err)
+                    return []
+                })
 
                 if (todaySchedule && todaySchedule.length > 0) {
                     // Calculate remaining classes (not yet ended)

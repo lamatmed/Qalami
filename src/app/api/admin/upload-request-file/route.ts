@@ -62,7 +62,7 @@ export async function POST(req: NextRequest) {
             .upload(filePath, buffer, { contentType: file.type, upsert: true })
 
         if (uploadError) {
-            return NextResponse.json({ error: uploadError.message }, { status: 500 })
+            return NextResponse.json({ error: "Upload échoué" }, { status: 500 })
         }
 
         // Generate signed URL (valid 30 days for parent to download)
@@ -85,7 +85,7 @@ export async function POST(req: NextRequest) {
             .eq('id', requestId)
 
         if (dbError) {
-            return NextResponse.json({ error: dbError.message }, { status: 500 })
+            return NextResponse.json({ error: "Erreur base de données" }, { status: 500 })
         }
 
         // Notify the parent
