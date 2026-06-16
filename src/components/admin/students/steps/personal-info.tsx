@@ -80,7 +80,7 @@ export function PersonalInfo({ data, updateData, onNext }: StepProps) {
     useEffect(() => {
         if (personal.phone && !localNumber) {
             const known = ['+222', '+221', '+212', '+33', '+213', '+216', '+1']
-            const hit = known.find(c => personal.phone.startsWith(c))
+            const hit = known.find(c => personal.phone?.startsWith(c))
             if (hit) {
                 setCountryCode(hit)
                 setLocalNumber(personal.phone.substring(hit.length))

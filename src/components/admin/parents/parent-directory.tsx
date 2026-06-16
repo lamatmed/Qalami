@@ -18,6 +18,16 @@ import { useLanguage } from '@/i18n'
 import { toast } from 'sonner'
 import { getMySchoolContext, getSchoolLinkedProfileIds, secureFetchProfiles } from '@/app/admin/actions'
 
+interface ProfileRow {
+    id: string
+    full_name: string | null
+    phone: string | null
+    avatar_url: string | null
+    status?: string | null
+    address?: string | null
+    email?: string | null
+}
+
 interface Child {
     id: string
     name: string
@@ -125,7 +135,7 @@ export function ParentDirectory() {
 
         // Fetch full detailed profiles for these discovered IDs
         // Fetch full detailed profiles for these discovered IDs via secure server action
-        const parentProfiles = await secureFetchProfiles(allParentIds, 'id, full_name, email, phone, avatar_url, status, address')
+        const parentProfiles = (await secureFetchProfiles(allParentIds, 'id, full_name, email, phone, avatar_url, status, address')) as unknown as ProfileRow[]
 
         if (!parentProfiles || parentProfiles.length === 0) { setParents([]); setLoading(false); return }
 
@@ -328,7 +338,7 @@ export function ParentDirectory() {
         const result = await sendBulkPaymentReminders(schoolId)
         setSendingBulk(false)
         if (result.error) { toast.error(result.error); return }
-        toast.success(t('admin.parents.remindersSent', { count: result.count }))
+        toast.success(t('admin.parents.remindersSent', { count: result.count ?? 0 }))
     }
 
     const STATUS_FILTER_MAP: Record<string, string> = { actif: 'active', inactif: 'inactive' }

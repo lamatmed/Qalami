@@ -276,7 +276,7 @@ export default function TeacherQuizzesPage() {
                                     </span>
                                 </div>
                                 <div className="mt-4 pt-3 border-t border-gray-50 dark:border-white/5 text-xs text-gray-400 font-bold uppercase tracking-wider">
-                                    {t('teacher.quizzes.classLabel', { name: quiz.class_name })}
+                                    {t('teacher.quizzes.classLabel', { name: quiz.class_name || '' })}
                                 </div>
                             </CardContent>
                         </Card>

@@ -141,7 +141,7 @@ export function TeacherLayoutFrame({ children, header }: TeacherLayoutFrameProps
                             initial={{ y: '100%' }}
                             animate={{ y: 0 }}
                             exit={{ y: '100%' }}
-                            transition={{ type: 'spring', damping: 28, stiffness: 300 }}
+                            transition={{ type: 'spring' as const, damping: 28, stiffness: 300 }}
                             className="lg:hidden fixed bottom-0 inset-x-0 z-[61] bg-white dark:bg-card rounded-t-3xl shadow-2xl pb-safe"
                             dir={direction}
                         >

@@ -22,7 +22,7 @@ interface Payment {
 
 export function ParentFinances() {
     const { selectedChild, loading } = useParent()
-    const { t, locale } = useLanguage()
+    const { t, language: locale } = useLanguage()
     const [pendingPayments, setPendingPayments] = useState<Payment[]>([])
     const [paidHistory, setPaidHistory] = useState<Payment[]>([])
     const [loadingData, setLoadingData] = useState(false)

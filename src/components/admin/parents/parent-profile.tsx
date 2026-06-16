@@ -65,7 +65,7 @@ export function ParentProfile({ parent, schoolId = '', onClose, onParentUpdated 
         setRemovingChild(null)
         if (result.error) { toast.error(result.error); return }
         toast.success(t('admin.parents.childRemoved', { childName }))
-        setLocalParent(prev => ({ ...prev, children: prev.children.filter((c: any) => c.id !== childId) }))
+        setLocalParent((prev: typeof parent) => ({ ...prev, children: prev.children.filter((c: { id: string }) => c.id !== childId) }))
         onParentUpdated?.()
     }
 

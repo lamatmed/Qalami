@@ -80,7 +80,7 @@ export default function ContactAdminPage() {
                             <motion.div
                                 initial={{ scale: 0 }}
                                 animate={{ scale: 1 }}
-                                transition={{ type: 'spring', stiffness: 200, damping: 15, delay: 0.3 }}
+                                transition={{ type: 'spring' as const, stiffness: 200, damping: 15, delay: 0.3 }}
                                 className="w-16 h-16 rounded-2xl bg-gradient-to-br from-slate-800 to-slate-900 flex items-center justify-center shadow-lg shadow-slate-900/20 mb-6"
                             >
                                 <MessageCircle className="h-8 w-8 text-white" />

@@ -82,7 +82,7 @@ export function CopyScheduleDialog({
         if (result.error) {
             toast.error(result.error)
         } else {
-            toast.success(t('admin.schedule.copyDialog.successMessage', { count: result.count }))
+            toast.success(t('admin.schedule.copyDialog.successMessage', { count: result.count ?? 0 }))
             onSuccess()
         }
     }

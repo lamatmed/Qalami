@@ -79,10 +79,12 @@ export function StudentHome() {
                     const elapsed = (nowH * 60 + nowM) - (startH * 60 + startM)
                     const progress = totalDuration > 0 ? Math.round((elapsed / totalDuration) * 100) : 0
 
+                    const subjItem = Array.isArray(currentClassData.subjects) ? currentClassData.subjects[0] : currentClassData.subjects
+                    const profItem = Array.isArray(currentClassData.profiles) ? currentClassData.profiles[0] : currentClassData.profiles
                     setCurrentClass({
-                        subject: currentClassData.subjects?.name || 'Cours',
+                        subject: (subjItem as any)?.name || 'Cours',
                         room: currentClassData.room || 'Salle',
-                        teacher: currentClassData.profiles?.full_name || 'Professeur',
+                        teacher: (profItem as any)?.full_name || 'Professeur',
                         timeRemaining: remaining,
                         progress: progress
                     })
@@ -92,12 +94,16 @@ export function StudentHome() {
                 const upcomingSchedule: ScheduleItem[] = scheduleData
                     .filter(s => (s.start_time?.substring(0, 5) || '') > currentTime)
                     .slice(0, 3)
-                    .map(s => ({
-                        time: s.start_time?.substring(0, 5) || '',
-                        title: s.subjects?.name || 'Cours',
-                        info: `${s.room || 'Salle'} • ${s.profiles?.full_name || 'Professeur'}`,
-                        type: 'course' as const
-                    }))
+                    .map(s => {
+                        const sSubj = Array.isArray(s.subjects) ? s.subjects[0] : s.subjects
+                        const sProf = Array.isArray(s.profiles) ? s.profiles[0] : s.profiles
+                        return {
+                            time: s.start_time?.substring(0, 5) || '',
+                            title: (sSubj as any)?.name || 'Cours',
+                            info: `${s.room || 'Salle'} • ${(sProf as any)?.full_name || 'Professeur'}`,
+                            type: 'course' as const
+                        }
+                    })
 
                 setSchedule(upcomingSchedule)
             }

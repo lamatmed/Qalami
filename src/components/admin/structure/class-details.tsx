@@ -280,7 +280,7 @@ export function ClassDetails({ levelId, classId }: { levelId: string, classId: s
             .select('id, name, icon')
             .eq('school_id', context.school_id)
             .order('name')
-        setAllSubjects((data || []).map((s: any) => ({ id: s.id, name: s.name, icon: s.icon ?? null })))
+        setAllSubjects((data || []).map((s: any) => ({ id: s.id, name: s.name, icon: s.icon ?? null, teacherId: null, teacherName: null })))
         setLoadingAllSubjects(false)
     }, [context])
 

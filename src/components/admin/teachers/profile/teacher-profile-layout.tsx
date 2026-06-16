@@ -26,6 +26,17 @@ import { ChangePasswordDialog } from '@/components/admin/shared/change-password-
 import { EditTeacherDialog } from '@/components/admin/teachers/edit-teacher-dialog'
 import { deleteTeacherPermanently } from '@/app/admin/teachers/actions'
 
+interface TeacherProfileRow {
+    id: string
+    full_name: string | null
+    email: string | null
+    phone: string | null
+    avatar_url: string | null
+    status?: string | null
+    national_id?: string | null
+    address?: string | null
+}
+
 const tabs = [
     { id: 'schedule',  label: 'Emploi du temps' },
     { id: 'classes',   label: 'Classes' },
@@ -81,7 +92,7 @@ export function TeacherProfileLayout({ id }: { id: string }) {
 
             // Fetch teacher profile
             // Fetch teacher profile securely via server action bypassing client-side RLS
-            const profiles = await secureFetchProfiles([id], 'id, full_name, email, phone, avatar_url, status, national_id, address')
+            const profiles = await secureFetchProfiles([id], 'id, full_name, email, phone, avatar_url, status, national_id, address') as unknown as TeacherProfileRow[]
             const profile = profiles?.[0] || null
 
             if (!profile) {

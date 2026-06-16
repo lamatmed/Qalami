@@ -91,7 +91,7 @@ export function ParentProvider({ children }: { children: ReactNode }) {
                         const fetchedChildren: Child[] = students.map((student) => ({
                             id: student.id,
                             name: student.full_name || 'Enfant',
-                            class: student.enrollments?.[0]?.classes?.name || 'Non assigné',
+                            class: (Array.isArray(student.enrollments?.[0]?.classes) ? student.enrollments?.[0]?.classes[0]?.name : (student.enrollments?.[0]?.classes as any)?.name) || 'Non assigné',
                             avatar: student.avatar_url,
                             schoolId: student.school_id
                         }))

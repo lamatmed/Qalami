@@ -119,10 +119,10 @@ export function StudentGrades({ studentId, schoolId }: { studentId: string; scho
     }, [terms])
 
     const handleDownload = () => {
-        const t = currentTerm
-        let txt = `BULLETIN SCOLAIRE — ${t.label}\n`
-        txt += `Moyenne générale : ${t.average?.toFixed(2) ?? '—'}/20\n\n`
-        t.subjects.forEach(s => {
+        const term = currentTerm
+        let txt = `BULLETIN SCOLAIRE — ${term.label}\n`
+        txt += `Moyenne générale : ${term.average?.toFixed(2) ?? '—'}/20\n\n`
+        term.subjects.forEach(s => {
             txt += `${s.subjectName} (Coef ${s.coefficient}) — ${s.average.toFixed(2)}/20\n`
             s.grades.forEach(g => {
                 txt += `  · ${g.assessment_type || 'Évaluation'} : ${g.value}/${g.max_value}\n`
@@ -133,7 +133,7 @@ export function StudentGrades({ studentId, schoolId }: { studentId: string; scho
         const url = URL.createObjectURL(blob)
         const a = document.createElement('a')
         a.href = url
-        a.download = `bulletin-${t.term.toLowerCase()}.txt`
+        a.download = `bulletin-${term.term.toLowerCase()}.txt`
         a.click()
         URL.revokeObjectURL(url)
         toast.success(t('common.download'))

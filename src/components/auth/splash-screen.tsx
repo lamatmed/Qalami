@@ -40,7 +40,7 @@ export function SplashScreen({ onComplete }: { onComplete: () => void }) {
                 <motion.div
                     initial={{ scale: 0.5, opacity: 0 }}
                     animate={{ scale: 1, opacity: 1 }}
-                    transition={{ duration: 0.8, type: 'spring', bounce: 0.4 }}
+                    transition={{ duration: 0.8, type: 'spring' as const, bounce: 0.4 }}
                     className="mb-8"
                 >
                     <Image

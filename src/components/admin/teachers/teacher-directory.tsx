@@ -29,6 +29,16 @@ interface Teacher {
     nationalId?: string | null
 }
 
+interface TeacherProfileRow {
+    id: string
+    full_name: string | null
+    email: string | null
+    phone: string | null
+    avatar_url: string | null
+    status?: string | null
+    national_id?: string | null
+}
+
 function parseMinutes(t: string): number {
     const [h, m] = t.split(':').map(Number)
     return h * 60 + (m || 0)
@@ -82,7 +92,7 @@ export function TeacherDirectory() {
             if (!allTeacherIds.length) { setLoading(false); return }
 
             // Hydrate complete profiles securely
-            const profiles = await secureFetchProfiles(allTeacherIds, '*')
+            const profiles = await secureFetchProfiles(allTeacherIds, '*') as unknown as TeacherProfileRow[]
             if (!profiles || profiles.length === 0) { setLoading(false); return }
             const ids = profiles.map(p => p.id)
 

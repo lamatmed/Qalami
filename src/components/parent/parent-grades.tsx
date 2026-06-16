@@ -59,7 +59,7 @@ export function ParentGrades({ studentId }: ParentGradesProps = {}) {
                         coefficient,
                         assessment_type,
                         term_id,
-                        terms (id, name),
+                        terms (id, name, school_id),
                         created_at,
                         updated_at,
                         subjects (
@@ -72,33 +72,13 @@ export function ParentGrades({ studentId }: ParentGradesProps = {}) {
                     .eq('student_id', effectiveStudentId)
 
                 if (schoolId) {
-                    gradesQuery = supabase
-                        .from('grades')
-                        .select(`
-                            id,
-                            value,
-                            max_value,
-                            coefficient,
-                            assessment_type,
-                            term_id,
-                            terms!inner (id, name, school_id),
-                            created_at,
-                            updated_at,
-                            subjects (
-                                id,
-                                name,
-                                icon,
-                                coefficient
-                            )
-                        `)
-                        .eq('student_id', effectiveStudentId)
-                        .eq('terms.school_id', schoolId)
+                    gradesQuery = gradesQuery.eq('terms.school_id', schoolId)
                 }
 
                 const { data: grades } = await gradesQuery.order('created_at', { ascending: false })
 
                 // Filter client-side for T1 (premier trimestre)
-                const t1Grades = (grades || []).filter((g: { terms: { name: string } | null }) => g.terms?.name === 'T1')
+                const t1Grades = (grades || []).filter((g: { terms: { id: any; name: any; school_id: any }[] | null }) => g.terms?.[0]?.name === 'T1')
 
                 if (t1Grades.length > 0) {
                     // Group grades by subject
@@ -115,22 +95,23 @@ export function ParentGrades({ studentId }: ParentGradesProps = {}) {
                     let iconIndex = 0
 
                     t1Grades.forEach((g: {
-                        id: string
-                        value: number
-                        max_value: number
-                        coefficient: number
-                        assessment_type: string
-                        created_at: string
-                        updated_at: string | null
-                        terms: { id: string; name: string } | null
-                        subjects: { id: string; name: string; icon?: string | null; coefficient?: number | null } | null
+                        id: any
+                        value: any
+                        max_value: any
+                        coefficient: any
+                        assessment_type: any
+                        created_at: any
+                        updated_at: any
+                        terms: { id: any; name: any; school_id: any }[] | null
+                        subjects: { id: any; name: any; icon?: any; coefficient?: any }[] | null
                     }) => {
-                        const subjectId = g.subjects?.id || 'unknown'
-                        const subjectName = g.subjects?.name || 'Matière'
+                        const subjectItem = Array.isArray(g.subjects) ? g.subjects[0] : g.subjects
+                        const subjectId = subjectItem?.id || 'unknown'
+                        const subjectName = subjectItem?.name || 'Matière'
                         // Use subject-level coefficient from DB, fallback to grade coefficient, then 1
-                        const subjectCoeff = g.subjects?.coefficient ?? g.coefficient ?? 1
+                        const subjectCoeff = subjectItem?.coefficient ?? g.coefficient ?? 1
                         // Use subject icon from DB, fallback to cycling abbreviations
-                        const subjectIcon = g.subjects?.icon || icons[iconIndex % icons.length]
+                        const subjectIcon = subjectItem?.icon || icons[iconIndex % icons.length]
 
                         if (!subjectMap.has(subjectId)) {
                             subjectMap.set(subjectId, {

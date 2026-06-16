@@ -92,23 +92,25 @@ export function FeeStructures() {
     useEffect(() => {
         async function load() {
             try {
-                const result = await getFeeStructuresAction()
-                if ('error' in result && result.error) {
-                    console.error("Failed to load fee configurations:", result.error)
+                const rawResult = await getFeeStructuresAction()
+                if ('error' in rawResult && rawResult.error) {
+                    console.error("Failed to load fee configurations:", rawResult.error)
                     setLoading(false)
                     return
                 }
 
+                const result = rawResult as unknown as { schoolId: string; year: { id: string; name: string } | null; cycleFees: any[]; feeStructures: any[] }
+
                 setSchoolId(result.schoolId)
                 setCurrentYear(result.year ?? null)
 
-                if (result.cycleFees.length > 0) {
+                if ((result.cycleFees ?? []).length > 0) {
                     const loadedCycles: CycleState = {
                         fondamental: { registration: '', tuition: '' },
                         college:     { registration: '', tuition: '' },
                         lycee:       { registration: '', tuition: '' },
-                    }
-                    result.cycleFees.forEach((row: any) => {
+                    };
+                    (result.cycleFees ?? []).forEach((row: any) => {
                         if (row.cycle in loadedCycles) {
                             loadedCycles[row.cycle as keyof CycleState] = {
                                 registration: row.default_registration_fee?.toString() || '',
@@ -119,10 +121,10 @@ export function FeeStructures() {
                     setCycles(loadedCycles)
                 }
 
-                if (result.feeStructures.length > 0) {
+                if ((result.feeStructures).length > 0) {
                     const loadedFees = defaultFees()
                     const loadedCustom: CustomFee[] = []
-                    result.feeStructures.forEach((row: any) => {
+                    ;(result.feeStructures).forEach((row: any) => {
                         if (row.fee_type in loadedFees) {
                             loadedFees[row.fee_type] = {
                                 amount:    row.amount?.toString() || '',

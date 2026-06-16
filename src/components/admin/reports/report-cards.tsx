@@ -552,7 +552,8 @@ export function ReportCards() {
 
         // Fetch parent-student links for this class
         const parentsToastId = toast.loading(language === 'ar' ? 'جاري تحضير وإرسال كشوف النقاط لأولياء الأمور...' : 'Préparation et envoi des bulletins aux parents...')
-        
+        let prevClass = ''
+
         try {
             const parentsRes = await getParentsForClassStudents(selectedClass)
             if ('error' in parentsRes && parentsRes.error) {
@@ -591,7 +592,7 @@ export function ReportCards() {
                 throw new Error('Zone d\'impression introuvable')
             }
 
-            const prevClass = printArea.className
+            prevClass = printArea.className
             printArea.className = prevClass
                 .replace('opacity-0', '')
                 .replace('h-0', '')

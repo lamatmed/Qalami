@@ -128,7 +128,7 @@ export function InviteCompletionForm({ token, invitation, error: initialError }:
                     <motion.div
                         initial={{ scale: 0 }}
                         animate={{ scale: 1 }}
-                        transition={{ delay: 0.2, type: 'spring' }}
+                        transition={{ delay: 0.2, type: 'spring' as const }}
                         className="flex justify-center mb-6"
                     >
                         <div className="w-20 h-20 bg-emerald-500/10 rounded-full flex items-center justify-center">
@@ -189,6 +189,7 @@ export function InviteCompletionForm({ token, invitation, error: initialError }:
                 </div>
 
                 {/* User Info Card */}
+                {invitation && (
                 <motion.div
                     initial={{ opacity: 0, y: 10 }}
                     animate={{ opacity: 1, y: 0 }}
@@ -209,6 +210,7 @@ export function InviteCompletionForm({ token, invitation, error: initialError }:
                         </div>
                     </div>
                 </motion.div>
+                )}
 
                 {/* PIN Form */}
                 <form onSubmit={handleSubmit} className="space-y-6">

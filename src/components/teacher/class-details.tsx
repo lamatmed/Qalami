@@ -908,7 +908,7 @@ export function ClassDetails({ classId, className, students }: ClassDetailsProps
                     {currentTerm && (
                         <div className="flex items-center gap-2 bg-amber-500/10 border border-amber-500/20 px-4 py-2.5 rounded-xl text-amber-500 text-xs sm:text-sm font-medium">
                             <Award className="w-4 h-4 shrink-0 animate-pulse" />
-                            <span>{t('teacher.classes.details.activePeriod') || "Période Active"} : <strong className="font-bold">{direction === 'rtl' ? (currentTerm.label_ar || currentTerm.name) : (currentTerm.label_fr || currentTerm.name)}</strong></span>
+                            <span>{t('teacher.classes.details.activePeriod') || "Période Active"} : <strong className="font-bold">{currentTerm.label_fr || currentTerm.name}</strong></span>
                         </div>
                     )}
 

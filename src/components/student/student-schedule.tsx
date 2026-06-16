@@ -96,7 +96,17 @@ export function StudentSchedule() {
             if (error) {
                 console.error('[StudentSchedule] Error fetching schedule:', error)
             } else {
-                setSchedule(data || [])
+                const normalized: ScheduleEntry[] = (data || []).map((s: any) => ({
+                    id: s.id,
+                    day_of_week: s.day_of_week,
+                    start_time: s.start_time,
+                    end_time: s.end_time,
+                    room: s.room,
+                    session_type: s.session_type,
+                    subjects: Array.isArray(s.subjects) ? (s.subjects[0] ?? null) : s.subjects,
+                    profiles: Array.isArray(s.profiles) ? (s.profiles[0] ?? null) : s.profiles,
+                }))
+                setSchedule(normalized)
             }
             setLoading(false)
         }

@@ -7,7 +7,7 @@ import { useLanguage } from '@/i18n'
 import { cn } from '@/lib/utils'
 
 export function GeneralSettings() {
-    const { t, locale, setLanguage } = useLanguage()
+    const { t, language: locale, setLanguage } = useLanguage()
 
     return (
         <div className="space-y-8 animate-in fade-in duration-500">

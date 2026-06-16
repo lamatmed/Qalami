@@ -505,9 +505,9 @@ export function AdminSidebar() {
                                 <AnimatePresence initial={false}>
                                     {(isOpen || isCollapsed) && (
                                         <motion.div
-                                            initial={isCollapsed ? false : { height: 0, opacity: 0 }}
-                                            animate={isCollapsed ? false : { height: "auto", opacity: 1 }}
-                                            exit={isCollapsed ? false : { height: 0, opacity: 0 }}
+                                            initial={isCollapsed ? undefined : { height: 0, opacity: 0 }}
+                                            animate={isCollapsed ? undefined : { height: "auto", opacity: 1 }}
+                                            exit={isCollapsed ? undefined : { height: 0, opacity: 0 }}
                                             transition={{ duration: 0.3, ease: "easeInOut" }}
                                             className="overflow-hidden space-y-0.5"
                                         >
@@ -581,9 +581,9 @@ export function AdminSidebar() {
                             <AnimatePresence initial={false}>
                                 {(openGroups.includes(systemGroup.id) || isCollapsed) && (
                                     <motion.div
-                                        initial={isCollapsed ? false : { height: 0, opacity: 0 }}
-                                        animate={isCollapsed ? false : { height: "auto", opacity: 1 }}
-                                        exit={isCollapsed ? false : { height: 0, opacity: 0 }}
+                                        initial={isCollapsed ? undefined : { height: 0, opacity: 0 }}
+                                        animate={isCollapsed ? undefined : { height: "auto", opacity: 1 }}
+                                        exit={isCollapsed ? undefined : { height: 0, opacity: 0 }}
                                         transition={{ duration: 0.3, ease: "easeInOut" }}
                                         className="overflow-hidden space-y-0.5 w-full"
                                     >

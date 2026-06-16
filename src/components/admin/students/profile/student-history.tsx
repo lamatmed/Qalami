@@ -35,7 +35,8 @@ export function StudentHistory({ studentId, schoolId }: { studentId: string; sch
             if (!studentId) return
             const supabase = createClient()
 
-            let gradesQuery = supabase
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            let gradesQuery: any = supabase
                 .from('grades')
                 .select('id, value, max_value, assessment_type, term, comment, created_at, subjects!grades_subject_id_fkey(name)')
                 .eq('student_id', studentId)

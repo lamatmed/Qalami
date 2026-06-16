@@ -79,25 +79,21 @@ export function ParentSchedule({ studentId }: ParentScheduleProps = {}) {
                         .order('start_time', { ascending: true })
 
                     if (schedule) {
-                        setScheduleItems(schedule.map((s: {
-                            id: string
-                            day_of_week: number
-                            start_time: string
-                            end_time: string
-                            room: string
-                            subjects: { name: string } | null
-                            profiles: { full_name: string } | null
-                        }) => ({
-                            id: s.id,
-                            subject_name: s.subjects?.name || 'Cours',
-                            subject_icon: (s.subjects as any)?.icon || null,
-                            start_time: s.start_time,
-                            end_time: s.end_time,
-                            room: s.room || 'Non définie',
-                            teacher_name: s.profiles?.full_name || null,
-                            day_of_week: s.day_of_week,
-                            session_type: (s as any).session_type || null
-                        })))
+                        setScheduleItems((schedule as any[]).map((s) => {
+                            const subj = Array.isArray(s.subjects) ? s.subjects[0] : s.subjects
+                            const prof = Array.isArray(s.profiles) ? s.profiles[0] : s.profiles
+                            return {
+                                id: s.id,
+                                subject_name: subj?.name || 'Cours',
+                                subject_icon: subj?.icon || null,
+                                start_time: s.start_time,
+                                end_time: s.end_time,
+                                room: s.room || 'Non définie',
+                                teacher_name: prof?.full_name || null,
+                                day_of_week: s.day_of_week,
+                                session_type: s.session_type || null
+                            }
+                        }))
                     }
                 }
             } catch (err) {

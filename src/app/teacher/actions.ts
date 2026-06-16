@@ -705,9 +705,10 @@ export async function getTeacherAnnouncementsAction(): Promise<TeacherAnnounceme
         .from('announcements')
         .select(`
             id, title, content, priority, published_at, expires_at, created_by,
-            target_scope, target_audience, target_class_id, attachment_url, attachment_name,
+            target_scope, target_audience, target_class_id, school_id, attachment_url, attachment_name,
             profiles!created_by(full_name),
-            classes!target_class_id(name)
+            classes!target_class_id(name),
+            schools!school_id(name)
         `)
         .eq('school_id', profile.school_id)
         .or('target_audience.cs.{"enseignants"},target_audience.cs.{"all"}')
@@ -731,6 +732,7 @@ export async function getTeacherAnnouncementsAction(): Promise<TeacherAnnounceme
         target_audience: Array.isArray(a.target_audience) ? a.target_audience : [],
         target_class_id: a.target_class_id || null,
         target_class_name: a.classes?.name || null,
+        school_name: a.schools?.name || null,
         attachment_url: a.attachment_url,
         attachment_name: a.attachment_name,
     }))

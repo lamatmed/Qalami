@@ -70,7 +70,7 @@ export function SuperAdminMobileNav() {
                         >
                             <motion.div
                                 animate={isActive ? { scale: 1.2, y: -4 } : { scale: 1, y: 0 }}
-                                transition={{ type: 'spring', stiffness: 400, damping: 25 }}
+                                transition={{ type: 'spring' as const, stiffness: 400, damping: 25 }}
                                 className={cn(
                                     'p-2 rounded-full transition-all duration-300',
                                     isActive

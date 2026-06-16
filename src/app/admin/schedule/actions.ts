@@ -64,8 +64,9 @@ export async function fetchTeachersForSchedule(): Promise<{
     ])
 
     const subjectsByTeacher = new Map<string, string[]>()
-    ;(assignData || []).forEach((a: { teacher_id: string; subjects?: { name?: string } | null }) => {
-        const name = a.subjects?.name
+    ;(assignData || []).forEach((a: { teacher_id: string; subjects?: Array<{ name?: string | null }> | { name?: string | null } | null }) => {
+        const subj = a.subjects
+        const name = Array.isArray(subj) ? subj[0]?.name : subj?.name
         if (!name) return
         const list = subjectsByTeacher.get(a.teacher_id) || []
         if (!list.includes(name)) list.push(name)

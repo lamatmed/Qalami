@@ -79,7 +79,7 @@ export function ParentHome() {
                         .select('value, max_value, coefficient, terms!inner(school_id)')
                         .eq('student_id', selectedChild.id)
                         .eq('term', 'T1')
-                        .eq('terms.school_id', selectedChild.schoolId)
+                        .eq('terms.school_id', selectedChild.schoolId) as any
                 }
 
                 const { data: grades } = await gradesQuery
@@ -112,7 +112,7 @@ export function ParentHome() {
                         .from('attendance')
                         .select('status, classes!inner(school_id)')
                         .eq('student_id', selectedChild.id)
-                        .eq('classes.school_id', selectedChild.schoolId)
+                        .eq('classes.school_id', selectedChild.schoolId) as any
                 }
 
                 const { data: attendance } = await attendanceQuery
@@ -212,7 +212,7 @@ export function ParentHome() {
                             terms!inner (school_id)
                         `)
                         .eq('student_id', selectedChild.id)
-                        .eq('terms.school_id', selectedChild.schoolId)
+                        .eq('terms.school_id', selectedChild.schoolId) as any
                 }
 
                 const { data: recentGrades } = await recentGradesQuery
@@ -244,7 +244,7 @@ export function ParentHome() {
                         .select('id, date, status, classes!inner(school_id)')
                         .eq('student_id', selectedChild.id)
                         .neq('status', 'present')
-                        .eq('classes.school_id', selectedChild.schoolId)
+                        .eq('classes.school_id', selectedChild.schoolId) as any
                 }
 
                 const { data: recentAttendance } = await recentAttendanceQuery

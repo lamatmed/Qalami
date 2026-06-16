@@ -92,7 +92,7 @@ export function MobileNav({ items, user, academicContext }: MobileNavProps) {
                         >
                             <motion.div
                                 animate={isActive ? { scale: 1.2, y: -4 } : { scale: 1, y: 0 }}
-                                transition={{ type: "spring", stiffness: 400, damping: 25 }}
+                                transition={{ type: "spring" as const, stiffness: 400, damping: 25 }}
                                 className={cn(
                                     "p-2 rounded-full transition-all duration-300 relative",
                                     isActive ? "bg-primary text-primary-foreground shadow-[0_0_20px_rgba(var(--primary),0.6)]" : "text-muted-foreground hover:text-white"

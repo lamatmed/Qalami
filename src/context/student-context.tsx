@@ -160,7 +160,7 @@ export function StudentProvider({ children }: { children: ReactNode }) {
                     name: firstName,
                     fullName: profile.full_name || 'Élève',
                     class: enrollment?.class_id || '',
-                    className: enrollment?.classes?.name || 'Non assigné',
+                    className: (Array.isArray(enrollment?.classes) ? enrollment?.classes[0]?.name : (enrollment?.classes as any)?.name) || 'Non assigné',
                     school: schoolName,
                     avatar: profile.avatar_url,
                     level: level,
