@@ -15,12 +15,17 @@ export async function DELETE(req: NextRequest) {
 
     const { data: callerProfile } = await supabase
         .from('profiles')
-        .select('school_id')
+        .select('school_id, role')
         .eq('id', user.id)
         .single()
 
     if (!callerProfile?.school_id) {
         return NextResponse.json({ error: 'École introuvable' }, { status: 403 })
+    }
+
+    const ADMIN_ROLES = ['admin', 'super_admin', 'school_staff']
+    if (!ADMIN_ROLES.includes(callerProfile.role)) {
+        return NextResponse.json({ error: 'Permission refusée' }, { status: 403 })
     }
 
     const admin = createAdminClient()

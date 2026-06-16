@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from 'next/server'
+﻿import { NextRequest, NextResponse } from 'next/server'
 import { createAdminClient } from '@/utils/supabase/admin'
 import { createClient } from '@/utils/supabase/server'
 
@@ -20,6 +20,29 @@ export async function POST(req: NextRequest) {
         }
 
         const admin = createAdminClient()
+
+        // Verify caller belongs to this school and has admin role
+        const { data: callerProfile } = await admin
+            .from('profiles')
+            .select('school_id, role')
+            .eq('id', user.id)
+            .single()
+
+        const ADMIN_ROLES = ['admin', 'super_admin', 'school_staff']
+        if (!callerProfile || callerProfile.school_id !== schoolId || !ADMIN_ROLES.includes(callerProfile.role)) {
+            return NextResponse.json({ error: 'Permission refusée' }, { status: 403 })
+        }
+
+        // Verify the request belongs to this school
+        const { data: docRequest } = await admin
+            .from('document_requests')
+            .select('school_id')
+            .eq('id', requestId)
+            .single()
+
+        if (!docRequest || docRequest.school_id !== schoolId) {
+            return NextResponse.json({ error: 'Demande introuvable' }, { status: 404 })
+        }
 
         // Ensure bucket exists
         const { data: bucket } = await admin.storage.getBucket('document-requests')
@@ -96,6 +119,6 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ success: true, signedUrl: signed?.signedUrl })
     } catch (err: any) {
         console.error('Upload request file error:', err)
-        return NextResponse.json({ error: err.message || 'Internal Server Error' }, { status: 500 })
+        return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 })
     }
 }

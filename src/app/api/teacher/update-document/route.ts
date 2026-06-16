@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from 'next/server'
+﻿import { NextRequest, NextResponse } from 'next/server'
 import { createAdminClient } from '@/utils/supabase/admin'
 import { createClient } from '@/utils/supabase/server'
 
@@ -37,7 +37,7 @@ export async function DELETE(req: NextRequest) {
         return NextResponse.json({ success: true })
     } catch (err: any) {
         console.error('[delete-document]', err)
-        return NextResponse.json({ error: err.message || 'Internal Server Error' }, { status: 500 })
+        return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 })
     }
 }
 
@@ -122,6 +122,6 @@ export async function PUT(req: NextRequest) {
         return NextResponse.json({ success: true, newName: updatePayload.name ?? null, newUrl: updatePayload.file_url ?? null })
     } catch (err: any) {
         console.error('[update-document]', err)
-        return NextResponse.json({ error: err.message || 'Internal Server Error' }, { status: 500 })
+        return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 })
     }
 }

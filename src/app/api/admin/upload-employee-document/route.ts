@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from 'next/server'
+﻿import { NextRequest, NextResponse } from 'next/server'
 import { createAdminClient } from '@/utils/supabase/admin'
 import { createClient } from '@/utils/supabase/server'
 
@@ -52,6 +52,6 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ success: true, publicUrl })
     } catch (err: any) {
         console.error('Upload employee document error:', err)
-        return NextResponse.json({ error: err.message || 'Internal Server Error' }, { status: 500 })
+        return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 })
     }
 }

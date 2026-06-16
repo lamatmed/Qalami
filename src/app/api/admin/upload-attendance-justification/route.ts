@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from 'next/server'
+﻿import { NextRequest, NextResponse } from 'next/server'
 import { createAdminClient } from '@/utils/supabase/admin'
 import { createClient } from '@/utils/supabase/server'
 
@@ -20,6 +20,30 @@ export async function POST(req: NextRequest) {
         }
 
         const admin = createAdminClient()
+
+        // Verify caller is the parent of the student OR an admin of the same school
+        const { data: callerProfile } = await admin
+            .from('profiles')
+            .select('school_id, role')
+            .eq('id', user.id)
+            .single()
+
+        const ADMIN_ROLES = ['admin', 'super_admin', 'school_staff']
+        const isAdmin = callerProfile && ADMIN_ROLES.includes(callerProfile.role)
+
+        if (!isAdmin) {
+            // Must be a parent of the student
+            const { data: parentLink } = await admin
+                .from('parent_children')
+                .select('student_id')
+                .eq('parent_id', user.id)
+                .eq('student_id', studentId)
+                .maybeSingle()
+
+            if (!parentLink) {
+                return NextResponse.json({ error: 'Permission refusée' }, { status: 403 })
+            }
+        }
 
         const { data: bucketData } = await admin.storage.getBucket('documents')
         if (!bucketData) {
@@ -88,6 +112,6 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ success: true, publicUrl })
     } catch (err: any) {
         console.error('Upload API error:', err)
-        return NextResponse.json({ error: err.message || 'Internal Server Error' }, { status: 500 })
+        return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 })
     }
 }

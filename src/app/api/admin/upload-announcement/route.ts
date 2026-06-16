@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from 'next/server'
+﻿import { NextRequest, NextResponse } from 'next/server'
 import { createAdminClient } from '@/utils/supabase/admin'
 import { createClient } from '@/utils/supabase/server'
 
@@ -36,6 +36,6 @@ export async function POST(req: NextRequest) {
         const { data: { publicUrl } } = admin.storage.from('documents').getPublicUrl(filePath)
         return NextResponse.json({ publicUrl, fileName: file.name })
     } catch (err: any) {
-        return NextResponse.json({ error: err.message || 'Internal Server Error' }, { status: 500 })
+        return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 })
     }
 }

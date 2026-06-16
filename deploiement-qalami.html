@@ -1,0 +1,449 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Guide de déploiement — Qalami</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: 'Segoe UI', Arial, sans-serif;
+    font-size: 13px;
+    color: #1a1a2e;
+    background: #fff;
+    padding: 40px 48px;
+    max-width: 860px;
+    margin: 0 auto;
+  }
+
+  /* ── Header ── */
+  .cover {
+    text-align: center;
+    padding: 36px 0 32px;
+    border-bottom: 3px solid #4f46e5;
+    margin-bottom: 32px;
+  }
+  .cover h1 {
+    font-size: 26px;
+    font-weight: 800;
+    color: #4f46e5;
+    letter-spacing: -0.5px;
+  }
+  .cover p {
+    margin-top: 8px;
+    color: #64748b;
+    font-size: 13px;
+  }
+  .badge {
+    display: inline-block;
+    margin-top: 14px;
+    background: #4f46e5;
+    color: #fff;
+    padding: 4px 14px;
+    border-radius: 20px;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+  }
+
+  /* ── Sections ── */
+  .section {
+    margin-bottom: 30px;
+  }
+  .section-title {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 15px;
+    font-weight: 800;
+    color: #fff;
+    background: #4f46e5;
+    padding: 9px 16px;
+    border-radius: 10px;
+    margin-bottom: 14px;
+  }
+  .section-title .num {
+    background: rgba(255,255,255,0.25);
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 12px;
+    font-weight: 900;
+    flex-shrink: 0;
+  }
+
+  /* ── Table ── */
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    border-radius: 10px;
+    overflow: hidden;
+    font-size: 12.5px;
+  }
+  thead tr { background: #e0e7ff; }
+  thead th {
+    text-align: left;
+    padding: 10px 14px;
+    font-weight: 700;
+    color: #3730a3;
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
+  }
+  tbody tr:nth-child(odd)  { background: #f8faff; }
+  tbody tr:nth-child(even) { background: #fff; }
+  tbody td {
+    padding: 9px 14px;
+    border-bottom: 1px solid #e8eaf6;
+    vertical-align: top;
+  }
+  tbody td:first-child { font-weight: 600; color: #1e1b4b; }
+  tbody td:last-child  { color: #4b5563; }
+
+  /* ── Code blocks ── */
+  pre {
+    background: #0f172a;
+    color: #e2e8f0;
+    border-radius: 10px;
+    padding: 16px 18px;
+    font-family: 'Consolas', 'Courier New', monospace;
+    font-size: 11.5px;
+    line-height: 1.65;
+    overflow-x: auto;
+    margin: 0;
+    white-space: pre-wrap;
+    word-break: break-all;
+  }
+  .code-label {
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.6px;
+    color: #818cf8;
+    margin-bottom: 6px;
+    display: block;
+  }
+  .code-block { margin-bottom: 14px; }
+
+  .comment { color: #64748b; }
+  .kw      { color: #818cf8; }
+  .str     { color: #86efac; }
+  .flag    { color: #fbbf24; }
+
+  /* ── Checklist ── */
+  .checklist { list-style: none; }
+  .checklist li {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    padding: 7px 0;
+    border-bottom: 1px solid #f1f5f9;
+    font-size: 12.5px;
+  }
+  .checklist li:last-child { border-bottom: none; }
+  .check-icon {
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    font-size: 11px;
+    margin-top: 1px;
+  }
+  .check-icon.ok  { background: #dcfce7; color: #16a34a; }
+  .check-icon.no  { background: #fee2e2; color: #dc2626; }
+
+  /* ── Steps list ── */
+  .steps { list-style: none; }
+  .steps li {
+    display: flex;
+    gap: 12px;
+    padding: 6px 0;
+    font-size: 12.5px;
+    color: #374151;
+  }
+  .steps li .dot {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: #4f46e5;
+    flex-shrink: 0;
+    margin-top: 5px;
+  }
+
+  /* ── Warning box ── */
+  .warning {
+    background: #fffbeb;
+    border: 1.5px solid #fcd34d;
+    border-radius: 10px;
+    padding: 12px 16px;
+    font-size: 12px;
+    color: #92400e;
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+  }
+  .warning .icon { font-size: 16px; flex-shrink: 0; }
+
+  /* ── Info box ── */
+  .info {
+    background: #eff6ff;
+    border: 1.5px solid #93c5fd;
+    border-radius: 10px;
+    padding: 12px 16px;
+    font-size: 12px;
+    color: #1e40af;
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+  }
+  .info .icon { font-size: 16px; flex-shrink: 0; }
+
+  /* ── Print ── */
+  @media print {
+    body { padding: 24px 32px; }
+    .section { page-break-inside: avoid; }
+    pre { font-size: 10.5px; }
+  }
+
+  @page { margin: 15mm 12mm; }
+</style>
+</head>
+<body>
+
+<!-- ══ COVER ══ -->
+<div class="cover">
+  <h1>Guide de déploiement</h1>
+  <p>Stack : Next.js 15 · Supabase · Docker · Caddy · Cloudflare</p>
+  <span class="badge">Qalami School Manager</span>
+</div>
+
+<!-- ══ PRÉREQUIS ══ -->
+<div class="section">
+  <div class="section-title"><span class="num">✦</span> Pré-requis à avoir</div>
+  <table>
+    <thead><tr><th>Ce qu'il faut</th><th>Où l'obtenir</th></tr></thead>
+    <tbody>
+      <tr><td>VPS Ubuntu 22 LTS</td><td>Hetzner CX22 — ~4 €/mois (2 vCPU, 4 GB RAM)</td></tr>
+      <tr><td>Nom de domaine</td><td>Porkbun, Namecheap, Gandi…</td></tr>
+      <tr><td>Compte Cloudflare</td><td>cloudflare.com — gratuit</td></tr>
+      <tr><td>Projet Supabase (prod)</td><td>supabase.com — plan Free ou Pro</td></tr>
+    </tbody>
+  </table>
+</div>
+
+<!-- ══ ÉTAPE 1 ══ -->
+<div class="section">
+  <div class="section-title"><span class="num">1</span> Préparer le VPS (une seule fois)</div>
+  <div class="code-block">
+    <span class="code-label">Bash — SSH en root sur le VPS</span>
+    <pre><span class="comment"># Créer un utilisateur dédié</span>
+adduser qalami
+usermod -aG sudo qalami
+
+<span class="comment"># Copier ta clé SSH (depuis ta machine locale)</span>
+ssh-copy-id -i ~/.ssh/id_rsa.pub qalami@&lt;SERVER_IP&gt;
+
+<span class="comment"># Pare-feu UFW</span>
+ufw default deny incoming
+ufw allow 80/tcp
+ufw allow 443/tcp
+ufw allow &lt;PORT_SSH&gt;/tcp    <span class="comment"># ex : 2222 (changer le port SSH par défaut)</span>
+ufw enable
+
+<span class="comment"># Installer Docker</span>
+apt update &amp;&amp; apt install -y docker.io docker-compose-plugin
+usermod -aG docker qalami</pre>
+  </div>
+</div>
+
+<!-- ══ ÉTAPE 2 ══ -->
+<div class="section">
+  <div class="section-title"><span class="num">2</span> Créer les fichiers de config</div>
+
+  <div class="code-block">
+    <span class="code-label">docker-compose.yml — /opt/qalami/</span>
+    <pre>services:
+  frontend:
+    build: .
+    restart: unless-stopped
+    env_file: .env
+    networks: [internal]
+
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile
+      - caddy_data:/data
+    networks: [internal]
+
+networks:
+  internal:
+
+volumes:
+  caddy_data:</pre>
+  </div>
+
+  <div class="code-block">
+    <span class="code-label">Caddyfile — /opt/qalami/</span>
+    <pre>qalami.mr {
+    reverse_proxy frontend:3000
+    header {
+        Strict-Transport-Security "max-age=31536000; includeSubDomains"
+        X-Frame-Options "DENY"
+        X-Content-Type-Options "nosniff"
+    }
+}</pre>
+  </div>
+
+  <div class="code-block">
+    <span class="code-label">Dockerfile — racine du projet Next.js</span>
+    <pre>FROM node:20-alpine AS builder
+WORKDIR /app
+COPY package*.json ./
+RUN npm ci
+COPY . .
+RUN npm run build
+
+FROM node:20-alpine AS runner
+WORKDIR /app
+ENV NODE_ENV=production
+COPY --from=builder /app/.next/standalone ./
+COPY --from=builder /app/.next/static ./.next/static
+COPY --from=builder /app/public ./public
+EXPOSE 3000
+CMD ["node", "server.js"]</pre>
+  </div>
+
+  <div class="code-block">
+    <span class="code-label">next.config.ts — ajouter cette ligne</span>
+    <pre>output: 'standalone'</pre>
+  </div>
+</div>
+
+<!-- ══ ÉTAPE 3 ══ -->
+<div class="section">
+  <div class="section-title"><span class="num">3</span> Configurer Cloudflare</div>
+  <ul class="steps">
+    <li><span class="dot"></span>Ajouter le domaine dans Cloudflare → pointer les nameservers chez ton registrar</li>
+    <li><span class="dot"></span>DNS : enregistrement <strong>A</strong> — <code>qalami.mr → &lt;SERVER_IP&gt;</code> — proxy <strong>orange activé</strong></li>
+    <li><span class="dot"></span>SSL/TLS → mode <strong>Full (strict)</strong></li>
+    <li><span class="dot"></span>WAF → Rate limiting : <strong>100 req/min par IP</strong></li>
+    <li><span class="dot"></span>Cache → règle bypass sur <code>/*</code> (Next.js SSR dynamique)</li>
+  </ul>
+</div>
+
+<!-- ══ ÉTAPE 4 ══ -->
+<div class="section">
+  <div class="section-title"><span class="num">4</span> Fichier .env sur le serveur</div>
+  <div class="code-block">
+    <span class="code-label">/opt/qalami/.env — à créer manuellement sur le serveur</span>
+    <pre>NEXT_PUBLIC_SUPABASE_URL=https://xxxx.supabase.co
+NEXT_PUBLIC_SUPABASE_ANON_KEY=eyJ...
+SUPABASE_SERVICE_ROLE_KEY=eyJ...
+NEXTAUTH_SECRET=&lt;chaine-aleatoire-64-caracteres&gt;
+NEXTAUTH_URL=https://qalami.mr</pre>
+  </div>
+  <div class="warning">
+    <span class="icon">⚠️</span>
+    <span>Ne jamais committer ce fichier dans git. Ajouter <code>.env</code> dans <code>.gitignore</code>. Ce fichier reste <strong>uniquement sur le serveur</strong>.</span>
+  </div>
+</div>
+
+<!-- ══ ÉTAPE 5 ══ -->
+<div class="section">
+  <div class="section-title"><span class="num">5</span> Premier déploiement</div>
+  <div class="code-block">
+    <span class="code-label">Depuis ta machine locale</span>
+    <pre><span class="comment"># 1. Vérification TypeScript (obligatoire avant tout push)</span>
+npx tsc --noEmit
+
+<span class="comment"># 2. Pousser le code</span>
+git push origin main</pre>
+  </div>
+  <div class="code-block">
+    <span class="code-label">Sur le serveur (SSH)</span>
+    <pre>ssh qalami@&lt;SERVER_IP&gt;
+cd /opt/qalami
+git pull origin main
+docker compose build frontend
+docker compose up -d
+docker compose ps    <span class="comment"># tous les services doivent afficher "running"</span></pre>
+  </div>
+</div>
+
+<!-- ══ ÉTAPE 6 ══ -->
+<div class="section">
+  <div class="section-title"><span class="num">6</span> Déploiements suivants (playbook)</div>
+  <div class="code-block">
+    <span class="code-label">Commande complète depuis la machine locale</span>
+    <pre><span class="comment"># 1. Gate local</span>
+npx tsc --noEmit
+
+<span class="comment"># 2. Push</span>
+git push origin main
+
+<span class="comment"># 3. Build + redémarrage sur le serveur (sans downtime)</span>
+ssh qalami@&lt;SERVER_IP&gt; '
+  cd /opt/qalami &amp;&amp;
+  git pull origin main &amp;&amp;
+  docker compose build frontend &amp;&amp;
+  docker compose up -d frontend
+'
+
+<span class="comment"># 4. Vérifier</span>
+curl -s https://qalami.mr | grep -c "html"</pre>
+  </div>
+</div>
+
+<!-- ══ NON NÉCESSAIRE ══ -->
+<div class="section">
+  <div class="section-title"><span class="num">✦</span> Ce que tu n'as PAS à faire (Supabase managé)</div>
+  <ul class="checklist">
+    <li><span class="check-icon no">✗</span><span><strong>PostgreSQL</strong> — entièrement géré par Supabase</span></li>
+    <li><span class="check-icon no">✗</span><span><strong>PgBouncer</strong> — inclus dans Supabase (connection pooling automatique)</span></li>
+    <li><span class="check-icon no">✗</span><span><strong>Backups DB</strong> — automatiques et quotidiens sur Supabase</span></li>
+    <li><span class="check-icon no">✗</span><span><strong>Migrations manuelles</strong> — via dashboard Supabase ou <code>supabase db push</code></span></li>
+    <li><span class="check-icon ok">✓</span><span><strong>Seul le frontend Next.js</strong> est à déployer sur le VPS</span></li>
+  </ul>
+</div>
+
+<!-- ══ CHECKLIST FINALE ══ -->
+<div class="section">
+  <div class="section-title"><span class="num">✦</span> Checklist avant mise en prod</div>
+  <ul class="checklist">
+    <li><span class="check-icon ok">✓</span><span>VPS créé avec Ubuntu 22 LTS + clé SSH configurée</span></li>
+    <li><span class="check-icon ok">✓</span><span>Utilisateur non-root (<code>qalami</code>) + UFW actif (80/443/SSH)</span></li>
+    <li><span class="check-icon ok">✓</span><span>Docker + Docker Compose installés</span></li>
+    <li><span class="check-icon ok">✓</span><span><code>Dockerfile</code> + <code>docker-compose.yml</code> + <code>Caddyfile</code> sur le serveur</span></li>
+    <li><span class="check-icon ok">✓</span><span><code>.env</code> créé sur le serveur avec les vraies clés Supabase</span></li>
+    <li><span class="check-icon ok">✓</span><span>Cloudflare : DNS proxied + SSL Full(strict) + WAF activé</span></li>
+    <li><span class="check-icon ok">✓</span><span><code>output: 'standalone'</code> dans <code>next.config.ts</code></span></li>
+    <li><span class="check-icon ok">✓</span><span><code>npx tsc --noEmit</code> passe sans erreur avant chaque déploiement</span></li>
+    <li><span class="check-icon ok">✓</span><span>Site accessible sur <code>https://qalami.mr</code> avec cadenas vert</span></li>
+  </ul>
+</div>
+
+<div class="info">
+  <span class="icon">ℹ️</span>
+  <span>Pour générer <code>NEXTAUTH_SECRET</code> : <code>openssl rand -base64 48</code> dans un terminal.</span>
+</div>
+
+<br>
+<div style="text-align:center;color:#94a3b8;font-size:11px;padding-top:16px;border-top:1px solid #e2e8f0;">
+  ADST · Qalami School Manager · Guide de déploiement
+</div>
+
+</body>
+</html>

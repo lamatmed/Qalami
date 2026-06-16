@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from 'next/server'
+﻿import { NextRequest, NextResponse } from 'next/server'
 import { createAdminClient } from '@/utils/supabase/admin'
 import { createClient } from '@/utils/supabase/server'
 
@@ -20,6 +20,18 @@ export async function POST(req: NextRequest) {
         }
 
         const admin = createAdminClient()
+
+        // Verify caller has admin role
+        const { data: callerProfile } = await admin
+            .from('profiles')
+            .select('school_id, role')
+            .eq('id', user.id)
+            .single()
+
+        const ADMIN_ROLES = ['admin', 'super_admin', 'school_staff']
+        if (!callerProfile || !ADMIN_ROLES.includes(callerProfile.role)) {
+            return NextResponse.json({ error: 'Permission refusée' }, { status: 403 })
+        }
 
         const { data: bucketData } = await admin.storage.getBucket('documents')
         if (!bucketData) {
@@ -171,6 +183,6 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ error: 'Invalid mode' }, { status: 400 })
     } catch (err: any) {
         console.error('Upload API error:', err)
-        return NextResponse.json({ error: err.message || 'Internal Server Error' }, { status: 500 })
+        return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 })
     }
 }
