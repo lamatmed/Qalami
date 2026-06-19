@@ -80,17 +80,11 @@ export function AddCourseDialog({
     const [loading, setLoading] = useState(true)
     const [occupiedTeachers, setOccupiedTeachers] = useState<OccupiedTeacherInfo[]>([])
 
-    const selectedSubName = subjects.find(s => s.id === selectedSubject)?.name
-    const filteredTeachers = selectedSubName
-        ? allTeachers.filter(teacher => {
-            const normalize = (str: string) => str.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase().trim()
-            const targetSub = normalize(selectedSubName)
-            return teacher.subjects.some(s => {
-                const tSub = normalize(s)
-                return tSub.includes(targetSub) || targetSub.includes(tSub)
-            })
-        })
+    // Teachers who teach the selected subject in this specific class (exact subject_id match)
+    const teacherIdsForSubject = selectedSubject
+        ? [...new Set(assignments.filter(a => a.subject_id === selectedSubject).map(a => a.teacher_id))]
         : []
+    const filteredTeachers = allTeachers.filter(t => teacherIdsForSubject.includes(t.id))
 
     const yr = selectedSlot?.date.getFullYear()
     const mo = String((selectedSlot?.date.getMonth() ?? 0) + 1).padStart(2, '0')
@@ -129,17 +123,37 @@ export function AddCourseDialog({
 
             if (!profile?.school_id) { setLoading(false); return }
 
-            const { data: subjectsData } = await supabase
-                .from('subjects')
-                .select('id, name')
-                .eq('school_id', profile.school_id)
-                .order('name')
+            // Only show subjects assigned to this specific class via teacher_assignments
+            let subjectsData: SubjectOption[] = []
+            if (classId) {
+                const { data: assignedSubjects } = await supabase
+                    .from('teacher_assignments')
+                    .select('subject_id, subjects:subject_id(id, name)')
+                    .eq('class_id', classId)
+                const seen = new Set<string>()
+                subjectsData = ((assignedSubjects || []) as any[])
+                    .map(a => a.subjects)
+                    .filter((s): s is SubjectOption => Boolean(s?.id))
+                    .filter(s => {
+                        if (seen.has(s.id)) return false
+                        seen.add(s.id)
+                        return true
+                    })
+                    .sort((a, b) => a.name.localeCompare(b.name))
+            } else {
+                const { data } = await supabase
+                    .from('subjects')
+                    .select('id, name')
+                    .eq('school_id', profile.school_id)
+                    .order('name')
+                subjectsData = data || []
+            }
 
-            let assignmentsQuery = supabase
+            // Assignments for this class: teacher_id + subject_id (for filtering teachers by subject)
+            const { data: assignmentsData } = await supabase
                 .from('teacher_assignments')
                 .select('teacher_id, subject_id, profiles:teacher_id(full_name)')
-            if (classId) assignmentsQuery = assignmentsQuery.eq('class_id', classId)
-            const { data: assignmentsData } = await assignmentsQuery
+                .eq('class_id', classId || '')
 
             const [{ teachers: teachersList }, occupiedRes] = await Promise.all([
                 fetchTeachersForSchedule(),
