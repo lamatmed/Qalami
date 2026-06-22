@@ -399,7 +399,7 @@ export function UsersManagement() {
                                                 </span>
                                             )}
                                         </div>
-                                        <p className="text-sm text-gray-500">{u.phone}</p>
+                                        <p className="text-sm text-gray-500" dir="ltr">{u.phone}</p>
                                         <div className="flex flex-wrap gap-1 mt-1">
                                             {u.permissions.slice(0, 4).map(p => {
                                                 return (
@@ -543,7 +543,7 @@ export function UsersManagement() {
                                             <div className="flex items-center gap-2 flex-wrap mb-1">
                                                 <span className="text-sm font-bold text-gray-900 dark:text-white">{actorName}</span>
                                                 {actorPhone && (
-                                                    <span className="text-xs font-mono text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-500/10 px-2 py-0.5 rounded-full">
+                                                    <span className="text-xs font-mono text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-500/10 px-2 py-0.5 rounded-full" dir="ltr">
                                                         {actorPhone}
                                                     </span>
                                                 )}

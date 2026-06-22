@@ -261,7 +261,7 @@ export function StudentPayments({ studentId, studentName, schoolId, isArchived }
 
             // Build 80mm receipt as an off-screen DOM element so browser renders Arabic
             const el = document.createElement('div')
-            el.style.cssText = 'position:fixed;top:0;left:-9999px;width:302px;background:white;visibility:hidden;'
+            el.style.cssText = 'position:fixed;top:0;left:-9999px;width:302px;background:white;'
             el.innerHTML = `
                 <div style="width:302px;background:white;font-family:var(--font-arabic),system-ui,sans-serif;color:#111;">
                     <div style="background:#10b981;padding:${logoDataUrl ? '12px' : '14px'} 16px;text-align:center;">
@@ -285,7 +285,7 @@ export function StudentPayments({ studentId, studentName, schoolId, isArchived }
                         ${studentClass ? row('Classe / القسم', studentClass, false) : ''}
                         ${studentNni   ? row('NNI', studentNni, true) : ''}
                         ${parentName   ? row('Parent / ولي الأمر', parentName, false) : ''}
-                        ${parentPhone  ? row('Tel / الهاتف', parentPhone, true) : ''}
+                        ${parentPhone  ? row('Tel / الهاتف', `<span dir="ltr">${parentPhone}</span>`, true) : ''}
                     </div>
                     <div style="padding:10px 14px;border-bottom:1px solid #f3f4f6;">
                         ${row('Type', types.fr + ' / ' + types.ar, true)}
@@ -522,7 +522,7 @@ export function StudentPayments({ studentId, studentName, schoolId, isArchived }
             const parentPhone = (links[0]?.profiles as { phone?: string })?.phone
 
             toast.success(`${t('admin.students.profile.reminderSentTo')} ${parentName}`, {
-                description: parentPhone ? `Tél: ${parentPhone}` : undefined,
+                description: parentPhone ? <span dir="ltr">Tél: {parentPhone}</span> : undefined,
                 action: parentPhone ? {
                     label: 'WhatsApp',
                     onClick: () => {

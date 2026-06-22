@@ -112,7 +112,7 @@ export function EmployeeInfo({ profileId, profile, onUpdated }: Props) {
                                 )}
                             />
                         ) : (
-                            <p className={cn("text-sm text-white", mono && "font-mono tracking-widest")}>
+                            <p className={cn("text-sm text-white", mono && "font-mono tracking-widest")} dir={key === 'phone' || key === 'national_id' ? 'ltr' : undefined}>
                                 {profile[key] || <span className="text-white/20">—</span>}
                             </p>
                         )}

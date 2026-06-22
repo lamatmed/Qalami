@@ -1155,7 +1155,7 @@ export default function TuitionPage() {
                                             <p className="font-bold text-white text-sm">{nniStudent.full_name}</p>
                                             <div className="flex items-center gap-3 mt-0.5">
                                                 <span className="text-xs text-gray-500">NNI : {nniStudent.national_id}</span>
-                                                {nniStudent.phone && <span className="text-xs text-gray-500">{nniStudent.phone}</span>}
+                                                {nniStudent.phone && <span className="text-xs text-gray-500" dir="ltr">{nniStudent.phone}</span>}
                                             </div>
                                         </div>
                                         <BadgeCheck className="w-5 h-5 text-emerald-400 shrink-0" />

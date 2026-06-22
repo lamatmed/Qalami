@@ -109,7 +109,7 @@ export function EmployeeProfileLayout({ id }: { id: string }) {
                                 </span>
                             )}
                             {profile.phone && (
-                                <span className="flex items-center gap-1 text-xs text-gray-600 bg-white/5 border border-white/5 px-2.5 py-1 rounded-lg">
+                                <span className="flex items-center gap-1 text-xs text-gray-600 bg-white/5 border border-white/5 px-2.5 py-1 rounded-lg" dir="ltr">
                                     <Phone className="w-3 h-3" />
                                     {profile.phone}
                                 </span>

@@ -243,7 +243,7 @@ export default function TransferredStudentsPage() {
                                         </div>
                                     )}
                                     {s.phone && (
-                                        <div className="flex items-center gap-2">
+                                        <div className="flex items-center gap-2" dir="ltr">
                                             <Phone className="w-3.5 h-3.5 text-gray-500 shrink-0" />
                                             <span className="font-mono text-gray-300">{s.phone}</span>
                                         </div>

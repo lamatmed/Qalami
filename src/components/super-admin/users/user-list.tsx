@@ -391,7 +391,7 @@ export function UserList() {
                                                 </span>
                                             </td>
                                             <td className="px-6 py-4.5">
-                                                <span className="text-slate-700 dark:text-slate-300 font-black text-xs font-mono bg-slate-50 dark:bg-white/5 border border-slate-100 dark:border-white/5 px-2 py-0.5 rounded-lg select-all">
+                                                <span className="text-slate-700 dark:text-slate-300 font-black text-xs font-mono bg-slate-50 dark:bg-white/5 border border-slate-100 dark:border-white/5 px-2 py-0.5 rounded-lg select-all" dir="ltr">
                                                     {user.phone || '-'}
                                                 </span>
                                             </td>
@@ -530,7 +530,7 @@ export function UserList() {
 
                                 <div className="flex flex-col gap-1.5">
                                     <span className="text-[9px] text-slate-400 dark:text-slate-500 font-black tracking-widest uppercase">TÉLÉPHONE</span>
-                                    <div className="flex items-center gap-2 font-black text-slate-800 dark:text-slate-200 text-sm font-mono select-all">
+                                    <div className="flex items-center gap-2 font-black text-slate-800 dark:text-slate-200 text-sm font-mono select-all" dir="ltr">
                                         <Phone className="w-3.5 h-3.5 text-slate-400 shrink-0" />
                                         {selectedUser.phone || '—'}
                                     </div>

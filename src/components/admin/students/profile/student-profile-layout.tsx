@@ -521,7 +521,7 @@ export function StudentProfileLayout({ id }: { id: string }) {
                             </div>
                             <div>
                                 <p className="text-[10px] text-gray-500 uppercase font-bold">{t('admin.students.register.personal.phone') || 'Téléphone'}</p>
-                                <p className="text-sm text-white font-mono">{student.phone}</p>
+                                <p className="text-sm text-white font-mono" dir="ltr">{student.phone}</p>
                             </div>
                         </div>
                     )}
@@ -633,7 +633,7 @@ export function StudentProfileLayout({ id }: { id: string }) {
                                         )}
                                     </div>
                                     {p.phone && (
-                                        <p className="text-center text-gray-500 font-mono text-sm mt-1">{p.phone}</p>
+                                        <p className="text-center text-gray-500 font-mono text-sm mt-1" dir="ltr">{p.phone}</p>
                                     )}
                                 </div>
                             ))}
