@@ -211,7 +211,7 @@ export function PersonnelManagement() {
             password: newMember.password,
         })
         if (result.error) {
-            toast.error(result.error)
+            toast.error(t(result.error, (result as any).params))
         } else {
             setStaff(prev => [result.member as StaffMember, ...prev])
             toast.success(newMember.createUser ? 'Membre ajouté avec compte utilisateur' : t('admin.personnel.memberAdded'))

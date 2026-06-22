@@ -23,9 +23,9 @@ export async function login(formData: z.infer<typeof LoginSchema>) {
     if (error) {
         console.error('[Login] Error:', error.message)
         if (error.message.includes('Invalid login credentials')) {
-            return { error: 'Numéro de téléphone ou code PIN incorrect' }
+            return { error: 'auth.invalidCredentials' }
         }
-        return { error: 'Code PIN incorrect' }
+        return { error: 'auth.errors.incorrectPin' }
     }
 
     revalidatePath('/', 'layout')
@@ -46,7 +46,7 @@ export async function createInvitation(formData: z.infer<typeof InvitationSchema
     // Get current user and verify they are admin
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) {
-        return { error: 'Non authentifié' }
+        return { error: 'auth.errors.unauthenticated' }
     }
 
     const { data: profile } = await supabase
@@ -56,11 +56,11 @@ export async function createInvitation(formData: z.infer<typeof InvitationSchema
         .single()
 
     if (!profile || !['admin', 'super_admin', 'school_staff'].includes(profile.role)) {
-        return { error: 'Accès non autorisé' }
+        return { error: 'auth.errors.unauthorized' }
     }
 
     if (!profile.school_id) {
-        return { error: 'Aucune école associée' }
+        return { error: 'auth.errors.noSchoolAssociated' }
     }
 
     // Normalize phone number for auth
@@ -83,8 +83,8 @@ export async function createInvitation(formData: z.infer<typeof InvitationSchema
     })
 
     if (authError) {
-        if (authError.message.includes('already been registered')) {
-            return { error: 'Ce numéro est déjà utilisé' }
+        if (authError.message.includes('already been registered') || authError.message.includes('already registered')) {
+            return { error: 'auth.errors.phoneOrEmailAlreadyRegistered' }
         }
         return { error: authError.message }
     }
@@ -320,7 +320,7 @@ export async function enrollExistingStudent(params: {
     const adminClient = createAdminClient()
 
     const { data: { user } } = await supabase.auth.getUser()
-    if (!user) return { error: 'Non authentifié' }
+    if (!user) return { error: 'auth.errors.unauthenticated' }
 
     const { data: adminProfile } = await supabase
         .from('profiles')
@@ -329,9 +329,9 @@ export async function enrollExistingStudent(params: {
         .single()
 
     if (!adminProfile || !['admin', 'super_admin', 'school_staff'].includes(adminProfile.role)) {
-        return { error: 'Accès non autorisé' }
+        return { error: 'auth.errors.unauthorized' }
     }
-    if (!adminProfile.school_id) return { error: 'Aucune école associée' }
+    if (!adminProfile.school_id) return { error: 'auth.errors.noSchoolAssociated' }
 
     const { data: student } = await adminClient
         .from('profiles')
@@ -340,10 +340,10 @@ export async function enrollExistingStudent(params: {
         .eq('role', 'student')
         .maybeSingle()
 
-    if (!student) return { error: 'Élève non trouvé' }
+    if (!student) return { error: 'auth.errors.studentNotFound' }
 
     if (student.school_id === adminProfile.school_id) {
-        return { error: 'Cet élève est déjà inscrit dans votre école.' }
+        return { error: 'admin.students.register.transferLookup.sameSchoolError', params: { name: student.full_name } }
     }
 
     // Block if student still has an active enrollment at another school
@@ -355,7 +355,7 @@ export async function enrollExistingStudent(params: {
         .maybeSingle()
 
     if (activeEnrollment) {
-        return { error: 'Cet élève est encore inscrit dans une autre école. Il doit d\'abord être transféré officiellement avant de rejoindre votre établissement.' }
+        return { error: 'admin.students.register.transferLookup.stillEnrolledError', params: { name: student.full_name } }
     }
 
     const { error: profileErr } = await adminClient
@@ -492,7 +492,7 @@ export async function createParent(formData: {
     // Verify current user is admin
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) {
-        return { error: 'Non authentifié' }
+        return { error: 'auth.errors.unauthenticated' }
     }
 
     const { data: profile } = await supabase
@@ -502,11 +502,11 @@ export async function createParent(formData: {
         .single()
 
     if (!profile || !['admin', 'super_admin', 'school_staff'].includes(profile.role)) {
-        return { error: 'Accès non autorisé' }
+        return { error: 'auth.errors.unauthorized' }
     }
 
     if (!profile.school_id) {
-        return { error: 'Aucune école associée' }
+        return { error: 'auth.errors.noSchoolAssociated' }
     }
 
     const fullName = `${formData.firstName} ${formData.lastName}`
@@ -526,7 +526,7 @@ export async function createParent(formData: {
 
         if (existingProfile) {
             if (existingProfile.role !== 'parent') {
-                return { error: `Ce numéro est déjà enregistré comme ${existingProfile.role}.` }
+                return { error: 'auth.errors.phoneRegisteredAs_' + existingProfile.role }
             }
             
             // Parent already exists globally! 
@@ -548,7 +548,7 @@ export async function createParent(formData: {
                         status: 'active'
                     })
                 if (linkError) {
-                    return { error: `Erreur lors de la liaison du parent: ${linkError.message}` }
+                    return { error: 'auth.errors.linkError' }
                 }
             }
 
@@ -566,10 +566,10 @@ export async function createParent(formData: {
     }
 
     if (!formData.password?.trim()) {
-        return { error: 'Le mot de passe instantané est obligatoire' }
+        return { error: 'auth.errors.tempPasswordRequired' }
     }
     if (!/^\d{6}$/.test(formData.password.trim())) {
-        return { error: 'Le mot de passe doit être exactement 6 chiffres' }
+        return { error: 'auth.errors.tempPasswordLength' }
     }
     const plainPassword = formData.password.trim()
 
@@ -587,8 +587,8 @@ export async function createParent(formData: {
     })
 
     if (authError) {
-        if (authError.message.includes('already been registered')) {
-            return { error: 'Ce numéro ou email est déjà utilisé' }
+        if (authError.message.includes('already been registered') || authError.message.includes('already registered')) {
+            return { error: 'auth.errors.phoneOrEmailAlreadyRegistered' }
         }
         return { error: authError.message }
     }
@@ -607,7 +607,7 @@ export async function createParent(formData: {
 
     if (profileError) {
         console.error('Profile creation error:', profileError)
-        return { error: 'Erreur lors de la création du profil: ' + profileError.message }
+        return { error: 'auth.errors.profileError' }
     }
 
     // ─── ALSO REGISTER IN profile_schools FOR COMPLETENESS ──────────────────
@@ -672,7 +672,7 @@ export async function createStudent(formData: {
 
     // Verify current user is admin
     const { data: { user } } = await supabase.auth.getUser()
-    if (!user) return { error: 'Non authentifié' }
+    if (!user) return { error: 'auth.errors.unauthenticated' }
 
     const { data: profile } = await supabase
         .from('profiles')
@@ -681,15 +681,15 @@ export async function createStudent(formData: {
         .single()
 
     if (!profile || !['admin', 'super_admin', 'school_staff'].includes(profile.role)) {
-        return { error: 'Accès non autorisé' }
+        return { error: 'auth.errors.unauthorized' }
     }
-    if (!profile.school_id) return { error: 'Aucune école associée' }
+    if (!profile.school_id) return { error: 'auth.errors.noSchoolAssociated' }
 
     const fullName = `${formData.personal.firstName} ${formData.personal.lastName}`
 
     // ─── CHECK IF STUDENT NNI IS UNIQUE & PROVIDED ────────────────────────
     if (!formData.personal.nationalId?.trim()) {
-        return { error: 'Le NNI est obligatoire.' }
+        return { error: 'auth.errors.nniRequired' }
     }
 
     const { data: existingNni } = await adminClient
@@ -699,14 +699,14 @@ export async function createStudent(formData: {
         .maybeSingle()
         
     if (existingNni) {
-        return { error: `Ce NNI est déjà associé à un autre compte (${existingNni.full_name}).` }
+        return { error: 'auth.errors.nniAlreadyAssociated', params: { name: existingNni.full_name } }
     }
 
     // Validate phone & password only if student has phone
     if (formData.hasPhone) {
-        if (!formData.phone?.trim()) return { error: 'Le numéro de téléphone est obligatoire' }
-        if (!formData.password?.trim()) return { error: 'Le mot de passe instantané est obligatoire' }
-        if (!/^\d{6}$/.test(formData.password.trim())) return { error: 'Le mot de passe doit être exactement 6 chiffres' }
+        if (!formData.phone?.trim()) return { error: 'auth.errors.phoneRequired' }
+        if (!formData.password?.trim()) return { error: 'auth.errors.tempPasswordRequired' }
+        if (!/^\d{6}$/.test(formData.password.trim())) return { error: 'auth.errors.tempPasswordLength' }
     }
 
     const plainPassword = formData.hasPhone ? formData.password!.trim() : crypto.randomUUID()
@@ -727,7 +727,12 @@ export async function createStudent(formData: {
         },
     })
 
-    if (authError) return { error: authError.message }
+    if (authError) {
+        if (authError.message.includes('already been registered') || authError.message.includes('already registered')) {
+            return { error: 'auth.errors.phoneAlreadyRegistered' }
+        }
+        return { error: authError.message }
+    }
 
     // 2. Upsert the student profile
     const { error: profileError } = await adminClient
@@ -748,7 +753,7 @@ export async function createStudent(formData: {
 
     if (profileError) {
         console.error('Profile error:', profileError)
-        return { error: 'Erreur profil: ' + profileError.message }
+        return { error: 'auth.errors.profileError' }
     }
 
     // Resolve academic year name → UUID (shared for enrollment + payment)
@@ -978,7 +983,7 @@ export async function createTeacher(formData: {
     const adminClient = createAdminClient()
 
     const { data: { user } } = await supabase.auth.getUser()
-    if (!user) return { error: 'Non authentifié' }
+    if (!user) return { error: 'auth.errors.unauthenticated' }
 
     const { data: profile } = await supabase
         .from('profiles')
@@ -987,10 +992,10 @@ export async function createTeacher(formData: {
         .single()
 
     if (!profile || !['admin', 'super_admin', 'school_staff'].includes(profile.role)) {
-        return { error: 'Accès non autorisé' }
+        return { error: 'auth.errors.unauthorized' }
     }
 
-    if (!profile.school_id) return { error: 'Aucune école associée' }
+    if (!profile.school_id) return { error: 'auth.errors.noSchoolAssociated' }
 
     const normalizedPhone = formData.phone
         ? (formData.phone.startsWith('+') ? formData.phone : `+${formData.phone.replace(/[^0-9]/g, '')}`)
@@ -1006,7 +1011,7 @@ export async function createTeacher(formData: {
 
         if (existingProfile) {
             if (existingProfile.role !== 'teacher') {
-                return { error: `Ce numéro est déjà utilisé par un ${existingProfile.role}.` }
+                return { error: 'auth.errors.phoneRegisteredAs_' + existingProfile.role }
             }
             
             // ─── ATTACH TEACHER TO THE CURRENT SCHOOL VIA profile_schools ───
@@ -1027,7 +1032,7 @@ export async function createTeacher(formData: {
                         status: 'active'
                     })
                 if (linkError) {
-                    return { error: `Erreur lors de la liaison de l'enseignant: ${linkError.message}` }
+                    return { error: 'auth.errors.linkError' }
                 }
             }
 
@@ -1054,15 +1059,15 @@ export async function createTeacher(formData: {
             .maybeSingle()
 
         if (existingNNIProfile) {
-            return { error: 'Ce numéro NNI est déjà rattaché à un compte.' }
+            return { error: 'auth.errors.nniAlreadyAssociatedNoName' }
         }
     }
 
     if (!formData.password?.trim()) {
-        return { error: 'Le mot de passe instantané est obligatoire' }
+        return { error: 'auth.errors.tempPasswordRequired' }
     }
     if (!/^\d{6}$/.test(formData.password.trim())) {
-        return { error: 'Le mot de passe doit être exactement 6 chiffres' }
+        return { error: 'auth.errors.tempPasswordLength' }
     }
     const plainPassword = formData.password.trim()
 
@@ -1079,8 +1084,8 @@ export async function createTeacher(formData: {
     })
 
     if (authError) {
-        if (authError.message.includes('already been registered')) {
-            return { error: 'Ce numéro ou email est déjà utilisé' }
+        if (authError.message.includes('already been registered') || authError.message.includes('already registered')) {
+            return { error: 'auth.errors.phoneOrEmailAlreadyRegistered' }
         }
         return { error: authError.message }
     }
@@ -1099,7 +1104,7 @@ export async function createTeacher(formData: {
         })
 
     if (profileError) {
-        return { error: 'Erreur lors de la création du profil: ' + profileError.message }
+        return { error: 'auth.errors.profileError' }
     }
 
     // ─── ALSO REGISTER IN profile_schools FOR COMPLETENESS ──────────────────

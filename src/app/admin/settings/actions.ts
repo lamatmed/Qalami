@@ -247,7 +247,7 @@ export async function addStaffMemberAction(payload: {
 }) {
     const supabase = await createClient()
     const { data: { user } } = await supabase.auth.getUser()
-    if (!user) return { error: 'Non authentifié' }
+    if (!user) return { error: 'auth.errors.unauthenticated' }
 
     const { data: me } = await supabase
         .from('profiles')
@@ -255,7 +255,7 @@ export async function addStaffMemberAction(payload: {
         .eq('id', user.id)
         .single()
 
-    if (!me?.school_id) return { error: 'École introuvable' }
+    if (!me?.school_id) return { error: 'auth.errors.noSchoolAssociated' }
 
     const admin = createAdminClient()
 
@@ -282,8 +282,14 @@ export async function addStaffMemberAction(payload: {
         }))
     }
 
-    if (authError || !authData?.user) {
-        return { error: `Erreur création compte: ${authError?.message}` }
+    if (authError) {
+        if (authError.message.includes('already been registered') || authError.message.includes('already registered')) {
+            return { error: 'auth.errors.phoneAlreadyRegistered' }
+        }
+        return { error: `Erreur création compte: ${authError.message}` }
+    }
+    if (!authData?.user) {
+        return { error: 'auth.errors.accountCreationError' }
     }
 
     // Supabase trigger auto-creates a profile row on auth user creation — update it
@@ -304,7 +310,7 @@ export async function addStaffMemberAction(payload: {
 
     if (profileError) {
         await admin.auth.admin.deleteUser(authData.user.id)
-        return { error: profileError.message }
+        return { error: 'auth.errors.profileError' }
     }
 
     const { error: contractError } = await admin

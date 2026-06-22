@@ -55,7 +55,7 @@ export function LoginForm() {
             const fullPhone = countryCode.code + data.phone.replace(/^0+/, '')
             const result = await login({ ...data, phone: fullPhone })
             if (result?.error) {
-                toast.error(result.error)
+                toast.error(t(result.error))
             }
         } catch (error: any) {
             if (error?.digest?.startsWith('NEXT_REDIRECT')) throw error

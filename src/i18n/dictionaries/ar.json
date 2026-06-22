@@ -287,6 +287,31 @@
       "phoneRequired": "الرجاء إدخال رقم هاتفك",
       "codeRequired": "الرجاء إدخال الرمز المكون من 6 أرقام",
       "pinInvalid": "يجب أن تتكون كلمة المرور من 6 أرقام بالضبط"
+    },
+    "errors": {
+      "phoneAlreadyRegistered": "رقم الهاتف هذا مسجل بالفعل لمستخدم آخر.",
+      "emailAlreadyRegistered": "البريد الإلكتروني هذا مسجل بالفعل لمستخدم آخر.",
+      "phoneOrEmailAlreadyRegistered": "رقم الهاتف أو البريد الإلكتروني هذا مستخدم بالفعل.",
+      "phoneRegisteredAs_parent": "هذا الرقم مسجل بالفعل كولي أمر.",
+      "phoneRegisteredAs_teacher": "هذا الرقم مسجل بالفعل كمعلم.",
+      "phoneRegisteredAs_student": "هذا الرقم مسجل بالفعل كتلميذ.",
+      "phoneRegisteredAs_school_staff": "هذا الرقم مسجل بالفعل كموظف.",
+      "tempPasswordRequired": "كلمة المرور المؤقتة مطلوبة.",
+      "tempPasswordLength": "يجب أن تتكون كلمة المرور من 6 أرقام بالضبط.",
+      "nameRequired": "الاسم الكامل مطلوب.",
+      "phoneRequired": "رقم الهاتف مطلوب.",
+      "emailRequired": "البريد الإلكتروني مطلوب.",
+      "nniRequired": "الرقم الوطني للتعريف NNI مطلوب.",
+      "nniAlreadyAssociated": "رقم التعريف الوطني هذا مرتبط بالفعل بحساب آخر ({name}).",
+      "nniAlreadyAssociatedNoName": "الرقم الوطني للتعريف NNI هذا مرتبط بالفعل بحساب آخر.",
+      "unauthenticated": "غير مصادق. يرجى تسجيل الدخول.",
+      "unauthorized": "غير مسموح بالوصول.",
+      "noSchoolAssociated": "لا توجد مدرسة مرتبطة بحسابك.",
+      "studentNotFound": "لم يتم العثور على التلميذ.",
+      "linkError": "حدث خطأ أثناء عملية الربط.",
+      "profileError": "حدث خطأ أثناء إنشاء الملف الشخصي.",
+      "accountCreationError": "حدث خطأ أثناء إنشاء الحساب.",
+      "incorrectPin": "الرمز السري غير صحيح."
     }
   },
   "admin": {

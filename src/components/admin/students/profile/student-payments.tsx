@@ -233,6 +233,25 @@ export function StudentPayments({ studentId, studentName, schoolId, isArchived }
             const receiptNo = payment.receipt_number || payment.id.substring(0, 8).toUpperCase()
             const types = getBilingualTypeLabel(payment.payment_type)
             const _now = new Date()
+
+            const MONTH_NAMES_FR: Record<number, string> = {
+                1:'Janvier',2:'Février',3:'Mars',4:'Avril',5:'Mai',6:'Juin',
+                7:'Juillet',8:'Août',9:'Septembre',10:'Octobre',11:'Novembre',12:'Décembre',
+            }
+            const monthNum = payment.due_date ? new Date(payment.due_date).getMonth() + 1 : null
+            const yearNum = payment.due_date ? new Date(payment.due_date).getFullYear() : null
+            let monthLabel = ''
+            if (monthNum && yearNum) {
+                const monthNameFr = MONTH_NAMES_FR[monthNum] || ''
+                const monthNameAr = ({
+                    1: 'يناير', 2: 'فبراير', 3: 'مارس', 4: 'أبريل',
+                    5: 'مايو', 6: 'يونيو', 7: 'يوليو', 8: 'أغسطس',
+                    9: 'سبتمبر', 10: 'أكتوبر', 11: 'نوفمبر', 12: 'ديسمبر'
+                } as Record<number, string>)[monthNum] || ''
+                monthLabel = language === 'ar'
+                    ? `${monthNameAr} ${yearNum} / ${monthNameFr} ${yearNum}`
+                    : `${monthNameFr} ${yearNum}`
+            }
             const printDate = _now.toLocaleDateString('fr-FR', { day: '2-digit', month: 'long', year: 'numeric', timeZone: 'Africa/Nouakchott' })
                 + ' à ' + _now.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit', timeZone: 'Africa/Nouakchott' })
             const fmt = (n: number) => Math.round(n).toString().replace(/\B(?=(\d{3})+(?!\d))/g, ' ')
@@ -289,8 +308,9 @@ export function StudentPayments({ studentId, studentName, schoolId, isArchived }
                     </div>
                     <div style="padding:10px 14px;border-bottom:1px solid #f3f4f6;">
                         ${row('Type', types.fr + ' / ' + types.ar, true)}
-                        ${row('Date / التاريخ', paymentDate, false)}
-                        ${payment.description ? row('Note', payment.description, true) : ''}
+                        ${monthLabel ? row('Période / الفترة', monthLabel, false) : ''}
+                        ${row('Date / التاريخ', paymentDate, !!monthLabel)}
+                        ${payment.description ? row('Note', payment.description, !monthLabel) : ''}
                     </div>
                     <div style="display:flex;gap:10px;padding:10px 14px 14px;font-size:9px;color:#9ca3af;text-align:center;">
                         <div style="flex:1;border-top:1px solid #d1d5db;padding-top:4px;">Parent / ولي الأمر</div>

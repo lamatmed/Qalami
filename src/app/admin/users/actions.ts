@@ -63,13 +63,13 @@ export async function createStaffUser(formData: {
     permissions: Permission[]
 }) {
     const ctx = await getActionContext()
-    if (!ctx) return { error: 'Non autorisé' }
+    if (!ctx) return { error: 'auth.errors.unauthorized' }
     const { supabase, userId, schoolId } = ctx
     const adminClient = createAdminClient()
 
-    if (!formData.fullName.trim()) return { error: 'Le nom est obligatoire' }
-    if (!formData.phone.trim())    return { error: 'Le numéro est obligatoire' }
-    if (!formData.password.trim()) return { error: 'Le mot de passe est obligatoire' }
+    if (!formData.fullName.trim()) return { error: 'auth.errors.nameRequired' }
+    if (!formData.phone.trim())    return { error: 'auth.errors.phoneRequired' }
+    if (!formData.password.trim()) return { error: 'auth.errors.tempPasswordRequired' }
 
     const phone = formData.phone.startsWith('+')
         ? formData.phone
@@ -82,7 +82,12 @@ export async function createStaffUser(formData: {
         user_metadata: { full_name: formData.fullName.trim() },
     })
 
-    if (authError) return { error: authError.message }
+    if (authError) {
+        if (authError.message.includes('already been registered') || authError.message.includes('already registered')) {
+            return { error: 'auth.errors.phoneAlreadyRegistered' }
+        }
+        return { error: authError.message }
+    }
 
     const { error: profileError } = await adminClient.from('profiles').upsert({
         id:          authUser.user.id,
@@ -96,7 +101,7 @@ export async function createStaffUser(formData: {
 
     if (profileError) {
         await adminClient.auth.admin.deleteUser(authUser.user.id)
-        return { error: profileError.message }
+        return { error: 'auth.errors.profileError' }
     }
 
     await adminClient.from('staff_permissions').upsert({

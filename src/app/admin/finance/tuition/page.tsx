@@ -67,6 +67,8 @@ export default function TuitionPage() {
     const [filterClass, setFilterClass] = useState('all')
     const [classes, setClasses] = useState<{ id: string; name: string }[]>([])
     const [currentAcademicYear, setCurrentAcademicYear] = useState<string | null>(null)
+    const [schoolName, setSchoolName] = useState('')
+    const [schoolLogo, setSchoolLogo] = useState('')
     
     const [activeTab, setActiveTab] = useState<'all' | 'late'>('all')
     const [notifyingIds, setNotifyingIds] = useState<Record<string, boolean>>({})
@@ -131,118 +133,124 @@ export default function TuitionPage() {
         allPaidTotal: number
     ) => {
         try {
-            const { jsPDF } = await import('jspdf')
-            const W = 210, H = 297, ML = 18, MR = 192, CX = 105
-            const EM: [number,number,number] = [16, 185, 129]
-            const DK: [number,number,number] = [15, 23, 42]
-            const GR: [number,number,number] = [100, 116, 139]
-            const LBG: [number,number,number] = [248, 250, 252]
-            const BDR: [number,number,number] = [226, 232, 240]
-            const WH: [number,number,number] = [255, 255, 255]
-            const HT: [number,number,number] = [174, 234, 211]
-            const fmt = (n: number) => Math.round(n).toString().replace(/\B(?=(\d{3})+(?!\d))/g, ' ')
-            const printDate = new Date().toLocaleDateString('fr-FR', { day: '2-digit', month: 'long', year: 'numeric' })
+            toast.info(language === 'ar' ? 'جارٍ إنشاء الوصل…' : 'Génération du reçu…')
+            const locale = language === 'ar' ? 'ar-u-ca-gregory' : 'fr-FR'
+            const printDate = new Date().toLocaleDateString('fr-FR', { day: '2-digit', month: 'long', year: 'numeric', timeZone: 'Africa/Nouakchott' })
+                + ' à ' + new Date().toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit', timeZone: 'Africa/Nouakchott' })
             const totalAmount = paidRows.reduce((s, p) => s + Number(p.amount), 0)
             const shortId = Math.random().toString(36).slice(2, 10).toUpperCase()
+            const fmt = (n: number) => Math.round(n).toString().replace(/\B(?=(\d{3})+(?!\d))/g, ' ')
 
-            const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' })
+            const row = (label: string, value: string, shade: boolean) =>
+                `<div style="display:flex;justify-content:space-between;align-items:flex-start;padding:5px 6px;${shade ? 'background:#f9fafb;' : ''}border-radius:3px;gap:6px;">
+                    <span style="color:#6b7280;font-size:10px;flex-shrink:0;white-space:nowrap;padding-top:1px;">${label}</span>
+                    <span style="font-weight:600;font-size:10px;color:#111;text-align:right;direction:auto;min-width:0;flex:1;word-break:break-word;overflow-wrap:anywhere;line-height:1.4;">${value}</span>
+                </div>`
 
-            // Header band
-            doc.setFillColor(...EM); doc.rect(0, 0, W, 50, 'F')
-            doc.setFont('Helvetica', 'bold'); doc.setFontSize(24); doc.setTextColor(...WH)
-            doc.text('QALAMI', ML, 17)
-            doc.setFont('Helvetica', 'normal'); doc.setFontSize(9); doc.setTextColor(...HT)
-            doc.text('School Manager  ·  Gestion Scolaire', ML, 24)
-            doc.setFont('Helvetica', 'bold'); doc.setFontSize(15); doc.setTextColor(...WH)
-            doc.text('REÇU DE PAIEMENT', MR, 17, { align: 'right' })
-            doc.setFont('Helvetica', 'normal'); doc.setFontSize(9); doc.setTextColor(...HT)
-            doc.text(`Réf : ${shortId}`, MR, 24, { align: 'right' })
-            doc.setDrawColor(...HT); doc.setLineWidth(0.2); doc.line(ML, 30, MR, 30)
-            doc.setFontSize(8.5); doc.text(`Émis le ${printDate}`, ML, 39)
-
-            // Amount card
-            let y = 62
-            doc.setFillColor(...LBG); doc.setDrawColor(...BDR); doc.setLineWidth(0.3)
-            doc.roundedRect(ML, y, MR - ML, 50, 4, 4, 'FD')
-            const bW = 28, bX = MR - bW - 5, bY = y + 5
-            doc.setFillColor(...EM); doc.roundedRect(bX, bY, bW, 9, 2, 2, 'F')
-            doc.setFont('Helvetica', 'bold'); doc.setFontSize(7.5); doc.setTextColor(...WH)
-            doc.text('PAYÉ', bX + bW / 2, bY + 6.2, { align: 'center' })
-            doc.setFont('Helvetica', 'normal'); doc.setFontSize(8.5); doc.setTextColor(...GR)
-            doc.text('MONTANT TOTAL PAYÉ', ML + 7, y + 16)
-            doc.setFont('Helvetica', 'bold'); doc.setFontSize(38); doc.setTextColor(...DK)
-            doc.text(fmt(totalAmount), ML + 7, y + 38)
-            const amtW = doc.getTextWidth(fmt(totalAmount))
-            doc.setFont('Helvetica', 'bold'); doc.setFontSize(13); doc.setTextColor(...EM)
-            doc.text('MRU', ML + 7 + amtW + 3, y + 38)
-
-            y += 63
-            const section = (title: string) => {
-                doc.setFont('Helvetica', 'bold'); doc.setFontSize(8.5); doc.setTextColor(...EM)
-                doc.text(title, ML, y)
-                doc.setDrawColor(...EM); doc.setLineWidth(0.5)
-                doc.line(ML, y + 2, ML + doc.getTextWidth(title), y + 2); y += 12
-            }
-            const detailRow = (label: string, value: string, shade = false) => {
-                if (shade) { doc.setFillColor(...LBG); doc.rect(ML, y - 6.5, MR - ML, 10.5, 'F') }
-                doc.setFont('Helvetica', 'normal'); doc.setFontSize(9.5); doc.setTextColor(...GR)
-                doc.text(label, ML + 5, y)
-                doc.setFont('Helvetica', 'bold'); doc.setFontSize(9.5); doc.setTextColor(...DK)
-                doc.text(value, MR - 5, y, { align: 'right' }); y += 11
+            // Preload logo as data URL
+            let logoDataUrl = ''
+            if (schoolLogo) {
+                try {
+                    const resp = await fetch(schoolLogo)
+                    const blob = await resp.blob()
+                    logoDataUrl = await new Promise<string>((res, rej) => {
+                        const reader = new FileReader()
+                        reader.onload = () => res(reader.result as string)
+                        reader.onerror = rej
+                        reader.readAsDataURL(blob)
+                    })
+                } catch { /* logo not critical */ }
             }
 
-            // Student section
-            section('ÉLÈVE')
-            let shade = false
-            detailRow('Nom complet', student.full_name, shade); shade = !shade
-            detailRow('NNI', student.national_id, shade); shade = !shade
-            if (student.phone) { detailRow('Téléphone', student.phone, shade); shade = !shade }
-            detailRow('Date', printDate, shade)
+            // Build 80mm receipt as an off-screen DOM element
+            const el = document.createElement('div')
+            el.style.cssText = 'position:fixed;top:0;left:-9999px;width:302px;background:white;'
+            el.innerHTML = `
+                <div style="width:302px;background:white;font-family:var(--font-arabic),system-ui,sans-serif;color:#111;">
+                    <div style="background:#10b981;padding:${logoDataUrl ? '12px' : '14px'} 16px;text-align:center;">
+                        ${logoDataUrl ? `<img src="${logoDataUrl}" style="width:52px;height:52px;border-radius:50%;object-fit:cover;margin:0 auto 8px;display:block;border:2px solid rgba(255,255,255,0.35);" />` : ''}
+                        <div style="font-size:16px;font-weight:800;color:white;">${schoolName || 'QALAMI'}</div>
+                        <div style="font-size:9px;color:#a7f3d0;margin-top:2px;letter-spacing:1px;">RECU DE PAIEMENT / وصل الدفع</div>
+                    </div>
+                    <div style="background:#f0fdf4;padding:5px 14px;display:flex;justify-content:space-between;align-items:center;border-bottom:1px dashed #a7f3d0;">
+                        <span style="font-size:9px;color:#6b7280;">Ref / المرجع</span>
+                        <span style="font-size:10px;font-family:monospace;font-weight:700;color:#064e3b;">${shortId}</span>
+                    </div>
+                    <div style="padding:14px 16px;text-align:center;border-bottom:1px solid #f3f4f6;">
+                        <div style="font-size:9px;color:#6b7280;text-transform:uppercase;letter-spacing:1px;margin-bottom:4px;">MONTANT TOTAL PAYE / إجمالي المبلغ المدفوع</div>
+                        <div style="font-size:30px;font-weight:800;color:#10b981;line-height:1.1;">
+                            ${fmt(totalAmount)}<span style="font-size:13px;font-weight:600;color:#6b7280;margin-left:4px;">MRU</span>
+                        </div>
+                        <div style="display:inline-block;margin-top:6px;background:#d1fae5;color:#065f46;font-size:9px;font-weight:700;padding:2px 10px;border-radius:99px;">PAYE</div>
+                    </div>
+                    <div style="padding:10px 14px;border-bottom:1px solid #f3f4f6;">
+                        ${row('Eleve / الطالب', student.full_name, true)}
+                        ${student.national_id ? row('NNI', student.national_id, false) : ''}
+                        ${student.phone ? row('Tel / الهاتف', `<span dir="ltr">${student.phone}</span>`, true) : ''}
+                    </div>
+                    <div style="padding:10px 14px;border-bottom:1px solid #f3f4f6;">
+                        <div style="font-size:9px;color:#6b7280;font-weight:700;margin-bottom:6px;text-align:left;">DETAILS / التفاصيل</div>
+                        ${paidRows.map((p, idx) => {
+                            const monthNum = p.due_date ? new Date(p.due_date).getMonth() + 1 : null
+                            const yearNum  = p.due_date ? new Date(p.due_date).getFullYear() : null
+                            const monthNameFr = monthNum ? MONTH_NAMES_FR[monthNum] : ''
+                            const monthNameAr = monthNum ? (({
+                                1: 'يناير', 2: 'فبراير', 3: 'مارس', 4: 'أبريل',
+                                5: 'مايو', 6: 'يونيو', 7: 'يوليو', 8: 'أغسطس',
+                                9: 'سبتمبر', 10: 'أكتوبر', 11: 'نوفمبر', 12: 'ديسمبر'
+                            } as Record<number, string>)[monthNum] || '') : ''
+                            const monthLabel = (monthNum && yearNum)
+                                ? (language === 'ar' ? `${monthNameAr} ${yearNum} / ${monthNameFr} ${yearNum}` : `${monthNameFr} ${yearNum}`)
+                                : 'Divers'
+                            const typeLabel  = TYPE_LABELS[p.payment_type] ?? p.payment_type
+                            return row(`${monthLabel} — ${typeLabel}`, `${fmt(p.amount)} MRU`, idx % 2 === 0)
+                        }).join('')}
+                    </div>
+                    ${allPaidTotal > totalAmount ? `
+                    <div style="padding:10px 14px;border-bottom:1px solid #f3f4f6;background:#f0fdf4;">
+                        ${row('Total payé (tous mois) / إجمالي المدفوع', `${fmt(allPaidTotal)} MRU`, false)}
+                    </div>` : ''}
+                    <div style="display:flex;gap:10px;padding:10px 14px 14px;font-size:9px;color:#9ca3af;text-align:center;">
+                        <div style="flex:1;border-top:1px solid #d1d5db;padding-top:4px;">Parent / ولي الأمر</div>
+                        <div style="flex:1;border-top:1px solid #d1d5db;padding-top:4px;">Administration / الإدارة</div>
+                    </div>
+                    <div style="background:#f9fafb;border-top:1px solid #e5e7eb;padding:5px 14px;display:flex;justify-content:space-between;align-items:center;">
+                        <span style="font-size:8px;color:#9ca3af;">${printDate}</span>
+                        <span style="font-size:8px;font-weight:700;color:#10b981;">Qalami School Manager</span>
+                    </div>
+                </div>
+            `
+            document.body.appendChild(el)
+            await document.fonts.ready
+            await new Promise(r => setTimeout(r, 250))
 
-            // Payments table
-            y += 8; section('DÉTAIL DES PAIEMENTS')
-            shade = false
-            paidRows.forEach(p => {
-                const monthNum = p.due_date ? new Date(p.due_date).getMonth() + 1 : null
-                const yearNum  = p.due_date ? new Date(p.due_date).getFullYear() : null
-                const monthLabel = monthNum ? `${MONTH_NAMES_FR[monthNum]} ${yearNum}` : 'Divers'
-                const typeLabel  = TYPE_LABELS[p.payment_type] ?? p.payment_type
-                detailRow(`${monthLabel}  —  ${typeLabel}`, `${fmt(Number(p.amount))} MRU`, shade)
-                shade = !shade
+            const { toJpeg } = await import('html-to-image')
+            const { jsPDF }  = await import('jspdf')
+
+            const target = el.firstElementChild as HTMLElement
+            await toJpeg(target, { quality: 0.5, pixelRatio: 1 })
+            const imgData = await toJpeg(target, {
+                quality: 0.96,
+                backgroundColor: '#ffffff',
+                pixelRatio: 3,
+                width: target.offsetWidth,
+                height: target.offsetHeight,
             })
+            document.body.removeChild(el)
 
-            // This payment total
-            y += 4
-            doc.setDrawColor(...EM); doc.setLineWidth(0.6); doc.line(ML, y, MR, y); y += 9
-            doc.setFont('Helvetica', 'bold'); doc.setFontSize(11); doc.setTextColor(...DK)
-            doc.text(`Ce versement (${paidRows.length} mois)`, ML + 5, y)
-            doc.setFontSize(11); doc.setTextColor(...EM)
-            doc.text(`${fmt(totalAmount)} MRU`, MR - 5, y, { align: 'right' })
-            y += 10
+            const img      = new Image()
+            img.src        = imgData
+            await new Promise(r => { img.onload = r })
+            const mmWidth  = 80
+            const mmHeight = (img.height / img.width) * mmWidth
 
-            // Cumulative total if different
-            if (allPaidTotal > totalAmount) {
-                doc.setFillColor(240, 253, 244); doc.roundedRect(ML, y - 6, MR - ML, 13, 2, 2, 'F')
-                doc.setFont('Helvetica', 'bold'); doc.setFontSize(10); doc.setTextColor(...GR)
-                doc.text('TOTAL PAYÉ (tous mois confondus)', ML + 5, y + 1)
-                doc.setFontSize(12); doc.setTextColor(5, 120, 80)
-                doc.text(`${fmt(allPaidTotal)} MRU`, MR - 5, y + 1, { align: 'right' })
-            }
-
-            // Footer
-            doc.setFillColor(...LBG); doc.rect(0, H - 26, W, 26, 'F')
-            doc.setDrawColor(...BDR); doc.setLineWidth(0.3); doc.line(0, H - 26, W, H - 26)
-            doc.setFont('Helvetica', 'normal'); doc.setFontSize(8.5); doc.setTextColor(...GR)
-            doc.text(`Généré le ${printDate}`, ML, H - 15)
-            doc.setFont('Helvetica', 'bold'); doc.setFontSize(9); doc.setTextColor(...EM)
-            doc.text('Qalami School Manager', MR, H - 15, { align: 'right' })
-            doc.setFont('Helvetica', 'normal'); doc.setFontSize(7); doc.setTextColor(195, 210, 220)
-            doc.text('Ce document est généré automatiquement et ne nécessite pas de signature.', CX, H - 7, { align: 'center' })
-
+            const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: [mmWidth, mmHeight] })
+            doc.addImage(imgData, 'JPEG', 0, 0, mmWidth, mmHeight)
             doc.save(`recu-${student.full_name.replace(/\s+/g, '-')}-${shortId}.pdf`)
-            toast.success('Reçu téléchargé')
-        } catch {
-            toast.error('Erreur lors de la génération du reçu')
+            toast.success(language === 'ar' ? 'تم تنزيل الوصل' : 'Reçu PDF téléchargé')
+        } catch (err) {
+            console.error(err)
+            toast.error(language === 'ar' ? 'خطأ في إنشاء PDF' : 'Erreur lors de la génération du reçu')
         }
     }
 
@@ -274,148 +282,135 @@ export default function TuitionPage() {
                 .eq('id', p.student_id)
                 .maybeSingle()
 
-            const { jsPDF } = await import('jspdf')
+            const locale = language === 'ar' ? 'ar-u-ca-gregory' : 'fr-FR'
+            const paymentDate = p.paid_at
+                ? new Date(p.paid_at).toLocaleDateString(locale, { day: '2-digit', month: 'long', year: 'numeric' })
+                : '—'
+            const printDate = new Date().toLocaleDateString('fr-FR', { day: '2-digit', month: 'long', year: 'numeric', timeZone: 'Africa/Nouakchott' })
+                + ' à ' + new Date().toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit', timeZone: 'Africa/Nouakchott' })
+            const shortId = p.id.slice(0, 8).toUpperCase()
+            const remaining = p.amount - p.amount_paid
+            const fmt = (n: number) => Math.round(n).toString().replace(/\B(?=(\d{3})+(?!\d))/g, ' ')
 
-            // ─── Design tokens ─────────────────────────────────────────────────
-            const W = 210, H = 297, ML = 18, MR = 192, CX = 105
-            const EM:     [number,number,number] = [16, 185, 129]   // emerald
-            const DK:     [number,number,number] = [15,  23,  42]   // dark
-            const GR:     [number,number,number] = [100, 116, 139]  // gray
-            const LBG:    [number,number,number] = [248, 250, 252]  // light bg
-            const BDR:    [number,number,number] = [226, 232, 240]  // border
-            const WH:     [number,number,number] = [255, 255, 255]
-            const HT:     [number,number,number] = [174, 234, 211]  // header tint
-
-            const statusColor: [number,number,number] =
-                p.status === 'paid'    ? [16, 185, 129] :
-                p.status === 'partial' ? [245, 158, 11] :
-                p.status === 'overdue' ? [239,  68,  68] : [99, 102, 241]
+            const typeLabel = TYPE_LABELS[p.payment_type] ?? p.payment_type
             const statusLabel =
-                p.status === 'paid'    ? 'PAYÉ'      :
-                p.status === 'partial' ? 'PARTIEL'   :
-                p.status === 'overdue' ? 'EN RETARD' : 'EN ATTENTE'
+                p.status === 'paid'    ? (language === 'ar' ? 'payé / مدفوع' : 'Payé') :
+                p.status === 'partial' ? (language === 'ar' ? 'partiel / جزئي' : 'Partiel') :
+                p.status === 'overdue' ? (language === 'ar' ? 'en retard / متأخر' : 'En retard') : (language === 'ar' ? 'en attente / في الانتظار' : 'En attente')
 
-            const typeLabels: Record<string, string> = {
-                scolarite: 'Scolarité', inscription: 'Inscription',
-                bus: 'Transport',       cantine: 'Cantine', activites: 'Activités',
-            }
-            const typeLabel  = typeLabels[p.payment_type] ?? p.payment_type
-            const printDate  = new Date().toLocaleDateString('fr-FR', { day: '2-digit', month: 'long', year: 'numeric' })
-            const shortId    = p.id.slice(0, 8).toUpperCase()
-            const remaining  = p.amount - p.amount_paid
-            const fmt        = (n: number) => Math.round(n).toString().replace(/\B(?=(\d{3})+(?!\d))/g, ' ')
-
-            const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' })
-
-            // ─── Header band ───────────────────────────────────────────────────
-            doc.setFillColor(...EM)
-            doc.rect(0, 0, W, 50, 'F')
-
-            // Branding left
-            doc.setFont('Helvetica', 'bold'); doc.setFontSize(24); doc.setTextColor(...WH)
-            doc.text('QALAMI', ML, 17)
-            doc.setFont('Helvetica', 'normal'); doc.setFontSize(9); doc.setTextColor(...HT)
-            doc.text('School Manager  ·  Gestion Scolaire', ML, 24)
-
-            // Receipt title right
-            doc.setFont('Helvetica', 'bold'); doc.setFontSize(15); doc.setTextColor(...WH)
-            doc.text('REÇU DE PAIEMENT', MR, 17, { align: 'right' })
-            doc.setFont('Helvetica', 'normal'); doc.setFontSize(9); doc.setTextColor(...HT)
-            doc.text(`Réf : ${shortId}`, MR, 24, { align: 'right' })
-
-            // Thin divider inside band
-            doc.setDrawColor(...HT); doc.setLineWidth(0.2)
-            doc.line(ML, 30, MR, 30)
-
-            // Emission date
-            doc.setFont('Helvetica', 'normal'); doc.setFontSize(8.5); doc.setTextColor(...HT)
-            doc.text(`Émis le ${printDate}`, ML, 39)
-
-            // ─── Amount card ───────────────────────────────────────────────────
-            let y = 62
-            doc.setFillColor(...LBG); doc.setDrawColor(...BDR); doc.setLineWidth(0.3)
-            doc.roundedRect(ML, y, MR - ML, 50, 4, 4, 'FD')
-
-            // Status badge — top-right inside card
-            const bW = statusLabel.length > 6 ? 36 : 28
-            const bX = MR - bW - 5, bY = y + 5
-            doc.setFillColor(...statusColor)
-            doc.roundedRect(bX, bY, bW, 9, 2, 2, 'F')
-            doc.setFont('Helvetica', 'bold'); doc.setFontSize(7.5); doc.setTextColor(...WH)
-            doc.text(statusLabel, bX + bW / 2, bY + 6.2, { align: 'center' })
-
-            // "MONTANT PAYÉ" label
-            doc.setFont('Helvetica', 'normal'); doc.setFontSize(8.5); doc.setTextColor(...GR)
-            doc.text('MONTANT PAYÉ', ML + 7, y + 16)
-
-            // Big amount
-            doc.setFont('Helvetica', 'bold'); doc.setFontSize(38); doc.setTextColor(...DK)
-            doc.text(fmt(p.amount_paid), ML + 7, y + 38)
-
-            // MRU suffix right after amount
-            doc.setFontSize(38)
-            const amtW = doc.getTextWidth(fmt(p.amount_paid))
-            doc.setFont('Helvetica', 'bold'); doc.setFontSize(13); doc.setTextColor(...EM)
-            doc.text('MRU', ML + 7 + amtW + 3, y + 38)
-
-            // ─── Section + row helpers ──────────────────────────────────────────
-            y += 63
-
-            const section = (title: string) => {
-                doc.setFont('Helvetica', 'bold'); doc.setFontSize(8.5); doc.setTextColor(...EM)
-                doc.text(title, ML, y)
-                doc.setDrawColor(...EM); doc.setLineWidth(0.5)
-                doc.line(ML, y + 2, ML + doc.getTextWidth(title), y + 2)
-                y += 12
+            const monthNum = p.due_date ? new Date(p.due_date).getMonth() + 1 : null
+            const yearNum = p.due_date ? new Date(p.due_date).getFullYear() : null
+            let monthLabel = ''
+            if (monthNum && yearNum) {
+                const monthNameFr = MONTH_NAMES_FR[monthNum] || ''
+                const monthNameAr = ({
+                    1: 'يناير', 2: 'فبراير', 3: 'مارس', 4: 'أبريل',
+                    5: 'مايو', 6: 'يونيو', 7: 'يوليو', 8: 'أغسطس',
+                    9: 'سبتمبر', 10: 'أكتوبر', 11: 'نوفمبر', 12: 'ديسمبر'
+                } as Record<number, string>)[monthNum] || ''
+                monthLabel = language === 'ar'
+                    ? `${monthNameAr} ${yearNum} / ${monthNameFr} ${yearNum}`
+                    : `${monthNameFr} ${yearNum}`
             }
 
-            const detailRow = (label: string, value: string, shade = false) => {
-                if (shade) {
-                    doc.setFillColor(...LBG); doc.setDrawColor(...LBG); doc.setLineWidth(0)
-                    doc.rect(ML, y - 6.5, MR - ML, 10.5, 'F')
-                }
-                doc.setFont('Helvetica', 'normal'); doc.setFontSize(9.5); doc.setTextColor(...GR)
-                doc.text(label, ML + 5, y)
-                doc.setFont('Helvetica', 'bold'); doc.setFontSize(9.5); doc.setTextColor(...DK)
-                doc.text(value, MR - 5, y, { align: 'right' })
-                y += 11
+            const row = (label: string, value: string, shade: boolean) =>
+                `<div style="display:flex;justify-content:space-between;align-items:flex-start;padding:5px 6px;${shade ? 'background:#f9fafb;' : ''}border-radius:3px;gap:6px;">
+                    <span style="color:#6b7280;font-size:10px;flex-shrink:0;white-space:nowrap;padding-top:1px;">${label}</span>
+                    <span style="font-weight:600;font-size:10px;color:#111;text-align:right;direction:auto;min-width:0;flex:1;word-break:break-word;overflow-wrap:anywhere;line-height:1.4;">${value}</span>
+                </div>`
+
+            // Preload logo as data URL
+            let logoDataUrl = ''
+            if (schoolLogo) {
+                try {
+                    const resp = await fetch(schoolLogo)
+                    const blob = await resp.blob()
+                    logoDataUrl = await new Promise<string>((res, rej) => {
+                        const reader = new FileReader()
+                        reader.onload = () => res(reader.result as string)
+                        reader.onerror = rej
+                        reader.readAsDataURL(blob)
+                    })
+                } catch { /* logo not critical */ }
             }
 
-            // ─── Payment info ──────────────────────────────────────────────────
-            section('INFORMATIONS DU PAIEMENT')
-            let shade = false
-            detailRow('Type de paiement', typeLabel, shade);          shade = !shade
-            detailRow('Montant total',    `${fmt(p.amount)} MRU`, shade); shade = !shade
-            if (remaining > 0) { detailRow('Reste à payer', `${fmt(remaining)} MRU`, shade); shade = !shade }
-            if (p.paid_at)     { detailRow('Date de paiement',   formatDateTime(p.paid_at),   shade) }
-            else if (p.due_date){ detailRow("Date d'échéance",   formatDateOnly(p.due_date),  shade) }
+            // Build 80mm receipt as an off-screen DOM element
+            const el = document.createElement('div')
+            el.style.cssText = 'position:fixed;top:0;left:-9999px;width:302px;background:white;'
+            el.innerHTML = `
+                <div style="width:302px;background:white;font-family:var(--font-arabic),system-ui,sans-serif;color:#111;">
+                    <div style="background:#10b981;padding:${logoDataUrl ? '12px' : '14px'} 16px;text-align:center;">
+                        ${logoDataUrl ? `<img src="${logoDataUrl}" style="width:52px;height:52px;border-radius:50%;object-fit:cover;margin:0 auto 8px;display:block;border:2px solid rgba(255,255,255,0.35);" />` : ''}
+                        <div style="font-size:16px;font-weight:800;color:white;">${schoolName || 'QALAMI'}</div>
+                        <div style="font-size:9px;color:#a7f3d0;margin-top:2px;letter-spacing:1px;">RECU DE PAIEMENT / وصل الدفع</div>
+                    </div>
+                    <div style="background:#f0fdf4;padding:5px 14px;display:flex;justify-content:space-between;align-items:center;border-bottom:1px dashed #a7f3d0;">
+                        <span style="font-size:9px;color:#6b7280;">Ref / المرجع</span>
+                        <span style="font-size:10px;font-family:monospace;font-weight:700;color:#064e3b;">${shortId}</span>
+                    </div>
+                    <div style="padding:14px 16px;text-align:center;border-bottom:1px solid #f3f4f6;">
+                        <div style="font-size:9px;color:#6b7280;text-transform:uppercase;letter-spacing:1px;margin-bottom:4px;">MONTANT PAYE / المبلغ المدفوع</div>
+                        <div style="font-size:30px;font-weight:800;color:#10b981;line-height:1.1;">
+                            ${fmt(p.amount_paid)}<span style="font-size:13px;font-weight:600;color:#6b7280;margin-left:4px;">MRU</span>
+                        </div>
+                        <div style="display:inline-block;margin-top:6px;background:${p.status === 'paid' ? '#d1fae5' : '#fef3c7'};color:${p.status === 'paid' ? '#065f46' : '#92400e'};font-size:9px;font-weight:700;padding:2px 10px;border-radius:99px;text-transform:uppercase;">
+                            ${statusLabel}
+                        </div>
+                    </div>
+                    <div style="padding:10px 14px;border-bottom:1px solid #f3f4f6;">
+                        ${row('Eleve / الطالب', p.student_name, true)}
+                        ${p.class_name ? row('Classe / القسم', p.class_name, false) : ''}
+                        ${profile?.national_id ? row('NNI', profile.national_id, true) : ''}
+                        ${profile?.phone ? row('Tel / الهاتف', `<span dir="ltr">${profile.phone}</span>`, !profile.national_id) : ''}
+                    </div>
+                    <div style="padding:10px 14px;border-bottom:1px solid #f3f4f6;">
+                        ${row('Type', typeLabel, true)}
+                        ${monthLabel ? row('Période / الفترة', monthLabel, false) : ''}
+                        ${row('Date / التاريخ', paymentDate, !!monthLabel)}
+                        ${row('Montant total / المبلغ الإجمالي', `${fmt(p.amount)} MRU`, !monthLabel)}
+                        ${remaining > 0 ? row('Reste à payer / المتبقي', `${fmt(remaining)} MRU`, !monthLabel) : ''}
+                    </div>
+                    <div style="display:flex;gap:10px;padding:10px 14px 14px;font-size:9px;color:#9ca3af;text-align:center;">
+                        <div style="flex:1;border-top:1px solid #d1d5db;padding-top:4px;">Parent / ولي الأمر</div>
+                        <div style="flex:1;border-top:1px solid #d1d5db;padding-top:4px;">Administration / الإدارة</div>
+                    </div>
+                    <div style="background:#f9fafb;border-top:1px solid #e5e7eb;padding:5px 14px;display:flex;justify-content:space-between;align-items:center;">
+                        <span style="font-size:8px;color:#9ca3af;">${printDate}</span>
+                        <span style="font-size:8px;font-weight:700;color:#10b981;">Qalami School Manager</span>
+                    </div>
+                </div>
+            `
+            document.body.appendChild(el)
+            await document.fonts.ready
+            await new Promise(r => setTimeout(r, 250))
 
-            // ─── Student info ──────────────────────────────────────────────────
-            y += 8
-            section('ÉLÈVE')
-            shade = false
-            detailRow('Nom complet', p.student_name, shade);   shade = !shade
-            if (p.class_name)        { detailRow('Classe',     p.class_name,          shade); shade = !shade }
-            if (profile?.national_id){ detailRow('NNI',        profile.national_id,   shade); shade = !shade }
-            if (profile?.phone)      { detailRow('Téléphone',  profile.phone,         shade) }
+            const { toJpeg } = await import('html-to-image')
+            const { jsPDF }  = await import('jspdf')
 
-            // ─── Footer band ───────────────────────────────────────────────────
-            doc.setFillColor(...LBG)
-            doc.rect(0, H - 26, W, 26, 'F')
-            doc.setDrawColor(...BDR); doc.setLineWidth(0.3)
-            doc.line(0, H - 26, W, H - 26)
+            const target = el.firstElementChild as HTMLElement
+            await toJpeg(target, { quality: 0.5, pixelRatio: 1 })
+            const imgData = await toJpeg(target, {
+                quality: 0.96,
+                backgroundColor: '#ffffff',
+                pixelRatio: 3,
+                width: target.offsetWidth,
+                height: target.offsetHeight,
+            })
+            document.body.removeChild(el)
 
-            doc.setFont('Helvetica', 'normal'); doc.setFontSize(8.5); doc.setTextColor(...GR)
-            doc.text(`Généré le ${printDate}`, ML, H - 15)
-            doc.setFont('Helvetica', 'bold'); doc.setFontSize(9); doc.setTextColor(...EM)
-            doc.text('Qalami School Manager', MR, H - 15, { align: 'right' })
-            doc.setFont('Helvetica', 'normal'); doc.setFontSize(7); doc.setTextColor(195, 210, 220)
-            doc.text('Ce document est généré automatiquement et ne nécessite pas de signature.', CX, H - 7, { align: 'center' })
+            const img      = new Image()
+            img.src        = imgData
+            await new Promise(r => { img.onload = r })
+            const mmWidth  = 80
+            const mmHeight = (img.height / img.width) * mmWidth
 
+            const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: [mmWidth, mmHeight] })
+            doc.addImage(imgData, 'JPEG', 0, 0, mmWidth, mmHeight)
             doc.save(`recu-${p.student_name.replace(/\s+/g, '-')}-${shortId}.pdf`)
-            toast.success('PDF téléchargé')
-        } catch {
-            toast.error('Erreur lors de la génération du PDF')
+            toast.success(language === 'ar' ? 'تم تنزيل الوصل' : 'PDF téléchargé avec succès')
+        } catch (err) {
+            console.error(err)
+            toast.error(language === 'ar' ? 'خطأ في إنشاء PDF' : 'Erreur lors de la génération du PDF')
         } finally {
             setGeneratingPdfId(null)
         }
@@ -449,6 +444,29 @@ export default function TuitionPage() {
             .eq('id', user.id)
             .single()
         if (!profile?.school_id) { setLoading(false); return }
+
+        // Fetch school settings / school name and logo
+        const { data: schoolSettings } = await supabase
+            .from('school_settings')
+            .select('name, logo_url')
+            .eq('school_id', profile.school_id)
+            .maybeSingle()
+
+        let sName = schoolSettings?.name || null
+        let sLogo = schoolSettings?.logo_url || null
+
+        if (!sLogo || !sName) {
+            const { data: schoolRow } = await supabase
+                .from('schools')
+                .select('name, logo_url')
+                .eq('id', profile.school_id)
+                .maybeSingle()
+            if (!sLogo) sLogo = schoolRow?.logo_url || null
+            if (!sName) sName = schoolRow?.name || null
+        }
+
+        if (sName) setSchoolName(sName)
+        if (sLogo) setSchoolLogo(sLogo)
 
         // Fetch current academic year name
         const { data: yearData } = await supabase

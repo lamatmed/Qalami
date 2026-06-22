@@ -113,7 +113,7 @@ export function RegistrationWizard() {
                     })
 
                     if (result.error) {
-                        toast.error(result.error)
+                        toast.error(t(result.error, (result as any).params))
                         setSaving(false)
                         return
                     }
@@ -152,7 +152,7 @@ export function RegistrationWizard() {
                     })
 
                     if (result.error) {
-                        toast.error(result.error)
+                        toast.error(t(result.error, (result as any).params))
                         setSaving(false)
                         return
                     }

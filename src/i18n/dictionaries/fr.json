@@ -287,6 +287,31 @@
       "phoneRequired": "Veuillez entrer votre numéro de téléphone",
       "codeRequired": "Veuillez entrer le code à 6 chiffres",
       "pinInvalid": "Le mot de passe doit contenir exactement 6 chiffres"
+    },
+    "errors": {
+      "phoneAlreadyRegistered": "Ce numéro de téléphone est déjà enregistré par un autre utilisateur.",
+      "emailAlreadyRegistered": "Cette adresse email est déjà enregistrée par un autre utilisateur.",
+      "phoneOrEmailAlreadyRegistered": "Ce numéro de téléphone ou cet email est déjà utilisé.",
+      "phoneRegisteredAs_parent": "Ce numéro est déjà enregistré comme parent.",
+      "phoneRegisteredAs_teacher": "Ce numéro est déjà enregistré comme enseignant.",
+      "phoneRegisteredAs_student": "Ce numéro est déjà enregistré comme élève.",
+      "phoneRegisteredAs_school_staff": "Ce numéro est déjà enregistré comme membre du personnel.",
+      "tempPasswordRequired": "Le mot de passe instantané est obligatoire.",
+      "tempPasswordLength": "Le mot de passe doit être exactement de 6 chiffres.",
+      "nameRequired": "Le nom complet est obligatoire.",
+      "phoneRequired": "Le numéro de téléphone est obligatoire.",
+      "emailRequired": "L'adresse email est obligatoire.",
+      "nniRequired": "Le NNI est obligatoire.",
+      "nniAlreadyAssociated": "Ce NNI est déjà associé à un autre compte ({name}).",
+      "nniAlreadyAssociatedNoName": "Ce numéro NNI est déjà rattaché à un compte.",
+      "unauthenticated": "Non authentifié. Veuillez vous connecter.",
+      "unauthorized": "Accès non autorisé.",
+      "noSchoolAssociated": "Aucune école associée à votre compte.",
+      "studentNotFound": "Élève non trouvé.",
+      "linkError": "Erreur lors de la liaison.",
+      "profileError": "Erreur lors de la création du profil.",
+      "accountCreationError": "Erreur lors de la création du compte.",
+      "incorrectPin": "Code PIN incorrect."
     }
   },
   "admin": {

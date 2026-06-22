@@ -141,7 +141,7 @@ export function UsersManagement() {
         const fullPhone = countryCode.code + form.phone.replace(/^0+/, '')
         const result = await createStaffUser({ ...form, phone: fullPhone, permissions: newPerms })
         if (result.error) {
-            toast.error(result.error)
+            toast.error(t(result.error, (result as any).params))
         } else {
             toast.success(t('admin.users.savedSuccess'))
             setShowCreate(false)

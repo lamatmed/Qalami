@@ -294,7 +294,7 @@ export function ParentDirectory() {
             })
 
             if (result.error) {
-                toast.error(result.error)
+                toast.error(t(result.error, (result as any).params))
                 return
             }
 

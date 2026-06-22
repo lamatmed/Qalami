@@ -48,8 +48,32 @@ interface EmployeeTransaction {
     reference_number: string | null
 }
 
+const getBilingualCategoryLabel = (cat: string | null) => {
+    const map: Record<string, { fr: string; ar: string }> = {
+        prime:         { fr: 'Prime / Bonus', ar: 'مكافأة / علاوة' },
+        avance:        { fr: 'Avance sur salaire', ar: 'سلفة على الراتب' },
+        remboursement: { fr: 'Remboursement', ar: 'استرداد' },
+        cotisation:    { fr: 'Cotisation', ar: 'اشتراك' },
+        autre:         { fr: 'Autre versement', ar: 'دفعة أخرى' },
+        salary:        { fr: 'Salaire', ar: 'الراتب' },
+        'Salaire du personnel': { fr: 'Salaire', ar: 'الراتب' },
+    }
+    return map[cat ?? ''] || { fr: cat ?? 'Autre', ar: cat ?? 'أخرى' }
+}
+
+const getBilingualMethodLabel = (method: string | null) => {
+    if (!method) return null
+    const map: Record<string, { fr: string; ar: string }> = {
+        cash:          { fr: 'Espèces', ar: 'نقداً' },
+        bank_transfer: { fr: 'Virement bancaire', ar: 'تحويل بنكي' },
+        mobile_money:  { fr: 'Mobile Money', ar: 'الدفع عبر الهاتف' },
+        check:         { fr: 'Chèque', ar: 'شيك' },
+    }
+    return map[method] || { fr: method, ar: method }
+}
+
 export function EmployeeFinances({ employeeId }: { employeeId: string }) {
-    const { t } = useLanguage()
+    const { t, language } = useLanguage()
 
     const PAYMENT_CATEGORIES = [
         { value: 'prime',         label: t('admin.employees.finances.categories.prime') },
@@ -96,6 +120,13 @@ export function EmployeeFinances({ employeeId }: { employeeId: string }) {
     const [txLoading, setTxLoading]           = useState(true)
     const [payrollRefreshTick, setPayrollRefreshTick] = useState(0)
 
+    // Employee profile and school details
+    const [employeeName, setEmployeeName]     = useState('')
+    const [employeePhone, setEmployeePhone]   = useState('')
+    const [employeeNni, setEmployeeNni]       = useState('')
+    const [schoolName, setSchoolName]         = useState('')
+    const [schoolLogo, setSchoolLogo]         = useState('')
+
     const [showForm, setShowForm]             = useState(false)
     const [payAmount, setPayAmount]           = useState('')
     const [payCategory, setPayCategory]       = useState('prime')
@@ -104,6 +135,7 @@ export function EmployeeFinances({ employeeId }: { employeeId: string }) {
     const [payMethod, setPayMethod]           = useState('cash')
     const [submitting, setSubmitting]         = useState(false)
     const [generatingReceiptId, setGeneratingReceiptId] = useState<string | null>(null)
+    const [generatingPayrollReceiptId, setGeneratingPayrollReceiptId] = useState<string | null>(null)
 
     const fetchTransactions = useCallback(async () => {
         setTxLoading(true)
@@ -119,7 +151,7 @@ export function EmployeeFinances({ employeeId }: { employeeId: string }) {
             const schoolId = ctx?.school_id
             if (!schoolId) { setLoading(false); return }
 
-            const [contractRes, payrollRes] = await Promise.all([
+            const [contractRes, payrollRes, profileRes] = await Promise.all([
                 supabase
                     .from('contracts')
                     .select('monthly_salary, contract_type, position')
@@ -135,10 +167,44 @@ export function EmployeeFinances({ employeeId }: { employeeId: string }) {
                     .order('year', { ascending: false })
                     .order('month', { ascending: false })
                     .limit(24),
+                supabase
+                    .from('profiles')
+                    .select('full_name, national_id, phone')
+                    .eq('id', employeeId)
+                    .single()
             ])
 
             if (contractRes.data) setContract(contractRes.data as ContractData)
             if (payrollRes.data) setPayments(payrollRes.data as PayrollRecord[])
+            if (profileRes.data) {
+                setEmployeeName(profileRes.data.full_name || '')
+                setEmployeeNni(profileRes.data.national_id || '')
+                setEmployeePhone(profileRes.data.phone || '')
+            }
+
+            // Fetch school settings / school name and logo
+            const { data: schoolSettings } = await supabase
+                .from('school_settings')
+                .select('name, logo_url')
+                .eq('school_id', schoolId)
+                .maybeSingle()
+
+            let sName = schoolSettings?.name || null
+            let sLogo = schoolSettings?.logo_url || null
+
+            if (!sLogo || !sName) {
+                const { data: schoolRow } = await supabase
+                    .from('schools')
+                    .select('name, logo_url')
+                    .eq('id', schoolId)
+                    .maybeSingle()
+                if (!sLogo) sLogo = schoolRow?.logo_url || null
+                if (!sName) sName = schoolRow?.name || null
+            }
+
+            if (sName) setSchoolName(sName)
+            if (sLogo) setSchoolLogo(sLogo)
+
             setLoading(false)
         }
         load()
@@ -170,59 +236,236 @@ export function EmployeeFinances({ employeeId }: { employeeId: string }) {
     const handleGenerateReceipt = async (trx: EmployeeTransaction) => {
         setGeneratingReceiptId(trx.id)
         try {
-            const { jsPDF } = await import('jspdf')
-            const W = 80, ml = 6, mr = W - 6, cx = W / 2
-            const fmt = (n: number) => Math.round(n).toString().replace(/\B(?=(\d{3})+(?!\d))/g, ' ')
-            const shortId = trx.id.slice(0, 8).toUpperCase()
-            const printDate = new Date().toLocaleDateString('fr-FR', { day: '2-digit', month: 'long', year: 'numeric' })
-            const txDate = new Date(trx.transaction_date).toLocaleDateString('fr-FR', { day: '2-digit', month: 'long', year: 'numeric' })
-            const BK: [number, number, number] = [10, 10, 10]
-            const GR: [number, number, number] = [150, 150, 150]
+            toast.info(language === 'ar' ? 'جارٍ إنشاء الوصل…' : 'Génération du reçu…')
 
-            const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: [W, 200] })
-            let y = 11
+            const locale = language === 'ar' ? 'ar-u-ca-gregory' : 'fr-FR'
+            const paymentDate = trx.transaction_date
+                ? new Date(trx.transaction_date).toLocaleDateString(locale, { day: '2-digit', month: 'long', year: 'numeric' })
+                : '—'
+            const receiptNo = trx.id.slice(0, 8).toUpperCase()
+            const catBilingual = getBilingualCategoryLabel(trx.category)
+            const methodBilingual = getBilingualMethodLabel(trx.payment_method)
+            const _now = new Date()
+            const printDate = _now.toLocaleDateString('fr-FR', { day: '2-digit', month: 'long', year: 'numeric', timeZone: 'Africa/Nouakchott' })
+                + ' à ' + _now.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit', timeZone: 'Africa/Nouakchott' })
+            const fmt = (n: number) => Math.round(n).toString().replace(/\B(?=(\d{3})+(?!\d))/g, ' ')
 
-            const hline = (yPos: number, thick = 0.3) => {
-                doc.setDrawColor(...BK); doc.setLineWidth(thick); doc.line(ml, yPos, mr, yPos)
+            const row = (label: string, value: string, shade: boolean) =>
+                `<div style="display:flex;justify-content:space-between;align-items:flex-start;padding:5px 6px;${shade ? 'background:#f9fafb;' : ''}border-radius:3px;gap:6px;">
+                    <span style="color:#6b7280;font-size:10px;flex-shrink:0;white-space:nowrap;padding-top:1px;">${label}</span>
+                    <span style="font-weight:600;font-size:10px;color:#111;text-align:right;direction:auto;min-width:0;flex:1;word-break:break-word;overflow-wrap:anywhere;line-height:1.4;">${value}</span>
+                </div>`
+
+            // Preload logo as data URL
+            let logoDataUrl = ''
+            if (schoolLogo) {
+                try {
+                    const resp = await fetch(schoolLogo)
+                    const blob = await resp.blob()
+                    logoDataUrl = await new Promise<string>((res, rej) => {
+                        const reader = new FileReader()
+                        reader.onload = () => res(reader.result as string)
+                        reader.onerror = rej
+                        reader.readAsDataURL(blob)
+                    })
+                } catch { /* logo not critical */ }
             }
-            const row = (label: string, value: string) => {
-                doc.setFont('Helvetica', 'normal'); doc.setFontSize(8); doc.setTextColor(...GR); doc.text(label, ml, y)
-                doc.setFont('Helvetica', 'bold'); doc.setFontSize(9); doc.setTextColor(...BK); doc.text(value, mr, y, { align: 'right' }); y += 7
-            }
 
-            doc.setFont('Helvetica', 'bold'); doc.setFontSize(14); doc.setTextColor(...BK); doc.text('QALAMI', ml, y); y += 6
-            doc.setFont('Helvetica', 'normal'); doc.setFontSize(8.5); doc.setTextColor(...GR); doc.text('School Manager  ·  Gestion Scolaire', ml, y); y += 7
-            hline(y, 0.8); y += 5
-            doc.setFont('Helvetica', 'bold'); doc.setFontSize(8); doc.setTextColor(...GR); doc.text('RECU DE VERSEMENT', ml, y)
-            doc.setFont('Helvetica', 'normal'); doc.setFontSize(8); doc.text(printDate, mr, y, { align: 'right' }); y += 5
-            hline(y, 0.3); y += 7
+            // Build 80mm receipt as an off-screen DOM element
+            const el = document.createElement('div')
+            el.style.cssText = 'position:fixed;top:0;left:-9999px;width:302px;background:white;'
+            el.innerHTML = `
+                <div style="width:302px;background:white;font-family:var(--font-arabic),system-ui,sans-serif;color:#111;">
+                    <div style="background:#10b981;padding:${logoDataUrl ? '12px' : '14px'} 16px;text-align:center;">
+                        ${logoDataUrl ? `<img src="${logoDataUrl}" style="width:52px;height:52px;border-radius:50%;object-fit:cover;margin:0 auto 8px;display:block;border:2px solid rgba(255,255,255,0.35);" />` : ''}
+                        <div style="font-size:16px;font-weight:800;color:white;">${schoolName || 'QALAMI'}</div>
+                        <div style="font-size:9px;color:#a7f3d0;margin-top:2px;letter-spacing:1px;">RECU DE VERSEMENT / وصل الدفع</div>
+                    </div>
+                    <div style="background:#f0fdf4;padding:5px 14px;display:flex;justify-content:space-between;align-items:center;border-bottom:1px dashed #a7f3d0;">
+                        <span style="font-size:9px;color:#6b7280;">Ref / المرجع</span>
+                        <span style="font-size:10px;font-family:monospace;font-weight:700;color:#064e3b;">${receiptNo}</span>
+                    </div>
+                    <div style="padding:14px 16px;text-align:center;border-bottom:1px solid #f3f4f6;">
+                        <div style="font-size:9px;color:#6b7280;text-transform:uppercase;letter-spacing:1px;margin-bottom:4px;">MONTANT VERSE / المبلغ المدفوع</div>
+                        <div style="font-size:30px;font-weight:800;color:#10b981;line-height:1.1;">
+                            ${fmt(trx.amount)}<span style="font-size:13px;font-weight:600;color:#6b7280;margin-left:4px;">MRU</span>
+                        </div>
+                        <div style="display:inline-block;margin-top:6px;background:#d1fae5;color:#065f46;font-size:9px;font-weight:700;padding:2px 10px;border-radius:99px;">PAYE</div>
+                    </div>
+                    <div style="padding:10px 14px;border-bottom:1px solid #f3f4f6;">
+                        ${row('Bénéficiaire / المستفيد', employeeName, true)}
+                        ${row('Type / الصفة', language === 'ar' ? 'employé / موظف' : 'Employé', false)}
+                        ${employeeNni ? row('NNI / الرقم الوطني', employeeNni, true) : ''}
+                        ${employeePhone ? row('Tel / الهاتف', `<span dir="ltr">${employeePhone}</span>`, !employeeNni) : ''}
+                    </div>
+                    <div style="padding:10px 14px;border-bottom:1px solid #f3f4f6;">
+                        ${row('Catégorie / الفئة', catBilingual.fr + ' / ' + catBilingual.ar, true)}
+                        ${row('Date / التاريخ', paymentDate, false)}
+                        ${methodBilingual ? row('Méthode / طريقة الدفع', methodBilingual.fr + ' / ' + methodBilingual.ar, true) : ''}
+                        ${trx.description && trx.description !== trx.category ? row('Note', trx.description, !methodBilingual) : ''}
+                    </div>
+                    <div style="display:flex;gap:10px;padding:10px 14px 14px;font-size:9px;color:#9ca3af;text-align:center;">
+                        <div style="flex:1;border-top:1px solid #d1d5db;padding-top:4px;">Bénéficiaire / المستفيد</div>
+                        <div style="flex:1;border-top:1px solid #d1d5db;padding-top:4px;">Administration / الإدارة</div>
+                    </div>
+                    <div style="background:#f9fafb;border-top:1px solid #e5e7eb;padding:5px 14px;display:flex;justify-content:space-between;align-items:center;">
+                        <span style="font-size:8px;color:#9ca3af;">${printDate}</span>
+                        <span style="font-size:8px;font-weight:700;color:#10b981;">Qalami School Manager</span>
+                    </div>
+                </div>
+            `
+            document.body.appendChild(el)
+            await document.fonts.ready
+            await new Promise(r => setTimeout(r, 250))
 
-            const refText = trx.description || getCategoryLabel(trx.category)
-            const splitRef = doc.splitTextToSize(refText, mr - ml)
-            doc.setFont('Helvetica', 'bold'); doc.setFontSize(11); doc.setTextColor(...BK); doc.text(splitRef, ml, y); y += splitRef.length * 6.5 + 2
-            doc.setFont('Helvetica', 'normal'); doc.setFontSize(8); doc.setTextColor(...GR); doc.text(`REF  ${shortId}`, ml, y); y += 9
+            const { toJpeg } = await import('html-to-image')
+            const { jsPDF }  = await import('jspdf')
 
-            hline(y, 0.8); y += 6
-            doc.setFont('Helvetica', 'normal'); doc.setFontSize(8); doc.setTextColor(...GR); doc.text('MONTANT VERSE', cx, y, { align: 'center' }); y += 10
-            doc.setFont('Helvetica', 'bold'); doc.setFontSize(28); doc.setTextColor(...BK); doc.text(fmt(trx.amount), cx, y, { align: 'center' }); y += 6
-            doc.setFont('Helvetica', 'bold'); doc.setFontSize(11); doc.text('MRU', cx, y, { align: 'center' }); y += 7
-            hline(y, 0.8); y += 9
+            const target = el.firstElementChild as HTMLElement
+            await toJpeg(target, { quality: 0.5, pixelRatio: 1 })
+            const imgData = await toJpeg(target, {
+                quality: 0.96,
+                backgroundColor: '#ffffff',
+                pixelRatio: 3,
+                width: target.offsetWidth,
+                height: target.offsetHeight,
+            })
+            document.body.removeChild(el)
 
-            row(t('admin.employees.finances.category'), getCategoryLabel(trx.category))
-            row(t('common.date'), txDate)
-            if (trx.payment_method) row(t('admin.employees.finances.method'), getMethodLabel(trx.payment_method))
-            row('Statut', 'COMPLÉTÉ')
+            const img      = new Image()
+            img.src        = imgData
+            await new Promise(r => { img.onload = r })
+            const mmWidth  = 80
+            const mmHeight = (img.height / img.width) * mmWidth
 
-            y += 3; hline(y, 0.3); y += 6
-            doc.setFont('Helvetica', 'normal'); doc.setFontSize(8); doc.setTextColor(...GR); doc.text(`Généré le ${printDate}`, ml, y)
-            doc.setFont('Helvetica', 'bold'); doc.setFontSize(8.5); doc.setTextColor(...BK); doc.text('Qalami School Manager', mr, y, { align: 'right' })
-
-            doc.save(`recu-${shortId}.pdf`)
+            const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: [mmWidth, mmHeight] })
+            doc.addImage(imgData, 'JPEG', 0, 0, mmWidth, mmHeight)
+            doc.save(`recu-${employeeName.replace(/\s+/g, '-')}-${receiptNo}.pdf`)
             toast.success(t('admin.employees.finances.receiptDownloaded'))
-        } catch {
+        } catch (err) {
+            console.error(err)
             toast.error(t('admin.employees.finances.receiptError'))
         } finally {
             setGeneratingReceiptId(null)
+        }
+    }
+
+    const handleGeneratePayrollReceipt = async (p: PayrollRecord) => {
+        setGeneratingPayrollReceiptId(p.id)
+        try {
+            toast.info(language === 'ar' ? 'جارٍ إنشاء الوصل…' : 'Génération du reçu…')
+
+            const locale = language === 'ar' ? 'ar-u-ca-gregory' : 'fr-FR'
+            const paymentDate = p.paid_at
+                ? new Date(p.paid_at).toLocaleDateString(locale, { day: '2-digit', month: 'long', year: 'numeric' })
+                : '—'
+            const receiptNo = p.id.slice(0, 8).toUpperCase()
+            const monthName = t(`admin.employees.months.${p.month}`) || `Mois ${p.month}`
+            const periodLabel = `${monthName} ${p.year}`
+            
+            const _now = new Date()
+            const printDate = _now.toLocaleDateString('fr-FR', { day: '2-digit', month: 'long', year: 'numeric', timeZone: 'Africa/Nouakchott' })
+                + ' à ' + _now.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit', timeZone: 'Africa/Nouakchott' })
+            const fmt = (n: number) => Math.round(n).toString().replace(/\B(?=(\d{3})+(?!\d))/g, ' ')
+
+            const row = (label: string, value: string, shade: boolean) =>
+                `<div style="display:flex;justify-content:space-between;align-items:flex-start;padding:5px 6px;${shade ? 'background:#f9fafb;' : ''}border-radius:3px;gap:6px;">
+                    <span style="color:#6b7280;font-size:10px;flex-shrink:0;white-space:nowrap;padding-top:1px;">${label}</span>
+                    <span style="font-weight:600;font-size:10px;color:#111;text-align:right;direction:auto;min-width:0;flex:1;word-break:break-word;overflow-wrap:anywhere;line-height:1.4;">${value}</span>
+                </div>`
+
+            // Preload logo as data URL
+            let logoDataUrl = ''
+            if (schoolLogo) {
+                try {
+                    const resp = await fetch(schoolLogo)
+                    const blob = await resp.blob()
+                    logoDataUrl = await new Promise<string>((res, rej) => {
+                        const reader = new FileReader()
+                        reader.onload = () => res(reader.result as string)
+                        reader.onerror = rej
+                        reader.readAsDataURL(blob)
+                    })
+                } catch { /* logo not critical */ }
+            }
+
+            // Build 80mm receipt as an off-screen DOM element
+            const el = document.createElement('div')
+            el.style.cssText = 'position:fixed;top:0;left:-9999px;width:302px;background:white;'
+            el.innerHTML = `
+                <div style="width:302px;background:white;font-family:var(--font-arabic),system-ui,sans-serif;color:#111;">
+                    <div style="background:#10b981;padding:${logoDataUrl ? '12px' : '14px'} 16px;text-align:center;">
+                        ${logoDataUrl ? `<img src="${logoDataUrl}" style="width:52px;height:52px;border-radius:50%;object-fit:cover;margin:0 auto 8px;display:block;border:2px solid rgba(255,255,255,0.35);" />` : ''}
+                        <div style="font-size:16px;font-weight:800;color:white;">${schoolName || 'QALAMI'}</div>
+                        <div style="font-size:9px;color:#a7f3d0;margin-top:2px;letter-spacing:1px;">RECU DE SALAIRE / وصل الراتب</div>
+                    </div>
+                    <div style="background:#f0fdf4;padding:5px 14px;display:flex;justify-content:space-between;align-items:center;border-bottom:1px dashed #a7f3d0;">
+                        <span style="font-size:9px;color:#6b7280;">Ref / المرجع</span>
+                        <span style="font-size:10px;font-family:monospace;font-weight:700;color:#064e3b;">${receiptNo}</span>
+                    </div>
+                    <div style="padding:14px 16px;text-align:center;border-bottom:1px solid #f3f4f6;">
+                        <div style="font-size:9px;color:#6b7280;text-transform:uppercase;letter-spacing:1px;margin-bottom:4px;">SALAIRE NET / صافي الراتب</div>
+                        <div style="font-size:30px;font-weight:800;color:#10b981;line-height:1.1;">
+                            ${fmt(p.net_salary)}<span style="font-size:13px;font-weight:600;color:#6b7280;margin-left:4px;">MRU</span>
+                        </div>
+                        <div style="display:inline-block;margin-top:6px;background:#d1fae5;color:#065f46;font-size:9px;font-weight:700;padding:2px 10px;border-radius:99px;">PAYE</div>
+                    </div>
+                    <div style="padding:10px 14px;border-bottom:1px solid #f3f4f6;">
+                        ${row('Bénéficiaire / المستفيد', employeeName, true)}
+                        ${row('Type / الصفة', language === 'ar' ? 'employé / موظف' : 'Employé', false)}
+                        ${employeeNni ? row('NNI / الرقم الوطني', employeeNni, true) : ''}
+                        ${employeePhone ? row('Tel / الهاتف', `<span dir="ltr">${employeePhone}</span>`, !employeeNni) : ''}
+                    </div>
+                    <div style="padding:10px 14px;border-bottom:1px solid #f3f4f6;">
+                        ${row('Période / الفترة', periodLabel, true)}
+                        ${row('Salaire de base / الراتب الأساسي', `${fmt(p.base_salary)} MRU`, false)}
+                        ${Number(p.bonuses) > 0 ? row('Primes / العلاوات', `+${fmt(p.bonuses)} MRU`, true) : ''}
+                        ${Number(p.deductions) > 0 ? row('Retenues / الخصومات', `-${fmt(p.deductions)} MRU`, !p.bonuses) : ''}
+                        ${row('Date de paiement / تاريخ الدفع', paymentDate, false)}
+                    </div>
+                    <div style="display:flex;gap:10px;padding:10px 14px 14px;font-size:9px;color:#9ca3af;text-align:center;">
+                        <div style="flex:1;border-top:1px solid #d1d5db;padding-top:4px;">Bénéficiaire / المستفيد</div>
+                        <div style="flex:1;border-top:1px solid #d1d5db;padding-top:4px;">Administration / الإدارة</div>
+                    </div>
+                    <div style="background:#f9fafb;border-top:1px solid #e5e7eb;padding:5px 14px;display:flex;justify-content:space-between;align-items:center;">
+                        <span style="font-size:8px;color:#9ca3af;">${printDate}</span>
+                        <span style="font-size:8px;font-weight:700;color:#10b981;">Qalami School Manager</span>
+                    </div>
+                </div>
+            `
+            document.body.appendChild(el)
+            await document.fonts.ready
+            await new Promise(r => setTimeout(r, 250))
+
+            const { toJpeg } = await import('html-to-image')
+            const { jsPDF }  = await import('jspdf')
+
+            const target = el.firstElementChild as HTMLElement
+            await toJpeg(target, { quality: 0.5, pixelRatio: 1 })
+            const imgData = await toJpeg(target, {
+                quality: 0.96,
+                backgroundColor: '#ffffff',
+                pixelRatio: 3,
+                width: target.offsetWidth,
+                height: target.offsetHeight,
+            })
+            document.body.removeChild(el)
+
+            const img      = new Image()
+            img.src        = imgData
+            await new Promise(r => { img.onload = r })
+            const mmWidth  = 80
+            const mmHeight = (img.height / img.width) * mmWidth
+
+            const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: [mmWidth, mmHeight] })
+            doc.addImage(imgData, 'JPEG', 0, 0, mmWidth, mmHeight)
+            doc.save(`fiche-paie-${employeeName.replace(/\s+/g, '-')}-${receiptNo}.pdf`)
+            toast.success(t('admin.employees.finances.receiptDownloaded'))
+        } catch (err) {
+            console.error(err)
+            toast.error(t('admin.employees.finances.receiptError'))
+        } finally {
+            setGeneratingPayrollReceiptId(null)
         }
     }
 
@@ -552,28 +795,44 @@ export function EmployeeFinances({ employeeId }: { employeeId: string }) {
                                                 )}
                                             </div>
                                         </div>
-                                        <div className="text-end shrink-0">
-                                            <p className={cn(
-                                                "text-base font-bold",
-                                                isPaid ? "text-emerald-400"
-                                                    : isCancelled ? "text-white/20 line-through"
-                                                    : "text-white/40"
-                                            )}>
-                                                {Number(p.net_salary || 0).toLocaleString('fr-FR')}
-                                                <span className="text-[10px] text-slate-600 ms-1">MRU</span>
-                                            </p>
-                                            <p className={cn(
-                                                "text-[10px] uppercase tracking-widest mt-0.5",
-                                                isPaid ? "text-emerald-500/50"
-                                                    : isCancelled ? "text-red-500/40"
-                                                    : "text-slate-600"
-                                            )}>
-                                                {isPaid
-                                                    ? t('admin.employees.finances.paid')
-                                                    : isCancelled
-                                                    ? t('admin.employees.finances.cancelled')
-                                                    : t('admin.employees.finances.pending')}
-                                            </p>
+                                        <div className="flex items-center gap-2 shrink-0">
+                                            <div className="text-end">
+                                                <p className={cn(
+                                                    "text-base font-bold",
+                                                    isPaid ? "text-emerald-400"
+                                                        : isCancelled ? "text-white/20 line-through"
+                                                        : "text-white/40"
+                                                )}>
+                                                    {Number(p.net_salary || 0).toLocaleString('fr-FR')}
+                                                    <span className="text-[10px] text-slate-600 ms-1">MRU</span>
+                                                </p>
+                                                <p className={cn(
+                                                    "text-[10px] uppercase tracking-widest mt-0.5",
+                                                    isPaid ? "text-emerald-500/50"
+                                                        : isCancelled ? "text-red-500/40"
+                                                        : "text-slate-600"
+                                                )}>
+                                                    {isPaid
+                                                        ? t('admin.employees.finances.paid')
+                                                        : isCancelled
+                                                        ? t('admin.employees.finances.cancelled')
+                                                        : t('admin.employees.finances.pending')}
+                                                </p>
+                                            </div>
+                                            {isPaid && (
+                                                <button
+                                                    type="button"
+                                                    title={t('admin.employees.finances.downloadReceipt')}
+                                                    disabled={generatingPayrollReceiptId === p.id}
+                                                    onClick={() => handleGeneratePayrollReceipt(p)}
+                                                    className="p-1.5 text-slate-600 hover:text-emerald-400 hover:bg-emerald-500/10 rounded-lg transition-colors disabled:opacity-50"
+                                                >
+                                                    {generatingPayrollReceiptId === p.id
+                                                        ? <Loader2 className="w-4 h-4 animate-spin" />
+                                                        : <Eye className="w-4 h-4" />
+                                                    }
+                                                </button>
+                                            )}
                                         </div>
                                     </div>
                                 )

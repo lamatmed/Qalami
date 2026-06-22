@@ -64,7 +64,7 @@ export function InviteUserDialog({ children }: InviteUserDialogProps) {
         try {
             const result = await createInvitation(data)
             if (result?.error) {
-                toast.error(result.error)
+                toast.error(t(result.error, (result as any).params))
             } else if (result?.token) {
                 const link = `${window.location.origin}/invite/${result.token}`
                 setInviteLink(link)
