@@ -22,21 +22,21 @@ export async function getTransactionsAction(params: {
 
     const admin = createAdminClient()
 
-    // NNI filter: resolve matching profiles first
+    // NNI / Name filter: resolve matching profiles first
     let profileIdFilter: string[] | null = null
     if (params.nni?.trim()) {
         const { data: matches } = await admin
             .from('profiles')
             .select('id')
             .eq('school_id', profile.school_id)
-            .ilike('national_id', `%${params.nni.trim()}%`)
+            .or(`national_id.ilike.%${params.nni.trim()}%,full_name.ilike.%${params.nni.trim()}%`)
         if (!matches || matches.length === 0) return { data: [], error: null }
         profileIdFilter = matches.map(p => p.id)
     }
 
     let query = admin
         .from('transactions')
-        .select('*')
+        .select('*, profiles!transactions_related_profile_id_fkey(full_name, national_id, role)')
         .eq('school_id', profile.school_id)
         .order('transaction_date', { ascending: false })
         .order('created_at', { ascending: false })

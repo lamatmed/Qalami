@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import Link from 'next/link'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { ArrowLeft, Wallet, Clock, Trophy, AlertTriangle, FileText, CheckCircle2, Loader2, ChevronDown, ChevronUp, MessageSquare, CreditCard } from 'lucide-react'
@@ -286,7 +287,14 @@ export function SalaryDetails({ teacher, onBack, onValidate }: {
                     </div>
                 </div>
                 <div>
-                    <h2 className="text-2xl font-bold text-white">{teacher.name}</h2>
+                    <h2 className="text-2xl font-bold text-white">
+                        <Link
+                            href={teacher.role === 'teacher' ? `/admin/teachers/${teacher.employeeId}` : `/admin/employees/${teacher.employeeId}`}
+                            className="hover:text-emerald-400 transition-colors"
+                        >
+                            {teacher.name}
+                        </Link>
+                    </h2>
                     <p className="text-gray-400 text-sm">{teacher.subject}</p>
                 </div>
                 <div className="sm:ml-auto bg-[#0F1720] rounded-2xl p-4 border border-white/5 min-w-[200px]">

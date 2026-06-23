@@ -9,6 +9,7 @@ import { Search, ArrowUpRight, ArrowDownRight, Eye, Loader2, RefreshCw, Calendar
 import { cn } from '@/lib/utils'
 import { useLanguage } from '@/i18n'
 import { toast } from 'sonner'
+import Link from 'next/link'
 import { getTransactionsAction, updateTransactionNotesAction } from '@/app/admin/finance/actions'
 
 interface Transaction {
@@ -22,6 +23,11 @@ interface Transaction {
     created_at: string
     related_profile_id?: string | null
     reference_number?: string | null
+    profiles?: {
+        full_name: string | null
+        national_id: string | null
+        role?: string | null
+    } | null
 }
 
 type TypeFilter = '' | 'scolarite' | 'inscription' | 'transport' | 'cantine' | 'cotisation' | 'activites' | 'autres'
@@ -76,6 +82,15 @@ export function TransactionLedger({ refreshTrigger }: { refreshTrigger?: number 
     const nniDebounceRef = useRef<ReturnType<typeof setTimeout>>(undefined)
 
     const { t, language } = useLanguage()
+
+    const getDescAndNote = (description: string | null) => {
+        if (!description) return { desc: '', note: '' }
+        const parts = description.split(' | ')
+        return {
+            desc: parts[0] || '',
+            note: parts[1] || ''
+        }
+    }
 
     useEffect(() => {
         const fetchSchoolInfo = async () => {
@@ -146,15 +161,61 @@ export function TransactionLedger({ refreshTrigger }: { refreshTrigger?: number 
         const m = d.getMonth() + 1
         const y = d.getFullYear()
         const cat = getCategoryLabel(trx.category)
-        return trx.description ? `${cat} ${m}/${y} — ${trx.description}` : `${cat} ${m}/${y}`
+        const { desc } = getDescAndNote(trx.description)
+        
+        let ref = desc ? `${cat} ${m}/${y} — ${desc}` : `${cat} ${m}/${y}`
+        
+        if (trx.profiles?.full_name) {
+            const hasName = desc && desc.toLowerCase().includes(trx.profiles.full_name.toLowerCase())
+            if (!hasName) {
+                ref += desc ? ` - ${trx.profiles.full_name}` : ` — ${trx.profiles.full_name}`
+            }
+        }
+        return ref
+    }
+
+    const buildBaseRef = (trx: Transaction) => {
+        const d = new Date(trx.transaction_date)
+        const m = d.getMonth() + 1
+        const y = d.getFullYear()
+        const cat = getCategoryLabel(trx.category)
+        const { desc } = getDescAndNote(trx.description)
+        
+        return desc ? `${cat} ${m}/${y} — ${desc}` : `${cat} ${m}/${y}`
+    }
+
+    const getProfileLink = (id: string | null | undefined, role: string | null | undefined) => {
+        if (!id) return '#'
+        if (role === 'student') return `/admin/students/${id}`
+        if (role === 'teacher') return `/admin/teachers/${id}`
+        if (role === 'parent') return `/admin/parents?id=${id}`
+        if (role === 'employee' || role === 'staff' || role === 'school_staff') return `/admin/employees/${id}`
+        return '#'
+    }
+
+    const getRoleLabel = (role: string | null | undefined) => {
+        if (!role) return ''
+        const map: Record<string, string> = {
+            student: language === 'ar' ? 'طالب' : 'Élève',
+            teacher: language === 'ar' ? 'معلم' : 'Enseignant',
+            employee: language === 'ar' ? 'موظف' : 'Personnel',
+            staff: language === 'ar' ? 'موظف' : 'Personnel',
+            school_staff: language === 'ar' ? 'موظف' : 'Personnel',
+            parent: language === 'ar' ? 'ولي أمر' : 'Parent',
+        }
+        return map[role] || role
     }
 
     const filteredTransactions = transactions.filter(trx => {
         const q = searchQuery.toLowerCase()
+        const { desc, note } = getDescAndNote(trx.description)
         const matchesSearch = !q ||
-            (trx.description?.toLowerCase() ?? '').includes(q) ||
+            (desc?.toLowerCase() ?? '').includes(q) ||
+            (note?.toLowerCase() ?? '').includes(q) ||
             (trx.category?.toLowerCase() ?? '').includes(q) ||
             (trx.reference_number?.toLowerCase() ?? '').includes(q) ||
+            (trx.profiles?.full_name?.toLowerCase() ?? '').includes(q) ||
+            (trx.profiles?.national_id?.toLowerCase() ?? '').includes(q) ||
             trx.id.slice(0, 8).toLowerCase().includes(q) ||
             buildRef(trx).toLowerCase().includes(q)
 
@@ -185,7 +246,8 @@ export function TransactionLedger({ refreshTrigger }: { refreshTrigger?: number 
 
     const startEditNote = (trx: Transaction) => {
         setEditingNoteId(trx.id)
-        setNoteText(trx.description || '')
+        const { note } = getDescAndNote(trx.description)
+        setNoteText(note)
     }
 
     const cancelEditNote = () => {
@@ -195,12 +257,17 @@ export function TransactionLedger({ refreshTrigger }: { refreshTrigger?: number 
 
     const saveNote = async (id: string) => {
         setSavingNote(true)
-        const res = await updateTransactionNotesAction(id, noteText)
+        const trx = transactions.find(t => t.id === id)
+        if (!trx) { setSavingNote(false); return }
+        const { desc } = getDescAndNote(trx.description)
+        const combinedDescription = noteText.trim() ? `${desc} | ${noteText.trim()}` : desc
+
+        const res = await updateTransactionNotesAction(id, combinedDescription)
         if (res.error) {
             toast.error(res.error)
         } else {
             toast.success('Remarque enregistrée')
-            setTransactions(prev => prev.map(t => t.id === id ? { ...t, description: noteText.trim() || null } : t))
+            setTransactions(prev => prev.map(t => t.id === id ? { ...t, description: combinedDescription || null } : t))
             setEditingNoteId(null)
         }
         setSavingNote(false)
@@ -264,6 +331,7 @@ export function TransactionLedger({ refreshTrigger }: { refreshTrigger?: number 
             const isPaid = trx.status === 'completed'
             const catBilingual = getBilingualCategoryLabel(trx.category)
             const fmt = (n: number) => Math.round(n).toString().replace(/\B(?=(\d{3})+(?!\d))/g, ' ')
+            const { desc, note } = getDescAndNote(trx.description)
 
             const txMonthNum = trx.transaction_date ? new Date(trx.transaction_date).getMonth() + 1 : null
             const txYearNum = trx.transaction_date ? new Date(trx.transaction_date).getFullYear() : null
@@ -327,7 +395,8 @@ export function TransactionLedger({ refreshTrigger }: { refreshTrigger?: number 
                         ${row('Catégorie / الفئة', catBilingual.fr + ' / ' + catBilingual.ar, true)}
                         ${periodLabel ? row('Période / الفترة', periodLabel, false) : ''}
                         ${row('Date / التاريخ', txDate, !!periodLabel)}
-                        ${trx.description && trx.description !== trx.category ? row('Note', trx.description, !periodLabel) : ''}
+                        ${desc && desc !== trx.category ? row('Description', desc, !periodLabel) : ''}
+                        ${note ? row('Note', note, !!desc) : ''}
                     </div>
                     <div style="display:flex;gap:10px;padding:10px 14px 14px;font-size:9px;color:#9ca3af;text-align:center;">
                         <div style="flex:1;border-top:1px solid #d1d5db;padding-top:4px;">Signature / التوقيع</div>
@@ -429,11 +498,11 @@ export function TransactionLedger({ refreshTrigger }: { refreshTrigger?: number 
                                 className="bg-[#0D1117] border-white/10 pl-9 text-white placeholder:text-gray-600 focus-visible:ring-emerald-500/50"
                             />
                         </div>
-                        {/* NNI search */}
-                        <div className="relative w-36">
+                        {/* NNI / Name search */}
+                        <div className="relative w-48">
                             <Fingerprint className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500" />
                             <Input
-                                placeholder="NNI..."
+                                placeholder="Nom ou NNI..."
                                 value={nniQuery}
                                 onChange={e => handleNniChange(e.target.value)}
                                 className="bg-[#0D1117] border-white/10 pl-9 text-white placeholder:text-gray-600 focus-visible:ring-emerald-500/50 font-mono"
@@ -451,9 +520,10 @@ export function TransactionLedger({ refreshTrigger }: { refreshTrigger?: number 
                             className="border-white/10 bg-[#0D1117] text-gray-400 hover:text-white hover:bg-white/5"
                             onClick={() => {
                                 if (filteredTransactions.length === 0) { toast.info('Aucune transaction à exporter'); return }
-                                let csv = `Description,Catégorie,Date,Statut,Montant (MRU),Type\n`
+                                let csv = `Transaction,Élève,Catégorie,Date,Statut,Montant (MRU),Type\n`
                                 filteredTransactions.forEach(trx => {
-                                    csv += `"${trx.description || 'Transaction'}",${getCategoryLabel(trx.category)},${formatDate(trx.transaction_date)},${trx.status},${trx.amount},${trx.type}\n`
+                                    const studentName = trx.profiles?.full_name || ''
+                                    csv += `"${buildRef(trx)}","${studentName}",${getCategoryLabel(trx.category)},${formatDate(trx.transaction_date)},${trx.status},${trx.amount},${trx.type}\n`
                                 })
                                 const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' })
                                 const url = URL.createObjectURL(blob)
@@ -563,7 +633,8 @@ export function TransactionLedger({ refreshTrigger }: { refreshTrigger?: number 
                         <tbody className="divide-y divide-white/5">
                             {filteredTransactions.map(trx => {
                                 const isIncome = trx.type === 'income' || trx.type === 'tuition'
-                                const hasNote = !!trx.description
+                                const { desc, note } = getDescAndNote(trx.description)
+                                const hasNote = !!note
                                 const isEditingNote = editingNoteId === trx.id
 
                                 return (
@@ -581,12 +652,28 @@ export function TransactionLedger({ refreshTrigger }: { refreshTrigger?: number 
                                                         {isIncome ? <ArrowUpRight className="w-5 h-5" /> : <ArrowDownRight className="w-5 h-5" />}
                                                     </div>
                                                     <div className="min-w-0">
-                                                        <p className="font-bold text-white text-sm">{buildRef(trx)}</p>
+                                                        <p className="font-bold text-white text-sm">{buildBaseRef(trx)}</p>
                                                         <p className="text-[10px] text-gray-500 font-mono">{trx.id.slice(0, 8).toUpperCase()}</p>
+                                                        {trx.profiles?.full_name && (
+                                                            <div className="mt-1 flex items-center gap-1.5 flex-wrap">
+                                                                <span className="text-[10px] text-gray-500 uppercase tracking-wider font-bold">
+                                                                    {language === 'ar' ? 'المعني:' : 'Concerne :'}
+                                                                </span>
+                                                                <Link 
+                                                                    href={getProfileLink(trx.related_profile_id, trx.profiles.role)}
+                                                                    className="text-xs text-emerald-400 hover:text-emerald-300 hover:underline font-bold transition-colors"
+                                                                >
+                                                                    {trx.profiles.full_name}
+                                                                </Link>
+                                                                <Badge variant="outline" className="text-[9px] px-1.5 py-0 bg-white/5 border-white/10 text-gray-400 font-bold capitalize h-4">
+                                                                    {getRoleLabel(trx.profiles.role)}
+                                                                </Badge>
+                                                            </div>
+                                                        )}
                                                         {hasNote && !isEditingNote && (
                                                             <div className="flex items-center gap-1.5 mt-1.5 bg-blue-500/15 border border-blue-500/30 rounded-lg px-2 py-1">
                                                                 <MessageSquare className="w-3 h-3 text-blue-400 shrink-0" />
-                                                                <p className="text-xs text-white font-medium leading-tight">{trx.description}</p>
+                                                                <p className="text-xs text-white font-medium leading-tight">{note}</p>
                                                             </div>
                                                         )}
                                                     </div>

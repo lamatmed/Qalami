@@ -2443,7 +2443,7 @@
       "overdueSub": "{count} ملفات",
       "recoveryRateSub": "نسبة تحصيل {rate}%",
       "globalRecoveryRate": "نسبة التحصيل الإجمالية",
-      "searchPlaceholder": "البحث عن تلميذ أو قسم…",
+      "searchPlaceholder": "البحث بالاسم أو الرقم الوطني NNI…",
       "recordsCount": "{count} سجل",
       "noPaymentFound": "لم يتم العثور على أي دفعة تطابق هذه المعايير.",
       "exportDownloaded": "تم تحميل التصدير",

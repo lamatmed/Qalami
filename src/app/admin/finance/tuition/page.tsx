@@ -25,6 +25,7 @@ interface PaymentRow {
     id: string
     student_id: string
     student_name: string
+    national_id: string | null
     class_name: string | null
     payment_type: string
     amount: number
@@ -496,7 +497,7 @@ export default function TuitionPage() {
                 .select(`
                     id, student_id, payment_type, amount,
                     payment_status, due_date, paid_at, academic_year_id,
-                    profiles!payments_student_id_fkey(full_name)
+                    profiles!payments_student_id_fkey(full_name, national_id)
                 `)
                 .eq('school_id', profile.school_id)
                 .order('created_at', { ascending: false }),
@@ -572,6 +573,7 @@ export default function TuitionPage() {
                 id: p.id,
                 student_id: p.student_id,
                 student_name: p.profiles?.full_name ?? '—',
+                national_id: p.profiles?.national_id ?? null,
                 class_name: enrollmentMap[p.student_id] ?? null,
                 payment_type: p.payment_type ?? 'scolarite',
                 amount: numericAmt,
@@ -642,7 +644,7 @@ export default function TuitionPage() {
         const q = search.toLowerCase()
         const matchSearch = q === '' ||
             p.student_name.toLowerCase().includes(q) ||
-            (p.class_name?.toLowerCase() ?? '').includes(q) ||
+            (p.national_id?.toLowerCase() ?? '').includes(q) ||
             p.id.slice(0, 8).toLowerCase().includes(q)
         // 'pending' filter also captures DB records stored with status='overdue'
         const matchStatus = filterStatus === 'all'
@@ -664,6 +666,7 @@ export default function TuitionPage() {
     const lateStudentsMap: Record<string, {
         studentId: string,
         studentName: string,
+        nationalId: string | null,
         className: string | null,
         totalOwed: number,
         monthsLate: number,
@@ -678,6 +681,7 @@ export default function TuitionPage() {
                 lateStudentsMap[p.student_id] = {
                     studentId: p.student_id,
                     studentName: p.student_name,
+                    nationalId: p.national_id,
                     className: p.class_name,
                     totalOwed: 0,
                     monthsLate: 0,
@@ -698,8 +702,9 @@ export default function TuitionPage() {
         .sort((a, b) => b.monthsLate - a.monthsLate)
         .filter(s => {
             if (search === '') return true
-            return s.studentName.toLowerCase().includes(search.toLowerCase()) ||
-                   s.className!.toLowerCase().includes(search.toLowerCase())
+            const q = search.toLowerCase()
+            return s.studentName.toLowerCase().includes(q) ||
+                   (s.nationalId?.toLowerCase() ?? '').includes(q)
         })
 
     // ── Stats ─────────────────────────────────────────────────────────────────

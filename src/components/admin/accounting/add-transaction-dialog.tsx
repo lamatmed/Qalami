@@ -29,6 +29,7 @@ export function AddTransactionDialog({ open, onOpenChange, onSuccess }: AddTrans
     const [studentNni, setStudentNni] = useState('')
     const [nniSearching, setNniSearching] = useState(false)
     const [foundStudent, setFoundStudent] = useState<{ id: string, full_name: string | null } | null>(null)
+    const [foundStudents, setFoundStudents] = useState<{ id: string, full_name: string | null, national_id: string | null }[]>([])
     const [nniError, setNniError] = useState('')
     const { t } = useLanguage()
 
@@ -41,6 +42,7 @@ export function AddTransactionDialog({ open, onOpenChange, onSuccess }: AddTrans
         }
         setStudentNni('')
         setFoundStudent(null)
+        setFoundStudents([])
         setNniError('')
     }
 
@@ -48,7 +50,10 @@ export function AddTransactionDialog({ open, onOpenChange, onSuccess }: AddTrans
         setStudentNni(value)
         setFoundStudent(null)
         setNniError('')
-        if (value.trim().length < 3) return
+        if (value.trim().length < 3) {
+            setFoundStudents([])
+            return
+        }
         setNniSearching(true)
         try {
             const { data: { user } } = await supabase.auth.getUser()
@@ -57,14 +62,20 @@ export function AddTransactionDialog({ open, onOpenChange, onSuccess }: AddTrans
             if (!profile?.school_id) return
             const { data } = await supabase
                 .from('profiles')
-                .select('id, full_name')
-                .eq('national_id', value.trim())
+                .select('id, full_name, national_id')
+                .or(`national_id.eq.${value.trim()},full_name.ilike.%${value.trim()}%`)
                 .eq('school_id', profile.school_id)
-                .maybeSingle()
-            if (data) {
-                setFoundStudent(data)
+                .limit(5)
+            if (data && data.length > 0) {
+                setFoundStudents(data)
+                const exactNniMatch = data.find(s => s.national_id === value.trim())
+                if (exactNniMatch) {
+                    setFoundStudent(exactNniMatch)
+                    setFoundStudents([])
+                }
             } else {
-                setNniError('Aucun élève trouvé avec ce NNI')
+                setFoundStudents([])
+                setNniError('Aucun élève trouvé')
             }
         } finally {
             setNniSearching(false)
@@ -120,6 +131,7 @@ export function AddTransactionDialog({ open, onOpenChange, onSuccess }: AddTrans
                 setDate(new Date().toISOString().split('T')[0])
                 setStudentNni('')
                 setFoundStudent(null)
+                setFoundStudents([])
                 setNniError('')
 
                 onOpenChange(false)
@@ -227,13 +239,13 @@ export function AddTransactionDialog({ open, onOpenChange, onSuccess }: AddTrans
                         />
                     </div>
 
-                    {/* NNI Élève (income only) */}
+                    {/* Nom / NNI Élève (income only) */}
                     {type === 'income' && (
-                        <div className="space-y-2">
-                            <Label className="text-xs text-gray-400 uppercase font-bold">NNI Élève concerné</Label>
+                        <div className="space-y-2 relative">
+                            <Label className="text-xs text-gray-400 uppercase font-bold">Élève concerné (Nom ou NNI)</Label>
                             <div className="relative">
                                 <Input
-                                    placeholder="Entrez le NNI de l'élève"
+                                    placeholder="Nom complet ou NNI de l'élève..."
                                     value={studentNni}
                                     onChange={(e) => handleNniChange(e.target.value)}
                                     className="bg-[#0D1117] border-white/10 h-12 text-white pr-10"
@@ -242,12 +254,43 @@ export function AddTransactionDialog({ open, onOpenChange, onSuccess }: AddTrans
                                     <Loader2 className="absolute right-3 top-3.5 w-4 h-4 animate-spin text-gray-400" />
                                 )}
                             </div>
+                            {/* Autocomplete list */}
+                            {foundStudents.length > 0 && !foundStudent && (
+                                <div className="absolute left-0 right-0 z-50 bg-[#161B22] border border-white/10 rounded-xl overflow-hidden mt-1 divide-y divide-white/5 max-h-40 overflow-y-auto shadow-xl">
+                                    {foundStudents.map(s => (
+                                        <button
+                                            key={s.id}
+                                            type="button"
+                                            onClick={() => {
+                                                setFoundStudent(s)
+                                                setStudentNni(s.full_name || '')
+                                                setFoundStudents([])
+                                            }}
+                                            className="w-full text-left px-3 py-2.5 text-xs text-gray-300 hover:bg-white/5 hover:text-white transition-colors"
+                                        >
+                                            <span className="font-bold">{s.full_name}</span>
+                                            {s.national_id && <span className="text-gray-500 ml-2">(NNI: {s.national_id})</span>}
+                                        </button>
+                                    ))}
+                                </div>
+                            )}
                             {foundStudent && (
-                                <p className="text-xs text-emerald-400 font-medium px-1">
-                                    ✓ {foundStudent.full_name}
+                                <p className="text-xs text-emerald-400 font-medium px-1 flex items-center gap-1">
+                                    <span>✓ {foundStudent.full_name}</span>
+                                    <button
+                                        type="button"
+                                        onClick={() => {
+                                            setFoundStudent(null)
+                                            setStudentNni('')
+                                            setFoundStudents([])
+                                        }}
+                                        className="text-gray-500 hover:text-red-400 ml-2 underline"
+                                    >
+                                        Effacer
+                                    </button>
                                 </p>
                             )}
-                            {nniError && !nniSearching && studentNni.trim().length >= 3 && (
+                            {nniError && !nniSearching && studentNni.trim().length >= 3 && foundStudents.length === 0 && (
                                 <p className="text-xs text-red-400 px-1">{nniError}</p>
                             )}
                         </div>

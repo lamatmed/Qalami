@@ -2443,7 +2443,7 @@
       "overdueSub": "{count} dossiers",
       "recoveryRateSub": "{rate}% de recouvrement",
       "globalRecoveryRate": "Taux de recouvrement global",
-      "searchPlaceholder": "Rechercher un élève ou une classe…",
+      "searchPlaceholder": "Rechercher par nom ou NNI…",
       "recordsCount": "{count} enregistrement{s}",
       "noPaymentFound": "Aucun paiement trouvé pour ces critères.",
       "exportDownloaded": "Export téléchargé",

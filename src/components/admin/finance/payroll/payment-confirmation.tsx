@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import Link from 'next/link'
 import { Button } from '@/components/ui/button'
 import { CheckCircle2, ArrowLeft, FileText, Download, Bell, Loader2 } from 'lucide-react'
 import { useLanguage } from '@/i18n'
@@ -309,7 +310,25 @@ export function PaymentConfirmation({
             <div className="space-y-2 max-w-md w-full">
                 <h2 className="text-3xl font-bold text-white text-center">{t('admin.payroll.paymentValidated')}</h2>
                 <p className="text-gray-400 text-center">
-                    {t('admin.payroll.paymentSuccessDesc', { name: teacher.name })}
+                    {(() => {
+                        const rawText = t('admin.payroll.paymentSuccessDesc', { name: 'PLACEHOLDER_NAME' })
+                        const parts = rawText.split('PLACEHOLDER_NAME')
+                        if (parts.length === 2) {
+                            return (
+                                <>
+                                    {parts[0]}
+                                    <Link
+                                        href={teacher.role === 'teacher' ? `/admin/teachers/${teacher.employeeId}` : `/admin/employees/${teacher.employeeId}`}
+                                        className="text-white font-semibold underline hover:text-emerald-400 transition-colors"
+                                    >
+                                        {teacher.name}
+                                    </Link>
+                                    {parts[1]}
+                                </>
+                            )
+                        }
+                        return t('admin.payroll.paymentSuccessDesc', { name: teacher.name })
+                    })()}
                     {' '}<span className="text-white font-semibold">{monthName} {year}</span>.
                 </p>
 
