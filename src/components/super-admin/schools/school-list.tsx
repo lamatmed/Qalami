@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react'
 import { Building2, Plus, Search, MoreHorizontal, Eye, Settings, Loader2, Trash2, AlertTriangle, KeyRound } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { cn } from '@/lib/utils'
+import { cn, proxyStorageUrl } from '@/lib/utils'
 import Link from 'next/link'
 import { useLanguage } from '@/i18n'
 import {
@@ -174,7 +174,7 @@ export function SchoolList({ initialSchools }: Props) {
                                 <div className="flex items-center gap-3">
                                     <div className="h-12 w-12 rounded-xl bg-purple-50 dark:bg-purple-500/10 flex items-center justify-center text-purple-600 dark:text-purple-400 shrink-0 overflow-hidden border border-purple-100 dark:border-purple-500/20">
                                         {school.logo_url ? (
-                                            <img src={school.logo_url} alt={school.name} className="w-full h-full object-cover" />
+                                            <img src={proxyStorageUrl(school.logo_url) ?? undefined} alt={school.name} className="w-full h-full object-cover" />
                                         ) : (
                                             <Building2 className="w-6 h-6" />
                                         )}

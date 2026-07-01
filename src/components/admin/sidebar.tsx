@@ -5,7 +5,7 @@
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import { useEffect, useState } from 'react'
-import { cn } from '@/lib/utils'
+import { cn, proxyStorageUrl } from '@/lib/utils'
 import { motion, AnimatePresence, Reorder } from 'framer-motion'
 
 
@@ -174,7 +174,7 @@ export function AdminSidebar() {
                 setCurrentYear(data.currentYear)
                 setCurrentTerm(data.currentTerm)
                 setSchoolName(data.schoolName)
-                setSchoolLogo(data.schoolLogo)
+                setSchoolLogo(proxyStorageUrl(data.schoolLogo))
                 setUnassignedStudents(data.unassignedStudents)
                 setUnreadNotifications(data.unreadNotifications)
                 setPendingRequests(data.pendingRequests)

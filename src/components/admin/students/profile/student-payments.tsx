@@ -6,7 +6,7 @@ import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
 import { Progress } from '@/components/ui/progress'
 import { CreditCard, Clock, CheckCircle2, X, Loader2, Send, Printer, Search, Filter, ChevronDown } from 'lucide-react'
-import { cn } from '@/lib/utils'
+import { cn, proxyStorageUrl } from '@/lib/utils'
 import { toast } from 'sonner'
 import { registerStudentPayment, sendStudentPaymentReminder } from '@/app/admin/students/actions'
 import { useLanguage } from '@/i18n'
@@ -74,7 +74,7 @@ export function StudentPayments({ studentId, studentName, schoolId, isArchived }
                     if (studentDetails.parentName) setParentName(studentDetails.parentName)
                     if (studentDetails.parentPhone) setParentPhone(studentDetails.parentPhone)
                     if (studentDetails.schoolName) setSchoolName(studentDetails.schoolName)
-                    if (studentDetails.schoolLogo) setSchoolLogo(studentDetails.schoolLogo)
+                    if (studentDetails.schoolLogo) setSchoolLogo(proxyStorageUrl(studentDetails.schoolLogo) || studentDetails.schoolLogo)
                 }
 
                 const paymentItems: FinanceItem[] = (rawPayments || []).map((p: any) => ({ ...p, source: 'payment' as const }))

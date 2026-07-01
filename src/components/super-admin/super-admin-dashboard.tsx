@@ -1,7 +1,7 @@
 'use client'
 
 import { Building2, Users, GraduationCap, ArrowRight, CheckCircle2, XCircle, Sparkles, Clock } from 'lucide-react'
-import { cn } from '@/lib/utils'
+import { cn, proxyStorageUrl } from '@/lib/utils'
 import Link from 'next/link'
 import { useLanguage } from '@/i18n'
 import { motion } from 'framer-motion'
@@ -198,7 +198,7 @@ export function SuperAdminDashboard({ stats, recentSchools }: Props) {
                                         {/* Glowing Ring Logo container */}
                                         <div className="w-13 h-13 rounded-2xl overflow-hidden bg-white dark:bg-slate-800 flex items-center justify-center text-slate-400 border border-slate-200 dark:border-white/10 shadow-inner group-hover:ring-2 group-hover:ring-purple-500/30 dark:group-hover:ring-purple-500/20 transition-all shrink-0">
                                             {school.logo_url ? (
-                                                <img src={school.logo_url} alt={school.name} className="w-full h-full object-cover transition-transform group-hover:scale-105" />
+                                                <img src={proxyStorageUrl(school.logo_url) ?? undefined} alt={school.name} className="w-full h-full object-cover transition-transform group-hover:scale-105" />
                                             ) : (
                                                 <Building2 className="w-5.5 h-5.5 opacity-70 transition-colors group-hover:text-purple-500" />
                                             )}

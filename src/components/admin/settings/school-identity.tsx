@@ -8,6 +8,7 @@ import { Building2, Mail, Phone, MapPin, Upload, Loader2, CheckCircle2, KeyRound
 import { createClient } from '@/utils/supabase/client'
 import { toast } from 'sonner'
 import { useLanguage } from '@/i18n'
+import { proxyStorageUrl } from '@/lib/utils'
 import { updateCurrentUserPassword, updateSchoolIdentityAction } from '@/app/admin/settings/actions'
 import { cn } from '@/lib/utils'
 
@@ -228,7 +229,7 @@ export function SchoolIdentity() {
                         <Loader2 className="w-6 h-6 text-emerald-500 animate-spin" />
                     ) : settings.logo_url ? (
                         <>
-                            <img src={settings.logo_url} alt="Logo" className="w-full h-full object-cover group-hover:opacity-50 transition-opacity" />
+                            <img src={proxyStorageUrl(settings.logo_url) ?? undefined} alt="Logo" className="w-full h-full object-cover group-hover:opacity-50 transition-opacity" />
                             <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
                                 <Upload className="w-6 h-6 text-white" />
                             </div>

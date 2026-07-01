@@ -6,7 +6,7 @@ import {
     Loader2, Banknote, TrendingUp, Calendar, CheckCircle2, Clock, XCircle,
     Plus, X, ArrowDownRight, Eye, Check,
 } from 'lucide-react'
-import { cn } from '@/lib/utils'
+import { cn, proxyStorageUrl } from '@/lib/utils'
 import { useLanguage } from '@/i18n'
 import { getMySchoolContext } from '@/app/admin/actions'
 import { toast } from 'sonner'
@@ -193,7 +193,7 @@ export function TeacherFinances({ teacherId }: { teacherId: string }) {
             }
 
             if (sName) setSchoolName(sName)
-            if (sLogo) setSchoolLogo(sLogo)
+            if (sLogo) setSchoolLogo(proxyStorageUrl(sLogo) || sLogo)
 
             setLoading(false)
         }
