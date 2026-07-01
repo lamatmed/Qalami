@@ -5,7 +5,6 @@ import { Building2, Plus, Search, MoreHorizontal, Eye, Settings, Loader2, Trash2
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { cn } from '@/lib/utils'
-import { createClient } from '@/utils/supabase/client'
 import Link from 'next/link'
 import { useLanguage } from '@/i18n'
 import {
@@ -38,11 +37,13 @@ interface School {
     teacherCount?: number
 }
 
-export function SchoolList() {
+interface Props {
+    initialSchools: School[]
+}
+
+export function SchoolList({ initialSchools }: Props) {
     const { t } = useLanguage()
-    const supabase = createClient()
-    const [schools, setSchools] = useState<School[]>([])
-    const [loading, setLoading] = useState(true)
+    const [schools, setSchools] = useState<School[]>(initialSchools)
     const [search, setSearch] = useState('')
 
     const [schoolToDelete, setSchoolToDelete] = useState<School | null>(null)
@@ -114,63 +115,6 @@ export function SchoolList() {
         }
     }
 
-    useEffect(() => {
-        const fetchSchools = async () => {
-            try {
-                const { data } = await supabase
-                    .from('schools')
-                    .select('*')
-                    .order('created_at', { ascending: false })
-
-                if (data) {
-                    // Fetch counts for each school
-                    // Fetch counts for each school using accurate 3-way union logic
-                    const schoolsWithCounts = await Promise.all(
-                        data.map(async (school) => {
-                            const [
-                                studentsRes, 
-                                directTeachersRes, 
-                                assignedTeachersRes, 
-                                schoolLinkTeachersRes, 
-                                settingsRes
-                            ] = await Promise.all([
-                                supabase.from('profiles').select('id', { count: 'exact', head: true }).eq('school_id', school.id).eq('role', 'student'),
-                                supabase.from('profiles').select('id').eq('school_id', school.id).eq('role', 'teacher'),
-                                supabase.from('teacher_assignments').select('teacher_id, classes!inner(school_id)').eq('classes.school_id', school.id),
-                                supabase.from('profile_schools').select('profile_id').eq('school_id', school.id).eq('role', 'teacher'),
-                                supabase.from('school_settings').select('name, logo_url').eq('school_id', school.id).maybeSingle()
-                            ])
-                            
-                            // Build exact union count for Teachers
-                            const uniqueTeacherIds = new Set([
-                                ...(directTeachersRes.data || []).map((t: any) => t.id),
-                                ...(assignedTeachersRes.data || []).map((t: any) => t.teacher_id),
-                                ...(schoolLinkTeachersRes.data || []).map((t: any) => t.profile_id)
-                            ].filter(Boolean))
-
-                            const settings = settingsRes.data
-
-                            return {
-                                ...school,
-                                name: settings?.name || school.name,
-                                logo_url: settings?.logo_url || school.logo_url,
-                                studentCount: studentsRes.count ?? 0,
-                                teacherCount: uniqueTeacherIds.size,
-                            }
-                        })
-                    )
-                    setSchools(schoolsWithCounts)
-                }
-            } catch (error) {
-                console.error('Error fetching schools:', error)
-            } finally {
-                setLoading(false)
-            }
-        }
-
-        fetchSchools()
-    }, [])
-
     const filteredSchools = schools.filter(s =>
         s.name.toLowerCase().includes(search.toLowerCase()) ||
         s.slug.toLowerCase().includes(search.toLowerCase())
@@ -214,11 +158,7 @@ export function SchoolList() {
             </div>
 
             {/* Schools Grid */}
-            {loading ? (
-                <div className="flex items-center justify-center py-20">
-                    <Loader2 className="w-8 h-8 animate-spin text-purple-500" />
-                </div>
-            ) : filteredSchools.length === 0 ? (
+            {filteredSchools.length === 0 ? (
                 <div className="text-center py-20 text-gray-400 dark:text-gray-500">
                     <Building2 className="w-12 h-12 mx-auto mb-4 opacity-50" />
                     <p>{search ? t('superAdmin.schoolsList.noResults') : t('superAdmin.schoolsList.noSchools')}</p>

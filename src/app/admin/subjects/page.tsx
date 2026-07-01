@@ -5,8 +5,6 @@ import { DeleteSubjectButton } from '@/components/admin/subjects/delete-subject-
 import { EditSubjectDialog } from '@/components/admin/subjects/edit-subject-dialog'
 import { SubjectCoefficientsDialog } from '@/components/admin/subjects/subject-coefficients-dialog'
 import { useLanguage } from '@/i18n'
-import { createClient } from '@/utils/supabase/client'
-import { useSchoolContext } from '@/lib/use-school-context'
 import { useCallback, useEffect, useState } from 'react'
 import { motion } from 'framer-motion'
 import { Loader2, BookOpen, Search, Pencil, Hash } from 'lucide-react'
@@ -31,30 +29,26 @@ const item = {
 
 export default function SubjectsPage() {
     const { language, t } = useLanguage()
-    const { context, loading: ctxLoading, error: ctxError } = useSchoolContext()
     const [subjects, setSubjects] = useState<any[]>([])
     const [fetchError, setFetchError] = useState(false)
-    const [loadingData, setLoadingData] = useState(false)
+    const [loading, setLoading] = useState(true)
     const [search,   setSearch]   = useState('')
     const [editSubject,  setEditSubject]  = useState<any | null>(null)
     const [coeffSubject, setCoeffSubject] = useState<any | null>(null)
 
-    const fetchData = useCallback(async () => {
-        if (!context) return
-        setLoadingData(true)
+    const fetchData = useCallback(() => {
+        setLoading(true)
         setFetchError(false)
-        const supabase = createClient()
-        const { data, error } = await supabase
-            .from('subjects').select('*').eq('school_id', context.school_id).order('name')
-        if (error) setFetchError(true)
-        else setSubjects(data || [])
-        setLoadingData(false)
-    }, [context])
+        fetch('/api/admin/subjects')
+            .then(res => res.ok ? res.json() : Promise.reject(res))
+            .then(json => { setSubjects(json.subjects || []) })
+            .catch(() => setFetchError(true))
+            .finally(() => setLoading(false))
+    }, [])
 
     useEffect(() => { fetchData() }, [fetchData])
 
-    const loading = ctxLoading || loadingData
-    const error = !!ctxError || fetchError
+    const error = fetchError
 
     const locale   = language === 'ar' ? 'ar-SA' : 'fr-FR'
     const getDisplayName = (s: any) => (language === 'ar' && s.name_ar) ? s.name_ar : s.name

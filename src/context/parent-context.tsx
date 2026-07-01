@@ -3,6 +3,17 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react'
 import { createClient } from '@/utils/supabase/client'
 
+async function getSessionUserId(): Promise<string | null> {
+    try {
+        const res = await fetch('/api/admin/context')
+        if (!res.ok) return null
+        const data = await res.json()
+        return data.user_id ?? null
+    } catch {
+        return null
+    }
+}
+
 interface Child {
     id: string
     name: string
@@ -45,15 +56,12 @@ export function ParentProvider({ children }: { children: ReactNode }) {
                     // Ignore parsing errors
                 }
             } else {
-                // Get current logged-in user
-                const { data: { user } } = await supabase.auth.getUser()
-                if (user) {
-                    parentId = user.id
-                    // Get parent's name from profile
+                parentId = await getSessionUserId()
+                if (parentId) {
                     const { data: profile } = await supabase
                         .from('profiles')
                         .select('full_name')
-                        .eq('id', user.id)
+                        .eq('id', parentId)
                         .single()
                     if (profile?.full_name) {
                         setParentName(profile.full_name.split(' ')[0])

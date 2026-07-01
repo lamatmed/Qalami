@@ -103,7 +103,7 @@ export function SchoolIdentity() {
             }
         }
         fetchSettings()
-    }, [supabase])
+    }, [])
 
     const handleSave = () => {
         startTransition(async () => {

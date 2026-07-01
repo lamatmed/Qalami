@@ -49,8 +49,6 @@ import { createClient } from '@/utils/supabase/client'
 import { useLanguage } from '@/i18n'
 import { LanguageSwitcher } from '@/components/shared/language-switcher'
 import { ThemeToggle } from '@/components/shared/theme-toggle'
-import { getMySchoolContext, getAdminUnreadNotificationsCount } from '@/app/admin/actions'
-import { getPendingRequestsCount } from '@/app/admin/requests/actions'
 
 
 // ─── Types ───────────────────────────────────────────────────────────────────
@@ -168,84 +166,21 @@ export function AdminSidebar() {
 
 
     useEffect(() => {
-        async function fetchSidebarData() {
-            const supabase = createClient()
-            const ctx = await getMySchoolContext()
-            if (!ctx) return
-
-            const profile = {
-                school_id: ctx.school_id,
-                full_name: ctx.full_name,
-                role: ctx.role,
-                avatar_url: ctx.avatar_url,
-            }
-
-            // Set user info
-            const name = profile.full_name || 'Admin'
-            setUserInfo({
-                name,
-                role: profile.role || 'admin',
-                initials: name.split(' ').map((w: string) => w[0]).join('').toUpperCase().slice(0, 2),
-                avatar: profile.avatar_url || null,
+        fetch('/api/admin/sidebar-data')
+            .then(res => res.ok ? res.json() : null)
+            .then(data => {
+                if (!data) return
+                setUserInfo(data.userInfo)
+                setCurrentYear(data.currentYear)
+                setCurrentTerm(data.currentTerm)
+                setSchoolName(data.schoolName)
+                setSchoolLogo(data.schoolLogo)
+                setUnassignedStudents(data.unassignedStudents)
+                setUnreadNotifications(data.unreadNotifications)
+                setPendingRequests(data.pendingRequests)
+                if (data.staffPermissions !== null) setStaffPermissions(data.staffPermissions)
             })
-
-            // Fetch permissions for school_staff
-            if ((profile as any).role === 'school_staff') {
-                const { data: permsData } = await supabase
-                    .from('staff_permissions')
-                    .select('permissions')
-                    .eq('user_id', ctx.user_id)
-                    .single()
-                setStaffPermissions(permsData?.permissions || [])
-            }
-
-            const [
-                { data: yearData },
-                { data: termData },
-                notifCount,
-                { data: allStudents },
-                { data: enrolled },
-                { data: schoolData },
-                pendingCount,
-            ] = await Promise.all([
-                supabase.from('academic_years').select('name').eq('school_id', profile.school_id).eq('is_current', true).single(),
-                supabase.from('terms').select('name').eq('school_id', profile.school_id).eq('is_current', true).single(),
-                getAdminUnreadNotificationsCount(profile.school_id),
-                supabase.from('profiles').select('id').eq('school_id', profile.school_id).eq('role', 'student').eq('status', 'active'),
-                supabase.from('enrollments').select('student_id').eq('school_id', profile.school_id).eq('status', 'active'),
-                supabase.from('school_settings').select('name, logo_url').eq('school_id', profile.school_id).single(),
-                getPendingRequestsCount(),
-            ])
-
-            setCurrentYear(yearData?.name ?? null)
-            setCurrentTerm(termData?.name ?? null)
-            setUnreadNotifications(notifCount ?? 0)
-            setPendingRequests(pendingCount ?? 0)
-
-            // school_settings.name first, fallback to schools.name
-            const settingsName = (schoolData as any)?.name ?? null
-            setSchoolLogo((schoolData as any)?.logo_url ?? null)
-            
-            if (settingsName) {
-                setSchoolName(settingsName)
-            } else {
-                const { data: schoolRow } = await supabase
-                    .from('schools')
-                    .select('name, logo_url')
-                    .eq('id', profile.school_id)
-                    .single()
-                setSchoolName((schoolRow as any)?.name ?? null)
-                if (!(schoolData as any)?.logo_url) {
-                    setSchoolLogo((schoolRow as any)?.logo_url ?? null)
-                }
-            }
-
-            const enrolledSet = new Set((enrolled || []).map((e: any) => e.student_id))
-            const unassigned = (allStudents || []).filter((s: any) => !enrolledSet.has(s.id)).length
-            setUnassignedStudents(unassigned)
-        }
-
-        fetchSidebarData()
+            .catch(() => {})
     }, [])
 
     // Permission → hrefs mapping for school_staff filtering

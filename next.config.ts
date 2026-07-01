@@ -10,9 +10,20 @@ const withPWA = withPWAInit({
     },
 });
 
-const SUPABASE_HOSTNAME = process.env.NEXT_PUBLIC_SUPABASE_URL
-    ? new URL(process.env.NEXT_PUBLIC_SUPABASE_URL).hostname
-    : '*.supabase.co'
+function getSupabaseOrigins() {
+    const raw = process.env.NEXT_PUBLIC_SUPABASE_URL
+    if (!raw) return { http: 'https://*.supabase.co', ws: 'wss://*.supabase.co' }
+    const url = new URL(raw)
+    const port = url.port ? `:${url.port}` : ''
+    const host = `${url.hostname}${port}`
+    const wsScheme = url.protocol === 'https:' ? 'wss:' : 'ws:'
+    return {
+        http: `${url.protocol}//${host}`,
+        ws: `${wsScheme}//${host}`,
+    }
+}
+
+const { http: SUPABASE_HTTP, ws: SUPABASE_WS } = getSupabaseOrigins()
 
 const securityHeaders = [
     { key: 'X-Frame-Options',        value: 'DENY' },
@@ -23,17 +34,18 @@ const securityHeaders = [
         key: 'Content-Security-Policy',
         value: [
             "default-src 'self'",
-            `connect-src 'self' https://${SUPABASE_HOSTNAME} wss://${SUPABASE_HOSTNAME}`,
-            `img-src 'self' data: blob: https://${SUPABASE_HOSTNAME}`,
+            `connect-src 'self' ${SUPABASE_HTTP} ${SUPABASE_WS}`,
+            `img-src 'self' data: blob: ${SUPABASE_HTTP}`,
             "script-src 'self' 'unsafe-inline' 'unsafe-eval'",
             "style-src 'self' 'unsafe-inline'",
-            "font-src 'self'",
+            "font-src 'self' data:",
             "frame-ancestors 'none'",
         ].join('; '),
     },
 ]
 
 const nextConfig: NextConfig = {
+    output: 'standalone',
     turbopack: {},
     images: {
         remotePatterns: [
@@ -42,6 +54,7 @@ const nextConfig: NextConfig = {
     },
     typescript: { ignoreBuildErrors: true },
     async headers() {
+        if (process.env.NODE_ENV === 'development') return []
         return [{ source: '/(.*)', headers: securityHeaders }]
     },
 };

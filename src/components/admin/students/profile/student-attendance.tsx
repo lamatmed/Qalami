@@ -4,7 +4,7 @@ import { useState, useEffect, useMemo } from 'react'
 import { XCircle, Clock, CheckCircle2, AlertCircle, Loader2, FileText, StickyNote, Eye, Download, Paperclip, CalendarClock } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useLanguage } from '@/i18n'
-import { getStudentAttendanceWithFiles, getAllJustificationFiles, reviewAttendanceJustification, type AttendanceWithFile, type JustificationFile } from '@/app/admin/students/actions'
+import type { AttendanceWithFile, JustificationFile } from '@/app/admin/students/actions'
 
 type AttendanceRecord = AttendanceWithFile
 
@@ -37,19 +37,22 @@ export function StudentAttendance({ studentId, schoolId }: { studentId: string; 
     const [submittingReview, setSubmittingReview] = useState<string | null>(null)
 
     async function load() {
-        const [data, files] = await Promise.all([
-            getStudentAttendanceWithFiles(studentId, schoolId),
-            getAllJustificationFiles(studentId),
-        ])
-        setRecords(data)
-        setJustifFiles(files)
+        const res = await fetch(`/api/admin/students/${studentId}/attendance`)
+        if (!res.ok) { setLoading(false); return }
+        const json = await res.json()
+        setRecords(json.records || [])
+        setJustifFiles(json.files || [])
         setLoading(false)
     }
 
     async function handleReview(id: string, decision: 'approved' | 'rejected') {
         setSubmittingReview(id)
-        const result = await reviewAttendanceJustification(id, decision, reviewNotes[id])
-        if (!result.error) {
+        const res = await fetch(`/api/admin/students/${studentId}/attendance/review`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ attendanceId: id, decision, note: reviewNotes[id] }),
+        })
+        if (res.ok) {
             setReviewNotes(prev => { const n = { ...prev }; delete n[id]; return n })
             await load()
         }

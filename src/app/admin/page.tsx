@@ -7,7 +7,6 @@ import { useSchoolContext } from '@/lib/use-school-context'
 import { useLanguage } from '@/i18n'
 import Link from 'next/link'
 import { cn } from '@/lib/utils'
-import { getSchoolMetricsCounts } from '@/app/admin/actions'
 import {
     GraduationCap, DollarSign, AlertTriangle, ArrowRight,
     Megaphone, BookOpen, Clock, RefreshCw, UserPlus, CalendarDays,
@@ -60,7 +59,7 @@ export default function AdminDashboard() {
 
         const [
             { data: termData },
-            aggregatedCounts,
+            metricsRes,
             { data: classData },
             { data: allStudents },
             { data: enrolled },
@@ -69,7 +68,7 @@ export default function AdminDashboard() {
             { data: eventsData },
         ] = await Promise.all([
             supabase.from('terms').select('name').eq('school_id', sid).eq('is_current', true).single(),
-            getSchoolMetricsCounts(sid),
+            fetch(`/api/admin/school-metrics?schoolId=${sid}`).then(r => r.json()),
             supabase.from('classes').select('id, name').eq('school_id', sid),
             supabase.from('profiles').select('id').eq('school_id', sid).eq('role', 'student').eq('status', 'active'),
             supabase.from('enrollments').select('student_id, class_id').eq('school_id', sid).eq('status', 'active'),
@@ -78,8 +77,8 @@ export default function AdminDashboard() {
             supabase.from('events').select('id, title, event_type, start_date, color').eq('school_id', sid).gte('start_date', new Date().toISOString()).order('start_date', { ascending: true }).limit(4),
         ])
 
-        const studentCount = aggregatedCounts.students
-        const teacherCount = aggregatedCounts.teachers
+        const studentCount = metricsRes.students ?? 0
+        const teacherCount = metricsRes.teachers ?? 0
 
         // Attendance
         const classIds = (classData || []).map((c: any) => c.id)

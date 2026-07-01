@@ -292,10 +292,11 @@ export async function addStaffMemberAction(payload: {
         return { error: 'auth.errors.accountCreationError' }
     }
 
-    // Supabase trigger auto-creates a profile row on auth user creation — update it
+    // Create or update the profile row (trigger may or may not have run)
     const { data: newProfile, error: profileError } = await admin
         .from('profiles')
-        .update({
+        .upsert({
+            id: authData.user.id,
             full_name: payload.name,
             phone: payload.phone || null,
             national_id: payload.nni || null,
@@ -303,8 +304,7 @@ export async function addStaffMemberAction(payload: {
             school_id: me.school_id,
             status: 'active',
             first_login: payload.createUser ? true : false,
-        })
-        .eq('id', authData.user.id)
+        }, { onConflict: 'id' })
         .select('id')
         .single()
 

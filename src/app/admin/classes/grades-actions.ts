@@ -1,15 +1,17 @@
 'use server'
 
 import { createClient } from '@/utils/supabase/server'
+import { createAdminClient } from '@/utils/supabase/admin'
 import { revalidatePath } from 'next/cache'
 
 async function getAuthCtx() {
     const supabase = await createClient()
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) return null
-    const { data: profile } = await supabase.from('profiles').select('school_id').eq('id', user.id).single()
+    const db = createAdminClient()
+    const { data: profile } = await db.from('profiles').select('school_id').eq('id', user.id).maybeSingle()
     if (!profile?.school_id) return null
-    return { supabase, userId: user.id, schoolId: profile.school_id }
+    return { supabase: db, userId: user.id, schoolId: profile.school_id }
 }
 
 export interface GradeEntry {

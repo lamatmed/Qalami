@@ -8,7 +8,6 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Switch } from '@/components/ui/switch'
 import { ChevronLeft, GraduationCap, Loader2, Layers } from 'lucide-react'
 import { RegistrationData } from '../registration-wizard'
-import { createClient } from '@/utils/supabase/client'
 import { useLanguage } from '@/i18n'
 import { cn } from '@/lib/utils'
 
@@ -65,65 +64,21 @@ export function AcademicFinance({ data, updateData, onNext, onPrev }: StepProps)
     const [classes, setClasses] = useState<ClassOption[]>([])
     const [cycleConfigs, setCycleConfigs] = useState<any[]>([])
     const [loading, setLoading] = useState(true)
+    const [apiError, setApiError] = useState<string | null>(null)
     const academicYearOptions = getAcademicYearOptions()
 
     // 1. Load Context & Reference Configs
     useEffect(() => {
-        async function fetchData() {
-            const supabase = createClient()
-            const { data: { user } } = await supabase.auth.getUser()
-            if (!user) return
-
-            const { data: profile } = await supabase
-                .from('profiles')
-                .select('school_id')
-                .eq('id', user.id)
-                .single()
-
-            if (!profile?.school_id) return
-
-            // A. Load levels & classes
-            const [{ data: levelData }, { data: classData }] = await Promise.all([
-                supabase
-                    .from('levels')
-                    .select('id, name_fr, order, cycle')
-                    .eq('school_id', profile.school_id)
-                    .order('order'),
-                supabase
-                    .from('classes')
-                    .select('id, name, level_id')
-                    .eq('school_id', profile.school_id)
-                    .order('name'),
-            ])
-
-            // B. Load active cycle configurations for auto-filling
-            const { data: activeYear } = await supabase
-                .from('academic_years')
-                .select('id')
-                .eq('school_id', profile.school_id)
-                .eq('is_current', true)
-                .maybeSingle()
-
-            if (activeYear) {
-                const { data: configs } = await supabase
-                    .from('cycle_fees_config')
-                    .select('*')
-                    .eq('school_id', profile.school_id)
-                    .eq('academic_year_id', activeYear.id)
-                if (configs) setCycleConfigs(configs)
-            }
-
-            const classList = classData || []
-            if (levelData) {
-                const activeLevels = levelData.filter(lvl => 
-                    classList.some(c => c.level_id === lvl.id)
-                )
-                setLevels(activeLevels)
-            }
-            if (classData) setClasses(classData)
-            setLoading(false)
-        }
-        fetchData()
+        fetch('/api/admin/registration-data')
+            .then(res => res.json())
+            .then(json => {
+                if (json.error) { setApiError(json.error); return }
+                setLevels(json.levels || [])
+                setClasses(json.classes || [])
+                setCycleConfigs(json.cycleConfigs || [])
+            })
+            .catch(err => setApiError(String(err)))
+            .finally(() => setLoading(false))
     }, [])
 
     // 2. Real-time dynamic calculation of yearly total
@@ -168,6 +123,13 @@ export function AcademicFinance({ data, updateData, onNext, onPrev }: StepProps)
     const filteredClasses = academic.levelId
         ? classes.filter(c => c.level_id === academic.levelId)
         : []
+
+    if (apiError) return (
+        <div className="flex flex-col items-center justify-center py-16 gap-3 text-center">
+            <p className="text-red-400 text-sm font-semibold">Erreur chargement données</p>
+            <p className="text-red-300 text-xs font-mono bg-red-500/10 px-3 py-2 rounded-lg">{apiError}</p>
+        </div>
+    )
 
     return (
         <div className="space-y-6">

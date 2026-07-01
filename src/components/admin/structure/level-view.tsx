@@ -9,7 +9,7 @@ import { Search, Plus, Filter, Calendar, Users, ArrowLeft } from 'lucide-react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { cn } from '@/lib/utils'
-import { createClient } from '@/utils/supabase/client'
+
 import { Skeleton } from '@/components/ui/skeleton'
 import { useLanguage } from '@/i18n'
 
@@ -33,87 +33,22 @@ export function LevelView({ params }: { params: { levelId: string } }) {
     const levelId = params.levelId
 
     useEffect(() => {
-        async function fetchClasses() {
-            setLoading(true)
-            const supabase = createClient()
-
-            try {
-                const { data: { user } } = await supabase.auth.getUser()
-                if (!user) return
-
-                const { data: profile } = await supabase
-                    .from('profiles')
-                    .select('school_id')
-                    .eq('id', user.id)
-                    .single()
-
-                if (!profile?.school_id) return
-
-                // Fetch level name
-                const { data: levelData } = await supabase
-                    .from('levels')
-                    .select('name_fr, name_ar')
-                    .eq('id', levelId)
-                    .single()
-
-                if (levelData) setLevelNameFr(levelData.name_fr)
-
-                // Fetch classes filtered by level_id (UUID)
-                const { data: classesData, error } = await supabase
-                    .from('classes')
-                    .select('id, name, capacity, updated_at')
-                    .eq('school_id', profile.school_id)
-                    .eq('level_id', levelId)
-                    .order('name', { ascending: true })
-
-                if (error) throw error
-
-                if (!classesData || classesData.length === 0) {
-                    setClasses([])
-                    setLoading(false)
-                    return
-                }
-
-                const classIds = classesData.map(c => c.id)
-
-                const { data: enrollments } = await supabase
-                    .from('enrollments')
-                    .select('class_id')
-                    .in('class_id', classIds)
-
-                const studentCounts = new Map<string, number>()
-                ;(enrollments || []).forEach(e => {
-                    const count = studentCounts.get(e.class_id) || 0
-                    studentCounts.set(e.class_id, count + 1)
-                })
-
-                const { data: assignments } = await supabase
-                    .from('teacher_assignments')
-                    .select('class_id, profiles:teacher_id(full_name)')
-                    .in('class_id', classIds)
-
-                const teacherMap = new Map<string, string>()
-                ;(assignments || []).forEach((a: any) => {
-                    if (!teacherMap.has(a.class_id) && a.profiles?.full_name) {
-                        teacherMap.set(a.class_id, a.profiles.full_name)
-                    }
-                })
-
-                const processedClasses: ClassData[] = classesData.map(cls => {
-                    const students = studentCounts.get(cls.id) || 0
+        setLoading(true)
+        fetch(`/api/admin/levels/${levelId}`)
+            .then(res => res.ok ? res.json() : null)
+            .then(json => {
+                if (!json) return
+                if (json.levelNameFr) setLevelNameFr(json.levelNameFr)
+                const processedClasses: ClassData[] = (json.classes || []).map((cls: any) => {
+                    const students = cls.studentCount || 0
                     const capacity = cls.capacity || 40
                     let status: 'complet' | 'incomplet' | 'pleine' = 'incomplet'
-                    if (students >= capacity) {
-                        status = 'pleine'
-                    } else if (students >= capacity * 0.7) {
-                        status = 'complet'
-                    }
+                    if (students >= capacity) status = 'pleine'
+                    else if (students >= capacity * 0.7) status = 'complet'
 
                     let lastUpdate = t('admin.levelView.today')
-                    if (cls.updated_at) {
-                        const updated = new Date(cls.updated_at)
-                        const now = new Date()
-                        const diffDays = Math.floor((now.getTime() - updated.getTime()) / (1000 * 60 * 60 * 24))
+                    if (cls.updatedAt) {
+                        const diffDays = Math.floor((Date.now() - new Date(cls.updatedAt).getTime()) / 86400000)
                         if (diffDays === 1) lastUpdate = t('admin.levelView.yesterday')
                         else if (diffDays > 1) lastUpdate = t('admin.levelView.daysAgo').replace('{n}', String(diffDays))
                     }
@@ -121,23 +56,17 @@ export function LevelView({ params }: { params: { levelId: string } }) {
                     return {
                         id: cls.id,
                         name: cls.name,
-                        teacher: teacherMap.get(cls.id) || t('admin.levelView.notAssigned'),
+                        teacher: (cls.teachers || [])[0] || t('admin.levelView.notAssigned'),
                         students,
                         capacity,
                         status,
                         lastUpdate,
                     }
                 })
-
                 setClasses(processedClasses)
-            } catch (err) {
-                console.error('Error fetching classes:', err)
-            }
-
-            setLoading(false)
-        }
-
-        fetchClasses()
+            })
+            .catch(err => console.error('Error fetching classes:', err))
+            .finally(() => setLoading(false))
     }, [levelId])
 
     const filteredClasses = classes.filter(cls =>

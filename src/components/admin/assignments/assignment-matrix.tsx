@@ -1,12 +1,10 @@
 'use client'
 
 import { useState, useEffect, useMemo, useRef } from 'react'
-import { createClient } from '@/utils/supabase/client'
 import { Plus, X, Loader2, Search, GripVertical, AlertTriangle, UserCheck, Phone, Fingerprint } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { upsertAssignment, removeAssignment } from '@/app/admin/assignments/actions'
 import { toast } from 'sonner'
-import { getMySchoolContext, getSchoolLinkedProfileIds, secureFetchProfiles } from '@/app/admin/actions'
 import { useLanguage } from '@/i18n'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -67,72 +65,17 @@ export function AssignmentMatrix() {
     // ── Data fetch ───────────────────────────────────────────────────────────
 
     useEffect(() => {
-        const fetchAll = async () => {
-            const ctx = await getMySchoolContext()
-            if (!ctx) { setLoading(false); return }
-            const schoolId = ctx.school_id
-            const supabase = createClient()
-
-            const [
-                { data: classesData },
-                { data: subjectsData },
-            ] = await Promise.all([
-                supabase.from('classes').select('id, name').eq('school_id', schoolId).order('name'),
-                supabase.from('subjects').select('id, name').eq('school_id', schoolId).order('name'),
-            ])
-
-            const classIds = (classesData || []).map((c: any) => c.id)
-
-            const { data: directT } = await supabase.from('profiles')
-                .select('id')
-                .eq('role', 'teacher').eq('school_id', schoolId)
-
-            let assignedIds: string[] = []
-            if (classIds.length > 0) {
-                const { data: existingAssignments } = await supabase
-                    .from('teacher_assignments')
-                    .select('teacher_id')
-                    .in('class_id', classIds)
-                assignedIds = (existingAssignments || []).map((a: any) => a.teacher_id)
-            }
-
-            const schoolLinkedIds = await getSchoolLinkedProfileIds(schoolId, 'teacher')
-
-            const uniqueTeacherIds = Array.from(new Set([
-                ...(directT || []).map(p => p.id),
-                ...assignedIds,
-                ...schoolLinkedIds
-            ]))
-
-            const teachersData = await secureFetchProfiles(uniqueTeacherIds, 'id, full_name, phone, national_id')
-
-            const { data: assignData } = classIds.length > 0
-                ? await supabase
-                    .from('teacher_assignments')
-                    .select('id, teacher_id, class_id, subject_id, profiles:teacher_id(full_name, phone, national_id)')
-                    .in('class_id', classIds)
-                : { data: [] }
-
-            setClasses(classesData  || [])
-            setSubjects(subjectsData || [])
-            setTeachers((teachersData || []).map((t: any) => ({
-                id:   t.id,
-                name: t.full_name || t('admin.assignments.defaultTeacher'),
-                phone: t.phone,
-                nni:  t.national_id,
-            })))
-            setAssignments((assignData as any[] || []).map((a: any) => ({
-                id:           a.id,
-                teacherId:    a.teacher_id,
-                teacherName:  (a.profiles as any)?.full_name || '—',
-                teacherPhone: (a.profiles as any)?.phone,
-                teacherNni:   (a.profiles as any)?.national_id,
-                classId:      a.class_id,
-                subjectId:    a.subject_id,
-            })))
-            setLoading(false)
-        }
-        fetchAll()
+        fetch('/api/admin/assignments')
+            .then(res => res.ok ? res.json() : null)
+            .then(json => {
+                if (!json) return
+                setClasses(json.classes || [])
+                setSubjects(json.subjects || [])
+                setTeachers(json.teachers || [])
+                setAssignments(json.assignments || [])
+            })
+            .catch(() => {})
+            .finally(() => setLoading(false))
     }, [])
 
     // ── Matrix ────────────────────────────────────────────────────────────────

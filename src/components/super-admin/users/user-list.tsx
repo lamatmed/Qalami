@@ -4,10 +4,9 @@ import { useState, useEffect } from 'react'
 import { Users, Search, MoreHorizontal, Eye, Building2, GraduationCap, BookOpen, UserCheck, UserX, Loader2, Shield, Mail, Calendar, ExternalLink, Phone, Sparkles, Filter, KeyRound } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { toast } from 'sonner'
-import { updateUserPassword } from '@/app/super-admin/users/actions'
+import { updateUserPassword, fetchSuperAdminUsersData } from '@/app/super-admin/users/actions'
 import { Input } from '@/components/ui/input'
 import { cn } from '@/lib/utils'
-import { createClient } from '@/utils/supabase/client'
 import {
     DropdownMenu,
     DropdownMenuContent,
@@ -100,44 +99,21 @@ export function UserList() {
 
     useEffect(() => {
         const fetchData = async () => {
-            const supabase = createClient()
             try {
-                const { data: schoolsData, error: schoolsError } = await supabase
-                    .from('schools')
-                    .select('id, name')
-                    .order('name')
-
-                if (schoolsError) {
-                    console.error('Error fetching schools:', schoolsError)
+                const result = await fetchSuperAdminUsersData()
+                if ('error' in result) {
+                    console.error('Error fetching data:', result.error)
+                    return
                 }
 
-                setSchools(schoolsData ?? [])
+                setSchools(result.schools)
 
-                const { data: usersData, error: usersError } = await supabase
-                    .from('profiles')
-                    .select(`
-                        id,
-                        email,
-                        full_name,
-                        role,
-                        phone,
-                        school_id,
-                        created_at
-                    `)
-                    .order('created_at', { ascending: false })
-
-                if (usersError) {
-                    console.error('Error fetching profiles:', usersError)
-                }
-
-                if (usersData) {
-                    const usersWithSchools = usersData.map(user => ({
-                        ...user,
-                        is_active: true,
-                        school: schoolsData?.find(s => s.id === user.school_id)
-                    }))
-                    setUsers(usersWithSchools as User[])
-                }
+                const usersWithSchools = result.users.map(user => ({
+                    ...user,
+                    is_active: true,
+                    school: result.schools.find(s => s.id === user.school_id)
+                }))
+                setUsers(usersWithSchools as User[])
             } catch (error) {
                 console.error('Error fetching users:', error)
             } finally {

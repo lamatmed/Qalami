@@ -1,7 +1,6 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { createClient } from '@/utils/supabase/client'
 
 export interface SchoolContext {
     user_id: string
@@ -15,39 +14,74 @@ interface UseSchoolContextResult {
     error: string | null
 }
 
-/**
- * Client-side equivalent of the server action `getMySchoolContext()`.
- * Fetches the authenticated user, their school_id and role, and caches them.
- */
+let cachedContext: SchoolContext | null | undefined = undefined
+let activeContextPromise: Promise<SchoolContext | null> | null = null
+
+export function invalidateSchoolContextCache() {
+    cachedContext = undefined
+    activeContextPromise = null
+}
+
+export async function fetchSchoolContext(): Promise<SchoolContext | null> {
+    if (typeof window === 'undefined') return null
+    if (cachedContext !== undefined) return cachedContext
+    if (activeContextPromise) return activeContextPromise
+
+    activeContextPromise = (async () => {
+        try {
+            const res = await fetch('/api/admin/context')
+            if (!res.ok) {
+                cachedContext = null
+                return null
+            }
+            const data = await res.json()
+            if (data.error) {
+                cachedContext = null
+                return null
+            }
+            cachedContext = {
+                user_id: data.user_id,
+                school_id: data.school_id,
+                role: data.role ?? null
+            }
+            return cachedContext
+        } catch {
+            cachedContext = null
+            return null
+        } finally {
+            activeContextPromise = null
+        }
+    })()
+
+    return activeContextPromise
+}
+
 export function useSchoolContext(): UseSchoolContextResult {
-    const [context, setContext] = useState<SchoolContext | null>(null)
-    const [loading, setLoading] = useState(true)
+    const [context, setContext] = useState<SchoolContext | null>(cachedContext ?? null)
+    const [loading, setLoading] = useState(cachedContext === undefined)
     const [error, setError] = useState<string | null>(null)
 
     useEffect(() => {
         let cancelled = false
-        async function load() {
-            const supabase = createClient()
-            const { data: { user } } = await supabase.auth.getUser()
-            if (!user) {
-                if (!cancelled) { setError('not_authenticated'); setLoading(false) }
-                return
-            }
-            const { data: profile } = await supabase
-                .from('profiles')
-                .select('school_id, role')
-                .eq('id', user.id)
-                .single()
-            if (cancelled) return
-            if (!profile?.school_id) {
-                setError('no_school')
+
+        fetchSchoolContext()
+            .then(data => {
+                if (cancelled) return
+                if (!data) {
+                    setError('not_authenticated')
+                    setLoading(false)
+                    return
+                }
+                setContext(data)
                 setLoading(false)
-                return
-            }
-            setContext({ user_id: user.id, school_id: profile.school_id, role: profile.role ?? null })
-            setLoading(false)
-        }
-        load()
+            })
+            .catch(() => {
+                if (!cancelled) {
+                    setError('not_authenticated')
+                    setLoading(false)
+                }
+            })
+
         return () => { cancelled = true }
     }, [])
 

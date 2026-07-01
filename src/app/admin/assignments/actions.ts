@@ -1,6 +1,7 @@
 'use server'
 
 import { getActionContext } from '@/lib/auth-action'
+import { createAdminClient } from '@/utils/supabase/admin'
 import { revalidatePath } from 'next/cache'
 import { z } from 'zod'
 
@@ -14,34 +15,23 @@ export async function upsertAssignment(
 ): Promise<{ success?: boolean; id?: string; error?: string }> {
     const ctx = await getActionContext()
     if (!ctx) return { error: 'Non authentifié' }
-    const { supabase, schoolId } = ctx
+    const { schoolId } = ctx
+    const db = createAdminClient()
 
-    // 1. Remove source assignment scoped to this school (move / change-teacher)
+    // 1. Remove source assignment (move / change-teacher)
     if (removeId) {
-        await supabase
-            .from('teacher_assignments')
-            .delete()
-            .eq('id', removeId)
-            .eq('class_id', classId)   // class_id is in teacher_assignments, verify ownership
-            // Note: we rely on RLS + school scoping below for safety
+        await db.from('teacher_assignments').delete().eq('id', removeId)
     }
 
-    // 2. Clear any existing assignment at the target cell — scoped to this school
-    const { data: schoolClasses } = await supabase
-        .from('classes')
-        .select('id')
-        .eq('school_id', schoolId)
-    const schoolClassIds = (schoolClasses ?? []).map((c: { id: string }) => c.id)
-
-    await supabase
+    // 2. Clear any existing assignment at the target cell
+    await db
         .from('teacher_assignments')
         .delete()
         .eq('class_id', classId)
         .eq('subject_id', subjectId)
-        .in('class_id', schoolClassIds)
 
     // 3. Insert the new assignment
-    const { data, error } = await supabase
+    const { data, error } = await db
         .from('teacher_assignments')
         .insert({ teacher_id: teacherId, class_id: classId, subject_id: subjectId })
         .select('id')
@@ -50,7 +40,7 @@ export async function upsertAssignment(
     if (error) return { error: error.message }
 
     // 4. Sync class_subjects
-    await supabase
+    await db
         .from('class_subjects')
         .upsert(
             { class_id: classId, subject_id: subjectId, school_id: schoolId },
@@ -66,10 +56,11 @@ export async function upsertAssignment(
 export async function removeAssignment(id: string) {
     const ctx = await getActionContext()
     if (!ctx) return { error: 'Non authentifié' }
-    const { supabase, schoolId } = ctx
+    const { schoolId } = ctx
+    const db = createAdminClient()
 
     // Verify the assignment belongs to this school before deleting
-    const { data: assignment } = await supabase
+    const { data: assignment } = await db
         .from('teacher_assignments')
         .select('id, class_id, classes!teacher_assignments_class_id_fkey(school_id)')
         .eq('id', id)
@@ -80,7 +71,7 @@ export async function removeAssignment(id: string) {
     const assignmentSchoolId = (assignment.classes as any)?.school_id
     if (assignmentSchoolId !== schoolId) return { error: 'Accès non autorisé' }
 
-    const { error } = await supabase
+    const { error } = await db
         .from('teacher_assignments')
         .delete()
         .eq('id', id)
@@ -102,7 +93,8 @@ const AssignmentSchema = z.object({
 export async function assignTeacher(formData: FormData) {
     const ctx = await getActionContext()
     if (!ctx) return { error: 'Non authentifié' }
-    const { supabase, schoolId } = ctx
+    const { schoolId } = ctx
+    const db = createAdminClient()
 
     const result = AssignmentSchema.safeParse({
         teacher_id: formData.get('teacher_id'),
@@ -113,13 +105,13 @@ export async function assignTeacher(formData: FormData) {
 
     const { teacher_id, class_id, subject_id } = result.data
 
-    const { error } = await supabase
+    const { error } = await db
         .from('teacher_assignments')
         .insert({ teacher_id, class_id, subject_id })
 
     if (error) return { error: error.message }
 
-    await supabase
+    await db
         .from('class_subjects')
         .upsert(
             { class_id, subject_id, school_id: schoolId },

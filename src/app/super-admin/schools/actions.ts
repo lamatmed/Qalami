@@ -520,3 +520,96 @@ export async function updateSchoolAdminPassword(schoolId: string, newPassword: s
     return { success: true, adminName: adminProfile.full_name, adminEmail: adminProfile.email }
 }
 
+export async function getGlobalStats() {
+    const adminClient = createAdminClient()
+
+    const { data: schools } = await adminClient
+        .from('schools')
+        .select('id, name, phone, logo_url, is_active, created_at')
+        .order('created_at', { ascending: false })
+
+    const allSchools = schools ?? []
+
+    const [studentsRes, teachersRes, parentsRes] = await Promise.all([
+        adminClient.from('profiles').select('id', { count: 'exact', head: true }).eq('role', 'student'),
+        adminClient.from('profiles').select('id', { count: 'exact', head: true }).eq('role', 'teacher'),
+        adminClient.from('profiles').select('id', { count: 'exact', head: true }).eq('role', 'parent'),
+    ])
+
+    const recentSlice = allSchools.slice(0, 5)
+    const recentSchools = await Promise.all(
+        recentSlice.map(async (school) => {
+            const { data: override } = await adminClient
+                .from('school_settings')
+                .select('name, phone, logo_url')
+                .eq('school_id', school.id)
+                .maybeSingle()
+
+            return {
+                ...school,
+                name: override?.name || school.name,
+                phone: override?.phone || school.phone,
+                logo_url: override?.logo_url || school.logo_url,
+            }
+        })
+    )
+
+    return {
+        stats: {
+            totalSchools: allSchools.length,
+            activeSchools: allSchools.filter(s => s.is_active).length,
+            totalStudents: studentsRes.count ?? 0,
+            totalTeachers: teachersRes.count ?? 0,
+            totalParents: parentsRes.count ?? 0,
+        },
+        recentSchools,
+    }
+}
+
+export async function getAllSchoolsWithCounts() {
+    const adminClient = createAdminClient()
+
+    const { data } = await adminClient
+        .from('schools')
+        .select('*')
+        .order('created_at', { ascending: false })
+
+    if (!data) return []
+
+    const schoolsWithCounts = await Promise.all(
+        data.map(async (school) => {
+            const [
+                studentsRes,
+                directTeachersRes,
+                assignedTeachersRes,
+                schoolLinkTeachersRes,
+                settingsRes
+            ] = await Promise.all([
+                adminClient.from('profiles').select('id', { count: 'exact', head: true }).eq('school_id', school.id).eq('role', 'student'),
+                adminClient.from('profiles').select('id').eq('school_id', school.id).eq('role', 'teacher'),
+                adminClient.from('teacher_assignments').select('teacher_id, classes!inner(school_id)').eq('classes.school_id', school.id),
+                adminClient.from('profile_schools').select('profile_id').eq('school_id', school.id).eq('role', 'teacher'),
+                adminClient.from('school_settings').select('name, logo_url').eq('school_id', school.id).maybeSingle()
+            ])
+
+            const uniqueTeacherIds = new Set([
+                ...(directTeachersRes.data || []).map((t: any) => t.id),
+                ...(assignedTeachersRes.data || []).map((t: any) => t.teacher_id),
+                ...(schoolLinkTeachersRes.data || []).map((t: any) => t.profile_id)
+            ].filter(Boolean))
+
+            const settings = settingsRes.data
+
+            return {
+                ...school,
+                name: settings?.name || school.name,
+                logo_url: settings?.logo_url || school.logo_url,
+                studentCount: studentsRes.count ?? 0,
+                teacherCount: uniqueTeacherIds.size,
+            }
+        })
+    )
+
+    return schoolsWithCounts
+}
+

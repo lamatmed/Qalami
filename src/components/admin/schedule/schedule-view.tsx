@@ -4,13 +4,11 @@ import { useState, useEffect } from 'react'
 import { Plus, User, MapPin, Trash2, AlertTriangle, School, ChevronLeft, ChevronRight, Calendar, Phone, Lock } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { AddCourseDialog } from './add-course-dialog'
-import { createClient } from '@/utils/supabase/client'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
 import { useLanguage } from '@/i18n'
 import { toast } from 'sonner'
-import { getMySchoolContext } from '@/app/admin/actions'
-import { fetchScheduleForAdmin } from '@/app/admin/schedule/actions'
+import { fetchScheduleForAdmin, deleteScheduleEntry } from '@/app/admin/schedule/actions'
 
 // ─── Constants ─────────────────────────────────────────────────────────────────
 
@@ -215,9 +213,8 @@ export function ScheduleView({
     }
 
     const handleDeleteCourse = async (courseId: string) => {
-        const supabase = createClient()
-        const { error } = await supabase.from('schedule').delete().eq('id', courseId)
-        if (error) {
+        const result = await deleteScheduleEntry(courseId)
+        if (result.error) {
             toast.error(t('admin.schedule.deleteError'))
         } else {
             toast.success(t('admin.schedule.courseDeleted'))

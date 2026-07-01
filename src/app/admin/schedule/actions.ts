@@ -262,6 +262,59 @@ export async function fetchScheduleForAdmin(input: ScheduleFetchInput) {
     }
 }
 
+export async function deleteScheduleEntry(id: string): Promise<{ success?: boolean; error?: string }> {
+    const ctx = await getActionContext()
+    if (!ctx) return { error: 'Non authentifié' }
+    const { schoolId } = ctx
+    const admin = createAdminClient()
+
+    const { error } = await admin
+        .from('schedule')
+        .delete()
+        .eq('id', id)
+        .eq('school_id', schoolId)
+
+    if (error) return { error: error.message }
+    revalidatePath('/admin/schedule')
+    return { success: true }
+}
+
+export async function addScheduleEntry(entry: {
+    classId: string
+    subjectId: string
+    teacherId: string
+    dayOfWeek: number
+    startTime: string
+    endTime: string
+    room: string | null
+    sessionType: string
+    isRecurring: boolean
+    eventDate: string | null
+}): Promise<{ success?: boolean; error?: string }> {
+    const ctx = await getActionContext()
+    if (!ctx) return { error: 'Non authentifié' }
+    const { schoolId } = ctx
+    const admin = createAdminClient()
+
+    const { error } = await admin.from('schedule').insert({
+        school_id: schoolId,
+        class_id: entry.classId,
+        subject_id: entry.subjectId,
+        teacher_id: entry.teacherId,
+        day_of_week: entry.dayOfWeek,
+        start_time: entry.startTime,
+        end_time: entry.endTime,
+        room: entry.room,
+        session_type: entry.sessionType,
+        is_recurring: entry.isRecurring,
+        event_date: entry.isRecurring ? null : entry.eventDate,
+    })
+
+    if (error) return { error: error.message }
+    revalidatePath('/admin/schedule')
+    return { success: true }
+}
+
 export interface OccupiedTeacherInfo {
     teacherId: string
     schoolId: string

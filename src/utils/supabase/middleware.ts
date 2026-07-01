@@ -29,7 +29,13 @@ export async function updateSession(request: NextRequest) {
         }
     )
 
-    await supabase.auth.getUser()
+    // Use getSession() (local JWT verification) instead of getUser() (network call)
+    // to avoid a round-trip to 37.27.212.68:8000 on every request
+    try {
+        await supabase.auth.getSession()
+    } catch {
+        // ignore
+    }
 
     supabaseResponse.headers.set('x-pathname', request.nextUrl.pathname)
 

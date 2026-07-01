@@ -8,7 +8,6 @@ import { Save, ArrowLeft, Loader2 } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 import { useState, useEffect } from 'react'
 import { useLanguage } from '@/i18n'
-import { createClient } from '@/utils/supabase/client'
 import { createClass } from '@/app/admin/classes/actions'
 import { toast } from 'sonner'
 
@@ -30,33 +29,15 @@ export function ClassForm({ levelId }: { levelId: string }) {
     const [currentLevelName, setCurrentLevelName] = useState('')
 
     useEffect(() => {
-        async function fetchLevels() {
-            const supabase = createClient()
-            const { data: { user } } = await supabase.auth.getUser()
-            if (!user) return
-
-            const { data: profile } = await supabase
-                .from('profiles')
-                .select('school_id')
-                .eq('id', user.id)
-                .single()
-
-            if (!profile?.school_id) return
-
-            const { data } = await supabase
-                .from('levels')
-                .select('id, name_fr, name_ar')
-                .eq('school_id', profile.school_id)
-                .order('order', { ascending: true })
-
-            if (data) {
-                const opts = data.map(l => ({ id: l.id, nameFr: l.name_fr, nameAr: l.name_ar }))
+        fetch('/api/admin/levels')
+            .then(res => res.ok ? res.json() : null)
+            .then(json => {
+                if (!json?.levels) return
+                const opts = json.levels.map((l: any) => ({ id: l.id, nameFr: l.nameFr, nameAr: l.nameAr }))
                 setLevels(opts)
-                const current = opts.find(l => l.id === levelId)
+                const current = opts.find((l: any) => l.id === levelId)
                 if (current) setCurrentLevelName(current.nameFr)
-            }
-        }
-        fetchLevels()
+            })
     }, [levelId])
 
     const handleSave = async () => {

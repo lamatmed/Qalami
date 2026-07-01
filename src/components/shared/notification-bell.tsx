@@ -208,27 +208,28 @@ export function NotificationBell() {
     useEffect(() => {
         const fetchNotifications = async () => {
             try {
-                const { data: { user } } = await supabase.auth.getUser()
-                if (!user) return
+                const ctxRes = await fetch('/api/admin/context')
+                if (!ctxRes.ok) return
+                const ctx = await ctxRes.json()
+                if (!ctx.user_id) return
 
-                const { data: profile } = await supabase.from('profiles').select('role, school_id').eq('id', user.id).single()
-                const role = profile?.role || ''
+                const role = ctx.role || ''
                 setUserRole(role)
                 const isAdmin = ['admin', 'super_admin', 'school_staff'].includes(role)
                 const isTeacher = role === 'teacher'
 
-                userContextRef.current = { userId: user.id, schoolId: profile?.school_id || null, isAdmin, isTeacher, excludeIds: new Set() }
+                userContextRef.current = { userId: ctx.user_id, schoolId: ctx.school_id || null, isAdmin, isTeacher, excludeIds: new Set() }
 
                 // Load virtual-notification read state from localStorage
-                const storedRead = localStorage.getItem(`qalami_read_${user.id}`)
+                const storedRead = localStorage.getItem(`qalami_read_${ctx.user_id}`)
                 const readSet = new Set<string>(storedRead ? JSON.parse(storedRead) : [])
                 setLocalReadIds(readSet)
 
                 let data: any[] = []
-                if (isAdmin && profile?.school_id) {
-                    data = await getAdminNotifications(profile.school_id)
-                } else if (isTeacher && profile?.school_id) {
-                    const raw = await getTeacherNotifications(user.id, profile.school_id)
+                if (isAdmin && ctx.school_id) {
+                    data = await getAdminNotifications(ctx.school_id)
+                } else if (isTeacher && ctx.school_id) {
+                    const raw = await getTeacherNotifications(ctx.user_id, ctx.school_id)
                     // Apply localStorage read state to virtual notifications
                     data = (raw ?? []).map((n: any) =>
                         isVirtualNotification(n.id) ? { ...n, is_read: readSet.has(n.id) } : n
@@ -237,7 +238,7 @@ export function NotificationBell() {
                     const { data: userData } = await supabase
                         .from('notifications')
                         .select('*')
-                        .eq('user_id', user.id)
+                        .eq('user_id', ctx.user_id)
                         .order('created_at', { ascending: false })
                         .limit(20)
                     data = userData ?? []

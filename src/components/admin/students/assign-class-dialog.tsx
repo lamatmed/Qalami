@@ -1,7 +1,6 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { createClient } from '@/utils/supabase/client'
 import { assignStudentToClass } from '@/app/admin/students/actions'
 import {
     Dialog,
@@ -57,40 +56,11 @@ export function AssignClassDialog({
         if (!open) return
         setSelectedClassId(currentClassId || '')
         setLoadingClasses(true)
-
-        const supabase = createClient()
-
-        ;(async () => {
-            const { data: { user } } = await supabase.auth.getUser()
-            if (!user) return
-
-            const { data: adminProfile } = await supabase
-                .from('profiles')
-                .select('school_id')
-                .eq('id', user.id)
-                .single()
-
-            if (!adminProfile?.school_id) return
-
-            const { data, error } = await supabase
-                .from('classes')
-                .select(`
-                    id,
-                    name,
-                    levels ( name_fr )
-                `)
-                .eq('school_id', adminProfile.school_id)
-                .order('name')
-
-            if (!error && data) {
-                setClasses(data.map((c: any) => ({
-                    id: c.id,
-                    name: c.name,
-                    level_name: c.levels?.name_fr ?? null,
-                })))
-            }
-            setLoadingClasses(false)
-        })()
+        fetch('/api/admin/classes')
+            .then(r => r.ok ? r.json() : null)
+            .then(json => { if (json) setClasses(json.classes || []) })
+            .catch(() => {})
+            .finally(() => setLoadingClasses(false))
     }, [open, currentClassId])
 
     const handleSave = async () => {

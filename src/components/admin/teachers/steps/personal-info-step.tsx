@@ -247,9 +247,14 @@ export function PersonalInfoStep({ data, onUpdate, onNext, isSubmitting }: Perso
                                     <Input
                                         placeholder={t('admin.teachers.nniPlaceholder')}
                                         className={cn("bg-[#0F1720] border-white/10 text-white focus:ring-emerald-500/50", direction === 'rtl' ? 'pr-10 pl-3 text-right' : 'pl-10 pr-3 text-left')}
-                                        defaultValue={data.nni}
-                                        onChange={(e) => onUpdate({ ...data, nni: e.target.value })}
-                                        dir={direction}
+                                        value={data.nni || ''}
+                                        onChange={(e) => {
+                                            const digits = e.target.value.replace(/\D/g, '').slice(0, 10)
+                                            onUpdate({ ...data, nni: digits })
+                                        }}
+                                        dir="ltr"
+                                        inputMode="numeric"
+                                        maxLength={10}
                                     />
                                 </div>
                             </div>

@@ -24,7 +24,6 @@ import { TransferStudentDialog } from '@/components/admin/students/transfer-stud
 import { EditStudentDialog } from '@/components/admin/students/edit-student-dialog'
 import { revertStudentTransfer, deleteStudentPermanently, reintegrateExternalStudent } from '@/app/admin/students/actions'
 import { updateProfileStatus } from '@/app/auth/actions'
-import { createClient } from '@/utils/supabase/client'
 import { generateTransferPDF } from '@/utils/pdf-generator'
 import { useLanguage } from '@/i18n'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
@@ -86,97 +85,21 @@ export function StudentProfileLayout({ id }: { id: string }) {
     ]
 
     useEffect(() => {
-        async function fetchStudent() {
-            const supabase = createClient()
-            const { data: { user } } = await supabase.auth.getUser()
-            if (!user) { setLoading(false); return }
-
-            const { data: adminProfile } = await supabase
-                .from('profiles')
-                .select('school_id')
-                .eq('id', user.id)
-                .single()
-
-            const activeSchoolId = adminProfile?.school_id
-            if (!activeSchoolId) { setLoading(false); return }
-            setCurrentSchoolId(activeSchoolId)
-
-            const { data: school } = await supabase
-                .from('schools')
-                .select('name')
-                .eq('id', activeSchoolId)
-                .single()
-            if (school?.name) setSchoolName(school.name)
-
-            const { data: profile } = await supabase
-                .from('profiles')
-                .select(`
-                    school_id,
-                    full_name,
-                    phone,
-                    status,
-                    date_of_birth,
-                    gender,
-                    place_of_birth,
-                    national_id,
-                    address,
-                    avatar_url,
-                    enrollments (
-                        id,
-                        status,
-                        academic_year_id,
-                        school_id,
-                        created_at,
-                        academic_years ( name ),
-                        classes ( name )
-                    ),
-                    parent_student_links!parent_student_links_student_id_fkey (
-                        profiles!parent_student_links_parent_id_fkey (
-                            id,
-                            full_name,
-                            phone
-                        )
-                    )
-                `)
-                .eq('id', id)
-                .single()
-
-            if (profile) {
-                const rawEnrollments = profile.enrollments as any[] || []
-                const enrollments = rawEnrollments.filter(e => e.school_id === activeSchoolId)
-                const links = profile.parent_student_links as any[]
-                const parents: ParentInfo[] = (links || [])
-                    .map(link => link.profiles)
-                    .filter(Boolean)
-                    .map((p: any) => ({
-                        id: p.id,
-                        full_name: p.full_name,
-                        phone: p.phone,
-                    }))
-
-                const firstEnrollment = enrollments?.[0]
-                setStudent({
-                    school_id: profile.school_id,
-                    full_name: profile.full_name || t('common.student'),
-                    phone: (profile as any).phone || null,
-                    status: (profile as any).status || 'active',
-                    date_of_birth: (profile as any).date_of_birth || null,
-                    gender: (profile as any).gender || null,
-                    place_of_birth: (profile as any).place_of_birth || null,
-                    national_id: (profile as any).national_id || null,
-                    address: (profile as any).address || null,
-                    avatar_url: profile.avatar_url || null,
-                    className: firstEnrollment?.classes?.name || '',
-                    enrollmentId: firstEnrollment?.id || null,
-                    enrollmentStatus: firstEnrollment?.status || null,
-                    academicYear: (firstEnrollment?.academic_years as any)?.name || null,
-                    enrollmentDate: firstEnrollment?.created_at || null,
-                    parents,
-                })
-            }
-            setLoading(false)
-        }
-        fetchStudent()
+        setLoading(true)
+        fetch(`/api/admin/students/${id}/profile`)
+            .then(r => r.ok ? r.json() : Promise.reject(r))
+            .then(json => {
+                setCurrentSchoolId(json.schoolId || null)
+                if (json.schoolName) setSchoolName(json.schoolName)
+                if (json.student) {
+                    setStudent({
+                        ...json.student,
+                        full_name: json.student.full_name || t('common.student'),
+                    })
+                }
+            })
+            .catch(() => {})
+            .finally(() => setLoading(false))
     }, [id])
 
     const handleRevertTransfer = async () => {

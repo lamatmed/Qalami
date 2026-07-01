@@ -796,6 +796,133 @@ export async function reintegrateExternalStudent(studentId: string) {
 
 // ─── Admin review of student absence justification ─────────────────────────────
 
+export async function registerStudentPayment(
+    studentId: string,
+    amount: number,
+    paymentType: string,
+    paymentNote: string,
+): Promise<{ success?: boolean; error?: string }> {
+    const ctx = await getActionContext()
+    if (!ctx) return { error: 'Non authentifié' }
+    const { schoolId } = ctx
+    const db = createAdminClient()
+
+    const { data: currentYear } = await db
+        .from('academic_years').select('id').eq('school_id', schoolId).eq('is_current', true).maybeSingle()
+
+    const isConstrained = paymentType === 'scolarite' || paymentType === 'inscription'
+
+    if (isConstrained) {
+        const { data: pending, error: fetchErr } = await db
+            .from('payments')
+            .select('*')
+            .eq('student_id', studentId)
+            .eq('payment_type', paymentType)
+            .in('payment_status', ['pending', 'overdue', 'partial'])
+            .order('due_date', { ascending: true })
+        if (fetchErr) return { error: fetchErr.message }
+
+        const totalPending = (pending ?? []).reduce((s: number, p: any) => s + Number(p.amount), 0)
+        if (paymentType === 'inscription' && totalPending === 0) return { error: 'Frais inscription déjà réglés' }
+        if (amount > totalPending) return { error: `Montant (${amount}) dépasse le restant (${totalPending})` }
+
+        let remaining = amount
+        for (const p of pending ?? []) {
+            if (remaining <= 0) break
+            if (remaining >= Number(p.amount)) {
+                const { error } = await db.from('payments').update({
+                    payment_status: 'paid', paid_at: new Date().toISOString(),
+                    amount: Number(p.amount), description: paymentNote || p.description || `Paiement ${paymentType}`,
+                }).eq('id', p.id)
+                if (error) return { error: error.message }
+                remaining -= Number(p.amount)
+            } else {
+                const diff = Number(p.amount) - remaining
+                const { error: e1 } = await db.from('payments').update({
+                    payment_status: 'paid', paid_at: new Date().toISOString(),
+                    amount: remaining, description: paymentNote || p.description || `Paiement ${paymentType}`,
+                }).eq('id', p.id)
+                if (e1) return { error: e1.message }
+                const { error: e2 } = await db.from('payments').insert({
+                    student_id: studentId, school_id: schoolId, amount: diff,
+                    payment_type: paymentType,
+                    payment_status: p.payment_status === 'overdue' ? 'overdue' : 'pending',
+                    due_date: p.due_date, academic_year_id: p.academic_year_id,
+                    description: p.description || `Reste - ${paymentType}`,
+                })
+                if (e2) return { error: e2.message }
+                remaining = 0
+            }
+        }
+    } else {
+        const { error } = await db.from('payments').insert({
+            student_id: studentId, school_id: schoolId, amount,
+            payment_type: paymentType, payment_status: 'paid',
+            paid_at: new Date().toISOString(),
+            due_date: new Date().toISOString().split('T')[0],
+            academic_year_id: currentYear?.id ?? null,
+            description: paymentNote || `Paiement - ${paymentType}`,
+        })
+        if (error) return { error: error.message }
+    }
+
+    // Record the corresponding transaction in the general ledger
+    const now = new Date().toISOString()
+    const { error: txErr } = await db.from('transactions').insert({
+        school_id: schoolId,
+        type: 'tuition',
+        category: paymentType,
+        amount: amount,
+        description: paymentNote || `Paiement - ${paymentType}`,
+        related_profile_id: studentId,
+        status: 'completed',
+        payment_method: 'cash',
+        transaction_date: now.split('T')[0],
+        created_by: ctx.userId,
+    })
+
+    if (txErr) {
+        console.error('Failed to insert corresponding transaction in registerStudentPayment:', txErr)
+    }
+
+    revalidatePath(`/admin/students/${studentId}`)
+    return { success: true }
+}
+
+export async function sendStudentPaymentReminder(
+    studentId: string,
+    studentName: string,
+    remaining: number,
+): Promise<{ success?: boolean; error?: string }> {
+    const ctx = await getActionContext()
+    if (!ctx) return { error: 'Non authentifié' }
+    const { schoolId, userId } = ctx
+    const db = createAdminClient()
+
+    const { data: links } = await db
+        .from('parent_student_links')
+        .select('parent_id, profiles!parent_student_links_parent_id_fkey(full_name, phone)')
+        .eq('student_id', studentId)
+
+    if (!links || links.length === 0) return { error: 'Aucun parent lié à cet élève' }
+
+    await db.from('announcements').insert({
+        school_id: schoolId,
+        title: `Rappel de paiement - ${studentName}`,
+        content: `Un rappel de paiement a été envoyé pour ${studentName}. Montant restant : ${remaining} MRU.`,
+        target_audience: ['parent'],
+        priority: 'high',
+        published_at: new Date().toISOString(),
+        created_by: userId,
+    })
+
+    const parentProfile = (links[0]?.profiles) as any
+    return {
+        success: true,
+        ...({ parentName: parentProfile?.full_name || '', parentPhone: parentProfile?.phone || '' } as any),
+    }
+}
+
 export async function reviewAttendanceJustification(
     attendanceId: string,
     decision: 'approved' | 'rejected',

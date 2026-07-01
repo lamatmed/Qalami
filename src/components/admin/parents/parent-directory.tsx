@@ -13,20 +13,8 @@ import { cn } from '@/lib/utils'
 import { ParentProfile } from './parent-profile'
 import { Label } from '@/components/ui/label'
 
-import { createClient } from '@/utils/supabase/client'
 import { useLanguage } from '@/i18n'
 import { toast } from 'sonner'
-import { getMySchoolContext, getSchoolLinkedProfileIds, secureFetchProfiles } from '@/app/admin/actions'
-
-interface ProfileRow {
-    id: string
-    full_name: string | null
-    phone: string | null
-    avatar_url: string | null
-    status?: string | null
-    address?: string | null
-    email?: string | null
-}
 
 interface Child {
     id: string
@@ -102,108 +90,21 @@ export function ParentDirectory() {
         { code: '+1',   label: '🇺🇸 +1' },
     ]
 
-    const fetchParents = async () => {
+    const fetchParents = () => {
         setLoading(true)
-        const ctx = await getMySchoolContext()
-        if (!ctx) { setLoading(false); return }
-        const currentSchoolId = ctx.school_id
-        setSchoolId(currentSchoolId)
-        const supabase = createClient()
-
-        // ─── DISCOVERY 1: Parents directly assigned to this school
-        const { data: directProfiles } = await supabase
-            .from('profiles')
-            .select('id')
-            .eq('role', 'parent')
-            .eq('school_id', currentSchoolId)
-
-        // ─── DISCOVERY 2: Parents of students IN this school (even if parent school_id differs)
-        const { data: linkedRows } = await supabase
-            .from('parent_student_links')
-            .select('parent_id, students:profiles!parent_student_links_student_id_fkey!inner(school_id)')
-            .eq('students.school_id', currentSchoolId)
-
-        // ─── DISCOVERY 3: Parents linked via profile_schools explicitly
-        const schoolLinkedIds = await getSchoolLinkedProfileIds(currentSchoolId, 'parent')
-
-        // COMBINE all unique parent IDs visible to this school
-        const directIds = (directProfiles || []).map(p => p.id)
-        const studentLinkedIds = (linkedRows || []).map((r: any) => r.parent_id)
-        const allParentIds = Array.from(new Set([...directIds, ...studentLinkedIds, ...schoolLinkedIds]))
-
-        if (!allParentIds.length) { setParents([]); setLoading(false); return }
-
-        // Fetch full detailed profiles for these discovered IDs
-        // Fetch full detailed profiles for these discovered IDs via secure server action
-        const parentProfiles = (await secureFetchProfiles(allParentIds, 'id, full_name, email, phone, avatar_url, status, address')) as unknown as ProfileRow[]
-
-        if (!parentProfiles || parentProfiles.length === 0) { setParents([]); setLoading(false); return }
-
-        const parentIds = (parentProfiles || []).map(p => p.id)
-        if (!parentIds.length) { setParents([]); setLoading(false); return }
-
-        // Batch fetch only children links belonging to THIS school
-        const { data: allLinks } = await supabase
-            .from('parent_student_links')
-            .select(`
-                parent_id,
-                students:profiles!parent_student_links_student_id_fkey!inner (
-                    id, full_name, avatar_url, national_id
+        fetch('/api/admin/parents')
+            .then(r => r.ok ? r.json() : null)
+            .then(json => {
+                if (!json) return
+                setSchoolId(json.schoolId || '')
+                setParents(json.parents || [])
+                setSelectedParent(prev => prev
+                    ? ((json.parents || []).find((p: Parent) => p.id === prev.id) ?? prev)
+                    : null
                 )
-            `)
-            .in('parent_id', parentIds)
-            .eq('students.school_id', currentSchoolId)
-
-        // Fetch enrollments to get the class_name for each child
-        const studentIds = (allLinks || []).map((link: any) => link.students?.id).filter(Boolean)
-        const classMap = new Map<string, string>()
-        
-        if (studentIds.length > 0) {
-            const { data: enrollments } = await supabase
-                .from('enrollments')
-                .select('student_id, classes(name)')
-                .in('student_id', studentIds)
-                .eq('school_id', currentSchoolId)
-                .order('created_at', { ascending: false })
-
-            ;(enrollments || []).forEach((e: any) => {
-                if (!classMap.has(e.student_id) && e.classes?.name) {
-                    classMap.set(e.student_id, e.classes.name)
-                }
             })
-        }
-
-        const linksByParent = new Map<string, Child[]>()
-        ;(allLinks || []).forEach((link: any) => {
-            const list = linksByParent.get(link.parent_id) || []
-            list.push({
-                id: link.students?.id || '',
-                name: link.students?.full_name?.split(' ')[0] || 'Enfant',
-                avatar: link.students?.avatar_url || null,
-                class_name: classMap.get(link.students?.id) || '',
-                fullName: link.students?.full_name || '',
-                national_id: link.students?.national_id || null,
-            })
-            linksByParent.set(link.parent_id, list)
-        })
-
-        const parentsData = (parentProfiles || []).map(profile => {
-            const children = linksByParent.get(profile.id) || []
-            return {
-                id: profile.id,
-                name: profile.full_name || 'Parent',
-                phone: profile.phone || 'Non renseigné',
-                status: (profile as any).status || 'active',
-                address: (profile as any).address || null,
-                children,
-                childrenCount: children.length,
-                avatar_url: profile.avatar_url,
-            }
-        })
-
-        setParents(parentsData)
-        setSelectedParent(prev => prev ? (parentsData.find(p => p.id === prev.id) ?? prev) : null)
-        setLoading(false)
+            .catch(() => {})
+            .finally(() => setLoading(false))
     }
 
     const handleCheckPhone = async () => {

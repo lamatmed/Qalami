@@ -16,7 +16,6 @@ import Link from 'next/link'
 import { cn } from '@/lib/utils'
 import { toast } from 'sonner'
 import { useLanguage } from '@/i18n'
-import { createClient } from '@/utils/supabase/client'
 import { createLevel, deleteLevel } from '@/app/admin/classes/actions'
 import { useState, useEffect } from 'react'
 import { Skeleton } from '@/components/ui/skeleton'
@@ -65,74 +64,17 @@ export function SchoolLevels() {
     }
 
     async function fetchLevels() {
-        const supabase = createClient()
-        const { data: { user } } = await supabase.auth.getUser()
-        if (!user) { setLoading(false); return }
-
-        const { data: profile } = await supabase
-            .from('profiles')
-            .select('school_id')
-            .eq('id', user.id)
-            .single()
-        if (!profile?.school_id) { setLoading(false); return }
-
-        let { data: levelsData } = await supabase
-            .from('levels')
-            .select('id, name_fr, name_ar')
-            .eq('school_id', profile.school_id)
-            .order('order', { ascending: true })
-
-        if (!levelsData || levelsData.length === 0) {
-            setLevels([])
+        setLoading(true)
+        try {
+            const res = await fetch('/api/admin/levels')
+            if (!res.ok) { setLoading(false); return }
+            const json = await res.json()
+            const levelData: LevelData[] = json.levels || []
+            setLevels(levelData)
+            setExpanded(new Set(levelData.map((l: LevelData) => l.id)))
+        } finally {
             setLoading(false)
-            return
         }
-
-        const levelIds = levelsData.map(l => l.id)
-
-        const { data: classes } = await supabase
-            .from('classes')
-            .select('id, name, capacity, level_id')
-            .eq('school_id', profile.school_id)
-            .in('level_id', levelIds)
-            .order('name', { ascending: true })
-
-        const allClassIds = (classes || []).map(c => c.id)
-        const studentCounts = new Map<string, number>()
-
-        if (allClassIds.length > 0) {
-            const { data: enrollments } = await supabase
-                .from('enrollments')
-                .select('class_id')
-                .in('class_id', allClassIds)
-                .eq('status', 'active')
-            ;(enrollments || []).forEach((e: any) => {
-                studentCounts.set(e.class_id, (studentCounts.get(e.class_id) || 0) + 1)
-            })
-        }
-
-        const classMap = new Map<string, ClassInLevel[]>()
-        ;(classes || []).forEach((cls: any) => {
-            if (!cls.level_id) return
-            if (!classMap.has(cls.level_id)) classMap.set(cls.level_id, [])
-            classMap.get(cls.level_id)!.push({
-                id: cls.id,
-                name: cls.name,
-                students: studentCounts.get(cls.id) || 0,
-                capacity: cls.capacity || 40,
-            })
-        })
-
-        const levelData: LevelData[] = levelsData.map((l: any) => ({
-            id: l.id,
-            nameFr: l.name_fr,
-            nameAr: l.name_ar,
-            classes: classMap.get(l.id) || [],
-        }))
-
-        setLevels(levelData)
-        setExpanded(new Set(levelData.map(l => l.id)))
-        setLoading(false)
     }
 
     useEffect(() => { fetchLevels() }, [])

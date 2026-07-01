@@ -48,7 +48,7 @@ export function EnrollmentChart() {
                     chartData.push({
                         month: m.month,
                         students: studentsRes.count ?? 0,
-                        revenue: Math.round((revenueRes.data || []).reduce((s: number, t: any) => s + (t.amount || 0), 0) / 1000),
+                        revenue: Math.round((revenueRes.data || []).reduce((s: number, r: any) => s + (r.amount || 0), 0) / 1000),
                     })
                 }
                 setData(chartData)
@@ -88,21 +88,43 @@ export function EnrollmentChart() {
             </div>
 
             <div className="h-48 flex items-end gap-2">
-                {data.map((d, idx) => (
-                    <div key={idx} className="flex-1 flex flex-col items-center gap-2">
-                        <div className="w-full flex gap-1 justify-center items-end" style={{ height: '160px' }}>
-                            <div
-                                className="w-3 bg-emerald-500/70 rounded-t transition-all duration-500"
-                                style={{ height: `${(d.students / maxStudents) * 100}%`, minHeight: d.students > 0 ? '4px' : '0' }}
-                            />
-                            <div
-                                className="w-3 bg-blue-500/70 rounded-t transition-all duration-500"
-                                style={{ height: `${(d.revenue / maxRevenue) * 100}%`, minHeight: d.revenue > 0 ? '4px' : '0' }}
-                            />
+                {data.map((d, idx) => {
+                    const studentHeight = (d.students / maxStudents) * 80
+                    const revenueHeight = (d.revenue / maxRevenue) * 80
+
+                    return (
+                        <div key={idx} className="flex-1 flex flex-col items-center gap-2">
+                            <div className="w-full flex gap-1 justify-center items-end" style={{ height: '160px' }}>
+                                {/* Students Column */}
+                                <div className="relative flex flex-col items-center justify-end w-3" style={{ height: '100%' }}>
+                                    {d.students > 0 && (
+                                        <span className="text-[9px] text-emerald-400 font-bold mb-1 select-none">
+                                            {d.students}
+                                        </span>
+                                    )}
+                                    <div
+                                        className="w-full bg-emerald-500/70 rounded-t transition-all duration-500"
+                                        style={{ height: `${studentHeight}%`, minHeight: d.students > 0 ? '4px' : '0' }}
+                                    />
+                                </div>
+
+                                {/* Revenue Column */}
+                                <div className="relative flex flex-col items-center justify-end w-3" style={{ height: '100%' }}>
+                                    {d.revenue > 0 && (
+                                        <span className="text-[9px] text-blue-400 font-bold mb-1 select-none whitespace-nowrap">
+                                            {d.revenue}k
+                                        </span>
+                                    )}
+                                    <div
+                                        className="w-full bg-blue-500/70 rounded-t transition-all duration-500"
+                                        style={{ height: `${revenueHeight}%`, minHeight: d.revenue > 0 ? '4px' : '0' }}
+                                    />
+                                </div>
+                            </div>
+                            <span className="text-[10px] text-gray-600 uppercase capitalize">{d.month}</span>
                         </div>
-                        <span className="text-[10px] text-gray-600 uppercase capitalize">{d.month}</span>
-                    </div>
-                ))}
+                    )
+                })}
             </div>
         </div>
     )

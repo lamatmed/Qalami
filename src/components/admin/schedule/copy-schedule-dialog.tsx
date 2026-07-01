@@ -1,7 +1,6 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { createClient } from '@/utils/supabase/client'
 import {
     Dialog,
     DialogContent,
@@ -22,7 +21,6 @@ import { Label } from '@/components/ui/label'
 import { ArrowRight, Loader2, AlertTriangle, Copy } from 'lucide-react'
 import { copySchedule } from '@/app/admin/schedule/actions'
 import { toast } from 'sonner'
-import { getMySchoolContext } from '@/app/admin/actions'
 import { useLanguage } from '@/i18n'
 
 interface ClassOption { id: string; name: string; level: string | null }
@@ -45,29 +43,14 @@ export function CopyScheduleDialog({
 
     useEffect(() => {
         if (!open) return
-        async function fetchClasses() {
-            setLoading(true)
-            const supabase = createClient()
-            const ctx = await getMySchoolContext()
-            if (!ctx) { setLoading(false); return }
-            const profile = { school_id: ctx.school_id }
-
-            const { data } = await supabase
-                .from('classes')
-                .select('id, name, level')
-                .eq('school_id', profile.school_id)
-                .order('level').order('name')
-
-            setClasses(data || [])
-            setLoading(false)
-        }
-        if (open) {
-            // eslint-disable-next-line react-hooks/set-state-in-effect
-            setSourceId('')
-             
-            setTargetId('')
-            fetchClasses()
-        }
+        setSourceId('')
+        setTargetId('')
+        setLoading(true)
+        fetch('/api/admin/classes')
+            .then(r => r.ok ? r.json() : null)
+            .then(json => { if (json) setClasses(json.classes || []) })
+            .catch(() => {})
+            .finally(() => setLoading(false))
     }, [open])
 
     const handleCopy = async () => {

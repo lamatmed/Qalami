@@ -121,7 +121,7 @@ export function AttendanceChart() {
                                 : 'bg-white/3 border-white/8 text-gray-500 hover:text-gray-300'
                         )}
                     >
-                        Toutes
+                        {t('common.all')}
                     </button>
                     {subjects.map(s => (
                         <button
@@ -145,13 +145,18 @@ export function AttendanceChart() {
                 {data.map((d, idx) => (
                     <div key={idx} className="flex-1 flex flex-col items-center gap-2">
                         <div className={cn(
-                            'h-16 w-full rounded-xl flex items-center justify-center text-xs font-bold transition-colors',
+                            'h-16 w-full rounded-xl flex flex-col items-center justify-center text-xs font-bold transition-colors',
                             d.rate >= 90 ? 'bg-emerald-500/15 text-emerald-400' :
                             d.rate >= 75 ? 'bg-amber-500/15 text-amber-400' :
                             d.rate > 0  ? 'bg-red-500/15 text-red-400' :
                                           'bg-white/3 text-gray-600'
                         )}>
-                            {d.rate > 0 ? `${d.rate}%` : '—'}
+                            <span>{d.rate > 0 ? `${d.rate}%` : '—'}</span>
+                            {d.rate > 0 && (
+                                <span className="text-[9px] opacity-75 font-normal mt-0.5 select-none">
+                                    {d.present}/{d.present + d.absent}
+                                </span>
+                            )}
                         </div>
                         <span className="text-[10px] text-gray-600 uppercase capitalize">{d.day}</span>
                     </div>

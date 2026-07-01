@@ -17,10 +17,8 @@ import { CsvImportDialog } from '@/components/admin/students/csv-import-dialog'
 import Link from 'next/link'
 import { cn } from '@/lib/utils'
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
-import { createClient } from '@/utils/supabase/client'
 import { useLanguage } from '@/i18n'
 import { assignStudentToClass } from '@/app/admin/students/actions'
-import { getMySchoolContext, getSchoolLinkedProfileIds } from '@/app/admin/actions'
 import { toast } from 'sonner'
 
 // ─── Types ─────────────────────────────────────────────────────────────────────
@@ -154,120 +152,17 @@ export function StudentDirectory() {
 
     // ── Fetch ──────────────────────────────────────────────────────────────────
 
-    const fetchStudents = async () => {
+    const fetchStudents = () => {
         setLoading(true)
-        const ctx = await getMySchoolContext()
-        if (!ctx) { setLoading(false); return }
-        const adminProfile = { school_id: ctx.school_id }
-        const supabase = createClient()
-
-        const [{ data: classesData }, { data: directProfiles }] = await Promise.all([
-            supabase
-                .from('classes')
-                .select('id, name')
-                .eq('school_id', adminProfile.school_id)
-                .order('name'),
-            supabase
-                .from('profiles')
-                .select('id, full_name, email, status, gender, national_id, phone, school_id')
-                .eq('role', 'student')
-                .eq('school_id', adminProfile.school_id)
-                .order('full_name'),
-        ])
-
-        const linkedIds = await getSchoolLinkedProfileIds(adminProfile.school_id, 'student')
-        let linkedProfiles: any[] = []
-        if (linkedIds.length > 0) {
-            const { data: linkedData } = await supabase
-                .from('profiles')
-                .select('id, full_name, email, status, gender, national_id, phone, school_id')
-                .eq('role', 'student')
-                .in('id', linkedIds)
-            if (linkedData) {
-                linkedProfiles = linkedData
-            }
-        }
-
-        // Merge and de-duplicate profiles
-        const profileMap = new Map<string, any>()
-        ;(directProfiles || []).forEach(p => {
-            profileMap.set(p.id, p)
-        })
-        ;(linkedProfiles || []).forEach(p => {
-            if (!profileMap.has(p.id)) {
-                profileMap.set(p.id, p)
-            }
-        })
-        const mergedProfiles = Array.from(profileMap.values())
-
-        setClasses(classesData || [])
-        if (!mergedProfiles.length) { setStudents([]); setLoading(false); return }
-
-        const studentIds = mergedProfiles.map(p => p.id)
-
-        // Batch fetch enrollments + payments
-        const [{ data: enrollments }, { data: overduePayments }] = await Promise.all([
-            supabase
-                .from('enrollments')
-                .select('student_id, class_id, academic_year_id, academic_years(name), classes(name), status')
-                .in('student_id', studentIds)
-                .eq('school_id', adminProfile.school_id)
-                .order('created_at', { ascending: false }),
-            supabase
-                .from('payments')
-                .select('student_id, payment_status, due_date')
-                .in('student_id', studentIds)
-                .eq('school_id', adminProfile.school_id)
-                .in('payment_status', ['pending', 'overdue']),
-        ])
-
-        // Maps: latest enrollment per student
-        const enrollMap = new Map<string, any>()
-        ;(enrollments || []).forEach((e: any) => {
-            if (!enrollMap.has(e.student_id)) enrollMap.set(e.student_id, e)
-        })
-
-        // Set of students with overdue payments — current month not yet paid is NOT overdue
-        const now = new Date()
-        const startOfMonthStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-01`
-        const overdueSet = new Set(
-            (overduePayments || [])
-                .filter((p: any) => p.payment_status === 'overdue' || (p.due_date && p.due_date < startOfMonthStr))
-                .map((p: any) => p.student_id)
-        )
-
-        const result: Student[] = mergedProfiles
-            .filter(p => {
-                const enroll = enrollMap.get(p.id)
-                const isTransferred = p.school_id !== adminProfile.school_id || enroll?.status === 'transferred'
-                return !isTransferred
+        fetch('/api/admin/students')
+            .then(res => res.ok ? res.json() : null)
+            .then(json => {
+                if (!json) return
+                setStudents(json.students || [])
+                setClasses(json.classes || [])
             })
-            .map(p => {
-                const enroll = enrollMap.get(p.id)
-                const parts = (p.full_name || t('common.student')).split(' ')
-                const displayStatus = p.status || 'active'
-                return {
-                    id: p.id,
-                    name: p.full_name || t('common.student'),
-                    className: enroll?.classes?.name || '',
-                    classId: enroll?.class_id || '',
-                    status: displayStatus,
-                    isTransferred: false,
-                    gender: p.gender ?? null,
-                    paymentStatus: overdueSet.has(p.id) ? 'overdue' : 'ok',
-                    academicYear: (enroll?.academic_years as any)?.name ?? null,
-                    initials: (parts.length >= 2
-                        ? `${parts[0][0]}${parts[1][0]}`
-                        : parts[0].slice(0, 2)
-                    ).toUpperCase(),
-                    email: p.email || '',
-                    nationalId: p.national_id ?? null,
-                    phone: p.phone ?? null,
-                }
-            })
-
-        setStudents(result)
-        setLoading(false)
+            .catch(() => {})
+            .finally(() => setLoading(false))
     }
 
     useEffect(() => { fetchStudents() }, [])

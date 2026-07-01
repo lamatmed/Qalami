@@ -33,9 +33,8 @@ const SESSION_TYPE_ICONS: Record<string, React.ElementType> = {
     activity: Dumbbell,
 }
 
-import { fetchTeachersForSchedule, fetchOccupiedTeachersForSlot, type ScheduleTeacherOption, type OccupiedTeacherInfo } from '@/app/admin/schedule/actions'
+import { fetchTeachersForSchedule, fetchOccupiedTeachersForSlot, addScheduleEntry, type ScheduleTeacherOption, type OccupiedTeacherInfo } from '@/app/admin/schedule/actions'
 import { useLanguage } from '@/i18n'
-import { createClient } from '@/utils/supabase/client'
 import { toast } from 'sonner'
 
 interface SubjectOption {
@@ -43,15 +42,9 @@ interface SubjectOption {
     name: string
 }
 
-interface TeacherOption {
-    id: string
-    full_name: string
-}
-
 interface Assignment {
     teacher_id: string
     subject_id: string
-    profiles: { full_name: string | null } | null
 }
 
 export function AddCourseDialog({
@@ -110,52 +103,13 @@ export function AddCourseDialog({
 
         async function fetchData() {
             setLoading(true)
-            const supabase = createClient()
 
-            const { data: { user } } = await supabase.auth.getUser()
-            if (!user) { setLoading(false); return }
+            const url = classId
+                ? `/api/admin/schedule/class-subjects?classId=${classId}`
+                : '/api/admin/schedule/class-subjects'
 
-            const { data: profile } = await supabase
-                .from('profiles')
-                .select('school_id')
-                .eq('id', user.id)
-                .single()
-
-            if (!profile?.school_id) { setLoading(false); return }
-
-            // Only show subjects assigned to this specific class via teacher_assignments
-            let subjectsData: SubjectOption[] = []
-            if (classId) {
-                const { data: assignedSubjects } = await supabase
-                    .from('teacher_assignments')
-                    .select('subject_id, subjects:subject_id(id, name)')
-                    .eq('class_id', classId)
-                const seen = new Set<string>()
-                subjectsData = ((assignedSubjects || []) as any[])
-                    .map(a => a.subjects)
-                    .filter((s): s is SubjectOption => Boolean(s?.id))
-                    .filter(s => {
-                        if (seen.has(s.id)) return false
-                        seen.add(s.id)
-                        return true
-                    })
-                    .sort((a, b) => a.name.localeCompare(b.name))
-            } else {
-                const { data } = await supabase
-                    .from('subjects')
-                    .select('id, name')
-                    .eq('school_id', profile.school_id)
-                    .order('name')
-                subjectsData = data || []
-            }
-
-            // Assignments for this class: teacher_id + subject_id (for filtering teachers by subject)
-            const { data: assignmentsData } = await supabase
-                .from('teacher_assignments')
-                .select('teacher_id, subject_id, profiles:teacher_id(full_name)')
-                .eq('class_id', classId || '')
-
-            const [{ teachers: teachersList }, occupiedRes] = await Promise.all([
+            const [csRes, { teachers: teachersList }, occupiedRes] = await Promise.all([
+                fetch(url).then(r => r.ok ? r.json() : null),
                 fetchTeachersForSchedule(),
                 selectedSlot ? fetchOccupiedTeachersForSlot({
                     dayIndex: selectedSlot.dayIndex,
@@ -164,8 +118,10 @@ export function AddCourseDialog({
                 }) : Promise.resolve({ occupied: [] })
             ])
 
-            setSubjects(subjectsData || [])
-            setAssignments((assignmentsData || []) as unknown as Assignment[])
+            if (csRes) {
+                setSubjects(csRes.subjects || [])
+                setAssignments(csRes.assignments || [])
+            }
             setAllTeachers(teachersList || [])
             setOccupiedTeachers(occupiedRes?.occupied || [])
             setLoading(false)
@@ -185,68 +141,38 @@ export function AddCourseDialog({
     }, [isOpen])
 
     const handleSave = async () => {
-        if (!selectedSubject) {
-            toast.error(t('admin.schedule.selectSubjectRequired'))
-            return
-        }
-        if (!selectedTeacher) {
-            toast.error(t('admin.schedule.selectTeacherRequired'))
-            return
-        }
-        if (!classId) {
-            toast.error(t('admin.schedule.selectClassRequired'))
-            return
-        }
+        if (!selectedSubject) { toast.error(t('admin.schedule.selectSubjectRequired')); return }
+        if (!selectedTeacher) { toast.error(t('admin.schedule.selectTeacherRequired')); return }
+        if (!classId) { toast.error(t('admin.schedule.selectClassRequired')); return }
         if (!selectedSlot) return
 
         setSaving(true)
-        const supabase = createClient()
-
         try {
-            const { data: { user } } = await supabase.auth.getUser()
-            if (!user) throw new Error('Not authenticated')
-
-            const { data: profile } = await supabase
-                .from('profiles')
-                .select('school_id')
-                .eq('id', user.id)
-                .single()
-
-            if (!profile?.school_id) throw new Error('No school')
-
             const startHour = selectedSlot.hour
-            const startTime = `${String(startHour).padStart(2, '0')}:00:00`
-            const endTime = `${String(startHour + 2).padStart(2, '0')}:00:00`
-
             const yr = selectedSlot.date.getFullYear()
             const mo = String(selectedSlot.date.getMonth() + 1).padStart(2, '0')
             const da = String(selectedSlot.date.getDate()).padStart(2, '0')
-            const eventDateStr = `${yr}-${mo}-${da}`
 
-            const { error } = await supabase.from('schedule').insert({
-                school_id: profile.school_id,
-                class_id: classId,
-                subject_id: selectedSubject || null,
-                teacher_id: selectedTeacher || null,
-                day_of_week: selectedSlot.dayIndex,
-                start_time: startTime,
-                end_time: endTime,
+            const result = await addScheduleEntry({
+                classId,
+                subjectId: selectedSubject,
+                teacherId: selectedTeacher,
+                dayOfWeek: selectedSlot.dayIndex,
+                startTime: `${String(startHour).padStart(2, '0')}:00:00`,
+                endTime: `${String(startHour + 2).padStart(2, '0')}:00:00`,
                 room: room || null,
-                session_type: sessionType,
-                is_recurring: isRecurring,
-                event_date: isRecurring ? null : eventDateStr
+                sessionType,
+                isRecurring,
+                eventDate: `${yr}-${mo}-${da}`,
             })
 
-            if (error) throw error
-
+            if (result.error) throw new Error(result.error)
             toast.success(t('admin.schedule.courseAdded'))
             onAdd()
             onClose()
         } catch (err: any) {
-            console.error('Error adding course:', err)
             toast.error(err.message || t('admin.schedule.addError'))
         }
-
         setSaving(false)
     }
 

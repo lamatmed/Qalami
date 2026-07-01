@@ -2,8 +2,6 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
-import { createClient } from '@/utils/supabase/client'
-import { useSchoolContext } from '@/lib/use-school-context'
 import { useLanguage } from '@/i18n'
 import {
     createAcademicYear,
@@ -112,7 +110,6 @@ function todayPct(yearStart: string, yearEnd: string) {
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default function TermsPage() {
-    const { context, loading: ctxLoading, error: ctxError } = useSchoolContext()
     const { t, direction } = useLanguage()
     const [years, setYears] = useState<AcademicYear[]>([])
     const [loading, setLoading] = useState(true)
@@ -139,31 +136,17 @@ export default function TermsPage() {
     const [deletingYear, setDeletingYear] = useState<string | null>(null)
 
     const fetchData = useCallback(async () => {
-        if (!context) return
         setLoading(true)
         setError(false)
         setLoadErrorMessage(null)
-        const supabase = createClient()
         try {
-            const [{ data: yrsData, error: yErr }, { data: tmsData, error: tErr }] = await Promise.all([
-                supabase
-                    .from('academic_years')
-                    .select('id, school_id, name, start_date, end_date, is_current, created_at')
-                    .eq('school_id', context.school_id)
-                    .order('name', { ascending: false }),
-                supabase
-                    .from('terms')
-                    .select(
-                        'id, school_id, academic_year_id, name, label_fr, label_ar, start_date, end_date, is_current, conseil_date, bulletin_date, created_at',
-                    )
-                    .eq('school_id', context.school_id),
-            ])
+            const res = await fetch('/api/admin/terms')
+            const json = await res.json()
 
-            if (yErr) throw yErr
-            if (tErr) throw tErr
+            if (!res.ok) throw new Error(json.error || 'Erreur serveur')
 
             const termsByYear = new Map<string, Term[]>()
-            for (const term of tmsData || []) {
+            for (const term of json.terms || []) {
                 const row = term as Term
                 const yId = row.academic_year_id
                 if (!yId) continue
@@ -172,7 +155,7 @@ export default function TermsPage() {
                 termsByYear.set(yId, list)
             }
 
-            setYears((yrsData || []).map((yr: any) => ({
+            setYears((json.years || []).map((yr: any) => ({
                 ...yr,
                 terms: (termsByYear.get(yr.id) || []).sort((a: Term, b: Term) =>
                     a.name.localeCompare(b.name)),
@@ -187,7 +170,7 @@ export default function TermsPage() {
             console.error('[admin/terms] fetchData', e)
         }
         finally { setLoading(false) }
-    }, [context])
+    }, [])
 
     useEffect(() => { fetchData() }, [fetchData])
 
@@ -287,11 +270,11 @@ export default function TermsPage() {
             </div>
 
             {/* ── Content ──────────────────────────────────────────────────── */}
-            {ctxLoading || loading ? (
+            {loading ? (
                 <div className="flex items-center justify-center h-64">
                     <Loader2 className="w-8 h-8 animate-spin text-emerald-500" />
                 </div>
-            ) : ctxError || error ? (
+            ) : error ? (
                 <div className="flex flex-col items-center justify-center h-64 gap-4">
                     <p className="text-gray-400">{t('admin.terms.loadingError')}</p>
                     {loadErrorMessage && (

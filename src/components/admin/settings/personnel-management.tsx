@@ -424,54 +424,7 @@ export function PersonnelManagement() {
                                 />
                             </div>
 
-                            {/* User account checkbox */}
-                            <div
-                                className={cn(
-                                    "rounded-xl border p-3 space-y-3 transition-colors",
-                                    newMember.createUser
-                                        ? "border-blue-500/30 bg-blue-500/5"
-                                        : "border-white/10 bg-white/[0.02]"
-                                )}
-                            >
-                                <label className="flex items-center gap-3 cursor-pointer">
-                                    <div
-                                        onClick={() => setNewMember(m => ({ ...m, createUser: !m.createUser, password: '' }))}
-                                        className={cn(
-                                            "w-4 h-4 rounded border-2 flex items-center justify-center shrink-0 transition-colors",
-                                            newMember.createUser ? "bg-blue-500 border-blue-500" : "border-white/30"
-                                        )}
-                                    >
-                                        {newMember.createUser && <Check className="w-2.5 h-2.5 text-white" strokeWidth={3} />}
-                                    </div>
-                                    <div className="flex items-center gap-2">
-                                        <UserCheck className="w-4 h-4 text-blue-400" />
-                                        <span className="text-sm font-medium text-white">{t('admin.personnel.createUserAccount')}</span>
-                                    </div>
-                                </label>
-                                {newMember.createUser && (
-                                    <div className="space-y-1">
-                                        <label className="text-[10px] text-gray-500 uppercase font-bold">{t('admin.personnel.passwordLabel')}</label>
-                                        <div className="relative">
-                                            <Input
-                                                type={showNewMemberPwd ? 'text' : 'password'}
-                                                placeholder={t('admin.personnel.passwordMinPlaceholder')}
-                                                className="bg-[#0D1117] border-white/10 pr-10"
-                                                value={newMember.password}
-                                                onChange={e => setNewMember({ ...newMember, password: e.target.value })}
-                                            />
-                                            <button
-                                                type="button"
-                                                onClick={() => setShowNewMemberPwd(v => !v)}
-                                                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-white transition-colors"
-                                                tabIndex={-1}
-                                            >
-                                                {showNewMemberPwd ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                                            </button>
-                                        </div>
-                                        <p className="text-[10px] text-blue-400/70">{t('admin.personnel.loginHint')}</p>
-                                    </div>
-                                )}
-                            </div>
+
 
                             <Button
                                 onClick={handleAdd}

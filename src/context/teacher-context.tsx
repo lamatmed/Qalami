@@ -3,6 +3,17 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react'
 import { createClient } from '@/utils/supabase/client'
 
+async function getSessionUserId(): Promise<string | null> {
+    try {
+        const res = await fetch('/api/admin/context')
+        if (!res.ok) return null
+        const data = await res.json()
+        return data.user_id ?? null
+    } catch {
+        return null
+    }
+}
+
 export interface ClassInfo {
     id: string
     name: string
@@ -58,8 +69,7 @@ export function TeacherProvider({ children }: { children: ReactNode }) {
                     } catch { }
                 }
                 if (!userId) {
-                    const { data: { user } } = await supabase.auth.getUser()
-                    userId = user?.id || null
+                    userId = await getSessionUserId()
                 }
 
                 if (!userId) {

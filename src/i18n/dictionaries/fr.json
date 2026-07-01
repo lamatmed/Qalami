@@ -432,7 +432,7 @@
       "subtitle": "Répertoire et suivi des élèves",
       "addStudent": "Ajouter un élève",
       "totalStudents": "Total élèves",
-      "searchPlaceholder": "Rechercher par NNI...",
+      "searchPlaceholder": "Rechercher par nom ou NNI...",
       "allLevels": "Tous les niveaux",
       "noStudents": "Aucun élève trouvé",
       "studentProfile": "Profil de l'élève",

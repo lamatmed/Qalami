@@ -8,7 +8,7 @@ import { Progress } from '@/components/ui/progress'
 import { CreditCard, Clock, CheckCircle2, X, Loader2, Send, Printer, Search, Filter, ChevronDown } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { toast } from 'sonner'
-import { createClient } from '@/utils/supabase/client'
+import { registerStudentPayment, sendStudentPaymentReminder } from '@/app/admin/students/actions'
 import { useLanguage } from '@/i18n'
 
 interface StudentPaymentsProps {
@@ -59,136 +59,47 @@ export function StudentPayments({ studentId, studentName, schoolId, isArchived }
     const [schoolName, setSchoolName] = useState('')
     const [schoolLogo, setSchoolLogo] = useState('')
 
-    const fetchPayments = async () => {
-        if (!studentId) {
-            setLoading(false)
-            return
-        }
+    const fetchPayments = () => {
+        if (!studentId) { setLoading(false); return }
+        fetch(`/api/admin/students/${studentId}/payments`)
+            .then(r => r.ok ? r.json() : null)
+            .then(json => {
+                if (!json) return
+                const { payments: rawPayments, transactions, studentDetails } = json
 
-        const supabase = createClient()
-        const [paymentsRes, transactionsRes] = await Promise.all([
-            supabase
-                .from('payments')
-                .select('id, amount, payment_type, payment_status, due_date, paid_at, description, receipt_number')
-                .eq('student_id', studentId)
-                .eq('school_id', schoolId)
-                .order('due_date', { ascending: false }),
-            supabase
-                .from('transactions')
-                .select('id, amount, category, description, transaction_date, created_at')
-                .eq('related_profile_id', studentId)
-                .eq('school_id', schoolId)
-                .eq('type', 'income')
-                .eq('status', 'completed')
-                .order('created_at', { ascending: false })
-        ])
+                if (studentDetails) {
+                    if (studentDetails.name) setResolvedStudentName(studentDetails.name)
+                    if (studentDetails.className) setStudentClass(studentDetails.className)
+                    if (studentDetails.nni) setStudentNni(studentDetails.nni)
+                    if (studentDetails.parentName) setParentName(studentDetails.parentName)
+                    if (studentDetails.parentPhone) setParentPhone(studentDetails.parentPhone)
+                    if (studentDetails.schoolName) setSchoolName(studentDetails.schoolName)
+                    if (studentDetails.schoolLogo) setSchoolLogo(studentDetails.schoolLogo)
+                }
 
-        if (paymentsRes.error) console.error('[StudentPayments] Error:', paymentsRes.error)
+                const paymentItems: FinanceItem[] = (rawPayments || []).map((p: any) => ({ ...p, source: 'payment' as const }))
+                const txItems: FinanceItem[] = (transactions || []).map((tx: any) => ({
+                    id: tx.id, amount: tx.amount,
+                    payment_type: tx.category || 'autre', payment_status: 'paid',
+                    due_date: tx.transaction_date || null,
+                    paid_at: tx.created_at || tx.transaction_date || null,
+                    description: tx.description || null, receipt_number: null,
+                    source: 'transaction' as const,
+                }))
 
-        const paymentItems: FinanceItem[] = (paymentsRes.data || []).map((p: any) => ({
-            ...p,
-            source: 'payment' as const
-        }))
-
-        const txItems: FinanceItem[] = (transactionsRes.data || []).map((tx: any) => ({
-            id: tx.id,
-            amount: tx.amount,
-            payment_type: tx.category || 'autre',
-            payment_status: 'paid',
-            due_date: tx.transaction_date || null,
-            paid_at: tx.created_at || (tx.transaction_date ? tx.transaction_date : null),
-            description: tx.description || null,
-            receipt_number: null,
-            source: 'transaction' as const
-        }))
-
-        const merged = [...paymentItems, ...txItems].sort((a, b) => {
-            const da = new Date(a.paid_at || a.due_date || '').getTime()
-            const db = new Date(b.paid_at || b.due_date || '').getTime()
-            return db - da
-        })
-
-        setPayments(merged)
-        setLoading(false)
+                const merged = [...paymentItems, ...txItems].sort((a, b) => {
+                    const da = new Date(a.paid_at || a.due_date || '').getTime()
+                    const db = new Date(b.paid_at || b.due_date || '').getTime()
+                    return db - da
+                })
+                setPayments(merged)
+            })
+            .catch(err => console.error('[StudentPayments] fetch error:', err))
+            .finally(() => setLoading(false))
     }
 
     useEffect(() => {
-        const fetchStudentDetails = async () => {
-            if (!studentId) return
-            try {
-                const supabase = createClient()
-                const { data, error } = await supabase
-                    .from('profiles')
-                    .select(`
-                        full_name,
-                        national_id,
-                        school_id,
-                        enrollments (
-                            classes ( name )
-                        )
-                    `)
-                    .eq('id', studentId)
-                    .single()
-
-                if (!error && data) {
-                    if (data.full_name) {
-                        setResolvedStudentName(data.full_name)
-                    }
-                    if (data.national_id) {
-                        setStudentNni(data.national_id)
-                    }
-                    const enrollments = data.enrollments as any[]
-                    const firstEnrollment = enrollments?.[0]
-                    if (firstEnrollment?.classes?.name) {
-                        setStudentClass(firstEnrollment.classes.name)
-                    }
-
-                    // Fetch parent info
-                    const { data: links, error: linkError } = await supabase
-                        .from('parent_student_links')
-                        .select('parent_id, profiles!parent_student_links_parent_id_fkey (full_name, phone)')
-                        .eq('student_id', studentId)
-
-                    if (!linkError && links && links.length > 0) {
-                        const parentProfile = links[0]?.profiles as any
-                        if (parentProfile) {
-                            if (parentProfile.full_name) setParentName(parentProfile.full_name)
-                            if (parentProfile.phone) setParentPhone(parentProfile.phone)
-                        }
-                    }
-
-                    // Fetch school settings / school name and logo
-                    if (data.school_id) {
-                        const { data: schoolSettings } = await supabase
-                            .from('school_settings')
-                            .select('name, logo_url')
-                            .eq('school_id', data.school_id)
-                            .maybeSingle()
-
-                        let sName = schoolSettings?.name || null
-                        let sLogo = schoolSettings?.logo_url || null
-
-                        if (!sLogo || !sName) {
-                            const { data: schoolRow } = await supabase
-                                .from('schools')
-                                .select('name, logo_url')
-                                .eq('id', data.school_id)
-                                .maybeSingle()
-                            if (!sLogo) sLogo = schoolRow?.logo_url || null
-                            if (!sName) sName = schoolRow?.name || null
-                        }
-
-                        if (sName) setSchoolName(sName)
-                        if (sLogo) setSchoolLogo(sLogo)
-                    }
-                }
-            } catch (err) {
-                console.error('[StudentPayments] Error fetching student details:', err)
-            }
-        }
-
         fetchPayments()
-        fetchStudentDetails()
     }, [studentId, schoolId])
 
     const feePayments = payments.filter(p => p.source === 'payment')
@@ -197,14 +108,17 @@ export function StudentPayments({ studentId, studentName, schoolId, isArchived }
     const paidPercentage = totalDue > 0 ? Math.round((totalPaid / totalDue) * 100) : 0
     const remaining = totalDue - totalPaid
 
-    // Scolarité: fully paid when all rows are paid
+    // Scolarité: fully paid when all rows are paid or when there are no scolarité rows
     const scolariteRows = feePayments.filter(p => p.payment_type === 'scolarite')
     const scolariteDue = scolariteRows.reduce((sum, p) => sum + Number(p.amount), 0)
     const scolaritePaidAmt = scolariteRows.filter(p => p.payment_status === 'paid').reduce((sum, p) => sum + Number(p.amount), 0)
-    const scolariteFullyPaid = scolariteDue > 0 && scolaritePaidAmt >= scolariteDue
+    const scolariteFullyPaid = scolariteDue === 0 || scolaritePaidAmt >= scolariteDue
 
-    // Inscription: hidden once any paid inscription row exists
-    const inscriptionPaid = feePayments.some(p => p.payment_type === 'inscription' && p.payment_status === 'paid')
+    // Inscription: hidden once any paid inscription row exists or when there are no inscription rows
+    const inscriptionRows = feePayments.filter(p => p.payment_type === 'inscription')
+    const inscriptionDue = inscriptionRows.reduce((sum, p) => sum + Number(p.amount), 0)
+    const inscriptionPaidAmt = inscriptionRows.filter(p => p.payment_status === 'paid').reduce((sum, p) => sum + Number(p.amount), 0)
+    const inscriptionFullyPaid = inscriptionDue === 0 || inscriptionPaidAmt >= inscriptionDue
 
     const getBilingualTypeLabel = (type: string) => {
         const labels: Record<string, { fr: string; ar: string }> = {
@@ -359,144 +273,22 @@ export function StudentPayments({ studentId, studentName, schoolId, isArchived }
 
     const handleRegisterPayment = async () => {
         const amount = parseFloat(paymentAmount)
-        if (!amount || amount <= 0) {
-            toast.error(t('admin.students.profile.validAmountRequired'))
-            return
-        }
-        if (!studentId) {
-            toast.error(t('admin.students.profile.studentNotIdentified'))
-            return
-        }
+        if (!amount || amount <= 0) { toast.error(t('admin.students.profile.validAmountRequired')); return }
+        if (!studentId) { toast.error(t('admin.students.profile.studentNotIdentified')); return }
 
         setSubmitting(true)
         try {
-            const supabase = createClient()
-
-            const { data: { user } } = await supabase.auth.getUser()
-            if (!user) throw new Error(t('admin.students.profile.notAuthenticated'))
-
-            const { data: profile } = await supabase
-                .from('profiles')
-                .select('school_id')
-                .eq('id', user.id)
-                .single()
-
-            if (!profile?.school_id) throw new Error(t('admin.students.profile.schoolNotFound'))
-
-            const { data: currentYear } = await supabase
-                .from('academic_years')
-                .select('id, name')
-                .eq('school_id', profile.school_id)
-                .eq('is_current', true)
-                .single()
-
-            const isConstrained = paymentType === 'scolarite' || paymentType === 'inscription'
-
-            if (isConstrained) {
-                // Fetch pending/overdue rows for this type
-                const { data: pendingPayments, error: fetchPendingError } = await supabase
-                    .from('payments')
-                    .select('*')
-                    .eq('student_id', studentId)
-                    .eq('payment_type', paymentType)
-                    .in('payment_status', ['pending', 'overdue', 'partial'])
-                    .order('due_date', { ascending: true })
-
-                if (fetchPendingError) throw fetchPendingError
-
-                const totalPendingForType = (pendingPayments ?? []).reduce((sum, p) => sum + Number(p.amount), 0)
-
-                // Inscription already fully settled
-                if (paymentType === 'inscription' && totalPendingForType === 0) {
-                    toast.error(language === 'ar' ? 'رسوم التسجيل مدفوعة بالفعل' : "Les frais d'inscription sont déjà réglés")
-                    setSubmitting(false)
-                    return
-                }
-
-                // Cannot exceed what's pending
-                if (amount > totalPendingForType) {
-                    toast.error(t('admin.students.profile.amountExceedsPending', {
-                        amount: amount.toLocaleString(language === 'ar' ? 'ar-u-ca-gregory' : 'fr-FR'),
-                        pending: totalPendingForType.toLocaleString(language === 'ar' ? 'ar-u-ca-gregory' : 'fr-FR')
-                    }))
-                    setSubmitting(false)
-                    return
-                }
-
-                // Apply amount against pending rows oldest-first
-                let remainingAmount = amount
-                for (const pending of pendingPayments ?? []) {
-                    if (remainingAmount <= 0) break
-
-                    if (remainingAmount >= Number(pending.amount)) {
-                        const { error } = await supabase
-                            .from('payments')
-                            .update({
-                                payment_status: 'paid',
-                                paid_at: new Date().toISOString(),
-                                amount: Number(pending.amount),
-                                description: paymentNote || pending.description || `Paiement ${paymentType}`
-                            })
-                            .eq('id', pending.id)
-                        if (error) throw error
-                        remainingAmount -= Number(pending.amount)
-                    } else {
-                        // Partial: shrink current row, create remainder row
-                        const diff = Number(pending.amount) - remainingAmount
-                        const { error: updateError } = await supabase
-                            .from('payments')
-                            .update({
-                                payment_status: 'paid',
-                                paid_at: new Date().toISOString(),
-                                amount: remainingAmount,
-                                description: paymentNote || pending.description || `Paiement ${paymentType}`
-                            })
-                            .eq('id', pending.id)
-                        if (updateError) throw updateError
-
-                        const { error: insertError } = await supabase
-                            .from('payments')
-                            .insert({
-                                student_id: studentId,
-                                school_id: profile.school_id,
-                                amount: diff,
-                                payment_type: paymentType,
-                                payment_status: pending.payment_status === 'overdue' ? 'overdue' : 'pending',
-                                due_date: pending.due_date,
-                                academic_year_id: pending.academic_year_id,
-                                description: pending.description || `Reste - ${paymentType}`
-                            })
-                        if (insertError) throw insertError
-                        remainingAmount = 0
-                    }
-                }
-
-            } else {
-                // Free types (transport, cantine, activités, etc.): insert directly as paid
-                const { error } = await supabase
-                    .from('payments')
-                    .insert({
-                        student_id: studentId,
-                        school_id: profile.school_id,
-                        amount: amount,
-                        payment_type: paymentType,
-                        payment_status: 'paid',
-                        paid_at: new Date().toISOString(),
-                        due_date: new Date().toISOString().split('T')[0],
-                        academic_year_id: currentYear?.id ?? null,
-                        description: paymentNote || `Paiement - ${getTypeLabel(paymentType)}`,
-                    })
-                if (error) throw error
-            }
-
-            toast.success(t('admin.students.profile.paymentRegistered', { amount: amount.toLocaleString(language === 'ar' ? 'ar-u-ca-gregory' : 'fr-FR') }))
+            const result = await registerStudentPayment(studentId, amount, paymentType, paymentNote)
+            if (result.error) throw new Error(result.error)
+            toast.success(t('admin.students.profile.paymentRegistered', {
+                amount: amount.toLocaleString(language === 'ar' ? 'ar-u-ca-gregory' : 'fr-FR')
+            }))
             setShowPaymentForm(false)
             setPaymentAmount('')
             setPaymentNote('')
             fetchPayments()
-        } catch (err) {
-            console.error('Error registering payment:', err)
-            toast.error(t('admin.students.profile.paymentRegisterError'))
+        } catch (err: any) {
+            toast.error(err.message || t('admin.students.profile.paymentRegisterError'))
         } finally {
             setSubmitting(false)
         }
@@ -505,54 +297,24 @@ export function StudentPayments({ studentId, studentName, schoolId, isArchived }
     const handleSendReminder = async () => {
         setSendingReminder(true)
         try {
-            const supabase = createClient()
+            const result = await sendStudentPaymentReminder(
+                studentId || '', studentName || resolvedStudentName, remaining
+            ) as any
+            if (result.error) { toast.error(result.error); return }
 
-            // Get parent linked to this student
-            const { data: links } = await supabase
-                .from('parent_student_links')
-                .select('parent_id, profiles!parent_student_links_parent_id_fkey (full_name, phone)')
-                .eq('student_id', studentId)
-
-            if (!links || links.length === 0) {
-                toast.error(t('admin.students.profile.noLinkedParent'))
-                return
-            }
-
-            // Create an in-app notification/announcement for the parent
-            const { data: { user } } = await supabase.auth.getUser()
-            const { data: adminProfile } = await supabase
-                .from('profiles')
-                .select('school_id')
-                .eq('id', user?.id || '')
-                .single()
-
-            if (adminProfile?.school_id) {
-                await supabase.from('announcements').insert({
-                    school_id: adminProfile.school_id,
-                    title: `${t('admin.students.profile.paymentReminder')} - ${studentName || t('common.student')}`,
-                    content: `${t('admin.students.profile.reminderSentFor')} ${studentName || t('admin.students.profile.yourChild')}. ${t('admin.students.profile.remainingAmount')}: ${remaining.toLocaleString(language === 'ar' ? 'ar-u-ca-gregory' : 'fr-FR')} MRU.`,
-                    target_audience: ['parent'],
-                    priority: 'high',
-                    published_at: new Date().toISOString(),
-                    created_by: user?.id || ''
-                })
-            }
-
-            const parentName = (links[0]?.profiles as { full_name?: string })?.full_name || t('common.parent')
-            const parentPhone = (links[0]?.profiles as { phone?: string })?.phone
-
-            toast.success(`${t('admin.students.profile.reminderSentTo')} ${parentName}`, {
-                description: parentPhone ? <span dir="ltr">Tél: {parentPhone}</span> : undefined,
-                action: parentPhone ? {
+            const pName = result.parentName || t('common.parent')
+            const pPhone = result.parentPhone || ''
+            toast.success(`${t('admin.students.profile.reminderSentTo')} ${pName}`, {
+                description: pPhone ? <span dir="ltr">Tél: {pPhone}</span> : undefined,
+                action: pPhone ? {
                     label: 'WhatsApp',
                     onClick: () => {
-                        const waNumber = parentPhone.replace(/[\s\-\(\)\+]/g, '')
-                        window.open(`https://wa.me/${waNumber}?text=${encodeURIComponent(`${t('admin.students.profile.hello')}, ${t('admin.students.profile.paymentReminderFor')} ${studentName}. ${t('admin.students.profile.remainingAmount')}: ${remaining.toLocaleString(language === 'ar' ? 'ar-u-ca-gregory' : 'fr-FR')} MRU.`)}`, '_blank')
+                        const waNum = pPhone.replace(/[\s\-\(\)\+]/g, '')
+                        window.open(`https://wa.me/${waNum}?text=${encodeURIComponent(`Rappel paiement pour ${studentName || resolvedStudentName}. Restant: ${remaining} MRU.`)}`, '_blank')
                     }
                 } : undefined
             })
         } catch (err) {
-            console.error('Error sending reminder:', err)
             toast.error(t('admin.students.profile.reminderSendError'))
         } finally {
             setSendingReminder(false)
@@ -679,7 +441,7 @@ export function StudentPayments({ studentId, studentName, schoolId, isArchived }
                                 onChange={(e) => setPaymentType(e.target.value)}
                             >
                                 {!scolariteFullyPaid && <option value="scolarite">Scolarité</option>}
-                                {!inscriptionPaid && <option value="inscription">Inscription</option>}
+                                {!inscriptionFullyPaid && <option value="inscription">Inscription</option>}
                                 <option value="cantine">Cantine</option>
                                 <option value="transport">Transport</option>
                                 <option value="cotisation">Cotisation</option>
@@ -719,7 +481,7 @@ export function StudentPayments({ studentId, studentName, schoolId, isArchived }
                     <Button
                         className="bg-[#1A2530] hover:bg-[#253545] text-white border border-white/5 h-12 rounded-xl"
                         onClick={() => {
-                            const defaultType = !scolariteFullyPaid ? 'scolarite' : !inscriptionPaid ? 'inscription' : 'cantine'
+                            const defaultType = !scolariteFullyPaid ? 'scolarite' : !inscriptionFullyPaid ? 'inscription' : 'cantine'
                             setPaymentType(defaultType)
                             setShowPaymentForm(true)
                         }}

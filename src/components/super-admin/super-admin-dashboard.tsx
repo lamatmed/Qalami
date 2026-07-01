@@ -1,9 +1,7 @@
 'use client'
 
-import { useState, useEffect } from 'react'
-import { Building2, Users, GraduationCap, Activity, ArrowRight, CheckCircle2, XCircle, ShieldAlert, Sparkles, Clock } from 'lucide-react'
+import { Building2, Users, GraduationCap, ArrowRight, CheckCircle2, XCircle, Sparkles, Clock } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import { createClient } from '@/utils/supabase/client'
 import Link from 'next/link'
 import { useLanguage } from '@/i18n'
 import { motion } from 'framer-motion'
@@ -14,6 +12,11 @@ interface GlobalStats {
     totalStudents: number
     totalTeachers: number
     totalParents: number
+}
+
+interface Props {
+    stats: GlobalStats
+    recentSchools: any[]
 }
 
 const containerVariants = {
@@ -35,96 +38,22 @@ const itemVariants = {
     }
 }
 
-export function SuperAdminDashboard() {
+export function SuperAdminDashboard({ stats, recentSchools }: Props) {
     const { t, direction } = useLanguage()
-    const supabase = createClient()
-    const [stats, setStats] = useState<GlobalStats | null>(null)
-    const [recentSchools, setRecentSchools] = useState<any[]>([])
-    const [loading, setLoading] = useState(true)
-
-    useEffect(() => {
-        const fetchStats = async () => {
-            try {
-                const { data: schools } = await supabase
-                    .from('schools')
-                    .select('id, name, phone, logo_url, is_active, created_at')
-                    .order('created_at', { ascending: false })
-
-                const [studentsRes, teachersRes, parentsRes] = await Promise.all([
-                    supabase.from('profiles').select('id', { count: 'exact', head: true }).eq('role', 'student'),
-                    supabase.from('profiles').select('id', { count: 'exact', head: true }).eq('role', 'teacher'),
-                    supabase.from('profiles').select('id', { count: 'exact', head: true }).eq('role', 'parent'),
-                ])
-
-                const allSchools = schools ?? []
-
-                setStats({
-                    totalSchools: allSchools.length,
-                    activeSchools: allSchools.filter(s => s.is_active).length,
-                    totalStudents: studentsRes.count ?? 0,
-                    totalTeachers: teachersRes.count ?? 0,
-                    totalParents: parentsRes.count ?? 0,
-                })
-
-                const slice = allSchools.slice(0, 5)
-                const richSchools = await Promise.all(
-                    slice.map(async (school) => {
-                        const { data: override } = await supabase
-                            .from('school_settings')
-                            .select('name, phone, logo_url')
-                            .eq('school_id', school.id)
-                            .maybeSingle()
-
-                        return {
-                            ...school,
-                            name: override?.name || school.name,
-                            phone: override?.phone || school.phone,
-                            logo_url: override?.logo_url || school.logo_url,
-                        }
-                    })
-                )
-
-                setRecentSchools(richSchools)
-            } catch (error) {
-                console.error('Error fetching stats:', error)
-            } finally {
-                setLoading(false)
-            }
-        }
-
-        fetchStats()
-    }, [])
-
-    if (loading) {
-        return (
-            <div className="space-y-8 animate-pulse">
-                <div className="space-y-3">
-                    <div className="h-10 w-64 bg-slate-200 dark:bg-slate-800/60 rounded-2xl" />
-                    <div className="h-5 w-96 bg-slate-200 dark:bg-slate-800/60 rounded-2xl opacity-60" />
-                </div>
-                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6">
-                    {[...Array(4)].map((_, i) => (
-                        <div key={i} className="h-40 bg-slate-100 dark:bg-slate-800/40 rounded-3xl border border-slate-200/50 dark:border-white/5" />
-                    ))}
-                </div>
-                <div className="h-96 bg-slate-100 dark:bg-slate-800/40 rounded-3xl border border-slate-200/50 dark:border-white/5" />
-            </div>
-        )
-    }
 
     const kpis = [
         {
             label: t('superAdmin.dashboard.schools') || 'Schools',
-            value: stats?.totalSchools ?? 0,
+            value: stats.totalSchools,
             icon: Building2,
             color: "from-purple-600 to-indigo-600",
             glowColor: "group-hover:shadow-purple-500/10",
             iconBg: "bg-purple-50 dark:bg-purple-500/10 text-purple-600 dark:text-purple-400 border-purple-100 dark:border-purple-500/20",
-            trend: `${stats?.activeSchools ?? 0} ${t('superAdmin.dashboard.active') || 'Actives'}`
+            trend: `${stats.activeSchools} ${t('superAdmin.dashboard.active') || 'Actives'}`
         },
         {
             label: t('superAdmin.dashboard.students') || 'Students',
-            value: stats?.totalStudents ?? 0,
+            value: stats.totalStudents,
             icon: GraduationCap,
             color: "from-blue-600 to-cyan-600",
             glowColor: "group-hover:shadow-blue-500/10",
@@ -132,7 +61,7 @@ export function SuperAdminDashboard() {
         },
         {
             label: t('superAdmin.dashboard.teachers') || 'Teachers',
-            value: stats?.totalTeachers ?? 0,
+            value: stats.totalTeachers,
             icon: Users,
             color: "from-amber-600 to-orange-600",
             glowColor: "group-hover:shadow-amber-500/10",
@@ -140,7 +69,7 @@ export function SuperAdminDashboard() {
         },
         {
             label: t('superAdmin.dashboard.parents') || 'Parents',
-            value: stats?.totalParents ?? 0,
+            value: stats.totalParents,
             icon: Users,
             color: "from-emerald-600 to-teal-600",
             glowColor: "group-hover:shadow-emerald-500/10",
